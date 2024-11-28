@@ -1,31 +1,42 @@
 {
   "name": "ecommerce-app",
-  "version": "0.1.0",
-  "private": true,
+  "version": "1.0.0",
+  "description": "This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).",
+  "main": "babel.config.js",
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test --watchAll=false --no-deprecation",
+    "eject": "react-scripts eject",
+    "prepare": "husky install"
+  },
+  "author": "",
+  "license": "ISC",
   "dependencies": {
-    "@testing-library/jest-dom": "^5.17.0",
-    "@testing-library/react": "^13.4.0",
-    "@testing-library/user-event": "^13.5.0",
+    "@testing-library/react": "^16.0.1",
     "axios": "^1.7.8",
     "formik": "^2.4.6",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^7.0.1",
-    "react-scripts": "5.0.1",
-    "web-vitals": "^2.1.4",
+    "react-router-dom": "^6.28.0",
+    "web-vitals": "^4.2.4",
     "yup": "^1.4.0"
   },
-  "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
-  },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
+  "devDependencies": {
+    "@babel/core": "^7.26.0",
+    "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
+    "@babel/preset-env": "^7.26.0",
+    "@babel/preset-react": "^7.25.9",
+    "@testing-library/jest-dom": "^6.6.3",
+    "babel-jest": "^29.7.0",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.2.1",
+    "eslint-plugin-react": "^7.37.2",
+    "husky": "^8.0.0",
+    "jest": "^27.5.1",
+    "lint-staged": "^15.2.10",
+    "react-scripts": "^5.0.1"
   },
   "browserslist": {
     "production": [
@@ -39,12 +50,12 @@
       "last 1 safari version"
     ]
   },
-  "devDependencies": {
-    "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
-    "eslint": "^8.57.1",
-    "eslint-config-prettier": "^9.1.0",
-    "eslint-plugin-prettier": "^5.2.1",
-    "eslint-plugin-react": "^7.37.2",
-    "prettier": "^3.4.1"
+  "jest": {
+    "moduleNameMapper": {
+      "^react-router-dom$": "<rootDir>/node_modules/react-router-dom"
+    },
+    "transformIgnorePatterns": [
+      "node_modules/(?!axios)"
+    ]
   }
 }
