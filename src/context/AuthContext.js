@@ -1,9 +1,6 @@
 import React, { createContext, useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import {
-  fetchUserDetails,
-  refreshToken as refreshAuthToken,
-} from '../services/authService';
+import { fetchUserProfile, refreshToken } from '../services/authService';
 
 export const AuthContext = createContext();
 
@@ -12,38 +9,41 @@ export const AuthProvider = ({ children }) => {
   const [accessToken, setAccessToken] = useState(
     localStorage.getItem('accessToken')
   );
-  const [refreshToken, setRefreshToken] = useState(
+  const [refreshTokenState, setRefreshTokenState] = useState(
     localStorage.getItem('refreshToken')
   );
 
+  // Fetch user profile on token update
   useEffect(() => {
-    const fetchUser = async () => {
+    const fetchProfile = async () => {
       if (accessToken) {
         try {
-          const userDetails = await fetchUserDetails(accessToken);
-          setUser(userDetails);
+          const userProfile = await fetchUserProfile(accessToken);
+          setUser(userProfile);
         } catch (error) {
-          console.error('Failed to fetch user details:', error);
+          console.error('Failed to fetch user profile:', error.message);
+          handleLogout(); // Clear tokens if profile fetch fails
         }
       }
     };
 
-    fetchUser();
+    fetchProfile();
   }, [accessToken]);
 
+  // Refresh token periodically (every 15 minutes)
   useEffect(() => {
     const interval = setInterval(
       async () => {
-        if (refreshToken) {
+        if (refreshTokenState) {
           try {
-            const newTokens = await refreshAuthToken(refreshToken);
-            setAccessToken(newTokens.accessToken);
-            setRefreshToken(newTokens.refreshToken);
-            localStorage.setItem('accessToken', newTokens.accessToken);
-            localStorage.setItem('refreshToken', newTokens.refreshToken);
+            const tokens = await refreshToken(refreshTokenState);
+            setAccessToken(tokens.access_token);
+            setRefreshTokenState(tokens.refresh_token);
+            localStorage.setItem('accessToken', tokens.access_token);
+            localStorage.setItem('refreshToken', tokens.refresh_token);
           } catch (error) {
-            console.error('Failed to refresh token:', error);
-            handleLogout();
+            console.error('Failed to refresh token:', error.message);
+            handleLogout(); // Clear tokens if refresh fails
           }
         }
       },
@@ -51,27 +51,35 @@ export const AuthProvider = ({ children }) => {
     );
 
     return () => clearInterval(interval);
-  }, [refreshToken]);
+  }, [refreshTokenState]);
 
-  const handleLogin = (userData) => {
-    setAccessToken(userData.accessToken);
-    setRefreshToken(userData.refreshToken);
-    localStorage.setItem('accessToken', userData.accessToken);
-    localStorage.setItem('refreshToken', userData.refreshToken);
+  // Handle login
+  const handleLogin = async (tokens) => {
+    try {
+      setAccessToken(tokens.access_token);
+      setRefreshTokenState(tokens.refresh_token);
+      localStorage.setItem('accessToken', tokens.access_token);
+      localStorage.setItem('refreshToken', tokens.refresh_token);
+    } catch (error) {
+      console.error('Error during login:', error.message);
+      throw error;
+    }
   };
 
+  // Handle logout
   const handleLogout = () => {
     setUser(null);
     setAccessToken(null);
-    setRefreshToken(null);
+    setRefreshTokenState(null);
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
+    console.log('User logged out');
   };
 
   const value = {
     user,
     accessToken,
-    refreshToken,
+    refreshTokenState,
     handleLogin,
     handleLogout,
   };
