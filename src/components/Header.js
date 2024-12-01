@@ -13,7 +13,6 @@ import {
   Menu as MenuIcon,
   Close as CloseIcon,
   ExpandMore,
-  ChevronRight,
 } from '@mui/icons-material';
 import { IconButton, Badge, Button } from '@mui/material';
 import logo from '../images/logo.png';
@@ -152,7 +151,7 @@ const Header = () => {
                 {categories.map((category) => (
                   <li key={category.id}>
                     <Link
-                      to={`/categories/${category.id}`}
+                      to={`/products?category=${category.id}`}
                       onClick={handleLinkClick}
                       className="header__menu-link"
                     >
@@ -162,9 +161,10 @@ const Header = () => {
                 ))}
               </ul>
             </li>
+            {/* Menu Items Redirecting to Products Page */}
             <li>
               <NavLink
-                to="/most-wanted"
+                to="/products"
                 className={({ isActive }) =>
                   isActive ? 'active header__menu-link' : 'header__menu-link'
                 }
@@ -175,7 +175,7 @@ const Header = () => {
             </li>
             <li>
               <NavLink
-                to="/new-arrival"
+                to="/products"
                 className={({ isActive }) =>
                   isActive ? 'active header__menu-link' : 'header__menu-link'
                 }
@@ -186,7 +186,7 @@ const Header = () => {
             </li>
             <li>
               <NavLink
-                to="/brands"
+                to="/products"
                 className={({ isActive }) =>
                   isActive ? 'active header__menu-link' : 'header__menu-link'
                 }
@@ -275,7 +275,6 @@ const Header = () => {
               variant="contained"
               color="primary"
               className="header__login-btn"
-              endIcon={<ChevronRight />}
             >
               Login
             </Button>
@@ -294,7 +293,5 @@ const Header = () => {
     </header>
   );
 };
-
-Header.propTypes = {};
 
 export default Header;

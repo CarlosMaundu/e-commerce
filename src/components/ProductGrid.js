@@ -3,18 +3,23 @@
 import React from 'react';
 import ProductCard from './ProductCard';
 import '../styles/productGrid.css';
+import { Grid, Typography } from '@mui/material';
 
-const ProductGrid = ({ products }) => {
+const ProductGrid = ({ products, columns }) => {
   return (
-    <div className="product-grid">
+    <Grid container spacing={2}>
       {products.length > 0 ? (
         products.map((product) => (
-          <ProductCard key={product.id} product={product} />
+          <Grid item xs={12 / columns} key={product.id}>
+            <ProductCard product={product} />
+          </Grid>
         ))
       ) : (
-        <p>No products found.</p>
+        <Grid item xs={12}>
+          <Typography variant="h6">No products found.</Typography>
+        </Grid>
       )}
-    </div>
+    </Grid>
   );
 };
 

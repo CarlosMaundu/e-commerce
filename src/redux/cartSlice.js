@@ -3,44 +3,48 @@
 import { createSlice } from '@reduxjs/toolkit';
 
 const initialState = {
-  items: [], // Each item can have id, title, price, quantity, etc.
-  totalAmount: 0,
+  items: [], // Each item should have id, size, quantity, etc.
 };
 
 const cartSlice = createSlice({
   name: 'cart',
   initialState,
   reducers: {
-    addItem(state, action) {
-      const newItem = action.payload;
-      const existingItem = state.items.find((item) => item.id === newItem.id);
+    addItem: (state, action) => {
+      const item = action.payload;
+      const existingItem = state.items.find(
+        (i) => i.id === item.id && i.size === item.size
+      );
       if (existingItem) {
         existingItem.quantity += 1;
-        existingItem.totalPrice += newItem.price;
       } else {
-        state.items.push({
-          ...newItem,
-          quantity: 1,
-          totalPrice: newItem.price,
-        });
-      }
-      state.totalAmount += newItem.price;
-    },
-    removeItem(state, action) {
-      const id = action.payload;
-      const existingItem = state.items.find((item) => item.id === id);
-      if (existingItem) {
-        state.totalAmount -= existingItem.price * existingItem.quantity;
-        state.items = state.items.filter((item) => item.id !== id);
+        state.items.push({ ...item, quantity: 1 });
       }
     },
-    clearCart(state) {
-      state.items = [];
-      state.totalAmount = 0;
+    removeItem: (state, action) => {
+      const { id, size } = action.payload;
+      state.items = state.items.filter(
+        (item) => !(item.id === id && item.size === size)
+      );
     },
-    // Add more reducers as needed (e.g., increase/decrease quantity)
+    incrementQuantity: (state, action) => {
+      const { id, size } = action.payload;
+      const item = state.items.find((i) => i.id === id && i.size === size);
+      if (item) {
+        item.quantity += 1;
+      }
+    },
+    decrementQuantity: (state, action) => {
+      const { id, size } = action.payload;
+      const item = state.items.find((i) => i.id === id && i.size === size);
+      if (item && item.quantity > 1) {
+        item.quantity -= 1;
+      }
+    },
   },
 });
 
-export const { addItem, removeItem, clearCart } = cartSlice.actions;
+export const { addItem, removeItem, incrementQuantity, decrementQuantity } =
+  cartSlice.actions;
+
 export default cartSlice.reducer;
