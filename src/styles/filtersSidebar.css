@@ -1,0 +1,71 @@
+/* src/styles/filtersSidebar.css */
+
+.filters-sidebar {
+  width: 300px;
+  padding: 20px;
+  border-right: 1px solid #ddd;
+  margin-top: 80px; /* Add space between the sidebar and the header */
+}
+
+@media (max-width: 768px) {
+  .filters-sidebar {
+    position: fixed;
+    left: -300px;
+    top: 80px; /* Adjust top position to add space */
+    width: 300px;
+    height: calc(100% - 80px); /* Adjust height to account for the header */
+    background: #fff;
+    z-index: 1000;
+    transition: left 0.3s ease;
+    overflow-y: auto;
+  }
+
+  .filters-sidebar.open {
+    left: 0;
+  }
+
+  .filters-sidebar__overlay {
+    display: block;
+    position: fixed;
+    top: 80px; /* Match sidebar top position */
+    left: 300px;
+    width: calc(100% - 300px);
+    height: calc(100% - 80px); /* Adjust height for header space */
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+  }
+
+  .filters-sidebar__toggle {
+    display: block;
+    position: fixed;
+    top: 90px; /* Adjust position for toggle button */
+    left: 10px;
+    z-index: 1001;
+  }
+}
+
+@media (min-width: 769px) {
+  .filters-sidebar__toggle {
+    display: none;
+  }
+
+  .filters-sidebar__overlay {
+    display: none;
+  }
+}
+
+.filters-sidebar__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.filter-accordion {
+  margin-top: 20px;
+}
+
+.price-range-values {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+}

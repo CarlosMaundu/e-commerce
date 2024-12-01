@@ -1,0 +1,25 @@
+/* src/styles/wishlistPage.css */
+
+.wishlist-page {
+  margin-top: 80px;
+  padding: 20px;
+}
+
+.wishlist-item {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
+}
+
+.wishlist-item img {
+  border-radius: 8px;
+}
+
+.wishlist-item .MuiCardContent-root {
+  flex-grow: 1;
+}
+
+.wishlist-item .MuiCardActions-root {
+  justify-content: space-between;
+}

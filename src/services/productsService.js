@@ -1,9 +1,11 @@
-const axios = require('axios');
+// src/services/productsService.js
+
+import axios from 'axios';
 
 const API_URL = 'https://api.escuelajs.co/api/v1';
 
 // Get all products
-exports.getAllProducts = async () => {
+export const getAllProducts = async () => {
   try {
     const response = await axios.get(`${API_URL}/products/`);
     return response.data; // Contains list of products
@@ -15,7 +17,7 @@ exports.getAllProducts = async () => {
 };
 
 // Get a single product by ID
-exports.getProductById = async (id) => {
+export const getProductById = async (id) => {
   try {
     const response = await axios.get(`${API_URL}/products/${id}`);
     return response.data; // Contains product details
@@ -27,7 +29,7 @@ exports.getProductById = async (id) => {
 };
 
 // Create a new product
-exports.createProduct = async (productData) => {
+export const createProduct = async (productData) => {
   try {
     const response = await axios.post(`${API_URL}/products/`, productData);
     return response.data; // Contains created product details
