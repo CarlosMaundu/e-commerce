@@ -34,6 +34,7 @@ describe('LoginPage', () => {
   });
 
   test('shows error message on invalid credentials', async () => {
+    // Mock login to reject with Unauthorized error
     login.mockRejectedValueOnce(new Error('Unauthorized'));
 
     render(
@@ -58,10 +59,12 @@ describe('LoginPage', () => {
   });
 
   test('navigates to home page on successful login', async () => {
+    // Mock login to resolve with tokens
     login.mockResolvedValueOnce({
       access_token: 'mockAccessToken',
       refresh_token: 'mockRefreshToken',
     });
+    // Mock fetchUserProfile to resolve with user data
     fetchUserProfile.mockResolvedValueOnce({
       id: 1,
       name: 'John Doe',

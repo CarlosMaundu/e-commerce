@@ -1,3 +1,5 @@
+// src/pages/LoginPage.js
+
 import React, { useContext, useState } from 'react';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
@@ -94,8 +96,18 @@ const LoginPage = () => {
       try {
         // Simulated API response for registration
         setActiveTab('login');
+        setNotification({
+          open: true,
+          severity: 'success',
+          message: 'Registration successful! Please login.',
+        });
       } catch (error) {
         console.error('Registration error:', error);
+        setNotification({
+          open: true,
+          severity: 'error',
+          message: error.message || 'Registration failed. Please try again.',
+        });
       } finally {
         setLoading(false);
       }
