@@ -295,8 +295,6 @@ const Header = () => {
   );
 };
 
-Header.propTypes = {
-  // Removed cartCount and wishlistCount as they are now fetched from Redux
-};
+Header.propTypes = {};
 
 export default Header;

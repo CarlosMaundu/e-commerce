@@ -1,0 +1,22 @@
+/* src/styles/filtersSidebar.css */
+
+.filters-sidebar {
+    width: 250px;
+    padding: 20px;
+    border-right: 1px solid #ddd;
+  }
+  
+  .filter-group {
+    margin-bottom: 20px;
+  }
+  
+  .filter-group h3 {
+    margin-bottom: 10px;
+  }
+  
+  .filter-group select,
+  .filter-group input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+  }

@@ -10,26 +10,27 @@
 body {
   margin: 0;
   padding: 0;
-  overflow-x: hidden; /* Prevent horizontal scroll */
-  font-family: 'Arial, sans-serif'; /* Replace with your desired font */
+  overflow-x: hidden;
+  font-family: 'Arial, sans-serif';
 }
 
 /* General Section Styles */
 section {
   padding: 60px 20px;
-  text-align: center;
 }
 
+/* Center headings within sections */
 section h2 {
   margin-bottom: 40px;
   font-size: 2rem;
+  text-align: center;
 }
 
 /* Hero Section */
 .hero-section {
   position: relative;
   width: 100%;
-  margin-top: 80px; /* Ensure this margin is present */
+  margin-top: 80px;
 }
 
 .hero-slide {
@@ -51,6 +52,11 @@ section h2 {
   color: white;
   max-width: 90%;
   padding: 0 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
 @media (min-width: 768px) {
@@ -80,6 +86,7 @@ section h2 {
 /* Brands Section */
 .brands-section h2 {
   margin-bottom: 30px;
+  text-align: center;
 }
 
 .brands-carousel {
@@ -87,7 +94,7 @@ section h2 {
   justify-content: center;
   align-items: center;
   gap: 40px;
-  flex-wrap: wrap; /* Allow wrapping to prevent overflow */
+  flex-wrap: wrap; 
 }
 
 .brand-logo img {
@@ -107,6 +114,10 @@ section h2 {
 }
 
 /* Customer Experience Section */
+.customer-experience-section {
+  text-align: center;
+}
+
 .customer-experience-section .experience-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -144,7 +155,6 @@ section h2 {
   font-size: 1rem;
 }
 
-/* Responsive Adjustments */
 @media (max-width: 768px) {
   .experience-grid {
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -165,11 +175,15 @@ section h2 {
 }
 
 /* Curated Picks Section */
+.curated-picks-section {
+  text-align: center;
+}
+
 .curated-picks-section .curated-picks-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 20px;
-  overflow: hidden; /* Prevent scaled items from causing overflow */
+  overflow: hidden;
 }
 
 .curated-pick-card {
@@ -217,8 +231,12 @@ section h2 {
 }
 
 /* Featured Products Section */
+.featured-products-section {
+  padding: 20px 20px; 
+}
 .featured-products-section h2 {
   margin-bottom: 30px;
+  text-align: center;
 }
 
 .featured-products-wrapper {
@@ -252,11 +270,11 @@ section h2 {
 }
 
 .left-arrow {
-  left: -40px; /* Adjusted for better positioning */
+  left: -40px;
 }
 
 .right-arrow {
-  right: -40px; /* Adjusted for better positioning */
+  right: -40px;
 }
 
 .pagination-arrow:hover:not(:disabled) {
@@ -305,7 +323,7 @@ section h2 {
 
   .left-arrow,
   .right-arrow {
-    display: none; /* Hide arrows on smaller screens */
+    display: none;
   }
 }
 
@@ -326,7 +344,7 @@ section h2 {
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 200px; /* Adjust as needed */
+  height: 200px;
 }
 
 /* Promotional Offer Section */
@@ -349,6 +367,11 @@ section h2 {
   color: white;
   max-width: 90%;
   padding: 0 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
 @media (min-width: 768px) {
@@ -379,6 +402,7 @@ section h2 {
 .newsletter-section {
   background-color: #f1f1f1;
   padding: 60px 20px;
+  text-align: center;
 }
 
 .newsletter-section h2 {
@@ -440,7 +464,7 @@ section h2 {
   }
 
   .featured-products-section .featured-products-grid {
-    grid-template-columns: repeat(2, 1fr); /* Adjusted for medium screens */
+    grid-template-columns: repeat(2, 1fr);
     gap: 20px;
   }
 

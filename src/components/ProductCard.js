@@ -2,12 +2,11 @@
 
 import React from 'react';
 import PropTypes from 'prop-types';
-import '../styles/ProductCard.css';
+import '../styles/ProductCard.css'; // Ensure this path is correct
 import { useDispatch } from 'react-redux';
 import { addItem } from '../redux/cartSlice';
 import { addToWishlist } from '../redux/wishlistSlice';
 import { Link } from 'react-router-dom';
-import { IconButton } from '@mui/material';
 import { FavoriteBorder, AddShoppingCart } from '@mui/icons-material';
 
 const ProductCard = ({ product }) => {
@@ -29,18 +28,20 @@ const ProductCard = ({ product }) => {
 
   return (
     <div className="product-card">
-      {/* Wishlist Icon */}
-      <IconButton
-        className="product-card__wishlist-icon"
-        aria-label="Add to Wishlist"
-        onClick={handleAddToWishlist}
-      >
-        <FavoriteBorder />
-      </IconButton>
-
       {/* Product Image */}
       <Link to={`/products/${product.id}`} className="product-card__link">
         <div className="product-card__image-container">
+          {/* Wishlist Icon */}
+          <button
+            className="product-card__wishlist-button"
+            aria-label="Add to Wishlist"
+            onClick={(e) => {
+              e.preventDefault(); // Prevent navigation when clicking the button
+              handleAddToWishlist();
+            }}
+          >
+            <FavoriteBorder className="product-card__wishlist-icon" />
+          </button>
           <img
             src={product.images[0]}
             alt={product.title}
@@ -61,13 +62,13 @@ const ProductCard = ({ product }) => {
               </span>
             )}
           </span>
-          <IconButton
-            className="product-card__add-to-cart-icon"
+          <button
+            className="product-card__add-to-cart-button"
             aria-label="Add to Cart"
             onClick={handleAddToCart}
           >
-            <AddShoppingCart />
-          </IconButton>
+            <AddShoppingCart className="product-card__add-to-cart-icon" />
+          </button>
         </div>
       </div>
     </div>
