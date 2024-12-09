@@ -1,4 +1,5 @@
-//src/context/AuthContext.js
+// src/context/AuthContext.js
+
 import React, { createContext, useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { fetchUserProfile, refreshToken } from '../services/authService';
@@ -13,8 +14,9 @@ export const AuthProvider = ({ children }) => {
   const [refreshTokenState, setRefreshTokenState] = useState(
     localStorage.getItem('refreshToken')
   );
+  const [loading, setLoading] = useState(true); // Loading is true initially
 
-  // Fetch user profile on token update
+  // Fetch user profile on accessToken update
   useEffect(() => {
     const fetchProfile = async () => {
       if (accessToken) {
@@ -25,7 +27,10 @@ export const AuthProvider = ({ children }) => {
           console.error('Failed to fetch user profile:', error.message);
           handleLogout(); // Clear tokens if profile fetch fails
         }
+      } else {
+        setUser(null); // No accessToken, set user to null
       }
+      setLoading(false); // Set loading to false after attempt
     };
 
     fetchProfile();
@@ -77,12 +82,19 @@ export const AuthProvider = ({ children }) => {
     console.log('User logged out');
   };
 
+  // Update user data after profile changes
+  const updateUser = (userData) => {
+    setUser(userData);
+  };
+
   const value = {
     user,
     accessToken,
     refreshTokenState,
+    loading, // Expose loading state
     handleLogin,
     handleLogout,
+    updateUser, // Expose updateUser method
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
