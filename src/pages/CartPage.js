@@ -1,4 +1,6 @@
-import React from 'react';
+// src/pages/CartPage.js
+
+import React, { useContext, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import {
   removeItem,
@@ -8,11 +10,13 @@ import {
 import { addToWishlist } from '../redux/wishlistSlice';
 import { Link, useNavigate } from 'react-router-dom';
 import '../styles/cartPage.css';
+import { AuthContext } from '../context/AuthContext';
 
 const CartPage = () => {
   const cartItems = useSelector((state) => state.cart.items);
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const { user } = useContext(AuthContext);
 
   // Calculate totals
   const subtotal = cartItems.reduce(
@@ -23,6 +27,18 @@ const CartPage = () => {
   const taxRate = 0.08; // 8% tax
   const tax = subtotal * taxRate;
   const total = subtotal + shipping + tax;
+
+  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
+
+  const handleCheckout = () => {
+    if (!user) {
+      // User not authenticated, show prompt for existing/new user
+      setShowAuthPrompt(true);
+    } else {
+      // User is authenticated, proceed to checkout
+      navigate('/checkout');
+    }
+  };
 
   return (
     <div className="cart-page">
@@ -116,9 +132,7 @@ const CartPage = () => {
               ))}
             </>
           ) : (
-            <p>
-              Your cart is empty. <Link to="/products">Continue shopping</Link>.
-            </p>
+            <p>Your cart is empty.</p>
           )}
         </div>
 
@@ -149,10 +163,7 @@ const CartPage = () => {
               <span className="amount">${total.toFixed(2)}</span>
             </div>
           </div>
-          <button
-            className="checkout-button"
-            onClick={() => navigate('/checkout')}
-          >
+          <button className="checkout-button" onClick={handleCheckout}>
             Checkout
           </button>
           <button
@@ -163,6 +174,38 @@ const CartPage = () => {
           </button>
         </div>
       </div>
+
+      {showAuthPrompt && !user && (
+        <div className="auth-prompt-overlay">
+          <div className="auth-prompt-box">
+            <p className="auth-prompt-message">
+              To proceed to checkout, please log in or sign up:
+            </p>
+            <div className="auth-prompt-buttons">
+              <Link
+                to="/login"
+                className="auth-prompt-button login-button"
+                state={{ from: '/checkout' }} // Pass redirect state
+              >
+                Existing User? Login
+              </Link>
+              <Link
+                to="/register"
+                className="auth-prompt-button register-button"
+                state={{ from: '/checkout' }} // Pass redirect state
+              >
+                New User? Register
+              </Link>
+            </div>
+            <button
+              className="auth-prompt-close"
+              onClick={() => setShowAuthPrompt(false)}
+            >
+              &times;
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

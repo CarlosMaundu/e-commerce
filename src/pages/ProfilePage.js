@@ -1,5 +1,5 @@
 // src/pages/ProfilePage.js
-import React, { useEffect, useState, useContext } from 'react';
+import React, { useEffect, useState, useContext, Suspense } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { updateUserProfile } from '../services/userService';
 import Notification from '../notification/notification';
@@ -7,34 +7,54 @@ import '../styles/profilePage.css';
 
 import { Container, Row, Col } from 'react-bootstrap';
 import {
-  TextField,
-  Button,
   Typography,
   Divider,
   List,
   ListItem,
   ListItemText,
   IconButton,
-  InputAdornment,
   Drawer,
   useMediaQuery,
 } from '@mui/material';
-import { Visibility, VisibilityOff, Menu } from '@mui/icons-material';
+import { Menu } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
+import { useLocation } from 'react-router-dom';
+
+import ProfileSection from '../components/profile/ProfileSection'; // Regular import for example
+
+// Lazy load other sections
+const AddressBookSection = React.lazy(
+  () => import('../components/profile/AddressBookSection')
+);
+const PaymentOptionsSection = React.lazy(
+  () => import('../components/profile/PaymentOptionsSection')
+);
+const OrdersSection = React.lazy(
+  () => import('../components/profile/OrdersSection')
+);
+const WishlistSection = React.lazy(
+  () => import('../components/profile/WishlistSection')
+);
+
+// For demonstration, these are the same avatar URL and default messages
+const defaultAvatarUrl = 'https://imgur.com/a/kIaFC3J';
 
 const ProfilePage = () => {
   const { user, accessToken, loading, updateUser } = useContext(AuthContext);
 
-  const [activeSection, setActiveSection] = useState('profile');
+  // Parse query params with URLSearchParams
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const initialSection = searchParams.get('section') || 'profile';
+
+  const [activeSection, setActiveSection] = useState(initialSection);
   const [notification, setNotification] = useState({
     open: false,
     message: '',
     severity: '',
   });
 
-  const defaultAvatarUrl = 'https://imgur.com/a/kIaFC3J';
-
-  // Form State
+  // Form, errors, password fields
   const [formData, setFormData] = useState({
     id: user?.id || '',
     firstName: '',
@@ -46,16 +66,11 @@ const ProfilePage = () => {
     newPassword: '',
     confirmNewPassword: '',
   });
-
-  // Validation State
   const [errors, setErrors] = useState({});
-
-  // Password Section Toggle
   const [showPasswordFields, setShowPasswordFields] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
 
-  // Drawer State for Mobile
   const [drawerOpen, setDrawerOpen] = useState(false);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -89,12 +104,11 @@ const ProfilePage = () => {
     }
   }, [user]);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
-    // Clear errors on change
-    setErrors({ ...errors, [name]: '' });
-  };
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const section = params.get('section') || 'profile';
+    setActiveSection(section);
+  }, [location]);
 
   const validateForm = () => {
     const newErrors = {};
@@ -104,14 +118,11 @@ const ProfilePage = () => {
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
     }
-
-    // Validate password fields if they are shown
     if (showPasswordFields && formData.newPassword.trim()) {
       if (formData.newPassword !== formData.confirmNewPassword) {
         newErrors.confirmNewPassword = 'Passwords do not match';
       }
     }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -135,6 +146,12 @@ const ProfilePage = () => {
       setErrors({});
       setShowPasswordFields(false);
     }
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+    setErrors({ ...errors, [name]: '' });
   };
 
   const handleSubmit = async (e) => {
@@ -233,6 +250,11 @@ const ProfilePage = () => {
           section: 'cancellations',
           active: activeSection === 'cancellations',
         },
+        {
+          name: 'My Orders',
+          section: 'orders',
+          active: activeSection === 'orders',
+        },
       ],
     },
     {
@@ -294,6 +316,10 @@ const ProfilePage = () => {
                 key={idx}
                 className={`nav-link ${link.active ? 'nav-link-active' : ''}`}
                 onClick={() => {
+                  // Update URL query param
+                  const url = new URL(window.location);
+                  url.searchParams.set('section', link.section);
+                  window.history.pushState({}, '', url);
                   setActiveSection(link.section);
                   if (isMobile) setDrawerOpen(false);
                 }}
@@ -311,308 +337,118 @@ const ProfilePage = () => {
   );
 
   const renderSectionContent = () => {
-    switch (activeSection) {
-      case 'profile':
-        return (
-          <>
-            <Typography variant="h5" className="section-header">
-              Personal Information
-            </Typography>
-            <div className="avatar-container">
-              <img
-                src={formData.avatar || defaultAvatarUrl}
-                alt="User Avatar"
-                className="avatar-preview"
-                onError={(e) => {
-                  e.target.src = defaultAvatarUrl;
-                }}
-              />
-            </div>
-            <form onSubmit={handleSubmit} className="profile-form">
-              <Row>
-                <Col md={6}>
-                  <TextField
-                    label="First Name"
-                    name="firstName"
-                    variant="outlined"
-                    fullWidth
-                    margin="normal"
-                    value={formData.firstName}
-                    onChange={handleChange}
-                    error={!!errors.firstName}
-                    helperText={errors.firstName}
-                  />
-                </Col>
-                <Col md={6}>
-                  <TextField
-                    label="Last Name"
-                    name="lastName"
-                    variant="outlined"
-                    fullWidth
-                    margin="normal"
-                    value={formData.lastName}
-                    onChange={handleChange}
-                  />
-                </Col>
-              </Row>
-              <TextField
-                label="Email"
-                name="email"
-                variant="outlined"
-                fullWidth
-                margin="normal"
-                value={formData.email}
-                onChange={handleChange}
-                error={!!errors.email}
-                helperText={errors.email}
-              />
-              <TextField
-                label="Address"
-                name="address"
-                variant="outlined"
-                fullWidth
-                margin="normal"
-                value={formData.address}
-                onChange={handleChange}
-              />
-              <TextField
-                label="Avatar URL"
-                name="avatar"
-                variant="outlined"
-                fullWidth
-                margin="normal"
-                value={formData.avatar}
-                onChange={handleChange}
-              />
-
-              <Divider className="custom-divider" />
-              <Typography variant="h6" className="section-subheader">
-                Security
-              </Typography>
-              <Button
-                variant="contained"
-                className="change-password-button"
-                onClick={() => setShowPasswordFields(!showPasswordFields)}
-              >
-                {showPasswordFields
-                  ? 'Hide Password Fields'
-                  : 'Change Password'}
-              </Button>
-
-              {showPasswordFields && (
+    return (
+      <Suspense fallback={<div>Loading...</div>}>
+        {(() => {
+          switch (activeSection) {
+            case 'profile':
+              return (
+                <ProfileSection
+                  formData={formData}
+                  errors={errors}
+                  showPasswordFields={showPasswordFields}
+                  showNewPassword={showNewPassword}
+                  showConfirmNewPassword={showConfirmNewPassword}
+                  handleChange={handleChange}
+                  handleSubmit={handleSubmit}
+                  handleCancel={handleCancel}
+                  setShowPasswordFields={setShowPasswordFields}
+                  setShowNewPassword={setShowNewPassword}
+                  setShowConfirmNewPassword={setShowConfirmNewPassword}
+                  defaultAvatarUrl={defaultAvatarUrl}
+                />
+              );
+            case 'address-book':
+              return <AddressBookSection />;
+            case 'payment-options':
+              return <PaymentOptionsSection />;
+            case 'orders':
+              return <OrdersSection />;
+            case 'wishlist':
+              return <WishlistSection />;
+            case 'returns':
+              return (
                 <>
-                  <TextField
-                    label="Current Password (not required by API)"
-                    name="currentPassword"
-                    type="password"
-                    variant="outlined"
-                    fullWidth
-                    margin="normal"
-                    value={formData.currentPassword}
-                    onChange={handleChange}
-                    placeholder="Enter current password (not enforced)"
-                  />
-                  <TextField
-                    label="New Password"
-                    name="newPassword"
-                    type={showNewPassword ? 'text' : 'password'}
-                    variant="outlined"
-                    fullWidth
-                    margin="normal"
-                    value={formData.newPassword}
-                    onChange={handleChange}
-                    error={!!errors.confirmNewPassword}
-                    helperText={errors.confirmNewPassword || ''}
-                    InputProps={{
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton
-                            onClick={() => setShowNewPassword(!showNewPassword)}
-                            edge="end"
-                          >
-                            {showNewPassword ? (
-                              <VisibilityOff />
-                            ) : (
-                              <Visibility />
-                            )}
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
-                  <TextField
-                    label="Confirm New Password"
-                    name="confirmNewPassword"
-                    type={showConfirmNewPassword ? 'text' : 'password'}
-                    variant="outlined"
-                    fullWidth
-                    margin="normal"
-                    value={formData.confirmNewPassword}
-                    onChange={handleChange}
-                    error={!!errors.confirmNewPassword}
-                    helperText={errors.confirmNewPassword || ''}
-                    InputProps={{
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton
-                            onClick={() =>
-                              setShowConfirmNewPassword(!showConfirmNewPassword)
-                            }
-                            edge="end"
-                          >
-                            {showConfirmNewPassword ? (
-                              <VisibilityOff />
-                            ) : (
-                              <Visibility />
-                            )}
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
+                  <Typography variant="h5" className="section-header">
+                    My Returns
+                  </Typography>
+                  <Typography variant="body1">
+                    View or initiate product returns.
+                  </Typography>
                 </>
-              )}
-
-              <div className="form-actions">
-                <Button
-                  variant="text"
-                  onClick={handleCancel}
-                  className="cancel-button"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="contained"
-                  type="submit"
-                  className="save-button"
-                >
-                  Save Changes
-                </Button>
-              </div>
-            </form>
-          </>
-        );
-      case 'address-book':
-        return (
-          <>
-            <Typography variant="h5" className="section-header">
-              Address Book
-            </Typography>
-            <Typography variant="body1">
-              Manage your saved addresses here.
-            </Typography>
-            {/* Future functionality for adding/editing addresses */}
-          </>
-        );
-      case 'payment-options':
-        return (
-          <>
-            <Typography variant="h5" className="section-header">
-              My Payment Options
-            </Typography>
-            <Typography variant="body1">
-              Add or manage your payment methods.
-            </Typography>
-            {/* Future functionality for payment methods */}
-          </>
-        );
-      case 'returns':
-        return (
-          <>
-            <Typography variant="h5" className="section-header">
-              My Returns
-            </Typography>
-            <Typography variant="body1">
-              View or initiate product returns.
-            </Typography>
-            {/* Future functionality for returns */}
-          </>
-        );
-      case 'cancellations':
-        return (
-          <>
-            <Typography variant="h5" className="section-header">
-              My Cancellations
-            </Typography>
-            <Typography variant="body1">
-              Check the status of your cancellations.
-            </Typography>
-            {/* Future functionality for cancellations */}
-          </>
-        );
-      case 'wishlist':
-        return (
-          <>
-            <Typography variant="h5" className="section-header">
-              Wishlist
-            </Typography>
-            <Typography variant="body1">
-              View items you've saved for later.
-            </Typography>
-            {/* Future functionality for wishlist */}
-          </>
-        );
-      case 'admin-users':
-        return (
-          <>
-            <Typography variant="h5" className="section-header">
-              User Management (Admin)
-            </Typography>
-            <Typography variant="body1">
-              Manage users of the platform.
-            </Typography>
-            {/* Future functionality for admin user management */}
-          </>
-        );
-      case 'admin-analytics':
-        return (
-          <>
-            <Typography variant="h5" className="section-header">
-              Site Analytics (Admin)
-            </Typography>
-            <Typography variant="body1">
-              View site traffic, sales, and more.
-            </Typography>
-            {/* Future analytics dashboard */}
-          </>
-        );
-      case 'admin-products':
-        return (
-          <>
-            <Typography variant="h5" className="section-header">
-              Product Management (Admin)
-            </Typography>
-            <Typography variant="body1">
-              Add, edit, or remove products.
-            </Typography>
-            {/* Future product management tools */}
-          </>
-        );
-      case 'admin-categories':
-        return (
-          <>
-            <Typography variant="h5" className="section-header">
-              Category Management (Admin)
-            </Typography>
-            <Typography variant="body1">Manage product categories.</Typography>
-            {/* Future category management tools */}
-          </>
-        );
-      case 'admin-orders':
-        return (
-          <>
-            <Typography variant="h5" className="section-header">
-              Orders Management (Admin)
-            </Typography>
-            <Typography variant="body1">
-              View and manage all customer orders.
-            </Typography>
-            {/* Future orders management tools */}
-          </>
-        );
-      default:
-        return <Typography variant="body1">Coming soon...</Typography>;
-    }
+              );
+            case 'cancellations':
+              return (
+                <>
+                  <Typography variant="h5" className="section-header">
+                    My Cancellations
+                  </Typography>
+                  <Typography variant="body1">
+                    Check the status of your cancellations.
+                  </Typography>
+                </>
+              );
+            case 'admin-users':
+              return (
+                <>
+                  <Typography variant="h5" className="section-header">
+                    User Management (Admin)
+                  </Typography>
+                  <Typography variant="body1">
+                    Manage users of the platform.
+                  </Typography>
+                </>
+              );
+            case 'admin-analytics':
+              return (
+                <>
+                  <Typography variant="h5" className="section-header">
+                    Site Analytics (Admin)
+                  </Typography>
+                  <Typography variant="body1">
+                    View site traffic, sales, and more.
+                  </Typography>
+                </>
+              );
+            case 'admin-products':
+              return (
+                <>
+                  <Typography variant="h5" className="section-header">
+                    Product Management (Admin)
+                  </Typography>
+                  <Typography variant="body1">
+                    Add, edit, or remove products.
+                  </Typography>
+                </>
+              );
+            case 'admin-categories':
+              return (
+                <>
+                  <Typography variant="h5" className="section-header">
+                    Category Management (Admin)
+                  </Typography>
+                  <Typography variant="body1">
+                    Manage product categories.
+                  </Typography>
+                </>
+              );
+            case 'admin-orders':
+              return (
+                <>
+                  <Typography variant="h5" className="section-header">
+                    Orders Management (Admin)
+                  </Typography>
+                  <Typography variant="body1">
+                    View and manage all customer orders.
+                  </Typography>
+                </>
+              );
+            default:
+              return <Typography variant="body1">Coming soon...</Typography>;
+          }
+        })()}
+      </Suspense>
+    );
   };
 
   return (

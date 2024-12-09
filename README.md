@@ -55,12 +55,11 @@ To set up the project locally:
 ### Example Test Credentials
 
 - **Test User**:
-    - Email: `testuser@example.com`
-    - Password: `password123`
+    - Email: `john@mail.com`
+    - Password: `changeme`
 - **Test Admin**:
-    - Email: `admin@example.com`
-    - Password: `secureadmin`
-    - (Adjust these as needed based on your setup.)
+    - Email: `admin@mail.com`
+    - Password: `admin123`
 
 ## Payment Testing with Stripe-Like Integration
 
@@ -69,6 +68,7 @@ We use test-mode credit cards and payment methods to simulate transactions. Do n
 - **Test Card Number**: `4242 4242 4242 4242`
 - **Expiration Date**: Any valid future date (e.g., 12/34)
 - **CVC**: Any three-digit number (e.g., 123)
+- **Postal Code**: some card number (e.g.,4242 4242 4242 4242 requires a valid postal code and you can use example `33601`
 
 You can also use other test cards as described below.
 
@@ -125,7 +125,7 @@ For authentication, categories, users, and other endpoints, please refer to the 
 
 ```bash
 curl https://api.stripe.com/v1/payment_intents \
--u "sk_test_26PHem9AhJZvU623DfE1x4sd:" \
+-u "sk_test_.....:" \
 -d amount=500 \
 -d currency=gbp \
 -d payment_method=pm_card_visa \

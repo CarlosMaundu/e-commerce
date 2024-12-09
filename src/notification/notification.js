@@ -1,4 +1,4 @@
-// src/notification/Notification.js
+// src/notification/notification.js
 import React from 'react';
 import { Snackbar, Alert } from '@mui/material';
 
