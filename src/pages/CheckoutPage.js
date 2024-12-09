@@ -1,5 +1,7 @@
+// src/pages/CheckoutPage.js
+
 import React, { useState } from 'react';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import '../styles/checkoutPage.css';
 import paymentMastercard from '../images/payment1.png'; // MasterCard
@@ -9,9 +11,23 @@ import {
   createPaymentIntent,
   confirmPaymentIntent,
 } from '../services/paymentsService';
+import Notification from '../notification/notification';
 
-const CheckoutPage = () => {
+import { loadStripe } from '@stripe/stripe-js';
+import {
+  Elements,
+  CardElement,
+  useStripe,
+  useElements,
+} from '@stripe/react-stripe-js';
+
+import { clearCart } from '../redux/cartSlice';
+
+const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
+
+const CheckoutForm = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const cartItems = useSelector((state) => state.cart.items);
 
   // Calculate totals
@@ -27,7 +43,6 @@ const CheckoutPage = () => {
   const [paymentMethod, setPaymentMethod] = useState('visa');
   const [termsAccepted, setTermsAccepted] = useState(false);
 
-  // Form fields state
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [streetAddress, setStreetAddress] = useState('');
@@ -35,27 +50,27 @@ const CheckoutPage = () => {
   const [stateField, setStateField] = useState('');
   const [postalCode, setPostalCode] = useState('');
 
-  const [cardName, setCardName] = useState('');
-  const [cardNumber, setCardNumber] = useState('');
-  const [expiry, setExpiry] = useState(''); // MM/YY format
-  const [cvv, setCvv] = useState('');
-
   // Error states
   const [errors, setErrors] = useState({});
 
-  // Determine card logo based on payment method
-  let cardLogo;
-  if (paymentMethod === 'visa') {
-    cardLogo = paymentVisa;
-  } else if (paymentMethod === 'mastercard') {
-    cardLogo = paymentMastercard;
-  }
+  // Notification state
+  const [notification, setNotification] = useState({
+    open: false,
+    message: '',
+    severity: '',
+  });
 
-  // Validate inputs
+  const stripe = useStripe();
+  const elements = useElements();
+
+  const handleNotificationClose = () => {
+    setNotification((prev) => ({ ...prev, open: false }));
+  };
+
+  // Validate inputs (no card validation needed manually, Stripe handles it)
   const validateInputs = () => {
     const newErrors = {};
 
-    // Shipping info validation
     if (!name.trim()) newErrors.name = 'Name is required';
     if (!email.trim() || !/^\S+@\S+\.\S+$/.test(email))
       newErrors.email = 'Valid email is required';
@@ -66,41 +81,11 @@ const CheckoutPage = () => {
     if (!postalCode.trim() || !/^\d+$/.test(postalCode))
       newErrors.postalCode = 'Valid postal code is required';
 
-    // Payment method validation
-    if (paymentMethod === 'visa' || paymentMethod === 'mastercard') {
-      if (!cardName.trim())
-        newErrors.cardName = "Cardholder's name is required";
-
-      const sanitizedCardNumber = cardNumber.replace(/\s+/g, '');
-      if (!/^\d{16}$/.test(sanitizedCardNumber)) {
-        newErrors.cardNumber = 'Card number must be 16 digits';
-      }
-      if (sanitizedCardNumber.length !== 16) {
-        newErrors.cardNumber = 'Card number must be 16 digits';
-      }
-
-      // Expiry validation (MM/YY)
-      const expMatch = expiry.match(/^(\d{2})\/(\d{2})$/);
-      if (!expMatch) {
-        newErrors.expiry = 'Expiry must be in MM/YY format';
-      } else {
-        const monthNum = parseInt(expMatch[1], 10);
-        const yearNum = parseInt('20' + expMatch[2], 10); // assuming 20YY format
-        const currentYear = new Date().getFullYear();
-        const currentMonth = new Date().getMonth() + 1;
-
-        if (monthNum < 1 || monthNum > 12) {
-          newErrors.expiry = 'Valid expiry month required';
-        } else if (
-          yearNum < currentYear ||
-          (yearNum === currentYear && monthNum < currentMonth)
-        ) {
-          newErrors.expiry = 'Expiry date must be in the future';
-        }
-      }
-
-      // CVV validation
-      if (!/^\d{3,4}$/.test(cvv)) newErrors.cvv = 'CVV must be 3 or 4 digits';
+    if (
+      (paymentMethod === 'visa' || paymentMethod === 'mastercard') &&
+      !elements?.getElement(CardElement)
+    ) {
+      newErrors.card = 'Card details are required';
     }
 
     if (!termsAccepted)
@@ -108,28 +93,6 @@ const CheckoutPage = () => {
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
-
-  // Format card number as user types
-  const handleCardNumberChange = (e) => {
-    let value = e.target.value.replace(/\D/g, '');
-    value = value.match(/.{1,4}/g)?.join(' ') || '';
-    setCardNumber(value);
-  };
-
-  const handleCvvChange = (e) => {
-    const val = e.target.value.replace(/\D/g, '').slice(0, 4);
-    setCvv(val);
-  };
-
-  const handleExpiryChange = (e) => {
-    let val = e.target.value.replace(/\D/g, '');
-    // Format as MM/YY
-    if (val.length > 4) val = val.slice(0, 4);
-    if (val.length > 2) {
-      val = val.slice(0, 2) + '/' + val.slice(2);
-    }
-    setExpiry(val);
   };
 
   const handleConfirmPayment = async () => {
@@ -141,27 +104,73 @@ const CheckoutPage = () => {
         'usd'
       );
 
-      // Extract month and year from expiry
-      const expMatch = expiry.match(/^(\d{2})\/(\d{2})$/);
-      const expMonth = expMatch ? parseInt(expMatch[1], 10) : '';
-      const expYear = expMatch ? parseInt('20' + expMatch[2], 10) : '';
+      if (!stripe || !elements) {
+        setNotification({
+          open: true,
+          message: 'Stripe is not loaded yet. Please try again.',
+          severity: 'error',
+        });
+        return;
+      }
 
-      const confirmed = await confirmPaymentIntent(paymentIntent.id, {
-        cardNumber: cardNumber.replace(/\s/g, ''),
-        expMonth,
-        expYear,
-        cvv,
-      });
+      // Create a PaymentMethod using Stripe Elements
+      const cardElement = elements.getElement(CardElement);
+      const { paymentMethod: stripePaymentMethod, error } =
+        await stripe.createPaymentMethod({
+          type: 'card',
+          card: cardElement,
+          billing_details: {
+            name,
+            email,
+            address: {
+              line1: streetAddress,
+              city: city,
+              state: stateField,
+              postal_code: postalCode,
+            },
+          },
+        });
+
+      if (error) {
+        setErrors((prev) => ({ ...prev, card: error.message }));
+        return;
+      }
+
+      // Confirm the PaymentIntent with the PaymentMethod ID
+      const confirmed = await confirmPaymentIntent(
+        paymentIntent.id,
+        stripePaymentMethod.id
+      );
 
       if (confirmed.status === 'succeeded') {
-        alert('Payment successful! Test card used: 4242 4242 4242 4242');
-        navigate('/orders');
+        // Clear the cart after successful payment
+        dispatch(clearCart());
+
+        // Show success notification
+        setNotification({
+          open: true,
+          message: 'Payment successful!',
+          severity: 'success',
+        });
+
+        // Redirect to the user's orders after a short delay
+        setTimeout(() => {
+          navigate('/profile?section=orders');
+        }, 2000);
       } else {
-        alert('Payment failed, please try again.');
+        setNotification({
+          open: true,
+          message: 'Payment failed, please try again.',
+          severity: 'error',
+        });
       }
     } catch (error) {
       console.error('Error processing payment:', error);
-      alert(`Payment error: ${error.message}`);
+      setNotification({
+        open: true,
+        message: `Payment error: ${error.message}`,
+        severity: 'error',
+      });
     }
   };
 
@@ -308,70 +317,22 @@ const CheckoutPage = () => {
 
             {(paymentMethod === 'visa' || paymentMethod === 'mastercard') && (
               <div className="card-details">
-                <div className="form-field">
-                  <label>Cardholder's Name</label>
-                  <input
-                    type="text"
-                    value={cardName}
-                    onChange={(e) => setCardName(e.target.value)}
-                  />
-                  {errors.cardName && (
-                    <span style={{ color: 'red', fontSize: '12px' }}>
-                      {errors.cardName}
-                    </span>
-                  )}
+                <label>Card Details</label>
+                <div
+                  style={{
+                    border: '1px solid #ddd',
+                    borderRadius: '4px',
+                    padding: '8px',
+                    marginBottom: '8px',
+                  }}
+                >
+                  <CardElement />
                 </div>
-                <div className="form-field card-number-field">
-                  <label>Card Number</label>
-                  <div className="card-number-input">
-                    {cardLogo && (
-                      <img
-                        src={cardLogo}
-                        alt="Card Logo"
-                        className="card-logo"
-                      />
-                    )}
-                    <input
-                      type="text"
-                      value={cardNumber}
-                      onChange={handleCardNumberChange}
-                      placeholder="1234 5678 9012 3456"
-                    />
-                  </div>
-                  {errors.cardNumber && (
-                    <span style={{ color: 'red', fontSize: '12px' }}>
-                      {errors.cardNumber}
-                    </span>
-                  )}
-                </div>
-                <div className="form-field" style={{ marginTop: '8px' }}>
-                  <label>EXP (MM/YY)</label>
-                  <input
-                    type="text"
-                    value={expiry}
-                    onChange={handleExpiryChange}
-                    placeholder="MM/YY"
-                  />
-                  {errors.expiry && (
-                    <span style={{ color: 'red', fontSize: '12px' }}>
-                      {errors.expiry}
-                    </span>
-                  )}
-                </div>
-                <div className="form-field" style={{ marginTop: '8px' }}>
-                  <label>CVV</label>
-                  <input
-                    type="password"
-                    value={cvv}
-                    onChange={handleCvvChange}
-                    placeholder="123"
-                  />
-                  {errors.cvv && (
-                    <span style={{ color: 'red', fontSize: '12px' }}>
-                      {errors.cvv}
-                    </span>
-                  )}
-                </div>
+                {errors.card && (
+                  <span style={{ color: 'red', fontSize: '12px' }}>
+                    {errors.card}
+                  </span>
+                )}
               </div>
             )}
 
@@ -473,8 +434,20 @@ const CheckoutPage = () => {
           </div>
         </div>
       </div>
+      <Notification
+        open={notification.open}
+        onClose={handleNotificationClose}
+        severity={notification.severity}
+        message={notification.message}
+      />
     </div>
   );
 };
 
-export default CheckoutPage;
+export default function CheckoutPage() {
+  return (
+    <Elements stripe={stripePromise}>
+      <CheckoutForm />
+    </Elements>
+  );
+}

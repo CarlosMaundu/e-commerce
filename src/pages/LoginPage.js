@@ -3,9 +3,10 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom'; // Import useLocation
 import { AuthContext } from '../context/AuthContext';
-import { login } from '../services/authService';
+import { login } from '../services/authService'; // Corrected import
+import { createUser } from '../services/userService'; // Removed isEmailAvailable import
 import '../styles/login.css';
 import {
   TextField,
@@ -15,6 +16,7 @@ import {
   FormControlLabel,
   IconButton,
 } from '@mui/material';
+import CircularProgress from '@mui/material/CircularProgress'; // Added
 import {
   AccountCircle,
   Lock,
@@ -28,6 +30,9 @@ import Notification from '../notification/notification';
 const LoginPage = () => {
   const { user, loading, handleLogin } = useContext(AuthContext);
   const navigate = useNavigate();
+  const location = useLocation(); // Get location
+  const from = location.state?.from || '/'; // Determine redirect path
+  const currentPath = location.pathname; // Determine current path
   const [activeTab, setActiveTab] = useState('login');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notification, setNotification] = useState({
@@ -36,14 +41,30 @@ const LoginPage = () => {
     message: '',
   });
 
+  // Set active tab based on current route
+  useEffect(() => {
+    if (currentPath === '/register') {
+      setActiveTab('register');
+    } else {
+      setActiveTab('login');
+    }
+  }, [currentPath]);
+
   // Redirect authenticated users away from the login page
   useEffect(() => {
     if (!loading && user) {
-      navigate('/'); // Redirect to home or another appropriate page
+      navigate(from, { replace: true }); // Redirect to intended path
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, navigate, from]);
 
-  const handleTabChange = (tab) => setActiveTab(tab);
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    if (tab === 'login') {
+      navigate('/login', { state: { from } });
+    } else {
+      navigate('/register', { state: { from } });
+    }
+  };
 
   const loginFormik = useFormik({
     initialValues: {
@@ -67,7 +88,7 @@ const LoginPage = () => {
           severity: 'success',
           message: 'Login successful!',
         });
-        // Redirection will be handled by useEffect
+        // Redirection is handled by useEffect
       } catch (error) {
         console.error('Login error:', error);
         setNotification({
@@ -87,14 +108,14 @@ const LoginPage = () => {
   const registerFormik = useFormik({
     initialValues: {
       name: '',
-      username: '',
+      secondName: '', // Replaced 'username' with 'secondName'
       email: '',
       password: '',
       agreeToTerms: false,
     },
     validationSchema: Yup.object({
-      name: Yup.string().required('Name is required'),
-      username: Yup.string().required('Username is required'),
+      name: Yup.string().required('First name is required'),
+      secondName: Yup.string().required('Second name is required'),
       email: Yup.string()
         .email('Invalid email address')
         .required('Email is required'),
@@ -104,15 +125,31 @@ const LoginPage = () => {
     onSubmit: async (values) => {
       setIsSubmitting(true);
       try {
-        // Simulated API response for registration
-        setActiveTab('login');
+        const newUser = {
+          name: `${values.name} ${values.secondName}`, // Combine first and second name
+          email: values.email,
+          password: values.password,
+          avatar: 'https://picsum.photos/800', // Default avatar or allow user to upload
+        };
+
+        await createUser(newUser); // Removed 'createdUser' assignment
+
+        // Automatically log in the user after successful registration
+        const loginResponse = await login(values.email, values.password);
+        await handleLogin(loginResponse); // Store tokens and update user state
+
         setNotification({
           open: true,
           severity: 'success',
-          message: 'Registration successful! Please login.',
+          message: 'Registration and login successful!',
         });
+
+        // Redirection is handled by useEffect
+        navigate(from, { replace: true }); // Ensure immediate redirection
+
+        registerFormik.resetForm();
       } catch (error) {
-        console.error('Registration error:', error);
+        console.error('Registration or Login error:', error);
         setNotification({
           open: true,
           severity: 'error',
@@ -236,9 +273,9 @@ const LoginPage = () => {
                   }
                   label="Remember me"
                 />
-                <a href="#forgot-password" className="forgot-password-link">
+                <Link to="#forgot-password" className="forgot-password-link">
                   Forgot password?
-                </a>
+                </Link>
               </div>
               <Button
                 type="submit"
@@ -247,18 +284,23 @@ const LoginPage = () => {
                 fullWidth
                 disabled={isSubmitting}
               >
-                {isSubmitting ? 'Logging in...' : 'Sign in'}
+                {isSubmitting ? (
+                  <CircularProgress size={24} color="inherit" />
+                ) : (
+                  'Sign in'
+                )}
               </Button>
             </form>
             <p className="text-center mt-3">
               Not a member?{' '}
-              <a
-                href="#register"
+              <Link
+                to="/register"
                 className="register-link"
                 onClick={() => handleTabChange('register')}
+                state={{ from }} // Preserve redirect state
               >
                 Register
-              </a>
+              </Link>
             </p>
           </div>
         )}
@@ -288,10 +330,10 @@ const LoginPage = () => {
                 <TextField
                   id="name"
                   name="name"
-                  label="Name"
+                  label="First Name"
                   variant="outlined"
                   fullWidth
-                  autoComplete="name"
+                  autoComplete="given-name"
                   onChange={registerFormik.handleChange}
                   onBlur={registerFormik.handleBlur}
                   value={registerFormik.values.name}
@@ -306,22 +348,22 @@ const LoginPage = () => {
               </div>
               <div className="form-group">
                 <TextField
-                  id="username"
-                  name="username"
-                  label="Username"
+                  id="secondName"
+                  name="secondName"
+                  label="Second Name"
                   variant="outlined"
                   fullWidth
-                  autoComplete="username"
+                  autoComplete="family-name"
                   onChange={registerFormik.handleChange}
                   onBlur={registerFormik.handleBlur}
-                  value={registerFormik.values.username}
+                  value={registerFormik.values.secondName}
                   error={
-                    registerFormik.touched.username &&
-                    Boolean(registerFormik.errors.username)
+                    registerFormik.touched.secondName &&
+                    Boolean(registerFormik.errors.secondName)
                   }
                   helperText={
-                    registerFormik.touched.username &&
-                    registerFormik.errors.username
+                    registerFormik.touched.secondName &&
+                    registerFormik.errors.secondName
                   }
                 />
               </div>
@@ -388,9 +430,24 @@ const LoginPage = () => {
                 fullWidth
                 disabled={isSubmitting}
               >
-                {isSubmitting ? 'Signing up...' : 'Sign up'}
+                {isSubmitting ? (
+                  <CircularProgress size={24} color="inherit" />
+                ) : (
+                  'Sign up'
+                )}
               </Button>
             </form>
+            <p className="text-center mt-3">
+              Already have an account?{' '}
+              <Link
+                to="/login"
+                className="login-link"
+                onClick={() => handleTabChange('login')}
+                state={{ from }} // Preserve redirect state
+              >
+                Login
+              </Link>
+            </p>
           </div>
         )}
       </div>
