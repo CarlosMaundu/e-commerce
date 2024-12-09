@@ -1,5 +1,3 @@
-// src/App.js
-
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
@@ -15,6 +13,9 @@ import ProfilePage from './pages/ProfilePage';
 import AdminRoute from './components/AdminRoute';
 import PrivateRoute from './components/PrivateRoute';
 import Footer from './components/Footer';
+
+/* Import the CheckoutPage */
+import CheckoutPage from './pages/CheckoutPage';
 
 const App = () => {
   return (
@@ -65,6 +66,16 @@ const App = () => {
               <AdminRoute>
                 <DashboardPage />
               </AdminRoute>
+            }
+          />
+
+          {/* New Checkout Route */}
+          <Route
+            path="/checkout"
+            element={
+              <PrivateRoute>
+                <CheckoutPage />
+              </PrivateRoute>
             }
           />
         </Routes>

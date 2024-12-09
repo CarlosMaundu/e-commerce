@@ -4,9 +4,9 @@
 .cart-page {
   margin-top: 80px;
   padding: 20px;
-  background-color: #ffffff; /* White main background */
+  background-color: #ffffff; 
   max-width: 1200px;
-  margin: 80px auto 20px auto; /* Center the content */
+  margin: 80px auto 20px auto; 
   box-sizing: border-box;
 }
 
@@ -14,7 +14,7 @@
 .cart-go-back-button {
   background: none;
   border: none;
-  color: #007bff; /* Blue for clickable text */
+  color: #007bff; 
   font-size: 1rem;
   cursor: pointer;
   margin-bottom: 16px;
@@ -29,13 +29,13 @@
   margin-bottom: 24px;
   font-size: 24px;
   font-weight: bold;
-  color: #333333; /* Dark gray text */
+  color: #333333; 
 }
 
 /* Main Layout */
 .cart-content {
   display: flex;
-  gap: 32px; /* Increased spacing between columns to 32px as requested */
+  gap: 32px;
 }
 
 /* Left Column: Cart Items */
@@ -64,7 +64,7 @@
   width: 80px; 
   height: 80px;
   object-fit: cover;
-  border-radius: 8px; /* Rounded corners for product thumbnails */
+  border-radius: 8px;
 }
 
 /* Product Details */
@@ -82,7 +82,7 @@
 
 .cart-item-title {
   text-decoration: none;
-  color: #000000; /* Bold black text for product titles */
+  color: #000000; 
 }
 
 .cart-item-title:hover {
@@ -124,7 +124,7 @@
 .cart-item-quantity span {
   margin: 0 8px;
   font-size: 14px;
-  font-weight: bold; /* Bold quantity display */
+  font-weight: bold;
 }
 
 /* Actions: Remove & Move to Wishlist */
@@ -137,7 +137,7 @@
 .remove-button {
   background: none;
   border: none;
-  color: #ff0000; /* Red for "Remove" text */
+  color: #ff0000;
   cursor: pointer;
   font-size: 14px;
 }
@@ -163,10 +163,10 @@
   width: 30%;
   padding: 16px;
   border: 1px solid #dddddd;
-  background-color: #f8f9fa; /* Light gray background */
+  background-color: #f8f9fa;
   box-sizing: border-box;
-  border-radius: 8px; /* Smooth edges */
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Subtle box-shadow */
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); 
 }
 
 /* Promo Code at the Top of Right Column */
@@ -238,7 +238,7 @@
   font-weight: bold;
   font-size: 18px;
   margin-bottom: 16px;
-  color: #000000; /* Bold black for total */
+  color: #000000; 
 }
 
 .order-summary-total span {
@@ -254,7 +254,7 @@
 .checkout-button {
   width: 100%;
   padding: 12px;
-  background-color: #007bff; /* Primary Blue */
+  background-color: #007bff; 
   color: #ffffff;
   border: none;
   cursor: pointer;
@@ -264,13 +264,13 @@
 }
 
 .checkout-button:hover {
-  background-color: #0056b3; /* Slight darkening on hover */
+  background-color: #0056b3;
 }
 
 /* Continue Shopping Button (Secondary) */
 .continue-shopping-button {
   width: 100%;
-  background: #f0f0f0; /* Light gray background */
+  background: #f0f0f0; 
   border: 1px solid #007bff;
   color: #007bff;
   font-size: 1rem;
@@ -281,7 +281,7 @@
 }
 
 .continue-shopping-button:hover {
-  background-color: #e0e0e0; /* Slightly darker gray on hover */
+  background-color: #e0e0e0;
   text-decoration: none;
 }
 
