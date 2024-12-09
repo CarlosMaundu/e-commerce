@@ -11,7 +11,9 @@ import ProductDetailsPage from './pages/ProductDetailsPage';
 import CartPage from './pages/CartPage';
 import WishlistPage from './pages/WishlistPage';
 import DashboardPage from './pages/DashboardPage';
-import './App.css';
+import ProfilePage from './pages/ProfilePage';
+import AdminRoute from './components/AdminRoute';
+import PrivateRoute from './components/PrivateRoute';
 import Footer from './components/Footer';
 
 const App = () => {
@@ -24,9 +26,47 @@ const App = () => {
           <Route path="/" element={<HomePage />} />
           <Route path="/products" element={<ProductsPage />} />
           <Route path="/products/:id" element={<ProductDetailsPage />} />
-          <Route path="/cart" element={<CartPage />} />{' '}
-          <Route path="/wishlist" element={<WishlistPage />} />
-          <Route path="/dashboard" element={<DashboardPage />} />
+          <Route
+            path="/cart"
+            element={
+              <PrivateRoute>
+                <CartPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/wishlist"
+            element={
+              <PrivateRoute>
+                <WishlistPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/dashboard"
+            element={
+              <PrivateRoute>
+                <DashboardPage />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <PrivateRoute>
+                <ProfilePage />
+              </PrivateRoute>
+            }
+          />
+          {/* Admin Routes */}
+          <Route
+            path="/admin/*"
+            element={
+              <AdminRoute>
+                <DashboardPage />
+              </AdminRoute>
+            }
+          />
         </Routes>
         <Footer />
       </Router>

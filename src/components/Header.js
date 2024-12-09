@@ -1,7 +1,7 @@
 // src/components/Header.js
 
 import React, { useContext, useState, useEffect, useRef } from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { fetchCategories } from '../services/categoryService';
 import '../styles/header.css';
@@ -19,13 +19,14 @@ import logo from '../images/logo.png';
 import { useSelector } from 'react-redux';
 
 const Header = () => {
-  const { user, handleLogout } = useContext(AuthContext);
+  const { user, loading, handleLogout } = useContext(AuthContext);
   const [categories, setCategories] = useState([]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [shopDropdownOpen, setShopDropdownOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const shopDropdownRef = useRef(null);
   const userDropdownRef = useRef(null);
+  const navigate = useNavigate();
 
   // Access cart and wishlist counts from Redux store
   const cartCount = useSelector((state) => state.cart.items.length);
@@ -108,6 +109,12 @@ const Header = () => {
     }
     setShopDropdownOpen(false);
     setUserDropdownOpen(false);
+  };
+
+  const handleLogoutClick = () => {
+    handleLogout();
+    setUserDropdownOpen(false);
+    navigate('/login');
   };
 
   return (
@@ -220,7 +227,7 @@ const Header = () => {
           </IconButton>
 
           {/* User Account */}
-          {user ? (
+          {loading ? null : user ? (
             <div className="header__user" ref={userDropdownRef}>
               <span className="header__user-greeting">Hi, {user.name}</span>
               <IconButton
@@ -256,10 +263,7 @@ const Header = () => {
                   </li>
                   <li>
                     <button
-                      onClick={() => {
-                        handleLogout();
-                        setUserDropdownOpen(false);
-                      }}
+                      onClick={handleLogoutClick}
                       className="header__logout-btn"
                     >
                       Logout

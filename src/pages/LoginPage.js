@@ -1,6 +1,6 @@
 // src/pages/LoginPage.js
 
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState, useEffect } from 'react';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import { useNavigate } from 'react-router-dom';
@@ -15,20 +15,33 @@ import {
   FormControlLabel,
   IconButton,
 } from '@mui/material';
-import { AccountCircle, Lock } from '@mui/icons-material';
-import { Facebook, Google, Twitter, GitHub } from '@mui/icons-material';
+import {
+  AccountCircle,
+  Lock,
+  Facebook,
+  Google,
+  Twitter,
+  GitHub,
+} from '@mui/icons-material';
 import Notification from '../notification/notification';
 
 const LoginPage = () => {
-  const { handleLogin } = useContext(AuthContext);
+  const { user, loading, handleLogin } = useContext(AuthContext);
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('login');
-  const [loading, setLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [notification, setNotification] = useState({
     open: false,
     severity: '',
     message: '',
   });
+
+  // Redirect authenticated users away from the login page
+  useEffect(() => {
+    if (!loading && user) {
+      navigate('/'); // Redirect to home or another appropriate page
+    }
+  }, [user, loading, navigate]);
 
   const handleTabChange = (tab) => setActiveTab(tab);
 
@@ -45,19 +58,16 @@ const LoginPage = () => {
       password: Yup.string().required('Password is required'),
     }),
     onSubmit: async (values) => {
-      setLoading(true);
+      setIsSubmitting(true);
       try {
         const userData = await login(values.email, values.password);
-        handleLogin(userData); // Set user and tokens in AuthContext
+        await handleLogin(userData); // Ensure tokens are stored before navigating
         setNotification({
           open: true,
           severity: 'success',
           message: 'Login successful!',
         });
-        // Navigate only after ensuring tokens are stored
-        setTimeout(() => {
-          navigate('/');
-        }, 500);
+        // Redirection will be handled by useEffect
       } catch (error) {
         console.error('Login error:', error);
         setNotification({
@@ -69,7 +79,7 @@ const LoginPage = () => {
               : error.message || 'Login failed. Please try again.',
         });
       } finally {
-        setLoading(false);
+        setIsSubmitting(false);
       }
     },
   });
@@ -92,7 +102,7 @@ const LoginPage = () => {
       agreeToTerms: Yup.boolean().oneOf([true], 'You must agree to the terms'),
     }),
     onSubmit: async (values) => {
-      setLoading(true);
+      setIsSubmitting(true);
       try {
         // Simulated API response for registration
         setActiveTab('login');
@@ -109,10 +119,14 @@ const LoginPage = () => {
           message: error.message || 'Registration failed. Please try again.',
         });
       } finally {
-        setLoading(false);
+        setIsSubmitting(false);
       }
     },
   });
+
+  if (loading) {
+    return <div>Loading...</div>; // Show loading indicator
+  }
 
   return (
     <div className="background-container">
@@ -231,9 +245,9 @@ const LoginPage = () => {
                 variant="contained"
                 color="primary"
                 fullWidth
-                disabled={loginFormik.isSubmitting || loading}
+                disabled={isSubmitting}
               >
-                {loading ? 'Logging in...' : 'Sign in'}
+                {isSubmitting ? 'Logging in...' : 'Sign in'}
               </Button>
             </form>
             <p className="text-center mt-3">
@@ -372,9 +386,9 @@ const LoginPage = () => {
                 variant="contained"
                 color="primary"
                 fullWidth
-                disabled={registerFormik.isSubmitting || loading}
+                disabled={isSubmitting}
               >
-                {loading ? 'Signing up...' : 'Sign up'}
+                {isSubmitting ? 'Signing up...' : 'Sign up'}
               </Button>
             </form>
           </div>
