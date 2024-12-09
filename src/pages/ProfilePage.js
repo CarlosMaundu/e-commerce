@@ -1,5 +1,4 @@
 // src/pages/ProfilePage.js
-
 import React, { useEffect, useState, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { updateUserProfile } from '../services/userService';
@@ -15,13 +14,27 @@ import {
   List,
   ListItem,
   ListItemText,
+  IconButton,
+  InputAdornment,
+  Drawer,
+  useMediaQuery,
 } from '@mui/material';
+import { Visibility, VisibilityOff, Menu } from '@mui/icons-material';
+import { useTheme } from '@mui/material/styles';
 
 const ProfilePage = () => {
   const { user, accessToken, loading, updateUser } = useContext(AuthContext);
 
   const [activeSection, setActiveSection] = useState('profile');
+  const [notification, setNotification] = useState({
+    open: false,
+    message: '',
+    severity: '',
+  });
 
+  const defaultAvatarUrl = 'https://imgur.com/a/kIaFC3J';
+
+  // Form State
   const [formData, setFormData] = useState({
     id: user?.id || '',
     firstName: '',
@@ -34,13 +47,18 @@ const ProfilePage = () => {
     confirmNewPassword: '',
   });
 
-  const [notification, setNotification] = useState({
-    open: false,
-    message: '',
-    severity: '',
-  });
+  // Validation State
+  const [errors, setErrors] = useState({});
 
-  const defaultAvatarUrl = 'https://imgur.com/a/kIaFC3J';
+  // Password Section Toggle
+  const [showPasswordFields, setShowPasswordFields] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
+
+  // Drawer State for Mobile
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   useEffect(() => {
     if (!loading && !user) {
@@ -74,6 +92,28 @@ const ProfilePage = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData({ ...formData, [name]: value });
+    // Clear errors on change
+    setErrors({ ...errors, [name]: '' });
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+    if (!formData.firstName.trim()) {
+      newErrors.firstName = 'First name is required';
+    }
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required';
+    }
+
+    // Validate password fields if they are shown
+    if (showPasswordFields && formData.newPassword.trim()) {
+      if (formData.newPassword !== formData.confirmNewPassword) {
+        newErrors.confirmNewPassword = 'Passwords do not match';
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleCancel = () => {
@@ -92,28 +132,20 @@ const ProfilePage = () => {
         newPassword: '',
         confirmNewPassword: '',
       });
+      setErrors({});
+      setShowPasswordFields(false);
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (
-      formData.newPassword ||
-      formData.confirmNewPassword ||
-      formData.currentPassword
-    ) {
-      if (formData.newPassword !== formData.confirmNewPassword) {
-        setNotification({
-          open: true,
-          message: 'New passwords do not match.',
-          severity: 'error',
-        });
-        return;
-      }
+    if (!validateForm()) {
+      return;
     }
 
     const fullName =
       `${formData.firstName.trim()} ${formData.lastName.trim()}`.trim();
+
     const updateData = {
       id: formData.id,
       name: fullName,
@@ -121,7 +153,7 @@ const ProfilePage = () => {
       avatar: formData.avatar,
       address: formData.address,
       password:
-        formData.newPassword && formData.newPassword.trim() !== ''
+        showPasswordFields && formData.newPassword.trim() !== ''
           ? formData.newPassword
           : '',
     };
@@ -134,13 +166,30 @@ const ProfilePage = () => {
         message: 'Profile updated successfully.',
         severity: 'success',
       });
+      if (showPasswordFields) {
+        setFormData({
+          ...formData,
+          currentPassword: '',
+          newPassword: '',
+          confirmNewPassword: '',
+        });
+        setShowPasswordFields(false);
+      }
     } catch (error) {
       console.error('Failed to update profile:', error);
-      setNotification({
-        open: true,
-        message: 'An error occurred. Please try again later.',
-        severity: 'error',
-      });
+      if (error.response && error.response.status === 401) {
+        setNotification({
+          open: true,
+          message: 'Profile cannot be modified, contact admin.',
+          severity: 'error',
+        });
+      } else {
+        setNotification({
+          open: true,
+          message: 'An error occurred. Please try again later.',
+          severity: 'error',
+        });
+      }
     }
   };
 
@@ -231,7 +280,37 @@ const ProfilePage = () => {
     });
   }
 
-  const renderContent = () => {
+  const renderNavigation = () => (
+    <>
+      {navigationLinks.map((section, index) => (
+        <div key={index}>
+          <Typography variant="subtitle1" className="nav-section-header">
+            {section.header}
+          </Typography>
+          <List component="nav">
+            {section.links.map((link, idx) => (
+              <ListItem
+                button
+                key={idx}
+                className={`nav-link ${link.active ? 'nav-link-active' : ''}`}
+                onClick={() => {
+                  setActiveSection(link.section);
+                  if (isMobile) setDrawerOpen(false);
+                }}
+              >
+                <ListItemText primary={link.name} />
+              </ListItem>
+            ))}
+          </List>
+          {index < navigationLinks.length - 1 && (
+            <Divider className="custom-divider" />
+          )}
+        </div>
+      ))}
+    </>
+  );
+
+  const renderSectionContent = () => {
     switch (activeSection) {
       case 'profile':
         return (
@@ -239,8 +318,6 @@ const ProfilePage = () => {
             <Typography variant="h5" className="section-header">
               Personal Information
             </Typography>
-
-            {/* Avatar Preview */}
             <div className="avatar-container">
               <img
                 src={formData.avatar || defaultAvatarUrl}
@@ -251,7 +328,6 @@ const ProfilePage = () => {
                 }}
               />
             </div>
-
             <form onSubmit={handleSubmit} className="profile-form">
               <Row>
                 <Col md={6}>
@@ -263,6 +339,8 @@ const ProfilePage = () => {
                     margin="normal"
                     value={formData.firstName}
                     onChange={handleChange}
+                    error={!!errors.firstName}
+                    helperText={errors.firstName}
                   />
                 </Col>
                 <Col md={6}>
@@ -285,6 +363,8 @@ const ProfilePage = () => {
                 margin="normal"
                 value={formData.email}
                 onChange={handleChange}
+                error={!!errors.email}
+                helperText={errors.email}
               />
               <TextField
                 label="Address"
@@ -305,57 +385,106 @@ const ProfilePage = () => {
                 onChange={handleChange}
               />
 
+              <Divider className="custom-divider" />
               <Typography variant="h6" className="section-subheader">
-                Password Changes
+                Security
               </Typography>
-              <TextField
-                label="Current Password (not required by API)"
-                name="currentPassword"
-                type="password"
-                variant="outlined"
-                fullWidth
-                margin="normal"
-                placeholder="Enter current password (not enforced)"
-                value={formData.currentPassword}
-                onChange={handleChange}
-              />
-              <TextField
-                label="New Password"
-                name="newPassword"
-                type="password"
-                variant="outlined"
-                fullWidth
-                margin="normal"
-                value={formData.newPassword}
-                onChange={handleChange}
-              />
-              <TextField
-                label="Confirm New Password"
-                name="confirmNewPassword"
-                type="password"
-                variant="outlined"
-                fullWidth
-                margin="normal"
-                value={formData.confirmNewPassword}
-                onChange={handleChange}
-              />
+              <Button
+                variant="contained"
+                className="change-password-button"
+                onClick={() => setShowPasswordFields(!showPasswordFields)}
+              >
+                {showPasswordFields
+                  ? 'Hide Password Fields'
+                  : 'Change Password'}
+              </Button>
+
+              {showPasswordFields && (
+                <>
+                  <TextField
+                    label="Current Password (not required by API)"
+                    name="currentPassword"
+                    type="password"
+                    variant="outlined"
+                    fullWidth
+                    margin="normal"
+                    value={formData.currentPassword}
+                    onChange={handleChange}
+                    placeholder="Enter current password (not enforced)"
+                  />
+                  <TextField
+                    label="New Password"
+                    name="newPassword"
+                    type={showNewPassword ? 'text' : 'password'}
+                    variant="outlined"
+                    fullWidth
+                    margin="normal"
+                    value={formData.newPassword}
+                    onChange={handleChange}
+                    error={!!errors.confirmNewPassword}
+                    helperText={errors.confirmNewPassword || ''}
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            onClick={() => setShowNewPassword(!showNewPassword)}
+                            edge="end"
+                          >
+                            {showNewPassword ? (
+                              <VisibilityOff />
+                            ) : (
+                              <Visibility />
+                            )}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                  <TextField
+                    label="Confirm New Password"
+                    name="confirmNewPassword"
+                    type={showConfirmNewPassword ? 'text' : 'password'}
+                    variant="outlined"
+                    fullWidth
+                    margin="normal"
+                    value={formData.confirmNewPassword}
+                    onChange={handleChange}
+                    error={!!errors.confirmNewPassword}
+                    helperText={errors.confirmNewPassword || ''}
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            onClick={() =>
+                              setShowConfirmNewPassword(!showConfirmNewPassword)
+                            }
+                            edge="end"
+                          >
+                            {showConfirmNewPassword ? (
+                              <VisibilityOff />
+                            ) : (
+                              <Visibility />
+                            )}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                </>
+              )}
 
               <div className="form-actions">
                 <Button
                   variant="text"
                   onClick={handleCancel}
-                  sx={{ color: '#6c757d', textTransform: 'none' }}
+                  className="cancel-button"
                 >
                   Cancel
                 </Button>
                 <Button
                   variant="contained"
                   type="submit"
-                  sx={{
-                    backgroundColor: '#28a745',
-                    textTransform: 'none',
-                    '&:hover': { backgroundColor: '#218838' },
-                  }}
+                  className="save-button"
                 >
                   Save Changes
                 </Button>
@@ -363,49 +492,175 @@ const ProfilePage = () => {
             </form>
           </>
         );
+      case 'address-book':
+        return (
+          <>
+            <Typography variant="h5" className="section-header">
+              Address Book
+            </Typography>
+            <Typography variant="body1">
+              Manage your saved addresses here.
+            </Typography>
+            {/* Future functionality for adding/editing addresses */}
+          </>
+        );
+      case 'payment-options':
+        return (
+          <>
+            <Typography variant="h5" className="section-header">
+              My Payment Options
+            </Typography>
+            <Typography variant="body1">
+              Add or manage your payment methods.
+            </Typography>
+            {/* Future functionality for payment methods */}
+          </>
+        );
+      case 'returns':
+        return (
+          <>
+            <Typography variant="h5" className="section-header">
+              My Returns
+            </Typography>
+            <Typography variant="body1">
+              View or initiate product returns.
+            </Typography>
+            {/* Future functionality for returns */}
+          </>
+        );
+      case 'cancellations':
+        return (
+          <>
+            <Typography variant="h5" className="section-header">
+              My Cancellations
+            </Typography>
+            <Typography variant="body1">
+              Check the status of your cancellations.
+            </Typography>
+            {/* Future functionality for cancellations */}
+          </>
+        );
+      case 'wishlist':
+        return (
+          <>
+            <Typography variant="h5" className="section-header">
+              Wishlist
+            </Typography>
+            <Typography variant="body1">
+              View items you've saved for later.
+            </Typography>
+            {/* Future functionality for wishlist */}
+          </>
+        );
+      case 'admin-users':
+        return (
+          <>
+            <Typography variant="h5" className="section-header">
+              User Management (Admin)
+            </Typography>
+            <Typography variant="body1">
+              Manage users of the platform.
+            </Typography>
+            {/* Future functionality for admin user management */}
+          </>
+        );
+      case 'admin-analytics':
+        return (
+          <>
+            <Typography variant="h5" className="section-header">
+              Site Analytics (Admin)
+            </Typography>
+            <Typography variant="body1">
+              View site traffic, sales, and more.
+            </Typography>
+            {/* Future analytics dashboard */}
+          </>
+        );
+      case 'admin-products':
+        return (
+          <>
+            <Typography variant="h5" className="section-header">
+              Product Management (Admin)
+            </Typography>
+            <Typography variant="body1">
+              Add, edit, or remove products.
+            </Typography>
+            {/* Future product management tools */}
+          </>
+        );
+      case 'admin-categories':
+        return (
+          <>
+            <Typography variant="h5" className="section-header">
+              Category Management (Admin)
+            </Typography>
+            <Typography variant="body1">Manage product categories.</Typography>
+            {/* Future category management tools */}
+          </>
+        );
+      case 'admin-orders':
+        return (
+          <>
+            <Typography variant="h5" className="section-header">
+              Orders Management (Admin)
+            </Typography>
+            <Typography variant="body1">
+              View and manage all customer orders.
+            </Typography>
+            {/* Future orders management tools */}
+          </>
+        );
       default:
-        // Placeholder content for other sections
         return <Typography variant="body1">Coming soon...</Typography>;
     }
   };
 
   return (
-    <Container className="profile-page-container">
-      <Row>
-        {/* Left Sidebar */}
-        <Col md={3} className="sidebar-navigation">
-          {navigationLinks.map((section, index) => (
-            <div key={index}>
-              <Typography variant="subtitle1" className="nav-section-header">
-                {section.header}
-              </Typography>
-              <List component="nav">
-                {section.links.map((link, idx) => (
-                  <ListItem
-                    button
-                    key={idx}
-                    className={`nav-link ${link.active ? 'nav-link-active' : ''}`}
-                    onClick={() => setActiveSection(link.section)}
-                  >
-                    <ListItemText primary={link.name} />
-                  </ListItem>
-                ))}
-              </List>
-              {index < navigationLinks.length - 1 && <Divider />}
-            </div>
-          ))}
-        </Col>
+    <div>
+      {isMobile && (
+        <Container className="profile-page-container">
+          <div className="mobile-header">
+            <IconButton
+              aria-label="Open navigation menu"
+              className="mobile-menu-icon"
+              onClick={() => setDrawerOpen(true)}
+            >
+              <Menu />
+            </IconButton>
+            <Typography variant="h6" className="mobile-header-title">
+              Profile
+            </Typography>
+          </div>
+        </Container>
+      )}
 
-        {/* Right Content */}
-        <Col md={9}>{renderContent()}</Col>
-      </Row>
-      <Notification
-        open={notification.open}
-        onClose={handleNotificationClose}
-        severity={notification.severity}
-        message={notification.message}
-      />
-    </Container>
+      <Container className="profile-page-container">
+        <Row>
+          {!isMobile && (
+            <Col md={3} className="sidebar-navigation">
+              {renderNavigation()}
+            </Col>
+          )}
+
+          <Col md={isMobile ? 12 : 9}>{renderSectionContent()}</Col>
+        </Row>
+        <Notification
+          open={notification.open}
+          onClose={handleNotificationClose}
+          severity={notification.severity}
+          message={notification.message}
+        />
+      </Container>
+
+      <Drawer
+        anchor="left"
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        className="drawer-style"
+      >
+        <div className="drawer-content">{renderNavigation()}</div>
+      </Drawer>
+    </div>
   );
 };
 

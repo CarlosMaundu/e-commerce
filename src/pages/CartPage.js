@@ -1,5 +1,3 @@
-// src/pages/CartPage.js
-
 import React from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import {
@@ -41,81 +39,81 @@ const CartPage = () => {
           {cartItems.length > 0 ? (
             <>
               {cartItems.map((item) => (
-                <div className="cart-item" key={item.id + item.size}>
-                  <div className="cart-item-image">
-                    <Link to={`/products/${item.id}`}>
-                      <img src={item.images[0]} alt={item.title} />
-                    </Link>
-                  </div>
-                  <div className="cart-item-details">
-                    <h3>
-                      <Link
-                        to={`/products/${item.id}`}
-                        className="cart-item-title"
-                      >
-                        {item.title}
+                <div className="cart-item-box" key={item.id + item.size}>
+                  <div className="cart-item">
+                    <div className="cart-item-image">
+                      <Link to={`/products/${item.id}`}>
+                        <img src={item.images[0]} alt={item.title} />
                       </Link>
-                    </h3>
-                    <p>Size: {item.size || 'N/A'}</p>
-                    <div className="cart-item-price">
-                      ${item.price.toFixed(2)}
                     </div>
-                    <div className="cart-item-quantity">
-                      <button
-                        onClick={() =>
-                          dispatch(
-                            decrementQuantity({ id: item.id, size: item.size })
-                          )
-                        }
-                        disabled={item.quantity <= 1}
-                      >
-                        -
-                      </button>
-                      <span>{item.quantity}</span>
-                      <button
-                        onClick={() =>
-                          dispatch(
-                            incrementQuantity({ id: item.id, size: item.size })
-                          )
-                        }
-                      >
-                        +
-                      </button>
-                    </div>
-                    <div className="cart-item-actions">
-                      <button
-                        className="remove-button"
-                        onClick={() =>
-                          dispatch(removeItem({ id: item.id, size: item.size }))
-                        }
-                      >
-                        Remove
-                      </button>
-                      <button
-                        className="wishlist-button"
-                        onClick={() => {
-                          dispatch(addToWishlist(item));
-                          dispatch(
-                            removeItem({ id: item.id, size: item.size })
-                          );
-                        }}
-                      >
-                        Move to Wishlist
-                      </button>
+                    <div className="cart-item-details">
+                      <h3>
+                        <Link
+                          to={`/products/${item.id}`}
+                          className="cart-item-title"
+                        >
+                          {item.title}
+                        </Link>
+                      </h3>
+                      <p>Size: {item.size || 'N/A'}</p>
+                      <div className="cart-item-price">
+                        ${item.price.toFixed(2)}
+                      </div>
+                      <div className="cart-item-quantity">
+                        <button
+                          onClick={() =>
+                            dispatch(
+                              decrementQuantity({
+                                id: item.id,
+                                size: item.size,
+                              })
+                            )
+                          }
+                          disabled={item.quantity <= 1}
+                        >
+                          -
+                        </button>
+                        <span>{item.quantity}</span>
+                        <button
+                          onClick={() =>
+                            dispatch(
+                              incrementQuantity({
+                                id: item.id,
+                                size: item.size,
+                              })
+                            )
+                          }
+                        >
+                          +
+                        </button>
+                      </div>
+                      <div className="cart-item-actions">
+                        <button
+                          className="remove-button"
+                          onClick={() =>
+                            dispatch(
+                              removeItem({ id: item.id, size: item.size })
+                            )
+                          }
+                        >
+                          Remove
+                        </button>
+                        <button
+                          className="wishlist-button"
+                          onClick={() => {
+                            dispatch(addToWishlist(item));
+                            dispatch(
+                              removeItem({ id: item.id, size: item.size })
+                            );
+                          }}
+                        >
+                          Move to Wishlist
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
               ))}
-
-              {/* Continue Shopping Button at the bottom */}
-              <div className="continue-shopping-bottom">
-                <button
-                  className="continue-shopping-button"
-                  onClick={() => navigate('/products')}
-                >
-                  &larr; Continue Shopping
-                </button>
-              </div>
             </>
           ) : (
             <p>
@@ -126,6 +124,12 @@ const CartPage = () => {
 
         {/* Right Column - Order Summary */}
         <div className="order-summary">
+          {/* Promo Code Application at the top */}
+          <div className="promo-code">
+            <input type="text" placeholder="Promo code" />
+            <button className="apply-button">Apply</button>
+          </div>
+
           <h2>Order Summary</h2>
           <div className="order-summary-details">
             <div className="order-summary-item">
@@ -145,13 +149,18 @@ const CartPage = () => {
               <span className="amount">${total.toFixed(2)}</span>
             </div>
           </div>
-          <button className="checkout-button">Make Payment</button>
-
-          {/* Promo Code Application */}
-          <div className="promo-code">
-            <input type="text" placeholder="Enter promo code" />
-            <button className="apply-button">Apply</button>
-          </div>
+          <button
+            className="checkout-button"
+            onClick={() => navigate('/checkout')}
+          >
+            Checkout
+          </button>
+          <button
+            className="continue-shopping-button"
+            onClick={() => navigate('/products')}
+          >
+            Continue Shopping
+          </button>
         </div>
       </div>
     </div>
