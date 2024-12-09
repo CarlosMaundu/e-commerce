@@ -310,7 +310,7 @@ const ProfilePage = () => {
     </>
   );
 
-  const renderContent = () => {
+  const renderSectionContent = () => {
     switch (activeSection) {
       case 'profile':
         return (
@@ -318,8 +318,6 @@ const ProfilePage = () => {
             <Typography variant="h5" className="section-header">
               Personal Information
             </Typography>
-
-            {/* Avatar Preview */}
             <div className="avatar-container">
               <img
                 src={formData.avatar || defaultAvatarUrl}
@@ -330,7 +328,6 @@ const ProfilePage = () => {
                 }}
               />
             </div>
-
             <form onSubmit={handleSubmit} className="profile-form">
               <Row>
                 <Col md={6}>
@@ -495,12 +492,128 @@ const ProfilePage = () => {
             </form>
           </>
         );
+      case 'address-book':
+        return (
+          <>
+            <Typography variant="h5" className="section-header">
+              Address Book
+            </Typography>
+            <Typography variant="body1">
+              Manage your saved addresses here.
+            </Typography>
+            {/* Future functionality for adding/editing addresses */}
+          </>
+        );
+      case 'payment-options':
+        return (
+          <>
+            <Typography variant="h5" className="section-header">
+              My Payment Options
+            </Typography>
+            <Typography variant="body1">
+              Add or manage your payment methods.
+            </Typography>
+            {/* Future functionality for payment methods */}
+          </>
+        );
+      case 'returns':
+        return (
+          <>
+            <Typography variant="h5" className="section-header">
+              My Returns
+            </Typography>
+            <Typography variant="body1">
+              View or initiate product returns.
+            </Typography>
+            {/* Future functionality for returns */}
+          </>
+        );
+      case 'cancellations':
+        return (
+          <>
+            <Typography variant="h5" className="section-header">
+              My Cancellations
+            </Typography>
+            <Typography variant="body1">
+              Check the status of your cancellations.
+            </Typography>
+            {/* Future functionality for cancellations */}
+          </>
+        );
+      case 'wishlist':
+        return (
+          <>
+            <Typography variant="h5" className="section-header">
+              Wishlist
+            </Typography>
+            <Typography variant="body1">
+              View items you've saved for later.
+            </Typography>
+            {/* Future functionality for wishlist */}
+          </>
+        );
+      case 'admin-users':
+        return (
+          <>
+            <Typography variant="h5" className="section-header">
+              User Management (Admin)
+            </Typography>
+            <Typography variant="body1">
+              Manage users of the platform.
+            </Typography>
+            {/* Future functionality for admin user management */}
+          </>
+        );
+      case 'admin-analytics':
+        return (
+          <>
+            <Typography variant="h5" className="section-header">
+              Site Analytics (Admin)
+            </Typography>
+            <Typography variant="body1">
+              View site traffic, sales, and more.
+            </Typography>
+            {/* Future analytics dashboard */}
+          </>
+        );
+      case 'admin-products':
+        return (
+          <>
+            <Typography variant="h5" className="section-header">
+              Product Management (Admin)
+            </Typography>
+            <Typography variant="body1">
+              Add, edit, or remove products.
+            </Typography>
+            {/* Future product management tools */}
+          </>
+        );
+      case 'admin-categories':
+        return (
+          <>
+            <Typography variant="h5" className="section-header">
+              Category Management (Admin)
+            </Typography>
+            <Typography variant="body1">Manage product categories.</Typography>
+            {/* Future category management tools */}
+          </>
+        );
+      case 'admin-orders':
+        return (
+          <>
+            <Typography variant="h5" className="section-header">
+              Orders Management (Admin)
+            </Typography>
+            <Typography variant="body1">
+              View and manage all customer orders.
+            </Typography>
+            {/* Future orders management tools */}
+          </>
+        );
       default:
         return <Typography variant="body1">Coming soon...</Typography>;
     }
   };
-
-  const sidebarContent = renderNavigation();
 
   return (
     <div>
@@ -525,11 +638,11 @@ const ProfilePage = () => {
         <Row>
           {!isMobile && (
             <Col md={3} className="sidebar-navigation">
-              {sidebarContent}
+              {renderNavigation()}
             </Col>
           )}
 
-          <Col md={isMobile ? 12 : 9}>{renderContent()}</Col>
+          <Col md={isMobile ? 12 : 9}>{renderSectionContent()}</Col>
         </Row>
         <Notification
           open={notification.open}
@@ -545,7 +658,7 @@ const ProfilePage = () => {
         onClose={() => setDrawerOpen(false)}
         className="drawer-style"
       >
-        <div className="drawer-content">{sidebarContent}</div>
+        <div className="drawer-content">{renderNavigation()}</div>
       </Drawer>
     </div>
   );
