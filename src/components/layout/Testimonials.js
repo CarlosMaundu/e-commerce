@@ -1,4 +1,4 @@
-// src/components/Testimonials.js
+// src/components/layout/Testimonials.js
 
 import React from 'react';
 import '../styles/homePage.css';

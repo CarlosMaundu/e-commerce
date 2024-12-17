@@ -16,7 +16,7 @@ body {
 
 /* General Section Styles */
 section {
-  padding: 60px 20px;
+  padding: 0px 20px;
 }
 
 /* Center headings within sections */
@@ -398,47 +398,6 @@ section h2 {
   background-color: #218838;
 }
 
-/* Newsletter Section */
-.newsletter-section {
-  background-color: #f1f1f1;
-  padding: 60px 20px;
-  text-align: center;
-}
-
-.newsletter-section h2 {
-  margin-bottom: 20px;
-  font-size: 2rem;
-}
-
-.newsletter-section p {
-  margin-bottom: 30px;
-  font-size: 1.2rem;
-}
-
-.newsletter-form {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.newsletter-form input[type='email'] {
-  padding: 10px;
-  width: 300px;
-  max-width: 100%;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-}
-
-.newsletter-form .cta-button {
-  padding: 10px 20px;
-}
-
-.success-message {
-  color: green;
-  font-size: 1.1rem;
-}
-
 /* Responsive Adjustments */
 @media (max-width: 768px) {
   .hero-image {
@@ -468,20 +427,7 @@ section h2 {
     gap: 20px;
   }
 
-  .newsletter-form {
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .newsletter-form input[type='email'] {
-    width: 100%;
-    max-width: 300px;
-  }
-
-  .newsletter-form .cta-button {
-    width: 100%;
-    max-width: 300px;
-  }
+  
 
   /* Adjust pagination arrows for mobile */
   .pagination-arrow.left-arrow {

@@ -2,8 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import FiltersSidebar from '../components/FiltersSidebar';
-import ProductGrid from '../components/ProductGrid';
+import FiltersSidebar from '../components/layout/FiltersSidebar';
+import ProductGrid from '../components/common/ProductGrid';
 import { fetchProducts } from '../redux/productsSlice';
 import '../styles/productsPage.css';
 import { useLocation } from 'react-router-dom';

@@ -1,8 +1,8 @@
-// src/components/ProductGrid.js
+// src/components/common/ProductGrid.js
 
 import React from 'react';
 import ProductCard from './ProductCard';
-import '../styles/productGrid.css';
+import '../../styles/productGrid.css';
 import { Grid, Typography } from '@mui/material';
 
 const ProductGrid = ({ products, columns }) => {

@@ -1,12 +1,12 @@
-// src/components/HeroSection.js
+// src/components/layout/HeroSection.js
 
 import React from 'react';
 import Slider from 'react-slick';
-import '../styles/heroSection.css';
-import banner1 from '../images/banner-image1.jpg';
-import banner2 from '../images/banner-image2.jpg';
-import banner3 from '../images/banner-image3.jpg';
-import banner4 from '../images/banner-image4.jpg';
+import '../../styles/heroSection.css';
+import banner1 from '../../images/banner-image1.jpg';
+import banner2 from '../../images/banner-image2.jpg';
+import banner3 from '../../images/banner-image3.jpg';
+import banner4 from '../../images/banner-image4.jpg';
 
 import 'slick-carousel/slick/slick.css';
 import 'slick-carousel/slick/slick-theme.css';

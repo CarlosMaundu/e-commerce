@@ -1,7 +1,7 @@
-// src/components/FiltersSidebar.js
+// src/components/layout/FiltersSidebar.js
 
 import React, { useState, useEffect } from 'react';
-import { fetchCategories } from '../services/categoryService';
+import { fetchCategories } from '../../services/categoryService';
 import {
   IconButton,
   Slider,

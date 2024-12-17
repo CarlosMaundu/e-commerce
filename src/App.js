@@ -2,7 +2,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
-import Header from './components/Header';
+import Header from './components/layout/Header';
 import LoginPage from './pages/LoginPage';
 import HomePage from './pages/HomePage';
 import ProductsPage from './pages/ProductsPage';
@@ -13,7 +13,7 @@ import DashboardPage from './pages/DashboardPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminRoute from './components/AdminRoute';
 import PrivateRoute from './components/PrivateRoute';
-import Footer from './components/Footer';
+import Footer from './components/layout/Footer';
 import CheckoutPage from './pages/CheckoutPage';
 
 import { Provider } from 'react-redux';

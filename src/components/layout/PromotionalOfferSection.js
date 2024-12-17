@@ -1,8 +1,8 @@
-// src/components/PromotionalOfferSection.js
+// src/components/layout/PromotionalOfferSection.js
 
 import React from 'react';
-import '../styles/homePage.css';
-import promotionImage from '../images/promotion-offer.jpg';
+import '../../styles/homePage.css';
+import promotionImage from '../../images/promotion-offer.jpg';
 
 const PromotionalOfferSection = () => {
   return (

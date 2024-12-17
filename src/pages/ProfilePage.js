@@ -3,9 +3,7 @@ import React, { useEffect, useState, useContext, Suspense } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { updateUserProfile } from '../services/userService';
 import Notification from '../notification/notification';
-import '../styles/profilePage.css';
 
-import { Container, Row, Col } from 'react-bootstrap';
 import {
   Typography,
   Divider,
@@ -15,14 +13,29 @@ import {
   IconButton,
   Drawer,
   useMediaQuery,
+  Box,
+  Tooltip,
 } from '@mui/material';
-import { Menu } from '@mui/icons-material';
+import {
+  Menu,
+  AccountCircle,
+  Home,
+  CreditCard,
+  AssignmentReturn,
+  Cancel,
+  ShoppingCart,
+  FavoriteBorder,
+  Group,
+  Analytics,
+  Inventory2,
+  Category,
+  LocalShipping,
+} from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import { useLocation } from 'react-router-dom';
 
-import ProfileSection from '../components/profile/ProfileSection'; // Regular import for example
+import ProfileSection from '../components/profile/ProfileSection';
 
-// Lazy load other sections
 const AddressBookSection = React.lazy(
   () => import('../components/profile/AddressBookSection')
 );
@@ -36,13 +49,10 @@ const WishlistSection = React.lazy(
   () => import('../components/profile/WishlistSection')
 );
 
-// For demonstration, these are the same avatar URL and default messages
 const defaultAvatarUrl = 'https://imgur.com/a/kIaFC3J';
 
 const ProfilePage = () => {
   const { user, accessToken, loading, updateUser } = useContext(AuthContext);
-
-  // Parse query params with URLSearchParams
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
   const initialSection = searchParams.get('section') || 'profile';
@@ -54,7 +64,6 @@ const ProfilePage = () => {
     severity: '',
   });
 
-  // Form, errors, password fields
   const [formData, setFormData] = useState({
     id: user?.id || '',
     firstName: '',
@@ -72,6 +81,7 @@ const ProfilePage = () => {
   const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
 
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false); // for collapsible sidebar
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
@@ -216,6 +226,22 @@ const ProfilePage = () => {
 
   const isAdmin = user && user.role === 'admin';
 
+  // Icons mapping to reflect e-commerce context
+  const sectionIcons = {
+    'My Profile': <AccountCircle fontSize="small" />,
+    'Address Book': <Home fontSize="small" />,
+    'My Payment Options': <CreditCard fontSize="small" />,
+    'My Returns': <AssignmentReturn fontSize="small" />,
+    'My Cancellations': <Cancel fontSize="small" />,
+    'My Orders': <ShoppingCart fontSize="small" />,
+    Wishlist: <FavoriteBorder fontSize="small" />,
+    'User Management': <Group fontSize="small" />,
+    'Site Analytics': <Analytics fontSize="small" />,
+    'Product Management': <Inventory2 fontSize="small" />,
+    'Category Management': <Category fontSize="small" />,
+    'Orders Management': <LocalShipping fontSize="small" />,
+  };
+
   const navigationLinks = [
     {
       header: 'Manage My Account',
@@ -302,201 +328,309 @@ const ProfilePage = () => {
     });
   }
 
-  const renderNavigation = () => (
-    <>
-      {navigationLinks.map((section, index) => (
-        <div key={index}>
-          <Typography variant="subtitle1" className="nav-section-header">
-            {section.header}
-          </Typography>
-          <List component="nav">
-            {section.links.map((link, idx) => (
-              <ListItem
-                button
-                key={idx}
-                className={`nav-link ${link.active ? 'nav-link-active' : ''}`}
-                onClick={() => {
-                  // Update URL query param
-                  const url = new URL(window.location);
-                  url.searchParams.set('section', link.section);
-                  window.history.pushState({}, '', url);
-                  setActiveSection(link.section);
-                  if (isMobile) setDrawerOpen(false);
-                }}
-              >
-                <ListItemText primary={link.name} />
-              </ListItem>
-            ))}
-          </List>
-          {index < navigationLinks.length - 1 && (
-            <Divider className="custom-divider" />
-          )}
-        </div>
-      ))}
-    </>
-  );
+  const handleNavItemClick = (link) => {
+    const url = new URL(window.location);
+    url.searchParams.set('section', link.section);
+    window.history.pushState({}, '', url);
+    setActiveSection(link.section);
+    if (isMobile) setDrawerOpen(false);
+  };
 
-  const renderSectionContent = () => {
+  const renderLinkItem = (link) => {
+    const IconComp = sectionIcons[link.name] || (
+      <AccountCircle fontSize="small" />
+    );
     return (
-      <Suspense fallback={<div>Loading...</div>}>
-        {(() => {
-          switch (activeSection) {
-            case 'profile':
-              return (
-                <ProfileSection
-                  formData={formData}
-                  errors={errors}
-                  showPasswordFields={showPasswordFields}
-                  showNewPassword={showNewPassword}
-                  showConfirmNewPassword={showConfirmNewPassword}
-                  handleChange={handleChange}
-                  handleSubmit={handleSubmit}
-                  handleCancel={handleCancel}
-                  setShowPasswordFields={setShowPasswordFields}
-                  setShowNewPassword={setShowNewPassword}
-                  setShowConfirmNewPassword={setShowConfirmNewPassword}
-                  defaultAvatarUrl={defaultAvatarUrl}
-                />
-              );
-            case 'address-book':
-              return <AddressBookSection />;
-            case 'payment-options':
-              return <PaymentOptionsSection />;
-            case 'orders':
-              return <OrdersSection />;
-            case 'wishlist':
-              return <WishlistSection />;
-            case 'returns':
-              return (
-                <>
-                  <Typography variant="h5" className="section-header">
-                    My Returns
-                  </Typography>
-                  <Typography variant="body1">
-                    View or initiate product returns.
-                  </Typography>
-                </>
-              );
-            case 'cancellations':
-              return (
-                <>
-                  <Typography variant="h5" className="section-header">
-                    My Cancellations
-                  </Typography>
-                  <Typography variant="body1">
-                    Check the status of your cancellations.
-                  </Typography>
-                </>
-              );
-            case 'admin-users':
-              return (
-                <>
-                  <Typography variant="h5" className="section-header">
-                    User Management (Admin)
-                  </Typography>
-                  <Typography variant="body1">
-                    Manage users of the platform.
-                  </Typography>
-                </>
-              );
-            case 'admin-analytics':
-              return (
-                <>
-                  <Typography variant="h5" className="section-header">
-                    Site Analytics (Admin)
-                  </Typography>
-                  <Typography variant="body1">
-                    View site traffic, sales, and more.
-                  </Typography>
-                </>
-              );
-            case 'admin-products':
-              return (
-                <>
-                  <Typography variant="h5" className="section-header">
-                    Product Management (Admin)
-                  </Typography>
-                  <Typography variant="body1">
-                    Add, edit, or remove products.
-                  </Typography>
-                </>
-              );
-            case 'admin-categories':
-              return (
-                <>
-                  <Typography variant="h5" className="section-header">
-                    Category Management (Admin)
-                  </Typography>
-                  <Typography variant="body1">
-                    Manage product categories.
-                  </Typography>
-                </>
-              );
-            case 'admin-orders':
-              return (
-                <>
-                  <Typography variant="h5" className="section-header">
-                    Orders Management (Admin)
-                  </Typography>
-                  <Typography variant="body1">
-                    View and manage all customer orders.
-                  </Typography>
-                </>
-              );
-            default:
-              return <Typography variant="body1">Coming soon...</Typography>;
-          }
-        })()}
-      </Suspense>
+      <ListItem
+        button
+        key={link.section}
+        onClick={() => handleNavItemClick(link)}
+        sx={{
+          color: link.active ? '#0D4ED8' : '#000',
+          fontSize: '0.875rem',
+          py: 1.5,
+          px: 2,
+          borderRadius: 1,
+          display: 'flex',
+          alignItems: 'center',
+          transition: 'all 0.2s',
+          '&:hover': {
+            backgroundColor: '#EFF6FF',
+            color: '#1D4ED8',
+          },
+        }}
+      >
+        {sidebarCollapsed ? (
+          <Tooltip title={link.name} placement="right">
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                mr: !sidebarCollapsed ? 1.5 : 0,
+              }}
+            >
+              {IconComp}
+            </Box>
+          </Tooltip>
+        ) : (
+          <Box sx={{ display: 'flex', alignItems: 'center', mr: 1.5 }}>
+            {IconComp}
+          </Box>
+        )}
+        {!sidebarCollapsed && (
+          <ListItemText
+            primary={link.name}
+            primaryTypographyProps={{ fontSize: '0.875rem' }}
+          />
+        )}
+      </ListItem>
     );
   };
 
+  const renderNavigation = () => (
+    <Box
+      sx={{
+        width: sidebarCollapsed ? '70px' : '250px',
+        transition: 'width 0.3s',
+        overflow: 'auto',
+        pt: 2,
+      }}
+    >
+      {/* Collapse/Expand button */}
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: sidebarCollapsed ? 'center' : 'flex-end',
+          px: 2,
+          mb: 3,
+        }}
+      >
+        <IconButton
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          aria-label="Toggle sidebar"
+        >
+          <Menu />
+        </IconButton>
+      </Box>
+
+      {navigationLinks.map((section, index) => (
+        <Box key={index} sx={{ mb: 4 }}>
+          {!sidebarCollapsed && (
+            <Typography
+              variant="subtitle2"
+              sx={{
+                color: '#1D4ED8',
+                fontWeight: 'bold',
+                px: 2,
+                fontSize: '0.875rem',
+              }}
+            >
+              {section.header}
+            </Typography>
+          )}
+          <List component="nav" sx={{ mt: 1, p: 0 }}>
+            {section.links.map((link) => renderLinkItem(link))}
+          </List>
+          {index < navigationLinks.length - 1 && (
+            <Divider sx={{ mt: 3, mb: 2 }} />
+          )}
+        </Box>
+      ))}
+    </Box>
+  );
+
+  const renderSectionContent = () => (
+    <Suspense fallback={<div>Loading...</div>}>
+      {(() => {
+        switch (activeSection) {
+          case 'profile':
+            return (
+              <ProfileSection
+                formData={formData}
+                errors={errors}
+                showPasswordFields={showPasswordFields}
+                showNewPassword={showNewPassword}
+                showConfirmNewPassword={showConfirmNewPassword}
+                handleChange={handleChange}
+                handleSubmit={handleSubmit}
+                handleCancel={handleCancel}
+                setShowPasswordFields={setShowPasswordFields}
+                setShowNewPassword={setShowNewPassword}
+                setShowConfirmNewPassword={setShowConfirmNewPassword}
+                defaultAvatarUrl={defaultAvatarUrl}
+              />
+            );
+          case 'address-book':
+            return <AddressBookSection />;
+          case 'payment-options':
+            return <PaymentOptionsSection />;
+          case 'orders':
+            return <OrdersSection />;
+          case 'wishlist':
+            return <WishlistSection />;
+          case 'returns':
+            return (
+              <>
+                <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2 }}>
+                  My Returns
+                </Typography>
+                <Typography variant="body1">
+                  View or initiate product returns.
+                </Typography>
+              </>
+            );
+          case 'cancellations':
+            return (
+              <>
+                <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2 }}>
+                  My Cancellations
+                </Typography>
+                <Typography variant="body1">
+                  Check the status of your cancellations.
+                </Typography>
+              </>
+            );
+          case 'admin-users':
+            return (
+              <>
+                <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2 }}>
+                  User Management (Admin)
+                </Typography>
+                <Typography variant="body1">
+                  Manage users of the platform.
+                </Typography>
+              </>
+            );
+          case 'admin-analytics':
+            return (
+              <>
+                <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2 }}>
+                  Site Analytics (Admin)
+                </Typography>
+                <Typography variant="body1">
+                  View site traffic, sales, and more.
+                </Typography>
+              </>
+            );
+          case 'admin-products':
+            return (
+              <>
+                <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2 }}>
+                  Product Management (Admin)
+                </Typography>
+                <Typography variant="body1">
+                  Add, edit, or remove products.
+                </Typography>
+              </>
+            );
+          case 'admin-categories':
+            return (
+              <>
+                <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2 }}>
+                  Category Management (Admin)
+                </Typography>
+                <Typography variant="body1">
+                  Manage product categories.
+                </Typography>
+              </>
+            );
+          case 'admin-orders':
+            return (
+              <>
+                <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2 }}>
+                  Orders Management (Admin)
+                </Typography>
+                <Typography variant="body1">
+                  View and manage all customer orders.
+                </Typography>
+              </>
+            );
+          default:
+            return <Typography variant="body1">Coming soon...</Typography>;
+        }
+      })()}
+    </Suspense>
+  );
+
   return (
-    <div>
+    <Box
+      sx={{
+        backgroundColor: '#f2f2f2',
+        minHeight: '100vh',
+        pt: '80px',
+        display: 'flex',
+        alignItems: 'stretch',
+      }}
+    >
       {isMobile && (
-        <Container className="profile-page-container">
-          <div className="mobile-header">
+        <Box sx={{ p: 2, position: 'relative' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
             <IconButton
               aria-label="Open navigation menu"
-              className="mobile-menu-icon"
               onClick={() => setDrawerOpen(true)}
+              sx={{ color: '#333' }}
             >
               <Menu />
             </IconButton>
-            <Typography variant="h6" className="mobile-header-title">
+            <Typography
+              variant="h6"
+              sx={{ fontWeight: 'bold', color: '#000', ml: 2 }}
+            >
               Profile
             </Typography>
-          </div>
-        </Container>
+          </Box>
+        </Box>
       )}
 
-      <Container className="profile-page-container">
-        <Row>
-          {!isMobile && (
-            <Col md={3} className="sidebar-navigation">
-              {renderNavigation()}
-            </Col>
-          )}
+      {/* Drawer for mobile screens */}
+      <Drawer
+        anchor="left"
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        sx={{
+          '& .MuiDrawer-paper': {
+            width: sidebarCollapsed ? '70px' : '250px',
+            boxShadow: 2,
+            fontFamily: 'sans-serif',
+            overflow: 'auto',
+            transition: 'width 0.3s',
+          },
+        }}
+      >
+        {renderNavigation()}
+      </Drawer>
 
-          <Col md={isMobile ? 12 : 9}>{renderSectionContent()}</Col>
-        </Row>
+      {/* Sidebar for non-mobile (now just part of flex layout, no floating or fixed) */}
+      {!isMobile && (
+        <Box
+          sx={{
+            backgroundColor: '#fff',
+            boxShadow: 2,
+            fontFamily: 'sans-serif',
+            overflow: 'auto',
+          }}
+        >
+          {renderNavigation()}
+        </Box>
+      )}
+
+      {/* Main content area */}
+      <Box
+        sx={{
+          flex: 1,
+          px: 3,
+          pb: 5,
+        }}
+      >
+        {renderSectionContent()}
         <Notification
           open={notification.open}
           onClose={handleNotificationClose}
           severity={notification.severity}
           message={notification.message}
         />
-      </Container>
-
-      <Drawer
-        anchor="left"
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        className="drawer-style"
-      >
-        <div className="drawer-content">{renderNavigation()}</div>
-      </Drawer>
-    </div>
+      </Box>
+    </Box>
   );
 };
 

@@ -3,7 +3,7 @@
 .products-page {
   display: flex;
   flex-direction: column;
-  margin-top: 80px; /* Leave space for header */
+  margin-top: 0px;
 }
 
 .products-page__container {

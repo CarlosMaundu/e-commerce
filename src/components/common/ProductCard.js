@@ -1,11 +1,11 @@
-// src/components/ProductCard.js
+// src/components/common/ProductCard.js
 
 import React from 'react';
 import PropTypes from 'prop-types';
-import '../styles/ProductCard.css'; // Ensure this path is correct
+import '../../styles/ProductCard.css';
 import { useDispatch } from 'react-redux';
-import { addItem } from '../redux/cartSlice';
-import { addToWishlist } from '../redux/wishlistSlice';
+import { addItem } from '../../redux/cartSlice';
+import { addToWishlist } from '../../redux/wishlistSlice';
 import { Link } from 'react-router-dom';
 import { FavoriteBorder, AddShoppingCart } from '@mui/icons-material';
 

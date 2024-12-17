@@ -1,18 +1,18 @@
-// src/components/BrandsSection.js
+// src/components/layout/BrandsSection.js
 
 import React from 'react';
-import '../styles/brandsSection.css'; // Import the correct CSS file
-import chanel from '../images/brand-chanel.png';
-import calvinKlein from '../images/brand-calvin-klein.png';
-import gucci from '../images/brand-gucci.png';
-import apple from '../images/brand-apple.png';
-import champion from '../images/brand-champion.png';
-import samsung from '../images/brand-samsung.png';
-import jordan from '../images/brand-jordan.png';
-import nike from '../images/brand-nike.png';
-import puma from '../images/brand-puma.png';
-import palace from '../images/brand-palace.png';
-import pioneer from '../images/brand-pioneer.png';
+import '../../styles/brandsSection.css';
+import chanel from '../../images/brand-chanel.png';
+import calvinKlein from '../../images/brand-calvin-klein.png';
+import gucci from '../../images/brand-gucci.png';
+import apple from '../../images/brand-apple.png';
+import champion from '../../images/brand-champion.png';
+import samsung from '../../images/brand-samsung.png';
+import jordan from '../../images/brand-jordan.png';
+import nike from '../../images/brand-nike.png';
+import puma from '../../images/brand-puma.png';
+import palace from '../../images/brand-palace.png';
+import pioneer from '../../images/brand-pioneer.png';
 
 const BrandsSection = () => {
   const brands = [

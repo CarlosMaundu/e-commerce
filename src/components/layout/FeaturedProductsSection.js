@@ -1,10 +1,10 @@
-// src/components/FeaturedProductsSection.js
+// src/components/layout/FeaturedProductsSection.js
 
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import ProductCard from './ProductCard';
-import '../styles/homePage.css';
-import { fetchProducts } from '../redux/productsSlice';
+import ProductCard from '../common/ProductCard';
+import '../../styles/homePage.css';
+import { fetchProducts } from '../../redux/productsSlice';
 import { CircularProgress, IconButton } from '@mui/material';
 import { ArrowBackIos, ArrowForwardIos } from '@mui/icons-material';
 

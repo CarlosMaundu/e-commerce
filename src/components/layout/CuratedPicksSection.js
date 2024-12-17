@@ -1,12 +1,12 @@
-// src/components/CuratedPicksSection.js
+// src/components/layout/CuratedPicksSection.js
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import '../styles/homePage.css';
-import bestSeller from '../images/curated-pick1.png';
-import shopMen from '../images/curated-pick2.png';
-import shopWomen from '../images/curated-pick3.png';
-import shopCasual from '../images/curated-pick4.png';
+import '../../styles/homePage.css';
+import bestSeller from '../../images/curated-pick1.png';
+import shopMen from '../../images/curated-pick2.png';
+import shopWomen from '../../images/curated-pick3.png';
+import shopCasual from '../../images/curated-pick4.png';
 
 const CuratedPicksSection = () => {
   const curatedPicks = [

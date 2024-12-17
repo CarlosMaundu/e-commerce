@@ -1,8 +1,8 @@
-// src/components/CustomerExperienceSection.js
+// src/components/layout/CustomerExperienceSection.js
 
 import React from 'react';
-import '../styles/customerExperienceSection.css';
-import { FaShieldAlt, FaSmile, FaCalendarAlt, FaTruck } from 'react-icons/fa'; // FontAwesome Icons
+import '../../styles/customerExperienceSection.css';
+import { FaShieldAlt, FaSmile, FaCalendarAlt, FaTruck } from 'react-icons/fa';
 
 const CustomerExperienceSection = () => {
   const experiences = [
