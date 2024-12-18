@@ -2,6 +2,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import ScrollToTop from './components/ScrollToTop';
 import Header from './components/layout/Header';
 import LoginPage from './pages/LoginPage';
 import HomePage from './pages/HomePage';
@@ -26,6 +27,7 @@ const App = () => {
       <Provider store={store}>
         <PersistGate loading={null} persistor={persistor}>
           <Router>
+            <ScrollToTop />
             <Header />
             <Routes>
               <Route path="/login" element={<LoginPage />} />

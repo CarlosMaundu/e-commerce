@@ -311,7 +311,6 @@ const Header = () => {
                 sx={{
                   mr: 1,
                   color: '#000',
-                  fontWeight: 'bold',
                   fontSize: '0.95rem',
                 }}
               >

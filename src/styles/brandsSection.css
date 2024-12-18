@@ -13,7 +13,7 @@
   
   /* Brands Carousel Container */
   .brands-carousel {
-    overflow: hidden; /* Hide overflowing content */
+    overflow: hidden;
     position: relative;
     width: 100%;
   }
@@ -21,19 +21,19 @@
   /* Brands Carousel Track */
   .brands-carousel__track {
     display: flex;
-    width: calc(200%); /* Since we have duplicated brands */
+    width: calc(200%);
     animation: scrollBrands 20s linear infinite;
   }
   
   /* Individual Brand Logos */
   .brand-logo {
     flex: 0 0 auto;
-    width: 150px; /* Consistent width */
-    height: 80px; /* Consistent height */
+    width: 150px;
+    height: 80px;
     display: flex;
     justify-content: center;
     align-items: center;
-    margin-right: 40px; /* Spacing between logos */
+    margin-right: 40px;
   }
   
   .brand-logo img {
@@ -48,7 +48,7 @@
       transform: translateX(0);
     }
     100% {
-      transform: translateX(-50%); /* Scroll half the track to show the duplicated brands */
+      transform: translateX(-50%);
     }
   }
   

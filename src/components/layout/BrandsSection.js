@@ -1,7 +1,8 @@
-// src/components/layout/BrandsSection.js
+import React, { useState, useEffect } from 'react';
+import { Box, Typography, Skeleton } from '@mui/material';
+import { styled, keyframes } from '@mui/system';
 
-import React from 'react';
-import '../../styles/brandsSection.css';
+// Import images
 import chanel from '../../images/brand-chanel.png';
 import calvinKlein from '../../images/brand-calvin-klein.png';
 import gucci from '../../images/brand-gucci.png';
@@ -14,7 +15,53 @@ import puma from '../../images/brand-puma.png';
 import palace from '../../images/brand-palace.png';
 import pioneer from '../../images/brand-pioneer.png';
 
+// Scroll animation keyframes
+const scrollAnimation = keyframes`
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+`;
+
+// Styled carousel track for infinite scroll
+const BrandsCarouselTrack = styled(Box)(({ theme }) => ({
+  display: 'flex',
+  width: '200%',
+  animation: `${scrollAnimation} 20s linear infinite`,
+}));
+
+// Styled brand logo container
+const BrandLogoBox = styled(Box)(({ theme }) => ({
+  flex: '0 0 auto',
+  width: '150px',
+  height: '80px',
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  marginRight: '40px',
+  '& img': {
+    maxWidth: '100%',
+    maxHeight: '100%',
+    objectFit: 'contain',
+    display: 'block',
+  },
+  [theme.breakpoints.down('md')]: {
+    width: '100px',
+    height: '60px',
+    marginRight: '20px',
+  },
+  [theme.breakpoints.down('sm')]: {
+    width: '80px',
+    height: '50px',
+    marginRight: '15px',
+  },
+}));
+
 const BrandsSection = () => {
+  const [imagesLoaded, setImagesLoaded] = useState(false);
+
   const brands = [
     { id: 1, name: 'Chanel', logo: chanel },
     { id: 2, name: 'Calvin Klein', logo: calvinKlein },
@@ -29,22 +76,56 @@ const BrandsSection = () => {
     { id: 11, name: 'Pioneer', logo: pioneer },
   ];
 
-  // Duplicate the brands array for seamless scrolling
+  // Duplicate brands for seamless scrolling
   const duplicatedBrands = [...brands, ...brands];
 
+  useEffect(() => {
+    // Simulate loading images
+    const timer = setTimeout(() => setImagesLoaded(true), 1000);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
-    <section className="brands-section">
-      <h2>Our Brands</h2>
-      <div className="brands-carousel">
-        <div className="brands-carousel__track">
+    <Box sx={{ py: 6, textAlign: 'center', overflow: 'hidden' }}>
+      {/* Title */}
+      <Typography
+        variant="h4"
+        sx={{
+          fontWeight: 'light',
+          color: '#333',
+          mb: 4,
+        }}
+      >
+        Our Brands
+      </Typography>
+
+      {/* Carousel */}
+      <Box
+        sx={{
+          position: 'relative',
+          width: '100%',
+          overflow: 'hidden',
+          display: 'flex',
+        }}
+      >
+        <BrandsCarouselTrack>
           {duplicatedBrands.map((brand, index) => (
-            <div key={index} className="brand-logo">
-              <img src={brand.logo} alt={brand.name} />
-            </div>
+            <BrandLogoBox key={index}>
+              {imagesLoaded ? (
+                <img src={brand.logo} alt={brand.name} loading="lazy" />
+              ) : (
+                <Skeleton
+                  variant="rectangular"
+                  width="100%"
+                  height="100%"
+                  animation="wave"
+                />
+              )}
+            </BrandLogoBox>
           ))}
-        </div>
-      </div>
-    </section>
+        </BrandsCarouselTrack>
+      </Box>
+    </Box>
   );
 };
 

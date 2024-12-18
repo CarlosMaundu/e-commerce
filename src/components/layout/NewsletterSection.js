@@ -88,7 +88,7 @@ const NewsletterSection = () => {
           variant="h2"
           sx={{
             color: 'grey.800',
-            fontSize: { xs: '2rem', md: '3rem' },
+            fontSize: { xs: '2rem', md: '2rem' },
             fontWeight: 'extrabold',
             lineHeight: { md: '55px' },
           }}
