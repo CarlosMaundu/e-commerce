@@ -1,14 +1,13 @@
 // src/components/layout/CustomerExperienceSection.js
 import React, { useState, useEffect } from 'react';
 import { Box, Typography, Button, Grid, Skeleton } from '@mui/material';
-import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
-import LocalShippingIcon from '@mui/icons-material/LocalShipping';
-import SecurityIcon from '@mui/icons-material/Security';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import NewReleasesIcon from '@mui/icons-material/NewReleases';
+import InsightsIcon from '@mui/icons-material/Insights';
 
 const CustomerExperienceSection = () => {
   const [loading, setLoading] = useState(true);
 
-  // Simulate lazy loading, for demonstration only
   useEffect(() => {
     const timer = setTimeout(() => {
       setLoading(false);
@@ -25,19 +24,19 @@ const CustomerExperienceSection = () => {
 
   const features = [
     {
-      icon: <SecurityIcon sx={{ fontSize: 32, color: '#ff405c' }} />,
+      icon: <InsightsIcon sx={{ fontSize: 32, color: '#ff405c' }} />,
       title: 'Fresh Insights',
       description:
         'Stay updated with the latest trends and collections carefully selected by our experts.',
     },
     {
-      icon: <ShoppingCartIcon sx={{ fontSize: 32, color: '#1f95f8' }} />,
+      icon: <TrendingUpIcon sx={{ fontSize: 32, color: '#1f95f8' }} />,
       title: 'Trending Now',
       description:
         'Our store features the most in-demand products that keep you ahead in style and functionality.',
     },
     {
-      icon: <LocalShippingIcon sx={{ fontSize: 32, color: '#2196f3' }} />,
+      icon: <NewReleasesIcon sx={{ fontSize: 32, color: '#008000' }} />,
       title: 'Daily Highlights',
       description:
         'Explore new arrivals and daily specials that bring excitement to your shopping journey.',
@@ -46,7 +45,6 @@ const CustomerExperienceSection = () => {
 
   return (
     <Box sx={{ fontFamily: 'sans-serif', p: 4, mb: 8 }}>
-      {' '}
       <Box sx={{ maxWidth: { md: '1000px', xs: '300px' }, mx: 'auto' }}>
         {/* Top section: Heading and paragraphs */}
         <Grid container spacing={3}>

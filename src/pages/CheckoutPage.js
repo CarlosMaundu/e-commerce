@@ -3,7 +3,19 @@
 import React, { useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import '../styles/checkoutPage.css';
+import {
+  Box,
+  Typography,
+  Button,
+  Grid,
+  TextField,
+  RadioGroup,
+  FormControlLabel,
+  Radio,
+  Checkbox,
+  FormHelperText,
+  Divider,
+} from '@mui/material';
 import paymentMastercard from '../images/payment1.png'; // MasterCard
 import paymentVisa from '../images/payment2.png'; // Visa
 import paymentPaypal from '../images/payment3.png'; // PayPal
@@ -175,272 +187,362 @@ const CheckoutForm = () => {
   };
 
   return (
-    <div className="checkout-page">
-      <div className="checkout-content">
-        {/* Left Column - Checkout Form */}
-        <div className="checkout-form-column">
-          <h1 className="checkout-title">Checkout</h1>
+    <Box
+      sx={{
+        fontFamily: 'sans-serif',
+        p: { xs: 2, lg: 4 },
+        backgroundColor: '#f5f5f5',
+        minHeight: '100vh',
+      }}
+    >
+      <Grid container spacing={3}>
+        {/* Order Summary Column - Positioned above on small screens */}
+        <Grid item lg={4} xs={12} order={{ xs: 1, lg: 2 }}>
+          <Box
+            sx={{
+              backgroundColor: 'white',
+              p: 3,
+              borderRadius: '8px',
+              boxShadow: 1,
+              position: { lg: 'sticky' },
+              top: { lg: '80px' },
+            }}
+          >
+            <Typography variant="h6" gutterBottom>
+              Order Summary
+            </Typography>
 
-          {/* Shipping Info Section */}
-          <div className="checkout-section shipping-info">
-            <h2 className="section-title">Shipping Information</h2>
-            <div className="two-column-grid">
-              <div className="form-field">
-                <label>Name</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
-                {errors.name && (
-                  <span style={{ color: 'red', fontSize: '12px' }}>
-                    {errors.name}
-                  </span>
-                )}
-              </div>
-              <div className="form-field">
-                <label>Email Address</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-                {errors.email && (
-                  <span style={{ color: 'red', fontSize: '12px' }}>
-                    {errors.email}
-                  </span>
-                )}
-              </div>
-              <div className="form-field">
-                <label>Street Address</label>
-                <input
-                  type="text"
-                  value={streetAddress}
-                  onChange={(e) => setStreetAddress(e.target.value)}
-                />
-                {errors.streetAddress && (
-                  <span style={{ color: 'red', fontSize: '12px' }}>
-                    {errors.streetAddress}
-                  </span>
-                )}
-              </div>
-              <div className="form-field">
-                <label>City</label>
-                <input
-                  type="text"
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                />
-                {errors.city && (
-                  <span style={{ color: 'red', fontSize: '12px' }}>
-                    {errors.city}
-                  </span>
-                )}
-              </div>
-              <div className="form-field">
-                <label>State</label>
-                <input
-                  type="text"
-                  value={stateField}
-                  onChange={(e) => setStateField(e.target.value)}
-                />
-                {errors.stateField && (
-                  <span style={{ color: 'red', fontSize: '12px' }}>
-                    {errors.stateField}
-                  </span>
-                )}
-              </div>
-              <div className="form-field">
-                <label>Postal Code</label>
-                <input
-                  type="text"
-                  value={postalCode}
-                  onChange={(e) => setPostalCode(e.target.value)}
-                />
-                {errors.postalCode && (
-                  <span style={{ color: 'red', fontSize: '12px' }}>
-                    {errors.postalCode}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
+            <Divider sx={{ mb: 2 }} />
 
-          {/* Payment Method Section */}
-          <div className="checkout-section payment-method">
-            <h2 className="section-title">Payment Method</h2>
-            <div className="payment-options">
-              <label className="payment-option">
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="visa"
-                  checked={paymentMethod === 'visa'}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                />
-                <img src={paymentVisa} alt="Visa" className="payment-icon" />
-                Visa
-              </label>
-
-              <label className="payment-option">
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="mastercard"
-                  checked={paymentMethod === 'mastercard'}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                />
-                <img
-                  src={paymentMastercard}
-                  alt="MasterCard"
-                  className="payment-icon"
-                />
-                MasterCard
-              </label>
-
-              <label className="payment-option">
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value="paypal"
-                  checked={paymentMethod === 'paypal'}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                />
-                <img
-                  src={paymentPaypal}
-                  alt="PayPal"
-                  className="payment-icon"
-                />
-                PayPal
-              </label>
-            </div>
-
-            {(paymentMethod === 'visa' || paymentMethod === 'mastercard') && (
-              <div className="card-details">
-                <label>Card Details</label>
-                <div
-                  style={{
-                    border: '1px solid #ddd',
-                    borderRadius: '4px',
-                    padding: '8px',
-                    marginBottom: '8px',
+            {/* Product List */}
+            <Box sx={{ maxHeight: '400px', overflowY: 'auto' }}>
+              {cartItems.map((item) => (
+                <Box
+                  key={`${item.id}-${item.size}`}
+                  sx={{
+                    display: 'flex',
+                    flexDirection: { xs: 'column', sm: 'row' },
+                    mb: 2,
+                    alignItems: { xs: 'flex-start', sm: 'center' },
                   }}
                 >
-                  <CardElement />
-                </div>
-                {errors.card && (
-                  <span style={{ color: 'red', fontSize: '12px' }}>
-                    {errors.card}
-                  </span>
-                )}
-              </div>
-            )}
-
-            {paymentMethod === 'paypal' && (
-              <div className="paypal-info">
-                <p>
-                  You will be redirected to PayPal to complete your payment.
-                </p>
-              </div>
-            )}
-
-            <div className="terms-conditions">
-              <label className="tc-label">
-                <input
-                  type="checkbox"
-                  checked={termsAccepted}
-                  onChange={(e) => setTermsAccepted(e.target.checked)}
-                />
-                I accept the{' '}
-                <a href="/terms" className="tc-link">
-                  Terms and Conditions
-                </a>
-                .
-              </label>
-              {errors.terms && (
-                <span style={{ color: 'red', fontSize: '12px' }}>
-                  {errors.terms}
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="checkout-actions">
-            <button className="back-button" onClick={() => navigate('/cart')}>
-              Back
-            </button>
-            <button
-              className="confirm-payment-button"
-              disabled={!termsAccepted}
-              onClick={handleConfirmPayment}
-            >
-              Confirm payment ${total.toFixed(2)}
-            </button>
-          </div>
-        </div>
-
-        {/* Right Column - Order Summary */}
-        <div className="order-summary-column">
-          <div className="order-summary-container">
-            <h2>Order Summary</h2>
-            <div className="product-list">
-              {cartItems.map((item) => (
-                <div className="product-row" key={item.id + item.size}>
-                  <div className="product-entry">
-                    <div className="product-image">
-                      <img src={item.images[0]} alt={item.title} />
-                    </div>
-                    <div className="product-details-grid">
-                      <div className="name-row">
-                        <span className="label">Name:</span>
-                        <span className="value">{item.title}</span>
-                      </div>
-                      <div className="detail-row">
-                        <span className="label">Size:</span>
-                        <span className="value">{item.size || 'N/A'}</span>
-                      </div>
-                      <div className="detail-row">
-                        <span className="label">Qty:</span>
-                        <span className="value">{item.quantity}</span>
-                      </div>
-                      <div className="detail-row">
-                        <span className="label">Price:</span>
-                        <span className="value">
-                          ${(item.price * item.quantity).toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                  <Box
+                    sx={{
+                      width: '80px',
+                      height: '80px',
+                      mr: { sm: 2 },
+                      mb: { xs: 1, sm: 0 },
+                      flexShrink: 0,
+                      overflow: 'hidden',
+                      borderRadius: '8px',
+                    }}
+                  >
+                    <img
+                      src={item.images[0]}
+                      alt={item.title}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                      }}
+                    />
+                  </Box>
+                  <Box>
+                    <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
+                      {item.title}
+                    </Typography>
+                    <Typography variant="body2">
+                      Size: {item.size || 'N/A'}
+                    </Typography>
+                    <Typography variant="body2">
+                      Color: {item.color || 'N/A'}
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                      Price: ${(item.price * item.quantity).toFixed(2)}
+                    </Typography>
+                  </Box>
+                </Box>
               ))}
-            </div>
-            <div className="summary-line">
-              <span>Subtotal</span>
-              <span>${subtotal.toFixed(2)}</span>
-            </div>
-            <div className="summary-line">
-              <span>Shipping</span>
-              <span>${shipping.toFixed(2)}</span>
-            </div>
-            <div className="summary-line">
-              <span>Tax</span>
-              <span>${tax.toFixed(2)}</span>
-            </div>
-            <div className="summary-total">
-              <span>Total</span>
-              <span>${total.toFixed(2)}</span>
-            </div>
-          </div>
-        </div>
-      </div>
+            </Box>
+
+            <Divider sx={{ my: 2 }} />
+
+            {/* Summary Details */}
+            <Box
+              sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}
+            >
+              <Typography variant="body2">Subtotal</Typography>
+              <Typography variant="body2">${subtotal.toFixed(2)}</Typography>
+            </Box>
+            <Box
+              sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}
+            >
+              <Typography variant="body2">Shipping</Typography>
+              <Typography variant="body2">${shipping.toFixed(2)}</Typography>
+            </Box>
+            <Box
+              sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}
+            >
+              <Typography variant="body2">Tax</Typography>
+              <Typography variant="body2">${tax.toFixed(2)}</Typography>
+            </Box>
+            <Divider sx={{ my: 2 }} />
+            <Box
+              sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}
+            >
+              <Typography variant="h6">Total</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                ${total.toFixed(2)}
+              </Typography>
+            </Box>
+          </Box>
+        </Grid>
+
+        {/* Left Column - Checkout Form */}
+        <Grid item lg={8} xs={12} order={{ xs: 2, lg: 1 }}>
+          <Box
+            sx={{
+              backgroundColor: 'white',
+              p: { xs: 2, lg: 4 },
+              borderRadius: '8px',
+              boxShadow: 1,
+            }}
+          >
+            <Typography variant="h4" gutterBottom>
+              Checkout
+            </Typography>
+
+            {/* Shipping Information */}
+            <Box sx={{ mb: 4 }}>
+              <Typography variant="h6" gutterBottom>
+                Shipping Information
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Name"
+                    fullWidth
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    error={!!errors.name}
+                    helperText={errors.name}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label="Email Address"
+                    type="email"
+                    fullWidth
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    error={!!errors.email}
+                    helperText={errors.email}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    label="Street Address"
+                    fullWidth
+                    value={streetAddress}
+                    onChange={(e) => setStreetAddress(e.target.value)}
+                    error={!!errors.streetAddress}
+                    helperText={errors.streetAddress}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    label="City"
+                    fullWidth
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    error={!!errors.city}
+                    helperText={errors.city}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    label="State"
+                    fullWidth
+                    value={stateField}
+                    onChange={(e) => setStateField(e.target.value)}
+                    error={!!errors.stateField}
+                    helperText={errors.stateField}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    label="Postal Code"
+                    fullWidth
+                    value={postalCode}
+                    onChange={(e) => setPostalCode(e.target.value)}
+                    error={!!errors.postalCode}
+                    helperText={errors.postalCode}
+                  />
+                </Grid>
+              </Grid>
+            </Box>
+
+            {/* Payment Method */}
+            <Box sx={{ mb: 4 }}>
+              <Typography variant="h6" gutterBottom>
+                Payment Method
+              </Typography>
+              <RadioGroup
+                row
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value)}
+              >
+                <FormControlLabel
+                  value="visa"
+                  control={<Radio />}
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <img
+                        src={paymentVisa}
+                        alt="Visa"
+                        style={{ width: '40px', marginRight: '8px' }}
+                      />
+                      Visa
+                    </Box>
+                  }
+                />
+                <FormControlLabel
+                  value="mastercard"
+                  control={<Radio />}
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <img
+                        src={paymentMastercard}
+                        alt="MasterCard"
+                        style={{ width: '40px', marginRight: '8px' }}
+                      />
+                      MasterCard
+                    </Box>
+                  }
+                />
+                <FormControlLabel
+                  value="paypal"
+                  control={<Radio />}
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <img
+                        src={paymentPaypal}
+                        alt="PayPal"
+                        style={{ width: '40px', marginRight: '8px' }}
+                      />
+                      PayPal
+                    </Box>
+                  }
+                />
+              </RadioGroup>
+              {errors.paymentMethod && (
+                <FormHelperText error>{errors.paymentMethod}</FormHelperText>
+              )}
+
+              {/* Card Details */}
+              {(paymentMethod === 'visa' || paymentMethod === 'mastercard') && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body1" gutterBottom>
+                    Card Details
+                  </Typography>
+                  <Box
+                    sx={{
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      padding: '8px',
+                      mb: 1,
+                    }}
+                  >
+                    <CardElement />
+                  </Box>
+                  {errors.card && (
+                    <Typography variant="body2" color="error">
+                      {errors.card}
+                    </Typography>
+                  )}
+                </Box>
+              )}
+
+              {/* PayPal Info */}
+              {paymentMethod === 'paypal' && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body1">
+                    You will be redirected to PayPal to complete your payment.
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+
+            {/* Terms and Conditions */}
+            <Box sx={{ mb: 4 }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={termsAccepted}
+                    onChange={(e) => setTermsAccepted(e.target.checked)}
+                  />
+                }
+                label={
+                  <Typography variant="body2">
+                    I accept the{' '}
+                    <a href="/terms" style={{ color: '#1976d2' }}>
+                      Terms and Conditions
+                    </a>
+                    .
+                  </Typography>
+                }
+              />
+              {errors.terms && (
+                <FormHelperText error>{errors.terms}</FormHelperText>
+              )}
+            </Box>
+
+            {/* Action Buttons */}
+            <Box
+              sx={{
+                display: 'flex',
+                justifyContent: 'flex-start',
+                gap: 2,
+              }}
+            >
+              <Button
+                variant="outlined"
+                onClick={() => navigate('/cart')}
+                sx={{
+                  backgroundColor: '#e0e0e0',
+                  color: '#000',
+                  '&:hover': { backgroundColor: '#d5d5d5' },
+                  textTransform: 'none',
+                  borderColor: 'transparent', // Remove border
+                }}
+              >
+                Back to Cart
+              </Button>
+              <Button
+                variant="contained"
+                disabled={!termsAccepted}
+                onClick={handleConfirmPayment}
+                sx={{
+                  backgroundColor: '#1976d2',
+                  '&:hover': { backgroundColor: '#115293' },
+                  textTransform: 'uppercase',
+                }}
+              >
+                Confirm Payment: ${total.toFixed(2)}
+              </Button>
+            </Box>
+          </Box>
+        </Grid>
+      </Grid>
+
+      {/* Notification Component */}
       <Notification
         open={notification.open}
         onClose={handleNotificationClose}
         severity={notification.severity}
         message={notification.message}
       />
-    </div>
+    </Box>
   );
 };
 

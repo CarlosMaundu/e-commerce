@@ -104,10 +104,14 @@ const HeroSection = () => {
     <Box
       component="section"
       sx={{
+        maxWidth: '1530px',
+        mx: 'auto',
+        px: { xs: 2, md: 4 },
+        mt: 4,
         position: 'relative',
-        mt: '40px', // Reduced margin-top to decrease space above
-        borderBottomLeftRadius: '20px',
-        borderBottomRightRadius: '20px',
+        textAlign: 'center',
+        borderBottomLeftRadius: '8px',
+        borderBottomRightRadius: '8px',
         overflow: 'hidden',
         // Override slick dots styling
         '& .slick-dots': {
@@ -134,6 +138,7 @@ const HeroSection = () => {
                 width: '100%',
                 height: '80vh', // Increased height
                 objectFit: 'cover',
+                borderRadius: '8px',
               }}
             />
 
@@ -147,6 +152,7 @@ const HeroSection = () => {
                 height: '100%',
                 background:
                   'linear-gradient(to bottom, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.7))',
+                borderRadius: '8px',
               }}
             />
 

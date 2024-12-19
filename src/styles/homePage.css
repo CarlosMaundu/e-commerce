@@ -26,153 +26,8 @@ section h2 {
   text-align: center;
 }
 
-/* Hero Section */
-.hero-section {
-  position: relative;
-  width: 100%;
-  margin-top: 80px;
-}
 
-.hero-slide {
-  position: relative;
-}
 
-.hero-image {
-  width: 100%;
-  height: 60vh;
-  object-fit: cover;
-  filter: brightness(60%);
-}
-
-.hero-content {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: white;
-  max-width: 90%;
-  padding: 0 10px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-}
-
-@media (min-width: 768px) {
-  .hero-content {
-    max-width: 50%;
-  }
-}
-
-.hero-content h1 {
-  font-size: 2.5rem;
-  margin-bottom: 20px;
-}
-
-.hero-content .cta-button {
-  padding: 10px 20px;
-  background-color: #007bff;
-  color: white;
-  border-radius: 4px;
-  text-decoration: none;
-  transition: background-color 0.3s ease;
-}
-
-.hero-content .cta-button:hover {
-  background-color: #0056b3;
-}
-
-/* Brands Section */
-.brands-section h2 {
-  margin-bottom: 30px;
-  text-align: center;
-}
-
-.brands-carousel {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 40px;
-  flex-wrap: wrap; 
-}
-
-.brand-logo img {
-  width: 150px;
-  height: auto;
-  object-fit: contain;
-}
-
-@media (max-width: 768px) {
-  .brands-carousel {
-    gap: 20px;
-  }
-
-  .brand-logo img {
-    width: 100px;
-  }
-}
-
-/* Customer Experience Section */
-.customer-experience-section {
-  text-align: center;
-}
-
-.customer-experience-section .experience-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 30px;
-  justify-items: center;
-  align-items: center;
-}
-
-.experience-card {
-  background-color: #f9f9f9;
-  padding: 20px;
-  border-radius: 8px;
-  width: 100%;
-  max-width: 250px;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.experience-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-}
-
-.experience-icon {
-  margin-bottom: 15px;
-}
-
-.experience-card h3 {
-  margin-bottom: 10px;
-  font-size: 1.2rem;
-  color: #333;
-}
-
-.experience-card p {
-  color: #555;
-  font-size: 1rem;
-}
-
-@media (max-width: 768px) {
-  .experience-grid {
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 20px;
-  }
-
-  .experience-card {
-    max-width: 200px;
-  }
-
-  .experience-card h3 {
-    font-size: 1.1rem;
-  }
-
-  .experience-card p {
-    font-size: 0.95rem;
-  }
-}
 
 /* Featured Products Section */
 .featured-products-section {
@@ -188,93 +43,6 @@ section h2 {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-/* Featured Products Grid */
-.featured-products-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr); /* 5 cards per row */
-  gap: 20px;
-  width: 100%;
-  max-width: 1200px;
-  overflow: hidden;
-}
-
-.pagination-arrow {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  background-color: rgba(255, 255, 255, 0.8);
-  border: none;
-  border-radius: 50%;
-  padding: 8px;
-  cursor: pointer;
-  transition: background-color 0.3s ease, color 0.3s ease;
-  z-index: 10;
-}
-
-.left-arrow {
-  left: -40px;
-}
-
-.right-arrow {
-  right: -40px;
-}
-
-.pagination-arrow:hover:not(:disabled) {
-  background-color: rgba(0, 123, 255, 0.8);
-  color: #fff;
-}
-
-.pagination-arrow:disabled {
-  background-color: #ccc;
-  cursor: not-allowed;
-}
-
-/* Responsive Grid */
-@media (max-width: 1200px) {
-  .featured-products-grid {
-    grid-template-columns: repeat(4, 1fr); /* 4 cards per row */
-  }
-
-  .left-arrow {
-    left: -30px;
-  }
-
-  .right-arrow {
-    right: -30px;
-  }
-}
-
-@media (max-width: 992px) {
-  .featured-products-grid {
-    grid-template-columns: repeat(3, 1fr); /* 3 cards per row */
-  }
-
-  .left-arrow {
-    left: -25px;
-  }
-
-  .right-arrow {
-    right: -25px;
-  }
-}
-
-@media (max-width: 768px) {
-  .featured-products-grid {
-    grid-template-columns: repeat(2, 1fr); /* 2 cards per row */
-  }
-
-  .left-arrow,
-  .right-arrow {
-    display: none;
-  }
-}
-
-@media (max-width: 480px) {
-  .featured-products-grid {
-    grid-template-columns: 1fr; /* 1 card per row */
-  }
 }
 
 /* Error Message */
@@ -344,26 +112,8 @@ section h2 {
 
 /* Responsive Adjustments */
 @media (max-width: 768px) {
-  .hero-image {
-    height: 40vh;
-  }
-
-  .promotion-image {
+    .promotion-image {
     height: 30vh;
-  }
-
-  .brands-carousel {
-    gap: 20px;
-  }
-
-  .customer-experience-section .experience-grid {
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 20px;
-  }
-
-  .featured-products-section .featured-products-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 20px;
   }
 
   
@@ -379,12 +129,6 @@ section h2 {
 }
 
 @media (max-width: 480px) {
-
-
-  .featured-products-grid {
-    grid-template-columns: 1fr;
-    gap: 15px;
-  }
 
   /* Hide pagination arrows on very small screens if necessary */
   .pagination-arrow {

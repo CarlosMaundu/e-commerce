@@ -17,7 +17,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import IosShareIcon from '@mui/icons-material/IosShare';
 import StarIcon from '@mui/icons-material/Star';
-import PeopleIcon from '@mui/icons-material/People'; // for total reviews icon
+import PeopleIcon from '@mui/icons-material/People';
 
 const ProductDetailsPage = () => {
   const { id } = useParams();
@@ -29,7 +29,7 @@ const ProductDetailsPage = () => {
   const [selectedSize, setSelectedSize] = useState('');
   const [selectedColor, setSelectedColor] = useState('');
   const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('description'); // "description" or "reviews"
+  const [activeTab, setActiveTab] = useState('description');
 
   useEffect(() => {
     const loadProduct = async () => {
