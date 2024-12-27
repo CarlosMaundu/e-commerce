@@ -10,19 +10,13 @@ import {
   IconButton,
   Card,
   CardContent,
-  Avatar,
   Box,
   Switch,
   Accordion,
   AccordionSummary,
   AccordionDetails,
 } from '@mui/material';
-import {
-  Visibility,
-  VisibilityOff,
-  UploadFile,
-  ExpandMore,
-} from '@mui/icons-material';
+import { Visibility, VisibilityOff, ExpandMore } from '@mui/icons-material';
 
 const ProfileSection = ({
   formData,
@@ -66,50 +60,6 @@ const ProfileSection = ({
           >
             Personal Information
           </Typography>
-
-          {/* Avatar Section */}
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'center',
-              mb: 3,
-              position: 'relative',
-            }}
-          >
-            <Avatar
-              src={formData.avatar || defaultAvatarUrl}
-              alt="User Avatar"
-              sx={{
-                width: 150,
-                height: 150,
-                border: '2px solid #ddd',
-                '&:hover': {
-                  boxShadow: 3,
-                },
-              }}
-              imgProps={{
-                onError: (e) => {
-                  e.currentTarget.src = defaultAvatarUrl;
-                },
-              }}
-            />
-            <IconButton
-              aria-label="Upload avatar"
-              sx={{
-                position: 'absolute',
-                bottom: 0,
-                right: 'calc(50% - 20px)',
-                backgroundColor: 'white',
-                boxShadow: 2,
-                '&:hover': { backgroundColor: '#f5f5f5' },
-              }}
-              onClick={() =>
-                alert('Avatar upload functionality not yet implemented')
-              }
-            >
-              <UploadFile />
-            </IconButton>
-          </Box>
 
           <form onSubmit={handleSubmit}>
             <Row>

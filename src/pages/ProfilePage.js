@@ -3,38 +3,12 @@ import React, { useEffect, useState, useContext, Suspense } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { updateUserProfile } from '../services/userService';
 import Notification from '../notification/notification';
-
-import {
-  Typography,
-  Divider,
-  List,
-  ListItem,
-  ListItemText,
-  IconButton,
-  Drawer,
-  useMediaQuery,
-  Box,
-  Tooltip,
-} from '@mui/material';
-import {
-  Menu,
-  AccountCircle,
-  Home,
-  CreditCard,
-  AssignmentReturn,
-  Cancel,
-  ShoppingCart,
-  FavoriteBorder,
-  Group,
-  Analytics,
-  Inventory2,
-  Category,
-  LocalShipping,
-} from '@mui/icons-material';
-import { useTheme } from '@mui/material/styles';
+import { Typography, Box, Skeleton } from '@mui/material';
+import { useTheme, useMediaQuery } from '@mui/material'; // Corrected import
 import { useLocation } from 'react-router-dom';
 
 import ProfileSection from '../components/profile/ProfileSection';
+import Sidebar from '../components/layout/Sidebar'; // Ensure this path is correct
 
 const AddressBookSection = React.lazy(
   () => import('../components/profile/AddressBookSection')
@@ -49,7 +23,7 @@ const WishlistSection = React.lazy(
   () => import('../components/profile/WishlistSection')
 );
 
-const defaultAvatarUrl = 'https://imgur.com/a/kIaFC3J';
+const defaultAvatarUrl = 'https://i.imgur.com/kIaFC3J.png';
 
 const ProfilePage = () => {
   const { user, accessToken, loading, updateUser } = useContext(AuthContext);
@@ -80,8 +54,6 @@ const ProfilePage = () => {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
 
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false); // for collapsible sidebar
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
@@ -226,22 +198,7 @@ const ProfilePage = () => {
 
   const isAdmin = user && user.role === 'admin';
 
-  // Icons mapping to reflect e-commerce context
-  const sectionIcons = {
-    'My Profile': <AccountCircle fontSize="small" />,
-    'Address Book': <Home fontSize="small" />,
-    'My Payment Options': <CreditCard fontSize="small" />,
-    'My Returns': <AssignmentReturn fontSize="small" />,
-    'My Cancellations': <Cancel fontSize="small" />,
-    'My Orders': <ShoppingCart fontSize="small" />,
-    Wishlist: <FavoriteBorder fontSize="small" />,
-    'User Management': <Group fontSize="small" />,
-    'Site Analytics': <Analytics fontSize="small" />,
-    'Product Management': <Inventory2 fontSize="small" />,
-    'Category Management': <Category fontSize="small" />,
-    'Orders Management': <LocalShipping fontSize="small" />,
-  };
-
+  // Define navigation links here to pass to Sidebar
   const navigationLinks = [
     {
       header: 'Manage My Account',
@@ -328,119 +285,16 @@ const ProfilePage = () => {
     });
   }
 
-  const handleNavItemClick = (link) => {
-    const url = new URL(window.location);
-    url.searchParams.set('section', link.section);
-    window.history.pushState({}, '', url);
-    setActiveSection(link.section);
-    if (isMobile) setDrawerOpen(false);
-  };
-
-  const renderLinkItem = (link) => {
-    const IconComp = sectionIcons[link.name] || (
-      <AccountCircle fontSize="small" />
-    );
-    return (
-      <ListItem
-        button
-        key={link.section}
-        onClick={() => handleNavItemClick(link)}
-        sx={{
-          color: link.active ? '#0D4ED8' : '#000',
-          fontSize: '0.875rem',
-          py: 1.5,
-          px: 2,
-          borderRadius: 1,
-          display: 'flex',
-          alignItems: 'center',
-          transition: 'all 0.2s',
-          '&:hover': {
-            backgroundColor: '#EFF6FF',
-            color: '#1D4ED8',
-          },
-        }}
-      >
-        {sidebarCollapsed ? (
-          <Tooltip title={link.name} placement="right">
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                mr: !sidebarCollapsed ? 1.5 : 0,
-              }}
-            >
-              {IconComp}
-            </Box>
-          </Tooltip>
-        ) : (
-          <Box sx={{ display: 'flex', alignItems: 'center', mr: 1.5 }}>
-            {IconComp}
-          </Box>
-        )}
-        {!sidebarCollapsed && (
-          <ListItemText
-            primary={link.name}
-            primaryTypographyProps={{ fontSize: '0.875rem' }}
-          />
-        )}
-      </ListItem>
-    );
-  };
-
-  const renderNavigation = () => (
-    <Box
-      sx={{
-        width: sidebarCollapsed ? '70px' : '250px',
-        transition: 'width 0.3s',
-        overflow: 'auto',
-        pt: 2,
-      }}
-    >
-      {/* Collapse/Expand button */}
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: sidebarCollapsed ? 'center' : 'flex-end',
-          px: 2,
-          mb: 3,
-        }}
-      >
-        <IconButton
-          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          aria-label="Toggle sidebar"
-        >
-          <Menu />
-        </IconButton>
-      </Box>
-
-      {navigationLinks.map((section, index) => (
-        <Box key={index} sx={{ mb: 4 }}>
-          {!sidebarCollapsed && (
-            <Typography
-              variant="subtitle2"
-              sx={{
-                color: '#1D4ED8',
-                fontWeight: 'bold',
-                px: 2,
-                fontSize: '0.875rem',
-              }}
-            >
-              {section.header}
-            </Typography>
-          )}
-          <List component="nav" sx={{ mt: 1, p: 0 }}>
-            {section.links.map((link) => renderLinkItem(link))}
-          </List>
-          {index < navigationLinks.length - 1 && (
-            <Divider sx={{ mt: 3, mb: 2 }} />
-          )}
-        </Box>
-      ))}
-    </Box>
-  );
-
   const renderSectionContent = () => (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense
+      fallback={
+        <Box sx={{ mt: 4 }}>
+          <Skeleton variant="rectangular" height={40} sx={{ mb: 2 }} />
+          <Skeleton variant="text" />
+          <Skeleton variant="text" />
+        </Box>
+      }
+    >
       {(() => {
         switch (activeSection) {
           case 'profile':
@@ -557,62 +411,16 @@ const ProfilePage = () => {
       sx={{
         backgroundColor: '#f2f2f2',
         minHeight: '100vh',
-        pt: '80px',
         display: 'flex',
         alignItems: 'stretch',
       }}
     >
-      {isMobile && (
-        <Box sx={{ p: 2, position: 'relative' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-            <IconButton
-              aria-label="Open navigation menu"
-              onClick={() => setDrawerOpen(true)}
-              sx={{ color: '#333' }}
-            >
-              <Menu />
-            </IconButton>
-            <Typography
-              variant="h6"
-              sx={{ fontWeight: 'bold', color: '#000', ml: 2 }}
-            >
-              Profile
-            </Typography>
-          </Box>
-        </Box>
-      )}
-
-      {/* Drawer for mobile screens */}
-      <Drawer
-        anchor="left"
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        sx={{
-          '& .MuiDrawer-paper': {
-            width: sidebarCollapsed ? '70px' : '250px',
-            boxShadow: 2,
-            fontFamily: 'sans-serif',
-            overflow: 'auto',
-            transition: 'width 0.3s',
-          },
-        }}
-      >
-        {renderNavigation()}
-      </Drawer>
-
-      {/* Sidebar for non-mobile (now just part of flex layout, no floating or fixed) */}
-      {!isMobile && (
-        <Box
-          sx={{
-            backgroundColor: '#fff',
-            boxShadow: 2,
-            fontFamily: 'sans-serif',
-            overflow: 'auto',
-          }}
-        >
-          {renderNavigation()}
-        </Box>
-      )}
+      <Sidebar
+        activeSection={activeSection}
+        setActiveSection={setActiveSection}
+        navigationLinks={navigationLinks}
+        isMobile={isMobile}
+      />
 
       {/* Main content area */}
       <Box
