@@ -1,43 +1,76 @@
 // src/pages/ProfilePage.js
-import React, { useEffect, useState, useContext, Suspense } from 'react';
+
+import React, {
+  useEffect,
+  useState,
+  useContext,
+  Suspense,
+  useMemo,
+} from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { updateUserProfile } from '../services/userService';
 import Notification from '../notification/notification';
-import { Typography, Box, Skeleton } from '@mui/material';
-import { useTheme, useMediaQuery } from '@mui/material'; // Corrected import
-import { useLocation } from 'react-router-dom';
+import {
+  Typography,
+  Box,
+  Skeleton,
+  IconButton,
+  Badge,
+  Button,
+  useMediaQuery,
+  useTheme,
+} from '@mui/material';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { FiBell, FiExternalLink } from 'react-icons/fi';
 
 import ProfileSection from '../components/profile/ProfileSection';
-import Sidebar from '../components/layout/Sidebar'; // Ensure this path is correct
+import Sidebar from '../components/layout/Sidebar';
 
-const AddressBookSection = React.lazy(
-  () => import('../components/profile/AddressBookSection')
-);
+// Lazy-loaded sections
 const PaymentOptionsSection = React.lazy(
   () => import('../components/profile/PaymentOptionsSection')
 );
 const OrdersSection = React.lazy(
   () => import('../components/profile/OrdersSection')
 );
-const WishlistSection = React.lazy(
-  () => import('../components/profile/WishlistSection')
+const ReportsSection = React.lazy(
+  () => import('../components/profile/ReportsSection')
+);
+
+// Removed unused local declarations
+const AdminDashboardSection = React.lazy(
+  () => import('../components/profile/AdminDashboardSection')
+);
+const CustomerDashboardSection = React.lazy(
+  () => import('../components/profile/CustomerDashboardSection')
 );
 
 const defaultAvatarUrl = 'https://i.imgur.com/kIaFC3J.png';
 
 const ProfilePage = () => {
   const { user, accessToken, loading, updateUser } = useContext(AuthContext);
-  const location = useLocation();
-  const searchParams = new URLSearchParams(location.search);
-  const initialSection = searchParams.get('section') || 'profile';
 
+  // Memoized URLSearchParams to fix ESLint warnings
+  const location = useLocation();
+  const navigate = useNavigate();
+  const searchParams = useMemo(
+    () => new URLSearchParams(location.search),
+    [location.search]
+  );
+
+  // Default to 'dashboard' or 'profile'—your choice:
+  const initialSection = searchParams.get('section') || 'profile';
   const [activeSection, setActiveSection] = useState(initialSection);
+
   const [notification, setNotification] = useState({
     open: false,
     message: '',
     severity: '',
   });
 
+  // -----------
+  // FORM STATE
+  // -----------
   const [formData, setFormData] = useState({
     id: user?.id || '',
     firstName: '',
@@ -55,8 +88,11 @@ const ProfilePage = () => {
   const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
 
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
+  // -----------
+  // CHECK AUTH
+  // -----------
   useEffect(() => {
     if (!loading && !user) {
       setNotification({
@@ -67,6 +103,9 @@ const ProfilePage = () => {
     }
   }, [user, loading]);
 
+  // -----------
+  // POPULATE FORM
+  // -----------
   useEffect(() => {
     if (user) {
       const nameParts = user.name?.split(' ') || [];
@@ -86,12 +125,17 @@ const ProfilePage = () => {
     }
   }, [user]);
 
+  // -----------
+  // UPDATE SECTION
+  // -----------
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const section = params.get('section') || 'profile';
+    const section = searchParams.get('section') || 'profile';
     setActiveSection(section);
-  }, [location]);
+  }, [searchParams]);
 
+  // -----------
+  // VALIDATE
+  // -----------
   const validateForm = () => {
     const newErrors = {};
     if (!formData.firstName.trim()) {
@@ -100,7 +144,7 @@ const ProfilePage = () => {
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
     }
-    if (showPasswordFields && formData.newPassword.trim()) {
+    if (formData.newPassword.trim()) {
       if (formData.newPassword !== formData.confirmNewPassword) {
         newErrors.confirmNewPassword = 'Passwords do not match';
       }
@@ -109,6 +153,9 @@ const ProfilePage = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  // -----------
+  // HANDLE CANCEL
+  // -----------
   const handleCancel = () => {
     if (user) {
       const nameParts = user.name?.split(' ') || [];
@@ -130,17 +177,21 @@ const ProfilePage = () => {
     }
   };
 
+  // -----------
+  // HANDLE CHANGE
+  // -----------
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
-    setErrors({ ...errors, [name]: '' });
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    setErrors((prev) => ({ ...prev, [name]: '' }));
   };
 
+  // -----------
+  // HANDLE SUBMIT
+  // -----------
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!validateForm()) {
-      return;
-    }
+    if (!validateForm()) return;
 
     const fullName =
       `${formData.firstName.trim()} ${formData.lastName.trim()}`.trim();
@@ -152,9 +203,7 @@ const ProfilePage = () => {
       avatar: formData.avatar,
       address: formData.address,
       password:
-        showPasswordFields && formData.newPassword.trim() !== ''
-          ? formData.newPassword
-          : '',
+        formData.newPassword.trim() !== '' ? formData.newPassword.trim() : '',
     };
 
     try {
@@ -165,15 +214,16 @@ const ProfilePage = () => {
         message: 'Profile updated successfully.',
         severity: 'success',
       });
-      if (showPasswordFields) {
-        setFormData({
-          ...formData,
+
+      if (formData.newPassword.trim() !== '') {
+        setFormData((prev) => ({
+          ...prev,
           currentPassword: '',
           newPassword: '',
           confirmNewPassword: '',
-        });
-        setShowPasswordFields(false);
+        }));
       }
+      setShowPasswordFields(false);
     } catch (error) {
       console.error('Failed to update profile:', error);
       if (error.response && error.response.status === 401) {
@@ -192,99 +242,45 @@ const ProfilePage = () => {
     }
   };
 
+  // -----------
+  // NOTIF CLOSE
+  // -----------
   const handleNotificationClose = () => {
-    setNotification({ ...notification, open: false });
+    setNotification((prev) => ({ ...prev, open: false }));
   };
 
-  const isAdmin = user && user.role === 'admin';
+  // -----------
+  // GET HEADING
+  // -----------
+  const getHeadingTitle = () => {
+    switch (activeSection) {
+      case 'dashboard':
+        // If user is admin => "Admin Dashboard", else => "My Dashboard"
+        return user && user.role === 'admin' ? 'Admin Dashboard' : 'Dashboard';
+      case 'profile':
+        return 'Profile';
+      case 'orders':
+        return 'My Orders';
+      case 'payment-options':
+        return 'Payment Options';
+      case 'products':
+        return 'Products';
+      case 'customers':
+        return 'Customers';
+      case 'messages':
+        return 'Messages';
+      case 'reports':
+        return 'Reports';
+      case 'help-center':
+        return 'Help Center';
+      default:
+        return 'Profile';
+    }
+  };
 
-  // Define navigation links here to pass to Sidebar
-  const navigationLinks = [
-    {
-      header: 'Manage My Account',
-      links: [
-        {
-          name: 'My Profile',
-          section: 'profile',
-          active: activeSection === 'profile',
-        },
-        {
-          name: 'Address Book',
-          section: 'address-book',
-          active: activeSection === 'address-book',
-        },
-        {
-          name: 'My Payment Options',
-          section: 'payment-options',
-          active: activeSection === 'payment-options',
-        },
-      ],
-    },
-    {
-      header: 'My Orders',
-      links: [
-        {
-          name: 'My Returns',
-          section: 'returns',
-          active: activeSection === 'returns',
-        },
-        {
-          name: 'My Cancellations',
-          section: 'cancellations',
-          active: activeSection === 'cancellations',
-        },
-        {
-          name: 'My Orders',
-          section: 'orders',
-          active: activeSection === 'orders',
-        },
-      ],
-    },
-    {
-      header: 'My Wishlist',
-      links: [
-        {
-          name: 'Wishlist',
-          section: 'wishlist',
-          active: activeSection === 'wishlist',
-        },
-      ],
-    },
-  ];
-
-  if (isAdmin) {
-    navigationLinks.push({
-      header: 'Admin Tools',
-      links: [
-        {
-          name: 'User Management',
-          section: 'admin-users',
-          active: activeSection === 'admin-users',
-        },
-        {
-          name: 'Site Analytics',
-          section: 'admin-analytics',
-          active: activeSection === 'admin-analytics',
-        },
-        {
-          name: 'Product Management',
-          section: 'admin-products',
-          active: activeSection === 'admin-products',
-        },
-        {
-          name: 'Category Management',
-          section: 'admin-categories',
-          active: activeSection === 'admin-categories',
-        },
-        {
-          name: 'Orders Management',
-          section: 'admin-orders',
-          active: activeSection === 'admin-orders',
-        },
-      ],
-    });
-  }
-
+  // -----------
+  // RENDER SECTIONS
+  // -----------
   const renderSectionContent = () => (
     <Suspense
       fallback={
@@ -296,6 +292,18 @@ const ProfilePage = () => {
       }
     >
       {(() => {
+        // 1. If user is admin and section = dashboard => AdminDashboard
+        // 2. If user is customer and section = dashboard => CustomerDashboard
+        // 3. else other sections
+        if (activeSection === 'dashboard') {
+          return user?.role === 'admin' ? (
+            <AdminDashboardSection />
+          ) : (
+            <CustomerDashboardSection />
+          );
+        }
+
+        // SWITCH for other sections
         switch (activeSection) {
           case 'profile':
             return (
@@ -308,97 +316,18 @@ const ProfilePage = () => {
                 handleChange={handleChange}
                 handleSubmit={handleSubmit}
                 handleCancel={handleCancel}
-                setShowPasswordFields={setShowPasswordFields}
                 setShowNewPassword={setShowNewPassword}
                 setShowConfirmNewPassword={setShowConfirmNewPassword}
                 defaultAvatarUrl={defaultAvatarUrl}
               />
             );
-          case 'address-book':
-            return <AddressBookSection />;
-          case 'payment-options':
-            return <PaymentOptionsSection />;
           case 'orders':
             return <OrdersSection />;
-          case 'wishlist':
-            return <WishlistSection />;
-          case 'returns':
-            return (
-              <>
-                <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2 }}>
-                  My Returns
-                </Typography>
-                <Typography variant="body1">
-                  View or initiate product returns.
-                </Typography>
-              </>
-            );
-          case 'cancellations':
-            return (
-              <>
-                <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2 }}>
-                  My Cancellations
-                </Typography>
-                <Typography variant="body1">
-                  Check the status of your cancellations.
-                </Typography>
-              </>
-            );
-          case 'admin-users':
-            return (
-              <>
-                <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2 }}>
-                  User Management (Admin)
-                </Typography>
-                <Typography variant="body1">
-                  Manage users of the platform.
-                </Typography>
-              </>
-            );
-          case 'admin-analytics':
-            return (
-              <>
-                <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2 }}>
-                  Site Analytics (Admin)
-                </Typography>
-                <Typography variant="body1">
-                  View site traffic, sales, and more.
-                </Typography>
-              </>
-            );
-          case 'admin-products':
-            return (
-              <>
-                <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2 }}>
-                  Product Management (Admin)
-                </Typography>
-                <Typography variant="body1">
-                  Add, edit, or remove products.
-                </Typography>
-              </>
-            );
-          case 'admin-categories':
-            return (
-              <>
-                <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2 }}>
-                  Category Management (Admin)
-                </Typography>
-                <Typography variant="body1">
-                  Manage product categories.
-                </Typography>
-              </>
-            );
-          case 'admin-orders':
-            return (
-              <>
-                <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 2 }}>
-                  Orders Management (Admin)
-                </Typography>
-                <Typography variant="body1">
-                  View and manage all customer orders.
-                </Typography>
-              </>
-            );
+          case 'payment-options':
+            return <PaymentOptionsSection />;
+          case 'reports':
+            return <ReportsSection />;
+          // Add more as needed
           default:
             return <Typography variant="body1">Coming soon...</Typography>;
         }
@@ -415,22 +344,71 @@ const ProfilePage = () => {
         alignItems: 'stretch',
       }}
     >
+      {/* Sidebar */}
       <Sidebar
         activeSection={activeSection}
         setActiveSection={setActiveSection}
-        navigationLinks={navigationLinks}
-        isMobile={isMobile}
       />
 
       {/* Main content area */}
       <Box
         sx={{
           flex: 1,
-          px: 3,
+          px: isMobile ? 1 : 3,
           pb: 5,
+          pt: isMobile ? 2 : 3,
+          overflowY: 'auto', // Enable scrolling
+          height: '100vh', // Ensure full viewport height
         }}
       >
+        {/* Top bar with heading, bell icon, and "Visit Shop" */}
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: isMobile ? 'center' : 'space-between',
+            flexDirection: isMobile ? 'column' : 'row',
+            gap: isMobile ? 1 : 0,
+            mb: 2,
+          }}
+        >
+          <Typography
+            variant={isMobile ? 'h5' : 'h4'}
+            sx={{ fontWeight: 'bold', textAlign: isMobile ? 'center' : 'left' }}
+          >
+            {getHeadingTitle()}
+          </Typography>
+
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              flexDirection: isMobile ? 'column' : 'row',
+              gap: 1,
+            }}
+          >
+            <IconButton>
+              <Badge badgeContent={3} color="secondary">
+                <FiBell size={20} />
+              </Badge>
+            </IconButton>
+            <Button
+              variant="contained"
+              startIcon={<FiExternalLink />}
+              sx={{
+                borderRadius: 2,
+                textTransform: 'none',
+                fontSize: isMobile ? '0.75rem' : '0.875rem',
+              }}
+              onClick={() => navigate('/')}
+            >
+              Visit Shop
+            </Button>
+          </Box>
+        </Box>
+
         {renderSectionContent()}
+
         <Notification
           open={notification.open}
           onClose={handleNotificationClose}

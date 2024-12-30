@@ -1,83 +1,132 @@
 // src/components/layout/Sidebar.js
+
 import React, { useState, useContext } from 'react';
+import logo from '../../images/logo.png';
 import {
+  Box,
   Typography,
-  Divider,
+  IconButton,
+  Drawer,
   List,
   ListItem,
   ListItemText,
-  IconButton,
-  Drawer,
-  Box,
   Tooltip,
   Skeleton,
   Avatar,
+  Button,
 } from '@mui/material';
 import {
-  Menu,
-  AccountCircle,
-  Home,
-  CreditCard,
-  AssignmentReturn,
-  Cancel,
-  ShoppingCart,
-  FavoriteBorder,
-  Group,
-  Analytics,
-  Inventory2,
-  Category,
-  LocalShipping,
-  UploadFile,
-} from '@mui/icons-material';
-import { AuthContext } from '../../context/AuthContext'; // Corrected path
+  FiMenu,
+  FiUser,
+  FiHome,
+  FiShoppingCart,
+  FiBox,
+  FiUsers,
+  FiMessageSquare,
+  FiHelpCircle,
+  FiLogOut,
+  FiChevronLeft,
+  FiExternalLink,
+  FiCreditCard,
+  FiBarChart2,
+} from 'react-icons/fi';
+import { AuthContext } from '../../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { useTheme, useMediaQuery } from '@mui/material';
 
 const defaultAvatarUrl = 'https://i.imgur.com/kIaFC3J.png';
 
-const Sidebar = ({
-  activeSection,
-  setActiveSection,
-  navigationLinks,
-  isMobile,
-}) => {
-  const { user, loading } = useContext(AuthContext);
+const Sidebar = ({ activeSection, setActiveSection }) => {
+  const { user, loading, handleLogout } = useContext(AuthContext);
+  const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  // Icons mapping to reflect e-commerce context
-  const sectionIcons = {
-    'My Profile': <AccountCircle fontSize="small" />,
-    'Address Book': <Home fontSize="small" />,
-    'My Payment Options': <CreditCard fontSize="small" />,
-    'My Returns': <AssignmentReturn fontSize="small" />,
-    'My Cancellations': <Cancel fontSize="small" />,
-    'My Orders': <ShoppingCart fontSize="small" />,
-    Wishlist: <FavoriteBorder fontSize="small" />,
-    'User Management': <Group fontSize="small" />,
-    'Site Analytics': <Analytics fontSize="small" />,
-    'Product Management': <Inventory2 fontSize="small" />,
-    'Category Management': <Category fontSize="small" />,
-    'Orders Management': <LocalShipping fontSize="small" />,
+  // Determine if the user is an admin
+  const isAdmin = user && user.role === 'admin';
+
+  // Define full menu items, marking some as admin-only
+  const fullMenuItems = [
+    { label: 'Dashboard', icon: <FiHome size={20} />, section: 'dashboard' },
+    { label: 'Profile', icon: <FiUser size={20} />, section: 'profile' },
+    { label: 'Orders', icon: <FiShoppingCart size={20} />, section: 'orders' },
+    {
+      label: 'Payments',
+      icon: <FiCreditCard size={20} />,
+      section: 'payment-options',
+    },
+    {
+      label: 'Messages',
+      icon: <FiMessageSquare size={20} />,
+      section: 'messages',
+    },
+    // Admin-only items
+    {
+      label: 'Products',
+      icon: <FiBox size={20} />,
+      section: 'products',
+      adminOnly: true,
+    },
+    {
+      label: 'Customers',
+      icon: <FiUsers size={20} />,
+      section: 'customers',
+      adminOnly: true,
+    },
+    {
+      label: 'Reports',
+      icon: <FiBarChart2 size={20} />,
+      section: 'reports',
+      adminOnly: true,
+    },
+    {
+      label: 'Help Center',
+      icon: <FiHelpCircle size={20} />,
+      section: 'help-center',
+    },
+  ];
+
+  // Filter out admin-only items if the user is not an admin
+  const menuItems = fullMenuItems.filter((item) => !item.adminOnly || isAdmin);
+
+  const logoutItem = {
+    label: 'Logout',
+    icon: <FiLogOut size={20} />,
+    section: 'logout',
   };
 
-  const handleNavItemClick = (link) => {
+  // Function to handle navigation item clicks
+  const handleNavItemClick = (item) => {
     const url = new URL(window.location);
-    url.searchParams.set('section', link.section);
+    url.searchParams.set('section', item.section);
     window.history.pushState({}, '', url);
-    setActiveSection(link.section);
+    setActiveSection(item.section);
     if (isMobile) setDrawerOpen(false);
   };
 
-  const renderLinkItem = (link) => {
-    const IconComp = sectionIcons[link.name] || (
-      <AccountCircle fontSize="small" />
-    );
+  // Function to handle Logout
+  const handleLogoutClick = () => {
+    handleLogout();
+    navigate('/login');
+  };
+
+  // Render individual link items
+  const renderLinkItem = (item) => {
+    const isLogout = item.section === 'logout';
+    const onClick = isLogout
+      ? handleLogoutClick
+      : () => handleNavItemClick(item);
+
     return (
       <ListItem
         button
-        key={link.section}
-        onClick={() => handleNavItemClick(link)}
+        key={item.section}
+        onClick={onClick}
         sx={{
-          color: link.active ? '#0D4ED8' : '#000',
+          color: activeSection === item.section ? '#0D4ED8' : '#000',
           fontSize: '0.875rem',
           py: 1.5,
           px: 2,
@@ -92,25 +141,19 @@ const Sidebar = ({
         }}
       >
         {sidebarCollapsed ? (
-          <Tooltip title={link.name} placement="right">
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                mr: !sidebarCollapsed ? 1.5 : 0,
-              }}
-            >
-              {IconComp}
+          <Tooltip title={item.label} placement="right">
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              {item.icon}
             </Box>
           </Tooltip>
         ) : (
           <Box sx={{ display: 'flex', alignItems: 'center', mr: 1.5 }}>
-            {IconComp}
+            {item.icon}
           </Box>
         )}
         {!sidebarCollapsed && (
           <ListItemText
-            primary={link.name}
+            primary={item.label}
             primaryTypographyProps={{ fontSize: '0.875rem' }}
           />
         )}
@@ -118,204 +161,196 @@ const Sidebar = ({
     );
   };
 
+  // Render the navigation drawer content
   const renderNavigation = () => (
     <Box
       sx={{
-        width: sidebarCollapsed ? '70px' : '250px',
+        width: sidebarCollapsed ? '70px' : '260px',
         transition: 'width 0.3s',
-        overflow: 'auto',
-        pt: 2,
-        display: 'flex',
-        flexDirection: 'column',
+        overflowY: 'auto',
         height: '100%',
-        justifyContent: 'space-between',
+        backgroundColor: (theme) => theme.palette.background.default,
+        borderRight: '1px solid rgba(0, 0, 0, 0.12)',
       }}
     >
-      {/* Top Section: Avatar and Email */}
-      <Box>
-        {/* Avatar and Email Section */}
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            mb: 3,
-            px: 2,
-          }}
-        >
-          {loading ? (
-            <>
-              <Skeleton variant="circular" width={80} height={80} />
-              <Skeleton variant="text" width={120} sx={{ mt: 1 }} />
-            </>
-          ) : (
-            <>
-              <Box
-                sx={{
-                  position: 'relative',
-                  display: 'flex',
-                  alignItems: 'center',
-                }}
-              >
-                <Avatar
-                  src={user?.avatar || defaultAvatarUrl}
-                  alt="User Avatar"
-                  sx={{
-                    width: sidebarCollapsed ? 50 : 80,
-                    height: sidebarCollapsed ? 50 : 80,
-                    transition: 'width 0.3s, height 0.3s',
-                  }}
-                  imgProps={{
-                    onError: (e) => {
-                      e.currentTarget.src = defaultAvatarUrl;
-                    },
-                  }}
-                />
-                {!sidebarCollapsed && (
-                  <Tooltip title="Upload Avatar">
-                    <IconButton
-                      size="small"
-                      sx={{
-                        position: 'absolute',
-                        bottom: 0,
-                        right: 0,
-                        backgroundColor: 'white',
-                        boxShadow: 1,
-                        '&:hover': { backgroundColor: '#f0f0f0' },
-                      }}
-                      onClick={() =>
-                        alert('Avatar upload functionality not yet implemented')
-                      }
-                      aria-label="Upload avatar"
-                    >
-                      <UploadFile fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                )}
-              </Box>
-              {!sidebarCollapsed && (
-                <Typography
-                  variant="body2"
-                  sx={{
-                    textAlign: 'center',
-                    wordBreak: 'break-word',
-                  }}
-                >
-                  {user?.email || 'No Email'}
-                </Typography>
-              )}
-            </>
-          )}
-        </Box>
-
-        {/* Navigation Links */}
-        {navigationLinks.map((section, index) => (
-          <Box key={index} sx={{ mb: 4 }}>
-            {!sidebarCollapsed && (
-              <Typography
-                variant="subtitle2"
-                sx={{
-                  color: '#1D4ED8',
-                  fontWeight: 'bold',
-                  px: 2,
-                  fontSize: '0.875rem',
-                }}
-              >
-                {section.header}
-              </Typography>
-            )}
-            <List component="nav" sx={{ mt: 1, p: 0 }}>
-              {section.links.map((link) => renderLinkItem(link))}
-            </List>
-            {/* Corrected Conditional Rendering for Divider */}
-            {index < navigationLinks.length - 1 && (
-              <Divider sx={{ mt: 3, mb: 2 }} />
-            )}
-          </Box>
-        ))}
-      </Box>
-
-      {/* Bottom Section: Sidebar Toggle */}
+      {/* Header (logo + toggle) */}
       <Box
         sx={{
           display: 'flex',
-          justifyContent: sidebarCollapsed ? 'center' : 'flex-end',
-          px: 2,
-          mb: 2,
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          p: 2,
+          borderBottom: '1px solid rgba(0, 0, 0, 0.12)',
         }}
       >
-        <Tooltip
-          title={sidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
+        {!sidebarCollapsed && (
+          <Box display="flex" alignItems="center">
+            <img
+              src={logo}
+              alt="Logo"
+              style={{ width: '40px', marginRight: '10px' }}
+            />
+            <Typography variant="h6" component="div">
+              Carlos' Shop
+            </Typography>
+          </Box>
+        )}
+        <IconButton
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          aria-label="toggle sidebar"
+          sx={{ ml: sidebarCollapsed ? 0 : 1 }}
         >
-          <IconButton
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            aria-label="Toggle sidebar"
+          {sidebarCollapsed ? <FiMenu /> : <FiChevronLeft />}
+        </IconButton>
+      </Box>
+
+      {/* Profile Section */}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          p: 2,
+          justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+        }}
+      >
+        {loading ? (
+          <>
+            <Skeleton variant="circular" width={60} height={60} />
+            {!sidebarCollapsed && (
+              <Skeleton variant="text" width={120} sx={{ ml: 2 }} />
+            )}
+          </>
+        ) : (
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: sidebarCollapsed ? 'column' : 'row',
+              alignItems: 'center',
+            }}
           >
-            <Menu />
-          </IconButton>
-        </Tooltip>
+            <Avatar
+              src={user?.avatar || defaultAvatarUrl}
+              alt="User Avatar"
+              sx={{
+                width: sidebarCollapsed ? 40 : 60,
+                height: sidebarCollapsed ? 40 : 60,
+              }}
+              imgProps={{
+                onError: (e) => {
+                  e.currentTarget.src = defaultAvatarUrl;
+                },
+              }}
+            />
+            {!sidebarCollapsed && (
+              <Box sx={{ ml: 2 }}>
+                <Typography variant="subtitle1" fontWeight="bold">
+                  {user?.name || 'Anonymous'}
+                </Typography>
+                {/* Display role instead of email */}
+                <Typography variant="body2" color="text.secondary">
+                  {user?.role
+                    ? user.role.charAt(0).toUpperCase() + user.role.slice(1)
+                    : 'No Role'}
+                </Typography>
+              </Box>
+            )}
+          </Box>
+        )}
+      </Box>
+
+      {/* Menu Items */}
+      <Box sx={{ flexGrow: 1 }}>
+        <List sx={{ mt: 1 }}>
+          {menuItems.map((item) => renderLinkItem(item))}
+        </List>
+      </Box>
+
+      {/* Logout + "Visit Shop" */}
+      <Box sx={{ pb: 2 }}>
+        <List>{renderLinkItem(logoutItem)}</List>
+        {!sidebarCollapsed && (
+          <Box sx={{ px: 2, mt: 2 }}>
+            <Button
+              variant="contained"
+              startIcon={<FiExternalLink />}
+              onClick={() => navigate('/')}
+              sx={{
+                width: '100%',
+                textTransform: 'none',
+                borderRadius: 2,
+              }}
+            >
+              Visit Shop
+            </Button>
+          </Box>
+        )}
       </Box>
     </Box>
   );
 
   return (
     <>
+      {/* Temporary Drawer for Mobile */}
       {isMobile && (
-        <Box sx={{ p: 2, position: 'relative' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-            <IconButton
-              aria-label="Open navigation menu"
-              onClick={() => setDrawerOpen(true)}
-              sx={{ color: '#333' }}
-            >
-              <Menu />
-            </IconButton>
-            <Typography
-              variant="h6"
-              sx={{ fontWeight: 'bold', color: '#000', ml: 2 }}
-            >
-              Profile
-            </Typography>
-          </Box>
-        </Box>
-      )}
-
-      {/* Drawer for mobile screens */}
-      <Drawer
-        anchor="left"
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        sx={{
-          '& .MuiDrawer-paper': {
-            width: sidebarCollapsed ? '70px' : '250px',
-            boxShadow: 2,
-            fontFamily: 'sans-serif',
-            overflow: 'auto',
-            transition: 'width 0.3s',
-          },
-        }}
-      >
-        {renderNavigation()}
-      </Drawer>
-
-      {/* Sidebar for non-mobile */}
-      {!isMobile && (
-        <Box
+        <Drawer
+          variant="temporary"
+          anchor="left"
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          ModalProps={{
+            keepMounted: true, // Better open performance on mobile.
+          }}
           sx={{
-            backgroundColor: '#fff',
-            boxShadow: 2,
-            fontFamily: 'sans-serif',
-            overflow: 'auto',
-            minWidth: sidebarCollapsed ? '70px' : '250px',
-            transition: 'width 0.3s',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
+            display: { xs: 'block', md: 'none' },
+            '& .MuiDrawer-paper': {
+              width: sidebarCollapsed ? '70px' : '260px',
+              boxShadow: 2,
+              transition: 'width 0.3s',
+            },
           }}
         >
           {renderNavigation()}
-        </Box>
+        </Drawer>
       )}
+
+      {/* Persistent Sidebar for Larger Screens */}
+      {!isMobile && (
+        <Drawer
+          variant="permanent"
+          open
+          sx={{
+            width: sidebarCollapsed ? '70px' : '260px',
+            flexShrink: 0,
+            '& .MuiDrawer-paper': {
+              width: sidebarCollapsed ? '70px' : '260px',
+              boxSizing: 'border-box',
+              transition: 'width 0.3s',
+            },
+          }}
+        >
+          {renderNavigation()}
+        </Drawer>
+      )}
+
+      {/* Hamburger Menu Icon for Mobile */}
+      {isMobile &&
+        !drawerOpen && ( // Render only when Drawer is closed
+          <IconButton
+            color="inherit"
+            aria-label="open drawer"
+            edge="start"
+            onClick={() => setDrawerOpen(true)}
+            sx={{
+              position: 'fixed',
+              top: theme.spacing(2),
+              left: theme.spacing(2),
+              zIndex: theme.zIndex.drawer, // Ensure it's below the Drawer
+              color: '#333',
+            }}
+          >
+            <FiMenu />
+          </IconButton>
+        )}
     </>
   );
 };
