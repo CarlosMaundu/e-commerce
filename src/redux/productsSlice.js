@@ -3,13 +3,16 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { getAllProducts } from '../services/productsService';
 
-// Async thunk to fetch products
+/**
+ * Async thunk to fetch products with optional filters.
+ * @param {Object} filters - Filter parameters.
+ */
 export const fetchProducts = createAsyncThunk(
   'products/fetchProducts',
-  async (_, { rejectWithValue }) => {
+  async (filters = {}, { rejectWithValue }) => {
     try {
-      const products = await getAllProducts();
-      console.log('Fetched products:', products); // Debugging line
+      const products = await getAllProducts(filters);
+      console.log('Fetched products with filters:', filters, products); // Debugging
       return products;
     } catch (error) {
       console.error('Error fetching products:', error.message);
@@ -24,19 +27,23 @@ const productsSlice = createSlice({
     products: [],
     loading: false,
     error: null,
+    total: 0, // Total number of products (useful for pagination)
   },
   reducers: {
-    // Add synchronous reducers if needed
+    // other synchronous reducers will be added here if needed
   },
   extraReducers: (builder) => {
     builder
       .addCase(fetchProducts.pending, (state) => {
         state.loading = true;
         state.error = null;
+        // Optionally, clear previous products:
+        // state.products = [];
       })
       .addCase(fetchProducts.fulfilled, (state, action) => {
         state.loading = false;
         state.products = action.payload;
+        state.total = action.payload.length; // Adjust based on API response
       })
       .addCase(fetchProducts.rejected, (state, action) => {
         state.loading = false;

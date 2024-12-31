@@ -246,7 +246,6 @@ const Sidebar = ({ activeSection, setActiveSection }) => {
                 <Typography variant="subtitle1" fontWeight="bold">
                   {user?.name || 'Anonymous'}
                 </Typography>
-                {/* Display role instead of email */}
                 <Typography variant="body2" color="text.secondary">
                   {user?.role
                     ? user.role.charAt(0).toUpperCase() + user.role.slice(1)
@@ -298,7 +297,7 @@ const Sidebar = ({ activeSection, setActiveSection }) => {
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
           ModalProps={{
-            keepMounted: true, // Better open performance on mobile.
+            keepMounted: true,
           }}
           sx={{
             display: { xs: 'block', md: 'none' },
@@ -344,7 +343,7 @@ const Sidebar = ({ activeSection, setActiveSection }) => {
               position: 'fixed',
               top: theme.spacing(2),
               left: theme.spacing(2),
-              zIndex: theme.zIndex.drawer, // Ensure it's below the Drawer
+              zIndex: theme.zIndex.drawer,
               color: '#333',
             }}
           >

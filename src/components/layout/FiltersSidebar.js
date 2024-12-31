@@ -18,6 +18,7 @@ import {
   useMediaQuery,
   Typography,
   Box,
+  TextField,
 } from '@mui/material';
 import { FilterList, Close, ExpandMore } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
@@ -47,11 +48,15 @@ const FiltersSidebar = ({ filters, onFilterChange }) => {
 
   // Handle filter changes
   const handleCategoryChange = (e) => {
-    onFilterChange({ ...filters, category: e.target.value });
+    onFilterChange({ ...filters, categoryId: e.target.value });
   };
 
   const handlePriceChange = (event, newValue) => {
-    onFilterChange({ ...filters, priceRange: newValue });
+    onFilterChange({
+      ...filters,
+      price_min: newValue[0],
+      price_max: newValue[1],
+    });
   };
 
   const handleRatingChange = (e) => {
@@ -60,6 +65,10 @@ const FiltersSidebar = ({ filters, onFilterChange }) => {
 
   const handleAvailabilityChange = (e) => {
     onFilterChange({ ...filters, availability: e.target.checked });
+  };
+
+  const handleSearchChange = (e) => {
+    onFilterChange({ ...filters, title: e.target.value });
   };
 
   // Sidebar content
@@ -74,7 +83,21 @@ const FiltersSidebar = ({ filters, onFilterChange }) => {
         </Box>
       )}
 
-      <Typography variant="h6" gutterBottom></Typography>
+      <Typography variant="h6" gutterBottom>
+        Filters
+      </Typography>
+
+      {/* Search Filter */}
+      <Box sx={{ mb: 2 }}>
+        <TextField
+          label="Search by Title"
+          variant="outlined"
+          size="small"
+          fullWidth
+          value={filters.title || ''}
+          onChange={handleSearchChange}
+        />
+      </Box>
 
       {/* Category Filter */}
       <Accordion>
@@ -86,7 +109,7 @@ const FiltersSidebar = ({ filters, onFilterChange }) => {
             <InputLabel id="category-label">Category</InputLabel>
             <Select
               labelId="category-label"
-              value={filters.category}
+              value={filters.categoryId || ''}
               onChange={handleCategoryChange}
               label="Category"
             >
@@ -110,15 +133,17 @@ const FiltersSidebar = ({ filters, onFilterChange }) => {
         </AccordionSummary>
         <AccordionDetails>
           <Slider
-            value={filters.priceRange}
+            value={[filters.price_min || 0, filters.price_max || 1000]}
             onChange={handlePriceChange}
             valueLabelDisplay="auto"
             min={0}
             max={1000}
           />
           <Box display="flex" justifyContent="space-between">
-            <Typography variant="body2">${filters.priceRange[0]}</Typography>
-            <Typography variant="body2">${filters.priceRange[1]}</Typography>
+            <Typography variant="body2">${filters.price_min || 0}</Typography>
+            <Typography variant="body2">
+              ${filters.price_max || 1000}
+            </Typography>
           </Box>
         </AccordionDetails>
       </Accordion>
@@ -133,7 +158,7 @@ const FiltersSidebar = ({ filters, onFilterChange }) => {
             <InputLabel id="rating-label">Rating</InputLabel>
             <Select
               labelId="rating-label"
-              value={filters.rating}
+              value={filters.rating || 0}
               onChange={handleRatingChange}
               label="Rating"
             >
@@ -156,7 +181,7 @@ const FiltersSidebar = ({ filters, onFilterChange }) => {
           <FormControlLabel
             control={
               <Checkbox
-                checked={filters.availability}
+                checked={filters.availability || false}
                 onChange={handleAvailabilityChange}
               />
             }

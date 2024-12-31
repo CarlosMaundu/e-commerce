@@ -19,7 +19,11 @@ import Pagination from '@mui/material/Pagination';
 
 const ProductsPage = () => {
   const dispatch = useDispatch();
-  const { products } = useSelector((state) => state.products);
+  const {
+    products: fetchedProducts,
+    loading,
+    error,
+  } = useSelector((state) => state.products);
 
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
@@ -27,53 +31,88 @@ const ProductsPage = () => {
 
   // State for filters, sorting, and pagination
   const [filters, setFilters] = useState({
-    category: initialCategory,
-    priceRange: [0, 1000],
+    categoryId: initialCategory,
+    price_min: 0,
+    price_max: 1000,
+    title: '',
+  });
+  const [additionalFilters, setAdditionalFilters] = useState({
     rating: 0,
     availability: false,
-    searchTerm: '',
   });
-  const [sortOption, setSortOption] = useState('popularity');
+  const [sortOption, setSortOption] = useState('popularity'); // Sorting handled by API if possible
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(2); // Rows per page (number of rows)
+  const [rowsPerPage, setRowsPerPage] = useState(2); // Number of rows (number of columns per row)
   const columns = 5; // Number of columns in the grid
   const productsPerPage = rowsPerPage * columns; // Total products per page
 
   useEffect(() => {
-    dispatch(fetchProducts());
-  }, [dispatch]);
+    // Calculate limit and offset based on currentPage and productsPerPage
+    const limit = productsPerPage;
+    const offset = (currentPage - 1) * productsPerPage;
 
-  // Apply filters and sorting
-  const filteredProducts = products
+    // Prepare filter parameters for the API
+    const apiFilters = {
+      ...filters,
+      limit,
+      offset,
+    };
+
+    // Dispatch fetchProducts with filters
+    dispatch(fetchProducts(apiFilters));
+  }, [dispatch, filters, currentPage, productsPerPage]);
+
+  // Handle filter changes from FiltersSidebar
+  const handleFilterChange = (newFilters) => {
+    // Separate API-supported filters and additional filters
+    const { title, categoryId, price_min, price_max, rating, availability } =
+      newFilters;
+
+    const apiFilters = {
+      title: title || '',
+      categoryId: categoryId || '',
+      price_min: price_min || 0,
+      price_max: price_max || 1000,
+    };
+    setFilters(apiFilters);
+
+    const clientSideFilters = {
+      rating: rating || 0,
+      availability: availability || false,
+    };
+    setAdditionalFilters(clientSideFilters);
+
+    setCurrentPage(1); // Reset to first page when filters change
+  };
+
+  // Handle sorting changes
+  const handleSortChange = (e) => {
+    setSortOption(e.target.value);
+  };
+
+  // Handle page changes
+  const handlePageChange = (event, value) => {
+    setCurrentPage(value);
+  };
+
+  // Handle rows per page changes
+  const handleRowsPerPageChange = (e) => {
+    setRowsPerPage(Number(e.target.value));
+    setCurrentPage(1); // Reset to first page
+  };
+
+  // Apply additional client-side filters (rating, availability)
+  const additionalFilteredProducts = fetchedProducts
     .filter((product) => {
-      // Filter by category
-      if (
-        filters.category &&
-        product.category &&
-        String(product.category.id) !== filters.category
-      ) {
-        return false;
-      }
-      // Filter by price range
-      if (
-        product.price < filters.priceRange[0] ||
-        product.price > filters.priceRange[1]
-      ) {
-        return false;
-      }
       // Filter by rating
-      if (filters.rating > 0 && product.rating < filters.rating) {
+      if (
+        additionalFilters.rating > 0 &&
+        product.rating < additionalFilters.rating
+      ) {
         return false;
       }
       // Filter by availability
-      if (filters.availability && !product.inStock) {
-        return false;
-      }
-      // Filter by search term
-      if (
-        filters.searchTerm &&
-        !product.title.toLowerCase().includes(filters.searchTerm.toLowerCase())
-      ) {
+      if (additionalFilters.availability && !product.inStock) {
         return false;
       }
       return true;
@@ -93,39 +132,28 @@ const ProductsPage = () => {
       }
     });
 
-  // Pagination logic
-  const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
+  // Pagination logic for client-side filters
+  const totalFilteredProducts = additionalFilteredProducts.length;
+  const totalPages = Math.ceil(totalFilteredProducts / productsPerPage);
 
-  const currentProducts = filteredProducts.slice(
-    (currentPage - 1) * productsPerPage,
-    currentPage * productsPerPage
-  );
-
-  // Handlers for filters and sorting
-  const handleFilterChange = (newFilters) => {
-    setFilters(newFilters);
-    setCurrentPage(1); // Reset to first page when filters change
-  };
-
-  const handleSortChange = (e) => {
-    setSortOption(e.target.value);
-  };
-
-  const handlePageChange = (event, value) => {
-    setCurrentPage(value);
-  };
-
-  const handleRowsPerPageChange = (e) => {
-    setRowsPerPage(Number(e.target.value));
-    setCurrentPage(1); // Reset to first page
-  };
+  const currentProducts = additionalFilteredProducts.slice(0, productsPerPage);
 
   return (
     <Box className="products-page">
       <Box className="products-page__container">
-        <FiltersSidebar filters={filters} onFilterChange={handleFilterChange} />
+        <FiltersSidebar
+          filters={{ ...filters, ...additionalFilters }}
+          onFilterChange={handleFilterChange}
+        />
         <Box className="products-page__main">
-          <Box className="products-page__header">
+          <Box
+            className="products-page__header"
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
+          >
             <Typography variant="h4">Shop</Typography>
             <Box className="products-page__controls">
               {/* Sorting Options */}
@@ -150,9 +178,31 @@ const ProductsPage = () => {
             </Box>
           </Box>
           {/* Product Grid */}
-          <ProductGrid products={currentProducts} columns={columns} />
+          <ProductGrid
+            products={currentProducts}
+            columns={columns}
+            loading={loading}
+          />
+          {/* Error Message */}
+          {error && (
+            <Typography
+              variant="h6"
+              color="error"
+              sx={{ mt: 2, textAlign: 'center' }}
+            >
+              {error}
+            </Typography>
+          )}
           {/* Pagination and Rows Per Page */}
-          <Box className="products-page__footer">
+          <Box
+            className="products-page__footer"
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              mt: 2,
+            }}
+          >
             <Pagination
               count={totalPages}
               page={currentPage}

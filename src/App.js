@@ -14,9 +14,7 @@ import ProductsPage from './pages/ProductsPage';
 import ProductDetailsPage from './pages/ProductDetailsPage';
 import CartPage from './pages/CartPage';
 import WishlistPage from './pages/WishlistPage';
-import DashboardPage from './pages/DashboardPage';
 import ProfilePage from './pages/ProfilePage';
-import AdminRoute from './components/AdminRoute';
 import PrivateRoute from './components/PrivateRoute';
 import Footer from './components/layout/Footer';
 import CheckoutPage from './pages/CheckoutPage';
@@ -78,30 +76,11 @@ const App = () => {
               <Route path="/wishlist" element={<WishlistPage />} />
 
               <Route
-                path="/dashboard"
-                element={
-                  <PrivateRoute>
-                    <DashboardPage />
-                  </PrivateRoute>
-                }
-              />
-
-              <Route
                 path="/profile"
                 element={
                   <PrivateRoute>
                     <ProfilePage />
                   </PrivateRoute>
-                }
-              />
-
-              {/* Example admin route: /admin/* => admin only */}
-              <Route
-                path="/admin/*"
-                element={
-                  <AdminRoute>
-                    <DashboardPage />
-                  </AdminRoute>
                 }
               />
 

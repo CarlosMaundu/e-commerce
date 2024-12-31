@@ -26,7 +26,7 @@ const AdminDashboardSection = () => {
 
   // Example effect for time range changes
   useEffect(() => {
-    // Once we create a backend we will refetch or filter lineChartData here based on timeRange
+    // Once backend is created, refetch or filter lineChartData based on timeRange
   }, [timeRange]);
 
   return (
@@ -35,7 +35,13 @@ const AdminDashboardSection = () => {
       <Grid container spacing={2} sx={{ mb: 2 }}>
         {mockMetrics.map((metric, idx) => (
           <Grid item xs={12} sm={6} md={3} key={idx}>
-            <Card sx={{ backgroundColor: metric.bgColor, boxShadow: 1 }}>
+            <Card
+              sx={{
+                backgroundColor: metric.bgColor,
+                boxShadow: 1,
+                borderRadius: 3, // Consistent border radius
+              }}
+            >
               <CardContent>
                 <Typography variant="subtitle2" sx={{ mb: 1 }}>
                   {metric.title}
@@ -85,6 +91,7 @@ const AdminDashboardSection = () => {
               height: '100%',
               display: 'flex',
               flexDirection: 'column',
+              borderRadius: 3, // Consistent border radius
             }}
           >
             <CardContent sx={{ flex: 1 }}>
@@ -124,6 +131,7 @@ const AdminDashboardSection = () => {
               height: '100%',
               display: 'flex',
               flexDirection: 'column',
+              borderRadius: 3, // Consistent border radius
             }}
           >
             <CardContent sx={{ flex: 1 }}>
@@ -137,23 +145,31 @@ const AdminDashboardSection = () => {
                   See All
                 </Button>
               </Box>
-              {topProducts.map((product, idx) => (
-                <Box
-                  key={idx}
-                  sx={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    py: 1,
-                    borderBottom:
-                      idx < topProducts.length - 1 ? '1px solid #eee' : 'none',
-                  }}
-                >
-                  <Typography variant="body2">{product.name}</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                    {product.price}
-                  </Typography>
-                </Box>
-              ))}
+              {topProducts && topProducts.length > 0 ? (
+                topProducts.map((product, idx) => (
+                  <Box
+                    key={idx}
+                    sx={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      py: 1,
+                      borderBottom:
+                        idx < topProducts.length - 1
+                          ? '1px solid #eee'
+                          : 'none',
+                    }}
+                  >
+                    <Typography variant="body2">{product.name}</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                      {product.price}
+                    </Typography>
+                  </Box>
+                ))
+              ) : (
+                <Typography variant="body2">
+                  No top products available.
+                </Typography>
+              )}
             </CardContent>
           </Card>
         </Grid>
@@ -169,6 +185,7 @@ const AdminDashboardSection = () => {
               height: '100%',
               display: 'flex',
               flexDirection: 'column',
+              borderRadius: 3, // Consistent border radius
             }}
           >
             <CardContent sx={{ flex: 1 }}>
@@ -197,6 +214,7 @@ const AdminDashboardSection = () => {
               height: '100%',
               display: 'flex',
               flexDirection: 'column',
+              borderRadius: 3, // Consistent border radius
             }}
           >
             <CardContent sx={{ flex: 1 }}>
@@ -228,36 +246,50 @@ const AdminDashboardSection = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {recentOrders.map((order, idx) => (
-                      <tr key={idx} style={{ borderBottom: '1px solid #ddd' }}>
-                        <td style={{ padding: '8px' }}>{order.orderNo}</td>
-                        <td style={{ padding: '8px', textAlign: 'center' }}>
-                          {order.date}
-                        </td>
-                        <td style={{ padding: '8px' }}>{order.customer}</td>
-                        <td style={{ padding: '8px', textAlign: 'right' }}>
-                          {order.price}
-                        </td>
-                        <td style={{ padding: '8px' }}>
-                          <span
-                            style={{
-                              padding: '4px 8px',
-                              borderRadius: '4px',
-                              backgroundColor:
-                                order.status === 'Delivered'
-                                  ? '#4caf50'
-                                  : order.status === 'Pending'
-                                    ? '#ffeb3b'
-                                    : '#f44336',
-                              color:
-                                order.status === 'Pending' ? '#000' : '#fff',
-                            }}
-                          >
-                            {order.status}
-                          </span>
+                    {recentOrders && recentOrders.length > 0 ? (
+                      recentOrders.map((order, idx) => (
+                        <tr
+                          key={idx}
+                          style={{ borderBottom: '1px solid #ddd' }}
+                        >
+                          <td style={{ padding: '8px' }}>{order.orderNo}</td>
+                          <td style={{ padding: '8px', textAlign: 'center' }}>
+                            {order.date}
+                          </td>
+                          <td style={{ padding: '8px' }}>{order.customer}</td>
+                          <td style={{ padding: '8px', textAlign: 'right' }}>
+                            {order.price}
+                          </td>
+                          <td style={{ padding: '8px' }}>
+                            <span
+                              style={{
+                                padding: '4px 8px',
+                                borderRadius: '4px',
+                                backgroundColor:
+                                  order.status === 'Delivered'
+                                    ? '#4caf50'
+                                    : order.status === 'Pending'
+                                      ? '#ffeb3b'
+                                      : '#f44336',
+                                color:
+                                  order.status === 'Pending' ? '#000' : '#fff',
+                              }}
+                            >
+                              {order.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td
+                          colSpan="5"
+                          style={{ padding: '8px', textAlign: 'center' }}
+                        >
+                          No recent orders available.
                         </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </Box>

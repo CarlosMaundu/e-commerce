@@ -1,4 +1,5 @@
 // src/components/common/ProductGrid.js
+
 import React from 'react';
 import { Grid, Typography, Skeleton, Box } from '@mui/material';
 import ProductCard from './ProductCard';
@@ -7,7 +8,7 @@ const ProductGrid = ({ products, columns = 4, loading = false }) => {
   const xsValue = 12 / columns;
 
   // Number of skeleton placeholders to show while loading
-  const skeletonCount = 8;
+  const skeletonCount = columns * 2; // Adjust as needed
 
   return (
     <Grid container spacing={2}>
