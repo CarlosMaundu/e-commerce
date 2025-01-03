@@ -25,6 +25,7 @@ import { FiBell, FiExternalLink } from 'react-icons/fi';
 
 import ProfileSection from '../components/profile/ProfileSection';
 import Sidebar from '../components/layout/Sidebar';
+import ProductsSection from '../components/profile/ProductsSection'; // Importing ProductsSection
 
 // Lazy-loaded sections
 const PaymentOptionsSection = React.lazy(
@@ -325,6 +326,8 @@ const ProfilePage = () => {
             return <OrdersSection />;
           case 'payment-options':
             return <PaymentOptionsSection />;
+          case 'products':
+            return <ProductsSection />; // Render the ProductsSection here
           case 'reports':
             return <ReportsSection />;
           // Add more as needed
@@ -338,30 +341,27 @@ const ProfilePage = () => {
   return (
     <Box
       sx={{
-        backgroundColor: '#f2f2f2',
+        backgroundColor: theme.palette.background.default,
         minHeight: '100vh',
         display: 'flex',
         alignItems: 'stretch',
       }}
     >
-      {/* Sidebar */}
       <Sidebar
         activeSection={activeSection}
         setActiveSection={setActiveSection}
       />
 
-      {/* Main content area */}
       <Box
         sx={{
           flex: 1,
           px: isMobile ? 1 : 3,
           pb: 5,
           pt: isMobile ? 2 : 3,
-          overflowY: 'auto', // Enable scrolling
-          height: '100vh', // Ensure full viewport height
+          overflowY: 'auto',
+          height: '100vh',
         }}
       >
-        {/* Top bar with heading, bell icon, and "Visit Shop" */}
         <Box
           sx={{
             display: 'flex',
@@ -375,10 +375,10 @@ const ProfilePage = () => {
           <Typography
             variant={isMobile ? 'h5' : 'h4'}
             sx={{ fontWeight: 'bold', textAlign: isMobile ? 'center' : 'left' }}
+            color="text.primary"
           >
             {getHeadingTitle()}
           </Typography>
-
           <Box
             sx={{
               display: 'flex',

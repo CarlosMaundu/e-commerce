@@ -14,6 +14,8 @@ import {
   Skeleton,
   Avatar,
   Button,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import {
   FiMenu,
@@ -32,7 +34,6 @@ import {
 } from 'react-icons/fi';
 import { AuthContext } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { useTheme, useMediaQuery } from '@mui/material';
 
 const defaultAvatarUrl = 'https://i.imgur.com/kIaFC3J.png';
 
@@ -126,7 +127,10 @@ const Sidebar = ({ activeSection, setActiveSection }) => {
         key={item.section}
         onClick={onClick}
         sx={{
-          color: activeSection === item.section ? '#0D4ED8' : '#000',
+          color:
+            activeSection === item.section
+              ? theme.palette.primary.main
+              : theme.palette.text.primary,
           fontSize: '0.875rem',
           py: 1.5,
           px: 2,
@@ -135,8 +139,8 @@ const Sidebar = ({ activeSection, setActiveSection }) => {
           alignItems: 'center',
           transition: 'all 0.2s',
           '&:hover': {
-            backgroundColor: '#EFF6FF',
-            color: '#1D4ED8',
+            backgroundColor: theme.palette.action.hover,
+            color: theme.palette.primary.dark,
           },
         }}
       >
@@ -154,7 +158,10 @@ const Sidebar = ({ activeSection, setActiveSection }) => {
         {!sidebarCollapsed && (
           <ListItemText
             primary={item.label}
-            primaryTypographyProps={{ fontSize: '0.875rem' }}
+            primaryTypographyProps={{
+              variant: 'body2',
+              color: 'text.primary',
+            }}
           />
         )}
       </ListItem>
@@ -169,8 +176,8 @@ const Sidebar = ({ activeSection, setActiveSection }) => {
         transition: 'width 0.3s',
         overflowY: 'auto',
         height: '100%',
-        backgroundColor: (theme) => theme.palette.background.default,
-        borderRight: '1px solid rgba(0, 0, 0, 0.12)',
+        backgroundColor: theme.palette.background.default,
+        borderRight: `1px solid ${theme.palette.divider}`,
       }}
     >
       {/* Header (logo + toggle) */}
@@ -180,7 +187,7 @@ const Sidebar = ({ activeSection, setActiveSection }) => {
           alignItems: 'center',
           justifyContent: 'space-between',
           p: 2,
-          borderBottom: '1px solid rgba(0, 0, 0, 0.12)',
+          borderBottom: `1px solid ${theme.palette.divider}`,
         }}
       >
         {!sidebarCollapsed && (
@@ -190,7 +197,7 @@ const Sidebar = ({ activeSection, setActiveSection }) => {
               alt="Logo"
               style={{ width: '40px', marginRight: '10px' }}
             />
-            <Typography variant="h6" component="div">
+            <Typography variant="h6" component="div" color="text.primary">
               Carlos' Shop
             </Typography>
           </Box>
@@ -243,7 +250,11 @@ const Sidebar = ({ activeSection, setActiveSection }) => {
             />
             {!sidebarCollapsed && (
               <Box sx={{ ml: 2 }}>
-                <Typography variant="subtitle1" fontWeight="bold">
+                <Typography
+                  variant="subtitle1"
+                  color="text.primary"
+                  fontWeight="bold"
+                >
                   {user?.name || 'Anonymous'}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
@@ -277,6 +288,11 @@ const Sidebar = ({ activeSection, setActiveSection }) => {
                 width: '100%',
                 textTransform: 'none',
                 borderRadius: 2,
+                color: theme.palette.common.white,
+                backgroundColor: theme.palette.primary.main,
+                '&:hover': {
+                  backgroundColor: theme.palette.primary.dark,
+                },
               }}
             >
               Visit Shop
@@ -344,7 +360,7 @@ const Sidebar = ({ activeSection, setActiveSection }) => {
               top: theme.spacing(2),
               left: theme.spacing(2),
               zIndex: theme.zIndex.drawer,
-              color: '#333',
+              color: theme.palette.text.primary,
             }}
           >
             <FiMenu />

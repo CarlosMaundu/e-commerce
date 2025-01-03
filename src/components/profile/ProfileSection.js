@@ -36,7 +36,6 @@ import {
 import { allCountries } from 'country-region-data';
 import { useTheme, useMediaQuery } from '@mui/material';
 
-// Convert "allCountries" data
 const countryRegionData = allCountries
   ? allCountries.map((item) => {
       const countryName = item[0];
@@ -54,7 +53,6 @@ const countryRegionData = allCountries
     })
   : [];
 
-// Currency options
 const currencyOptions = [
   { value: 'USD', label: 'US Dollar ($)' },
   { value: 'EUR', label: 'Euro (€)' },
@@ -62,10 +60,6 @@ const currencyOptions = [
   { value: 'KES', label: 'Kenyan Shilling (KSh)' },
 ];
 
-/**
- * MuiPhone:
- * - MUI <TextField> with a custom <Select> for picking country.
- */
 function MuiPhone({ value, onChange, label }) {
   const { inputValue, handlePhoneValueChange, inputRef, country, setCountry } =
     usePhoneInput({
@@ -87,25 +81,22 @@ function MuiPhone({ value, onChange, label }) {
       type="tel"
       inputRef={inputRef}
       fullWidth
-      InputLabelProps={{
-        sx: { fontSize: '0.75rem' },
-      }}
+      InputLabelProps={{ sx: { fontSize: '0.75rem' } }}
       InputProps={{
         startAdornment: (
           <InputAdornment
             position="start"
-            style={{ marginRight: '2px', marginLeft: '-8px' }}
+            sx={{ mr: 0, ml: 0, display: 'flex', alignItems: 'center' }}
           >
-            <FormControl variant="standard" sx={{ minWidth: 70 }}>
+            <FormControl variant="standard" sx={{ minWidth: 40, mr: 0.5 }}>
               <Select
                 value={country.iso2}
                 onChange={(e) => setCountry(e.target.value)}
                 disableUnderline
                 sx={{
                   fontSize: '0.75rem',
-                  '& .MuiSelect-select': {
-                    padding: '0',
-                  },
+                  '& .MuiSelect-select': { padding: '4px 8px' },
+                  '& .MuiSelect-icon': { ml: 0 },
                 }}
                 renderValue={(iso2) => {
                   if (!iso2) return null;
@@ -172,8 +163,8 @@ const ProfileSection = ({
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [passwordMatch, setPasswordMatch] = useState(null);
 
-  const theme = useTheme(); // Access the theme
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm')); // Define isMobile
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   useEffect(() => {
     if (formData.newPassword || formData.confirmNewPassword) {
@@ -187,7 +178,6 @@ const ProfileSection = ({
     }
   }, [formData.newPassword, formData.confirmNewPassword]);
 
-  // Sub-region logic for addresses
   const selectedCountryData = useMemo(() => {
     return countryRegionData.find(
       (c) => c.countryShortCode === formData.country
@@ -201,32 +191,19 @@ const ProfileSection = ({
   return (
     <Box
       sx={{
-        backgroundColor: '#f2f2f2',
+        backgroundColor: theme.palette.background.default,
         borderRadius: 3,
         px: 0,
         py: 0,
       }}
     >
       <form onSubmit={handleSubmit}>
-        <Card
-          sx={{
-            boxShadow: 1,
-            borderRadius: 3,
-          }}
-        >
+        <Card sx={{ boxShadow: 1, borderRadius: 3 }}>
           <CardContent sx={{ p: 2 }}>
-            {/* Personal Details */}
-            <Typography
-              sx={{
-                fontWeight: 'bold',
-                mb: 2,
-                fontSize: '0.875rem',
-              }}
-            >
+            <Typography variant="h6" color="text.primary" sx={{ mb: 2 }}>
               Personal Details
             </Typography>
             <Grid container spacing={2}>
-              {/* Row 1 */}
               <Grid item xs={12} sm={6}>
                 <TextField
                   label="First Name"
@@ -252,7 +229,6 @@ const ProfileSection = ({
                 />
               </Grid>
 
-              {/* Row 2 */}
               <Grid item xs={12} sm={6}>
                 <TextField
                   label="Email"
@@ -273,7 +249,6 @@ const ProfileSection = ({
                 />
               </Grid>
 
-              {/* Row 3 */}
               <Grid item xs={12}>
                 <TextField
                   label="Avatar URL"
@@ -289,17 +264,10 @@ const ProfileSection = ({
             </Grid>
 
             <Divider sx={{ my: 3 }} />
-            <Typography
-              sx={{
-                fontWeight: 'bold',
-                mb: 2,
-                fontSize: '0.875rem',
-              }}
-            >
+            <Typography variant="h6" color="text.primary" sx={{ mb: 2 }}>
               Address &amp; Location
             </Typography>
             <Grid container spacing={2}>
-              {/* Row 1 */}
               <Grid item xs={12} sm={6}>
                 <TextField
                   label="Address"
@@ -346,8 +314,6 @@ const ProfileSection = ({
                   </Select>
                 </FormControl>
               </Grid>
-
-              {/* Row 2 */}
               <Grid item xs={12} sm={6}>
                 <FormControl variant="outlined" fullWidth>
                   <InputLabel sx={{ fontSize: '0.75rem' }}>Location</InputLabel>
@@ -412,13 +378,7 @@ const ProfileSection = ({
             </Grid>
 
             <Divider sx={{ my: 3 }} />
-            <Typography
-              sx={{
-                fontWeight: 'bold',
-                mb: 2,
-                fontSize: '0.875rem',
-              }}
-            >
+            <Typography variant="h6" color="text.primary" sx={{ mb: 2 }}>
               Security
             </Typography>
             <Grid container spacing={2}>
@@ -455,7 +415,6 @@ const ProfileSection = ({
               </Grid>
               <Grid item xs={12} sm={6} />
 
-              {/* New Password / Confirm Password */}
               <Grid item xs={12} sm={6}>
                 <TextField
                   label="New Password"
@@ -532,13 +491,7 @@ const ProfileSection = ({
             </Grid>
 
             <Divider sx={{ my: 3 }} />
-            <Typography
-              sx={{
-                fontWeight: 'bold',
-                mb: 2,
-                fontSize: '0.875rem',
-              }}
-            >
+            <Typography variant="h6" color="text.primary" sx={{ mb: 2 }}>
               Notifications
             </Typography>
             <Grid container spacing={2}>
@@ -587,12 +540,12 @@ const ProfileSection = ({
               onClick={handleCancel}
               sx={{
                 fontWeight: 'bold',
-                color: 'red',
+                color: theme.palette.error.main,
                 textTransform: 'none',
-                borderColor: 'red',
+                borderColor: theme.palette.error.main,
                 '&:hover': {
-                  borderColor: 'darkred',
-                  color: 'darkred',
+                  borderColor: theme.palette.error.dark,
+                  color: theme.palette.error.dark,
                 },
                 fontSize: '0.75rem',
                 width: isMobile ? '100%' : 'auto',
@@ -604,9 +557,9 @@ const ProfileSection = ({
               variant="contained"
               type="submit"
               sx={{
-                backgroundColor: '#28a745',
+                backgroundColor: theme.palette.success.main,
                 textTransform: 'none',
-                '&:hover': { backgroundColor: '#218838' },
+                '&:hover': { backgroundColor: theme.palette.success.dark },
                 fontSize: '0.75rem',
                 width: isMobile ? '100%' : 'auto',
               }}

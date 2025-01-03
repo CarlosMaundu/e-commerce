@@ -26,12 +26,9 @@ section h2 {
   text-align: center;
 }
 
-
-
-
 /* Featured Products Section */
 .featured-products-section {
-  padding: 20px 20px; 
+  padding: 20px 20px;
 }
 .featured-products-section h2 {
   margin-bottom: 30px;
@@ -112,11 +109,9 @@ section h2 {
 
 /* Responsive Adjustments */
 @media (max-width: 768px) {
-    .promotion-image {
+  .promotion-image {
     height: 30vh;
   }
-
-  
 
   /* Adjust pagination arrows for mobile */
   .pagination-arrow.left-arrow {
@@ -129,7 +124,6 @@ section h2 {
 }
 
 @media (max-width: 480px) {
-
   /* Hide pagination arrows on very small screens if necessary */
   .pagination-arrow {
     display: none;

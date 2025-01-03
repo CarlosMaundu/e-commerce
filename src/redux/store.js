@@ -3,6 +3,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import cartReducer from './cartSlice';
 import productsReducer from './productsSlice';
 import wishlistReducer from './wishlistSlice';
+import categoriesReducer from './categoriesSlice';
 import { persistStore, persistReducer } from 'redux-persist';
 import storage from 'redux-persist/lib/storage'; // defaults to localStorage for web
 
@@ -27,6 +28,7 @@ const store = configureStore({
     cart: persistedCartReducer,
     products: productsReducer,
     wishlist: persistedWishlistReducer,
+    categories: categoriesReducer,
   },
 });
 

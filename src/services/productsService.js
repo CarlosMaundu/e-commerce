@@ -91,3 +91,36 @@ export const createProduct = async (productData) => {
     );
   }
 };
+
+/**
+ * Update an existing product.
+ * @param {number} id - Product ID.
+ * @param {Object} updateData - Data to update the product.
+ * @returns {Object} - Updated product details.
+ */
+export const updateProduct = async (id, updateData) => {
+  try {
+    const response = await axios.put(`${API_URL}/products/${id}`, updateData);
+    return response.data; // Returns updated product details
+  } catch (error) {
+    throw new Error(
+      error.response?.data?.message || `Failed to update product with ID: ${id}`
+    );
+  }
+};
+
+/**
+ * Delete a product by ID.
+ * @param {number} id - Product ID.
+ * @returns {boolean} - Returns true if deletion was successful.
+ */
+export const deleteProduct = async (id) => {
+  try {
+    const response = await axios.delete(`${API_URL}/products/${id}`);
+    return response.data; // Returns true on successful deletion
+  } catch (error) {
+    throw new Error(
+      error.response?.data?.message || `Failed to delete product with ID: ${id}`
+    );
+  }
+};
