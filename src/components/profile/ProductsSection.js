@@ -10,10 +10,10 @@ import {
   useTheme,
 } from '@mui/material';
 import {
-  FiList as TableRowsIcon,
-  FiEdit as EditIcon,
-  FiTag as CategoryIcon,
-  FiBox as Inventory2Icon,
+  FiLayers as TableRowsIcon,
+  FiShoppingCart as EditIcon,
+  FiFolder as CategoryIcon,
+  FiTruck as Inventory2Icon,
 } from 'react-icons/fi';
 
 import AllProductsTab from './AllProductsTab';
@@ -44,7 +44,8 @@ const ProductsSection = () => {
         value={activeTab}
         onChange={handleChange}
         variant={isMobile ? 'scrollable' : 'fullWidth'}
-        scrollButtons={isMobile ? 'auto' : 'off'}
+        // Changed from scrollButtons="off" to a valid value:
+        scrollButtons={isMobile ? 'auto' : false}
         aria-label="Products Management Tabs"
         sx={{
           borderBottom: 1,
@@ -52,7 +53,7 @@ const ProductsSection = () => {
         }}
       >
         <Tab
-          icon={<TableRowsIcon />}
+          icon={<TableRowsIcon size={20} />}
           label={
             <Typography variant="h6" color="text.primary">
               All Products
@@ -67,7 +68,7 @@ const ProductsSection = () => {
           }}
         />
         <Tab
-          icon={<EditIcon />}
+          icon={<EditIcon size={20} />}
           label={
             <Typography variant="h6" color="text.primary">
               Manage Product
@@ -82,7 +83,7 @@ const ProductsSection = () => {
           }}
         />
         <Tab
-          icon={<CategoryIcon />}
+          icon={<CategoryIcon size={20} />}
           label={
             <Typography variant="h6" color="text.primary">
               Manage Category
@@ -97,7 +98,7 @@ const ProductsSection = () => {
           }}
         />
         <Tab
-          icon={<Inventory2Icon />}
+          icon={<Inventory2Icon size={20} />}
           label={
             <Typography variant="h6" color="text.primary">
               Inventory
@@ -113,19 +114,18 @@ const ProductsSection = () => {
         />
       </Tabs>
 
-      <Box sx={{ p: 3 }}>
-        {activeTab === 0 && (
-          <AllProductsTab navigateToManageProduct={navigateToManageProduct} />
-        )}
-        {activeTab === 1 && (
-          <ManageProductTab
-            currentProduct={currentProduct}
-            navigateToManageProduct={navigateToManageProduct}
-          />
-        )}
-        {activeTab === 2 && <ManageCategoryTab />}
-        {activeTab === 3 && <InventoryTab />}
-      </Box>
+      {/* Removed the surrounding Box with padding to allow each tab to manage its own padding */}
+      {activeTab === 0 && (
+        <AllProductsTab navigateToManageProduct={navigateToManageProduct} />
+      )}
+      {activeTab === 1 && (
+        <ManageProductTab
+          currentProduct={currentProduct}
+          navigateToManageProduct={navigateToManageProduct}
+        />
+      )}
+      {activeTab === 2 && <ManageCategoryTab />}
+      {activeTab === 3 && <InventoryTab />}
     </Box>
   );
 };

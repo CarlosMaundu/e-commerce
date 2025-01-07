@@ -5,8 +5,9 @@ import axios from 'axios';
 const API_URL = 'https://api.escuelajs.co/api/v1';
 
 /**
- * Fetch all products with optional filters.
- * @param {Object} filters - Filter parameters.
+ * Fetch all products with optional filters (search, price, categoryId, etc.).
+ * Note: This API does not support direct sorting by price; we do that client-side.
+ * @param {Object} filters - Filter parameters (search, price_min, price_max, categoryId, limit, offset, etc.).
  * @returns {Array} - List of products.
  */
 export const getAllProducts = async (filters = {}) => {
@@ -16,37 +17,38 @@ export const getAllProducts = async (filters = {}) => {
     // Initialize query parameters
     const params = {};
 
-    if (filters.title) {
-      params.title = filters.title;
+    // Map 'filters.search' to 'title' for searching by title
+    if (filters.search) {
+      params.title = filters.search;
     }
 
-    if (filters.price) {
-      params.price = filters.price;
-    }
-
+    // For filtering by exact price or by range:
     if (filters.price_min) {
       params.price_min = filters.price_min;
     }
-
     if (filters.price_max) {
       params.price_max = filters.price_max;
+    }
+    if (filters.price) {
+      params.price = filters.price;
     }
 
     if (filters.categoryId) {
       params.categoryId = filters.categoryId;
     }
 
-    if (filters.limit) {
-      params.limit = filters.limit;
+    // Ensure offset is included even if 0
+    if (typeof filters.offset !== 'undefined') {
+      params.offset = filters.offset;
     }
 
-    if (filters.offset) {
-      params.offset = filters.offset;
+    // Same for limit
+    if (typeof filters.limit !== 'undefined') {
+      params.limit = filters.limit;
     }
 
     // Construct query string
     const queryString = new URLSearchParams(params).toString();
-
     if (queryString) {
       url += `?${queryString}`;
     }
@@ -62,8 +64,6 @@ export const getAllProducts = async (filters = {}) => {
 
 /**
  * Fetch a single product by ID.
- * @param {number} id - Product ID.
- * @returns {Object} - Product details.
  */
 export const getProductById = async (id) => {
   try {
@@ -78,8 +78,6 @@ export const getProductById = async (id) => {
 
 /**
  * Create a new product.
- * @param {Object} productData - Data for the new product.
- * @returns {Object} - Created product details.
  */
 export const createProduct = async (productData) => {
   try {
@@ -94,9 +92,6 @@ export const createProduct = async (productData) => {
 
 /**
  * Update an existing product.
- * @param {number} id - Product ID.
- * @param {Object} updateData - Data to update the product.
- * @returns {Object} - Updated product details.
  */
 export const updateProduct = async (id, updateData) => {
   try {
@@ -111,8 +106,6 @@ export const updateProduct = async (id, updateData) => {
 
 /**
  * Delete a product by ID.
- * @param {number} id - Product ID.
- * @returns {boolean} - Returns true if deletion was successful.
  */
 export const deleteProduct = async (id) => {
   try {

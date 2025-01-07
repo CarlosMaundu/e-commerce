@@ -10,7 +10,6 @@ import {
 
 /**
  * Async thunk to fetch products with optional filters.
- * @param {Object} filters - Filter parameters.
  */
 export const fetchProducts = createAsyncThunk(
   'products/fetchProducts',
@@ -28,7 +27,6 @@ export const fetchProducts = createAsyncThunk(
 
 /**
  * Async thunk to create a new product.
- * @param {Object} productData - Data for the new product.
  */
 export const createProductThunk = createAsyncThunk(
   'products/createProduct',
@@ -36,7 +34,7 @@ export const createProductThunk = createAsyncThunk(
     try {
       const newProduct = await createProduct(productData);
       // Optionally, refetch products
-      dispatch(fetchProducts({ limit: 10, offset: 0 })); // Adjust limit and offset as needed
+      dispatch(fetchProducts({ limit: 10, offset: 0 }));
       return newProduct;
     } catch (error) {
       return rejectWithValue(error.message);
@@ -46,7 +44,6 @@ export const createProductThunk = createAsyncThunk(
 
 /**
  * Async thunk to update an existing product.
- * @param {Object} payload - { id, updateData }
  */
 export const updateProductThunk = createAsyncThunk(
   'products/updateProduct',
@@ -54,7 +51,7 @@ export const updateProductThunk = createAsyncThunk(
     try {
       const updatedProduct = await updateProduct(id, updateData);
       // Optionally, refetch products
-      dispatch(fetchProducts({ limit: 10, offset: 0 })); // Adjust limit and offset as needed
+      dispatch(fetchProducts({ limit: 10, offset: 0 }));
       return updatedProduct;
     } catch (error) {
       return rejectWithValue(error.message);
@@ -64,7 +61,6 @@ export const updateProductThunk = createAsyncThunk(
 
 /**
  * Async thunk to delete a product.
- * @param {number} id - Product ID.
  */
 export const deleteProductThunk = createAsyncThunk(
   'products/deleteProduct',
@@ -72,7 +68,7 @@ export const deleteProductThunk = createAsyncThunk(
     try {
       await deleteProductAPI(id);
       // Optionally, refetch products
-      dispatch(fetchProducts({ limit: 10, offset: 0 })); // Adjust limit and offset as needed
+      dispatch(fetchProducts({ limit: 10, offset: 0 }));
       return id;
     } catch (error) {
       return rejectWithValue(error.message);
@@ -86,22 +82,23 @@ const productsSlice = createSlice({
     products: [],
     loading: false,
     error: null,
-    hasMore: true, // Indicates if more products are available for pagination
+    hasMore: true,
   },
-  reducers: {
-    // Add synchronous reducers here if needed
-  },
+  reducers: {},
   extraReducers: (builder) => {
     builder
       // Fetch Products
       .addCase(fetchProducts.pending, (state) => {
         state.loading = true;
         state.error = null;
+        // Clear out old products so UI doesn't show stale data
+        state.products = [];
       })
       .addCase(fetchProducts.fulfilled, (state, action) => {
         state.loading = false;
         state.products = action.payload;
-        // Determine if there are more products to fetch
+        // If the API returns less items than the limit,
+        // we can assume we don't have more pages, etc.
         state.hasMore = action.payload.length > 0;
       })
       .addCase(fetchProducts.rejected, (state, action) => {
@@ -115,7 +112,7 @@ const productsSlice = createSlice({
       })
       .addCase(createProductThunk.fulfilled, (state, action) => {
         state.loading = false;
-        // Product is already added via refetch
+        // Product is added via refetch
       })
       .addCase(createProductThunk.rejected, (state, action) => {
         state.loading = false;
@@ -128,7 +125,7 @@ const productsSlice = createSlice({
       })
       .addCase(updateProductThunk.fulfilled, (state, action) => {
         state.loading = false;
-        // Product is already updated via refetch
+        // Product is updated via refetch
       })
       .addCase(updateProductThunk.rejected, (state, action) => {
         state.loading = false;
@@ -141,7 +138,7 @@ const productsSlice = createSlice({
       })
       .addCase(deleteProductThunk.fulfilled, (state, action) => {
         state.loading = false;
-        // Product is already removed via refetch
+        // Product is removed via refetch
       })
       .addCase(deleteProductThunk.rejected, (state, action) => {
         state.loading = false;

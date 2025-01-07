@@ -1,8 +1,7 @@
 // src/components/layout/Header.js
-import React, { useContext, useState, useEffect } from 'react';
+import React, { useContext, useState, useEffect, useMemo } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
-import { fetchCategories } from '../../services/categoryService';
 import { useSelector } from 'react-redux';
 
 import {
@@ -18,76 +17,115 @@ import {
   Drawer,
   List,
   ListItem,
-  ListItemText,
   Menu,
   MenuItem,
   useMediaQuery,
   useTheme,
 } from '@mui/material';
 
-import { styled } from '@mui/system';
+import { styled, keyframes } from '@mui/system';
 import {
-  Menu as MenuIcon,
   Close as CloseIcon,
   Search as SearchIcon,
   ShoppingCart,
   FavoriteBorder,
   AccountCircle,
-  ExpandMore,
 } from '@mui/icons-material';
 
 import logo from '../../images/logo.png';
 
+//
+// 1) Style the AppBar, Toolbar, and Logo
+//
 const StyledAppBar = styled(AppBar)(({ theme }) => ({
-  backgroundColor: '#ffffff',
+  backgroundColor: theme.palette.background.paper,
   boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
 }));
 
-const StyledToolbar = styled(Toolbar)({
+const StyledToolbar = styled(Toolbar)(() => ({
   display: 'flex',
   justifyContent: 'space-between',
   padding: '0.5rem 1rem',
-});
-
-const LogoBox = styled(Box)({
-  display: 'flex',
-  alignItems: 'center',
-  cursor: 'pointer',
-});
+}));
 
 const LogoImg = styled('img')({
-  height: '50px',
+  height: '70px',
   marginRight: '1rem',
 });
 
-const NavButton = styled(Button)({
-  color: '#000000',
-  textTransform: 'none',
-  margin: '0 0.5rem',
-  '&:hover': {
-    backgroundColor: 'rgba(0,0,0,0.04)',
-    fontWeight: 'bold',
-    fontSize: '0.95rem',
-  },
-});
+// 2) Sliding “tips” animation for the search bar
+const slideUp = keyframes`
+  0% {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  20%, 80% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+`;
 
-const SearchField = styled(TextField)({
-  width: '300px',
-  '& .MuiOutlinedInput-root': {
-    borderRadius: '20px',
+const AnimatedTipBox = styled('div')(({ theme }) => ({
+  position: 'absolute',
+  left: '45px',
+  top: '0',
+  bottom: '0',
+  display: 'flex',
+  alignItems: 'center',
+  pointerEvents: 'none',
+  overflow: 'hidden',
+  width: 'calc(100% - 45px)',
+  paddingLeft: '4px',
+  color: theme.palette.text.secondary,
+  fontSize: theme.typography.body1.fontSize,
+  fontFamily: theme.typography.body1.fontFamily,
+}));
+
+// Each sliding text
+const SlidingText = styled('span')(({ theme }) => ({
+  display: 'inline-block',
+  animation: `${slideUp} 2.2s linear forwards`,
+  whiteSpace: 'nowrap',
+  textAlign: 'left',
+}));
+
+// 3) Main SearchField with room for the animated tips
+const SearchContainer = styled('div')(({ theme }) => ({
+  position: 'relative',
+  width: '400px',
+  '.MuiOutlinedInput-root': {
+    borderRadius: theme.shape.borderRadius * 5,
     paddingRight: 0,
     '&:hover fieldset': {
-      borderColor: '#000000',
+      borderColor: theme.palette.text.primary,
     },
   },
-});
+}));
 
 const Header = () => {
   const { user, loading, handleLogout } = useContext(AuthContext);
-  const [categories, setCategories] = useState([]);
+
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [shopMenuAnchor, setShopMenuAnchor] = useState(null);
   const [userMenuAnchor, setUserMenuAnchor] = useState(null);
+
+  // For cycling “tips” in the search bar
+  const tips = useMemo(
+    () => [
+      'Search for sneakers',
+      'Search for shirts',
+      'Search for jackets',
+      'Search for accessories',
+      'Search by brand or name',
+    ],
+    []
+  );
+  const [currentTip, setCurrentTip] = useState(tips[0]);
+  const [tipKey, setTipKey] = useState(0); // re-render animation
+  const [typing, setTyping] = useState(false); // to stop animation if user is typing
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -98,55 +136,37 @@ const Header = () => {
 
   const navigate = useNavigate();
 
+  // Animate a new tip sliding up every ~2.5s, but only if not typing
   useEffect(() => {
-    const loadCategories = async () => {
-      try {
-        const data = await fetchCategories();
-        setCategories(data);
-      } catch (error) {
-        console.error(error.message);
-      }
-    };
-    loadCategories();
-  }, []);
+    if (typing) return undefined; // stop animation if user is typing
+
+    let index = 0;
+    const interval = setInterval(() => {
+      index = (index + 1) % tips.length;
+      setCurrentTip(tips[index]);
+      setTipKey((prev) => prev + 1); // retrigger animation
+    }, 2500);
+
+    return () => clearInterval(interval);
+  }, [typing, tips]);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
   };
 
-  const handleShopMouseEnter = (event) => {
-    setShopMenuAnchor(event.currentTarget);
-  };
-
-  const handleShopMouseLeave = () => {
-    setShopMenuAnchor(null);
-  };
-
-  const handleUserMenuClick = (event) => {
-    setUserMenuAnchor(event.currentTarget);
-  };
-
-  const handleUserMenuClose = () => {
-    setUserMenuAnchor(null);
-  };
-
-  const navItems = ['Most Wanted', 'New Arrival', 'Brands'];
-
   const handleLinkClick = () => {
-    if (mobileOpen) {
-      setMobileOpen(false);
-    }
-    handleUserMenuClose();
-    handleShopMouseLeave();
+    if (mobileOpen) setMobileOpen(false);
+    setUserMenuAnchor(null);
   };
 
   const handleLogoutClick = () => {
     handleLogout();
-    handleUserMenuClose();
+    setUserMenuAnchor(null);
     navigate('/login');
   };
 
-  const drawer = (
+  // Mobile Drawer
+  const renderMobileDrawer = (
     <Box sx={{ textAlign: 'center' }}>
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', p: 2 }}>
         <IconButton onClick={handleDrawerToggle}>
@@ -155,132 +175,120 @@ const Header = () => {
       </Box>
       <List>
         <ListItem sx={{ justifyContent: 'center' }}>
-          <ListItemText primary="Shop" />
+          <Button
+            component={Link}
+            to="/products"
+            onClick={handleLinkClick}
+            sx={{
+              color: theme.palette.text.primary,
+              textTransform: 'none',
+              ...theme.typography.body1,
+              fontWeight: 'bold',
+              ':hover': {
+                transform: 'scale(1.05)',
+                background: 'none',
+              },
+            }}
+          >
+            Explore Products
+          </Button>
         </ListItem>
-        {categories.map((category) => (
-          <ListItem key={category.id} sx={{ justifyContent: 'center', pl: 4 }}>
-            <ListItemText>
-              <Link
-                to={`/products?category=${category.id}`}
-                onClick={handleLinkClick}
-                style={{ textDecoration: 'none', color: '#000' }}
-              >
-                {category.name}
-              </Link>
-            </ListItemText>
-          </ListItem>
-        ))}
-        {navItems.map((item) => (
-          <ListItem key={item} sx={{ justifyContent: 'center' }}>
-            <ListItemText>
-              <Link
-                to="/products"
-                onClick={handleLinkClick}
-                style={{ textDecoration: 'none', color: '#000' }}
-              >
-                {item}
-              </Link>
-            </ListItemText>
-          </ListItem>
-        ))}
       </List>
     </Box>
   );
 
   return (
-    <StyledAppBar position="sticky" sx={{ mb: 0 }}>
+    <StyledAppBar position="sticky">
       <StyledToolbar>
-        {isMobile && (
-          <IconButton
-            color="inherit"
-            aria-label="open drawer"
-            edge="start"
-            onClick={handleDrawerToggle}
-            sx={{ color: '#000000', mr: 1 }}
-          >
-            <MenuIcon />
-          </IconButton>
-        )}
-
-        <LogoBox onClick={() => navigate('/')}>
-          <LogoImg src={logo} alt="Logo" />
-          {!isMobile && (
-            <Typography variant="h6" component="div" sx={{ color: '#000000' }}>
-              Carlos Shop
-            </Typography>
-          )}
-        </LogoBox>
-
-        {!isMobile && (
+        {/* Left Section: Logo + Home + Explore */}
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          {/* Logo and "Home" link */}
           <Box
-            sx={{ display: 'flex', alignItems: 'center' }}
-            onMouseLeave={handleShopMouseLeave}
+            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+            onClick={() => navigate('/')}
           >
-            <Box onMouseEnter={handleShopMouseEnter}>
-              <NavButton
-                onClick={handleShopMouseEnter}
-                endIcon={<ExpandMore />}
+            <LogoImg src={logo} alt="Logo" />
+            {!isMobile && (
+              <Typography
+                variant="body1"
+                sx={{
+                  color: theme.palette.text.primary,
+                  ...theme.typography.body1,
+                  fontWeight: 'bold', // bold by default
+                  marginRight: 2,
+                  transition: 'transform 0.2s',
+                  ':hover': { transform: 'scale(1.05)' },
+                }}
               >
-                Shop
-              </NavButton>
-              <Menu
-                anchorEl={shopMenuAnchor}
-                open={Boolean(shopMenuAnchor)}
-                onClose={handleShopMouseLeave}
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-                transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-                MenuListProps={{ onMouseLeave: handleShopMouseLeave }}
-              >
-                {categories.map((category) => (
-                  <MenuItem
-                    key={category.id}
-                    onClick={() => {
-                      navigate(`/products?category=${category.id}`);
-                      handleShopMouseLeave();
-                    }}
-                    sx={{ fontSize: '0.95rem' }}
-                  >
-                    {category.name}
-                  </MenuItem>
-                ))}
-              </Menu>
-            </Box>
-            {navItems.map((item) => (
-              <NavButton
-                key={item}
-                component={NavLink}
-                to="/products"
-                onClick={handleLinkClick}
-                sx={{ fontSize: '0.95rem' }}
-              >
-                {item}
-              </NavButton>
-            ))}
+                Home
+              </Typography>
+            )}
           </Box>
-        )}
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          {/* “Explore Products” for desktop */}
           {!isMobile && (
-            <SearchField
-              placeholder="Search..."
-              size="small"
-              variant="outlined"
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon sx={{ color: '#000' }} />
-                  </InputAdornment>
-                ),
+            <Button
+              component={NavLink}
+              to="/products"
+              onClick={handleLinkClick}
+              sx={{
+                color: theme.palette.text.primary,
+                textTransform: 'none',
+                ...theme.typography.body1,
+                fontWeight: 'bold', // bold by default
+                ':hover': {
+                  transform: 'scale(1.05)',
+                  background: 'none',
+                },
               }}
-              sx={{ display: { xs: 'none', md: 'block' }, fontSize: '0.9rem' }}
-            />
+            >
+              Explore Products
+            </Button>
           )}
+        </Box>
 
+        {/* Center: Animated Search Bar */}
+        <Box sx={{ flexGrow: 1, display: 'flex', justifyContent: 'center' }}>
+          {!isMobile && (
+            <SearchContainer>
+              <TextField
+                variant="outlined"
+                size="small"
+                onFocus={() => setTyping(true)} // stop animation
+                onBlur={() => setTyping(false)} // resume animation
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon sx={{ color: theme.palette.text.primary }} />
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{
+                  width: '100%',
+                  ...theme.typography.body1,
+                  transition: 'transform 0.3s ease',
+                  '&:hover, &:focus-within': {
+                    transform: 'scale(1.05)',
+                  },
+                }}
+              />
+
+              {/* Animated tip overlay (scroll up text) if not typing */}
+              {!typing && (
+                <AnimatedTipBox>
+                  <SlidingText key={tipKey}>{currentTip}</SlidingText>
+                </AnimatedTipBox>
+              )}
+            </SearchContainer>
+          )}
+        </Box>
+
+        {/* Right Section: Wishlist, Cart, Login/User */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <IconButton
             component={Link}
             to="/wishlist"
-            aria-label="Wishlist"
-            sx={{ color: '#000000' }}
+            sx={{ color: theme.palette.text.primary }}
           >
             <Badge badgeContent={wishlistCount} color="error">
               <FavoriteBorder />
@@ -290,8 +298,7 @@ const Header = () => {
           <IconButton
             component={Link}
             to="/cart"
-            aria-label="Cart"
-            sx={{ color: '#000000' }}
+            sx={{ color: theme.palette.text.primary }}
           >
             <Badge badgeContent={cartCount} color="error">
               <ShoppingCart />
@@ -310,50 +317,47 @@ const Header = () => {
                 variant="body2"
                 sx={{
                   mr: 1,
-                  color: '#000',
-                  fontSize: '0.95rem',
+                  color: theme.palette.text.primary,
+                  ...theme.typography.body2,
                 }}
               >
                 Hi, {user.name}
               </Typography>
               <IconButton
                 aria-label="User account"
-                sx={{ color: '#000000' }}
-                onClick={handleUserMenuClick}
+                sx={{ color: theme.palette.text.primary }}
+                onClick={(e) => setUserMenuAnchor(e.currentTarget)}
               >
                 <AccountCircle />
               </IconButton>
               <Menu
                 anchorEl={userMenuAnchor}
                 open={Boolean(userMenuAnchor)}
-                onClose={handleUserMenuClose}
+                onClose={() => setUserMenuAnchor(null)}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
               >
                 <MenuItem
                   onClick={() => {
-                    handleUserMenuClose();
+                    setUserMenuAnchor(null);
                     navigate('/profile');
                   }}
-                  sx={{ fontSize: '0.95rem' }}
+                  sx={{ ...theme.typography.body2 }}
                 >
                   Profile
                 </MenuItem>
                 <MenuItem
                   onClick={() => {
-                    handleUserMenuClose();
+                    setUserMenuAnchor(null);
                     navigate('/profile?section=orders');
                   }}
-                  sx={{ fontSize: '0.95rem' }}
+                  sx={{ ...theme.typography.body2 }}
                 >
                   Orders
                 </MenuItem>
                 <MenuItem
-                  onClick={() => {
-                    handleUserMenuClose();
-                    handleLogoutClick();
-                  }}
-                  sx={{ fontSize: '0.95rem' }}
+                  onClick={handleLogoutClick}
+                  sx={{ ...theme.typography.body2 }}
                 >
                   Logout
                 </MenuItem>
@@ -365,7 +369,12 @@ const Header = () => {
               to="/login"
               variant="contained"
               color="primary"
-              sx={{ textTransform: 'none', fontSize: '0.95rem' }}
+              sx={{
+                textTransform: 'none',
+                ...theme.typography.body2,
+                px: 3,
+                py: 1,
+              }}
             >
               Login
             </Button>
@@ -373,6 +382,7 @@ const Header = () => {
         </Box>
       </StyledToolbar>
 
+      {/* Mobile Drawer */}
       <Drawer
         variant="temporary"
         anchor="left"
@@ -386,7 +396,7 @@ const Header = () => {
           '& .MuiDrawer-paper': { boxSizing: 'border-box', width: 240 },
         }}
       >
-        {drawer}
+        {renderMobileDrawer}
       </Drawer>
     </StyledAppBar>
   );

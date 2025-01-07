@@ -1,5 +1,3 @@
-// src/components/profile/ManageProductTab.js
-
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -13,11 +11,12 @@ import {
   Typography,
   IconButton,
   Card,
+  CardContent,
   ImageList,
   ImageListItem,
   ImageListItemBar,
 } from '@mui/material';
-import { FiTrash2, FiPlus } from 'react-icons/fi'; // Using better icons
+import { FiTrash2, FiPlus } from 'react-icons/fi';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   createProductThunk,
@@ -200,229 +199,262 @@ const ManageProductTab = ({ currentProduct, navigateToManageProduct }) => {
     <Box>
       {/* Add/Edit Product Form */}
       <Card sx={{ p: 2, boxShadow: 1, borderRadius: 2 }}>
-        <Typography variant="h6" sx={{ mb: 2, fontSize: '0.875rem' }}>
-          {isEditMode ? 'Edit Product' : 'Add Product'}
-        </Typography>
-        <form onSubmit={handleSubmit}>
-          <Grid container spacing={2}>
-            {/* Left Column */}
-            <Grid item xs={12} md={6}>
-              <Grid container spacing={2}>
-                {/* Title */}
-                <Grid item xs={12}>
-                  <TextField
-                    label="Title"
-                    name="title"
-                    variant="outlined"
-                    fullWidth
-                    value={formData.title}
-                    onChange={handleChange}
-                    error={!!errors.title}
-                    helperText={errors.title}
-                    size="small"
-                    sx={{ fontSize: '0.75rem' }}
-                  />
-                </Grid>
-                {/* Price */}
-                <Grid item xs={12}>
-                  <TextField
-                    label="Price"
-                    name="price"
-                    variant="outlined"
-                    fullWidth
-                    value={formData.price}
-                    onChange={handleChange}
-                    error={!!errors.price}
-                    helperText={errors.price}
-                    size="small"
-                    type="number"
-                    inputProps={{ min: 0, step: '0.01' }}
-                    sx={{ fontSize: '0.75rem' }}
-                  />
-                </Grid>
-                {/* Description */}
-                <Grid item xs={12}>
-                  <TextField
-                    label="Description"
-                    name="description"
-                    variant="outlined"
-                    fullWidth
-                    multiline
-                    rows={4}
-                    value={formData.description}
-                    onChange={handleChange}
-                    error={!!errors.description}
-                    helperText={errors.description}
-                    size="small"
-                    sx={{ fontSize: '0.75rem' }}
-                  />
-                </Grid>
-                {/* Category */}
-                <Grid item xs={12}>
-                  <FormControl fullWidth variant="outlined" size="small">
-                    <InputLabel
-                      id="category-select-label"
-                      sx={{ fontSize: '0.75rem' }}
-                    >
-                      Category
-                    </InputLabel>
-                    <Select
-                      labelId="category-select-label"
-                      label="Category"
-                      name="categoryId"
-                      value={formData.categoryId}
+        <CardContent>
+          <Typography variant="h6" sx={{ mb: 2, fontSize: '0.875rem' }}>
+            {isEditMode ? 'Edit Product' : 'Add Product'}
+          </Typography>
+          <form onSubmit={handleSubmit}>
+            <Grid container spacing={2}>
+              {/* Left Column */}
+              <Grid item xs={12} md={6}>
+                <Grid container spacing={2}>
+                  {/* Title */}
+                  <Grid item xs={12}>
+                    <TextField
+                      label="Title"
+                      name="title"
+                      variant="outlined"
+                      fullWidth
+                      value={formData.title}
                       onChange={handleChange}
+                      error={!!errors.title}
+                      helperText={errors.title}
+                      size="small"
+                      sx={{
+                        '& .MuiInputBase-input': { fontSize: '0.75rem' },
+                        '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                        '& .MuiFormHelperText-root': { fontSize: '0.6rem' },
+                      }}
+                    />
+                  </Grid>
+                  {/* Price */}
+                  <Grid item xs={12}>
+                    <TextField
+                      label="Price"
+                      name="price"
+                      variant="outlined"
+                      fullWidth
+                      value={formData.price}
+                      onChange={handleChange}
+                      error={!!errors.price}
+                      helperText={errors.price}
+                      size="small"
+                      type="number"
+                      inputProps={{ min: 0, step: '0.01' }}
+                      sx={{
+                        '& .MuiInputBase-input': { fontSize: '0.75rem' },
+                        '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                        '& .MuiFormHelperText-root': { fontSize: '0.6rem' },
+                      }}
+                    />
+                  </Grid>
+                  {/* Description */}
+                  <Grid item xs={12}>
+                    <TextField
+                      label="Description"
+                      name="description"
+                      variant="outlined"
+                      fullWidth
+                      multiline
+                      rows={4}
+                      value={formData.description}
+                      onChange={handleChange}
+                      error={!!errors.description}
+                      helperText={errors.description}
+                      size="small"
+                      sx={{
+                        '& .MuiInputBase-input': { fontSize: '0.75rem' },
+                        '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                        '& .MuiFormHelperText-root': { fontSize: '0.6rem' },
+                      }}
+                    />
+                  </Grid>
+                  {/* Category */}
+                  <Grid item xs={12}>
+                    <FormControl
+                      fullWidth
+                      variant="outlined"
+                      size="small"
                       error={!!errors.categoryId}
-                      sx={{ fontSize: '0.75rem' }}
+                      sx={{
+                        '& .MuiInputBase-input': { fontSize: '0.75rem' },
+                        '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                        '& .MuiFormHelperText-root': { fontSize: '0.6rem' },
+                      }}
                     >
-                      <MenuItem value="">
-                        <em>None</em>
-                      </MenuItem>
-                      {categories.map((cat) => (
-                        <MenuItem key={cat.id} value={cat.id}>
-                          {cat.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                    {errors.categoryId && (
-                      <Typography color="error" variant="caption">
-                        {errors.categoryId}
-                      </Typography>
-                    )}
-                  </FormControl>
-                </Grid>
-                {/* Images */}
-                <Grid item xs={12}>
-                  <Typography
-                    variant="subtitle2"
-                    sx={{ mb: 1, fontSize: '0.75rem' }}
-                  >
-                    Images
-                  </Typography>
-                  {formData.images.map((img, index) => (
-                    <Box
-                      key={index}
-                      sx={{ display: 'flex', alignItems: 'center', mb: 1 }}
-                    >
-                      <TextField
-                        label={`Image URL ${index + 1}`}
-                        variant="outlined"
-                        fullWidth
-                        value={img}
-                        onChange={(e) =>
-                          handleImageChange(index, e.target.value)
-                        }
-                        size="small"
+                      <InputLabel
+                        id="category-select-label"
                         sx={{ fontSize: '0.75rem' }}
-                      />
-                      {formData.images.length > 1 && (
-                        <IconButton
-                          color="error"
-                          onClick={() => handleDeleteImage(index)}
-                          sx={{ ml: 1 }}
-                          size="small"
-                        >
-                          <FiTrash2 size={16} />
-                        </IconButton>
+                      >
+                        Category
+                      </InputLabel>
+                      <Select
+                        labelId="category-select-label"
+                        label="Category"
+                        name="categoryId"
+                        value={formData.categoryId}
+                        onChange={handleChange}
+                      >
+                        <MenuItem value="">
+                          <em>None</em>
+                        </MenuItem>
+                        {categories.map((cat) => (
+                          <MenuItem key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                      {errors.categoryId && (
+                        <Typography color="error" variant="caption">
+                          {errors.categoryId}
+                        </Typography>
                       )}
-                    </Box>
-                  ))}
-                  <Button
-                    variant="outlined"
-                    startIcon={<FiPlus />}
-                    onClick={handleAddImage}
-                    size="small"
-                    sx={{ mt: 1, textTransform: 'none', fontSize: '0.75rem' }}
-                  >
-                    Add Image
-                  </Button>
-                </Grid>
-              </Grid>
-            </Grid>
-
-            {/* Right Column - Image Previews */}
-            <Grid item xs={12} md={6}>
-              <Typography
-                variant="subtitle2"
-                sx={{ mb: 1, fontSize: '0.75rem' }}
-              >
-                Image Previews
-              </Typography>
-              {imagePreviews.length === 0 ? (
-                <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                  No images to preview.
-                </Typography>
-              ) : (
-                <ImageList cols={3} gap={8}>
-                  {imagePreviews.map((url, index) => (
-                    <ImageListItem key={index}>
-                      <img
-                        src={url}
-                        alt={`Preview ${index + 1}`}
-                        loading="lazy"
-                        style={{ objectFit: 'cover', height: 100 }}
-                        onError={(e) => {
-                          e.target.src = 'https://via.placeholder.com/100';
-                        }}
-                      />
-                      <ImageListItemBar
-                        actionIcon={
+                    </FormControl>
+                  </Grid>
+                  {/* Images */}
+                  <Grid item xs={12}>
+                    <Typography
+                      variant="subtitle2"
+                      sx={{ mb: 1, fontSize: '0.75rem' }}
+                    >
+                      Images
+                    </Typography>
+                    {formData.images.map((img, index) => (
+                      <Box
+                        key={index}
+                        sx={{ display: 'flex', alignItems: 'center', mb: 1 }}
+                      >
+                        <TextField
+                          label={`Image URL ${index + 1}`}
+                          name={`image-${index}`}
+                          variant="outlined"
+                          fullWidth
+                          value={img}
+                          onChange={(e) =>
+                            handleImageChange(index, e.target.value)
+                          }
+                          size="small"
+                          sx={{
+                            '& .MuiInputBase-input': { fontSize: '0.75rem' },
+                            '& .MuiInputLabel-root': { fontSize: '0.75rem' },
+                            '& .MuiFormHelperText-root': {
+                              fontSize: '0.6rem',
+                            },
+                          }}
+                        />
+                        {formData.images.length > 1 && (
                           <IconButton
-                            sx={{ color: 'rgba(255, 255, 255, 0.54)' }}
+                            color="error"
                             onClick={() => handleDeleteImage(index)}
+                            sx={{ ml: 1 }}
                             size="small"
                           >
                             <FiTrash2 size={16} />
                           </IconButton>
-                        }
-                      />
-                    </ImageListItem>
-                  ))}
-                </ImageList>
-              )}
-            </Grid>
-          </Grid>
+                        )}
+                      </Box>
+                    ))}
+                    <Button
+                      variant="outlined"
+                      startIcon={<FiPlus />}
+                      onClick={handleAddImage}
+                      size="small"
+                      sx={{
+                        mt: 1,
+                        textTransform: 'none',
+                        fontSize: '0.75rem',
+                      }}
+                    >
+                      Add Image
+                    </Button>
+                  </Grid>
+                </Grid>
+              </Grid>
 
-          {/* Buttons */}
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'flex-end',
-              mt: 3,
-              gap: 2,
-              flexDirection: { xs: 'column', sm: 'row' },
-            }}
-          >
-            <Button
-              variant="outlined"
-              onClick={handleCancel}
+              {/* Right Column - Image Previews */}
+              <Grid item xs={12} md={6}>
+                <Typography
+                  variant="subtitle2"
+                  sx={{ mb: 1, fontSize: '0.75rem' }}
+                >
+                  Image Previews
+                </Typography>
+                {imagePreviews.length === 0 ? (
+                  <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+                    No images to preview.
+                  </Typography>
+                ) : (
+                  <ImageList cols={3} gap={8}>
+                    {imagePreviews.map((url, index) => (
+                      <ImageListItem key={index}>
+                        <img
+                          src={url}
+                          alt={`Preview ${index + 1}`}
+                          loading="lazy"
+                          style={{ objectFit: 'cover', height: 100 }}
+                          onError={(e) => {
+                            e.target.src = 'https://via.placeholder.com/100';
+                          }}
+                        />
+                        <ImageListItemBar
+                          actionIcon={
+                            <IconButton
+                              sx={{ color: 'rgba(255, 255, 255, 0.54)' }}
+                              onClick={() => handleDeleteImage(index)}
+                              size="small"
+                            >
+                              <FiTrash2 size={16} />
+                            </IconButton>
+                          }
+                        />
+                      </ImageListItem>
+                    ))}
+                  </ImageList>
+                )}
+              </Grid>
+            </Grid>
+
+            {/* Buttons */}
+            <Box
               sx={{
-                textTransform: 'none',
-                color: 'error.main',
-                borderColor: 'error.main',
-                fontSize: '0.75rem',
-                width: { xs: '100%', sm: 'auto' },
+                display: 'flex',
+                justifyContent: 'flex-end',
+                mt: 3,
+                gap: 2,
+                flexDirection: { xs: 'column', sm: 'row' },
               }}
             >
-              Cancel
-            </Button>
-            <Button
-              variant="contained"
-              type="submit"
-              sx={{
-                textTransform: 'none',
-                backgroundColor: 'primary.main',
-                '&:hover': {
-                  backgroundColor: 'primary.dark',
-                },
-                fontSize: '0.75rem',
-                width: { xs: '100%', sm: 'auto' },
-              }}
-            >
-              {isEditMode ? 'Update Product' : 'Save Product'}
-            </Button>
-          </Box>
-        </form>
+              <Button
+                variant="outlined"
+                onClick={handleCancel}
+                sx={{
+                  textTransform: 'none',
+                  color: 'error.main',
+                  borderColor: 'error.main',
+                  fontSize: '0.75rem',
+                  width: { xs: '100%', sm: 'auto' },
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="contained"
+                type="submit"
+                sx={{
+                  textTransform: 'none',
+                  backgroundColor: 'primary.main',
+                  '&:hover': {
+                    backgroundColor: 'primary.dark',
+                  },
+                  fontSize: '0.75rem',
+                  width: { xs: '100%', sm: 'auto' },
+                }}
+              >
+                {isEditMode ? 'Update Product' : 'Save Product'}
+              </Button>
+            </Box>
+          </form>
+        </CardContent>
       </Card>
 
       {/* Notification */}

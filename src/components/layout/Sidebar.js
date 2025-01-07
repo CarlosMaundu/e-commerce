@@ -31,6 +31,7 @@ import {
   FiExternalLink,
   FiCreditCard,
   FiBarChart2,
+  FiFileText,
 } from 'react-icons/fi';
 import { AuthContext } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -75,6 +76,12 @@ const Sidebar = ({ activeSection, setActiveSection }) => {
       label: 'Customers',
       icon: <FiUsers size={20} />,
       section: 'customers',
+      adminOnly: true,
+    },
+    {
+      label: 'Invoices',
+      icon: <FiFileText size={20} />,
+      section: 'invoices',
       adminOnly: true,
     },
     {

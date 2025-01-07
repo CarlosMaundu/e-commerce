@@ -25,11 +25,7 @@ const ConfirmationDialog = ({
       open={open}
       onClose={loading ? null : onCancel} // Prevent closing during loading
       aria-labelledby="confirmation-dialog-title"
-      sx={{
-        '& .MuiDialog-paper': {
-          borderRadius: 2,
-        },
-      }}
+      // Removed sx prop to inherit borderRadius from theme
     >
       <DialogTitle id="confirmation-dialog-title">{title}</DialogTitle>
       <DialogContent>
@@ -46,7 +42,7 @@ const ConfirmationDialog = ({
             }}
           >
             <CircularProgress size={24} />
-            <DialogContentText>Deleting...</DialogContentText>
+            <DialogContentText>Processing...</DialogContentText>
           </Box>
         ) : (
           <DialogContentText>{content}</DialogContentText>

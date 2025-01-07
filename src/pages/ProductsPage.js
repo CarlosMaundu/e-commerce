@@ -1,21 +1,27 @@
 // src/pages/ProductsPage.js
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import FiltersSidebar from '../components/layout/FiltersSidebar';
-import ProductGrid from '../components/common/ProductGrid';
-import { fetchProducts } from '../redux/productsSlice';
-import '../styles/productsPage.css';
 import { useLocation } from 'react-router-dom';
 import {
+  Box,
   Typography,
+  Pagination,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
-  Box,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
-import Pagination from '@mui/material/Pagination';
+
+import { fetchProducts } from '../redux/productsSlice';
+import { fetchCategories } from '../redux/categoriesSlice';
+import ProductGrid from '../components/common/ProductGrid';
+import ProductsFilter from '../components/layout/ProductsFilter';
+import ShopByCategorySection from '../components/layout/ShopByCategorySection';
+
+import bannerVid from '../images/productspage.mp4';
 
 const ProductsPage = () => {
   const dispatch = useDispatch();
@@ -24,211 +30,245 @@ const ProductsPage = () => {
     loading,
     error,
   } = useSelector((state) => state.products);
+  const { categories } = useSelector((state) => state.categories);
+
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const initialCategory = queryParams.get('category') || '';
 
-  // State for filters, sorting, and pagination
+  // API filters
   const [filters, setFilters] = useState({
+    search: '',
     categoryId: initialCategory,
     price_min: 0,
     price_max: 1000,
-    title: '',
   });
-  const [additionalFilters, setAdditionalFilters] = useState({
+
+  // Client filters
+  const [clientFilters, setClientFilters] = useState({
     rating: 0,
-    availability: false,
+    availability: '',
   });
-  const [sortOption, setSortOption] = useState('popularity'); // Sorting handled by API if possible
+
+  // Sorting
+  const [sortOption, setSortOption] = useState('popularity');
+
+  // Pagination with default rows per page set to 10
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(2); // Number of rows (number of columns per row)
-  const columns = 5; // Number of columns in the grid
-  const productsPerPage = rowsPerPage * columns; // Total products per page
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  const columns = isMobile ? 2 : 5;
+  const productsPerPage = rowsPerPage * columns;
 
   useEffect(() => {
-    // Calculate limit and offset based on currentPage and productsPerPage
+    dispatch(fetchCategories());
+  }, [dispatch]);
+
+  useEffect(() => {
     const limit = productsPerPage;
     const offset = (currentPage - 1) * productsPerPage;
 
-    // Prepare filter parameters for the API
     const apiFilters = {
-      ...filters,
+      title: filters.search || '',
+      categoryId: filters.categoryId,
+      price_min: filters.price_min,
+      price_max: filters.price_max,
       limit,
       offset,
     };
-
-    // Dispatch fetchProducts with filters
     dispatch(fetchProducts(apiFilters));
   }, [dispatch, filters, currentPage, productsPerPage]);
 
-  // Handle filter changes from FiltersSidebar
-  const handleFilterChange = (newFilters) => {
-    // Separate API-supported filters and additional filters
-    const { title, categoryId, price_min, price_max, rating, availability } =
-      newFilters;
+  const processedProducts = useMemo(() => {
+    let data = [...fetchedProducts];
 
-    const apiFilters = {
-      title: title || '',
-      categoryId: categoryId || '',
-      price_min: price_min || 0,
-      price_max: price_max || 1000,
-    };
-    setFilters(apiFilters);
+    if (clientFilters.availability === 'inStock') {
+      data = data.filter((p) => p.inStock);
+    } else if (clientFilters.availability === 'outOfStock') {
+      data = data.filter((p) => !p.inStock);
+    }
 
-    const clientSideFilters = {
-      rating: rating || 0,
-      availability: availability || false,
-    };
-    setAdditionalFilters(clientSideFilters);
+    if (clientFilters.rating > 0) {
+      data = data.filter((p) => (p.rating || 0) >= clientFilters.rating);
+    }
 
-    setCurrentPage(1); // Reset to first page when filters change
-  };
+    switch (sortOption) {
+      case 'priceLowToHigh':
+        data.sort((a, b) => a.price - b.price);
+        break;
+      case 'priceHighToLow':
+        data.sort((a, b) => b.price - a.price);
+        break;
+      case 'newest':
+        data.sort((a, b) => new Date(b.creationAt) - new Date(a.creationAt));
+        break;
+      default:
+        break;
+    }
+    return data;
+  }, [fetchedProducts, clientFilters, sortOption]);
 
-  // Handle sorting changes
-  const handleSortChange = (e) => {
-    setSortOption(e.target.value);
-  };
+  const totalCount = processedProducts.length;
+  const totalPages = Math.ceil(totalCount / productsPerPage);
+  const currentProducts = processedProducts.slice(0, productsPerPage);
 
-  // Handle page changes
-  const handlePageChange = (event, value) => {
+  const handlePageChange = (_, value) => {
     setCurrentPage(value);
   };
-
-  // Handle rows per page changes
   const handleRowsPerPageChange = (e) => {
     setRowsPerPage(Number(e.target.value));
-    setCurrentPage(1); // Reset to first page
+    setCurrentPage(1);
   };
 
-  // Apply additional client-side filters (rating, availability)
-  const additionalFilteredProducts = fetchedProducts
-    .filter((product) => {
-      // Filter by rating
-      if (
-        additionalFilters.rating > 0 &&
-        product.rating < additionalFilters.rating
-      ) {
-        return false;
-      }
-      // Filter by availability
-      if (additionalFilters.availability && !product.inStock) {
-        return false;
-      }
-      return true;
-    })
-    .sort((a, b) => {
-      // Sort products based on sortOption
-      switch (sortOption) {
-        case 'priceLowToHigh':
-          return a.price - b.price;
-        case 'priceHighToLow':
-          return b.price - a.price;
-        case 'newest':
-          return new Date(b.creationAt) - new Date(a.creationAt);
-        case 'popularity':
-        default:
-          return 0;
-      }
+  const handleResetFilters = () => {
+    setFilters({
+      search: '',
+      categoryId: '',
+      price_min: 0,
+      price_max: 1000,
     });
+    setClientFilters({
+      rating: 0,
+      availability: '',
+    });
+    setSortOption('popularity');
+    setCurrentPage(1);
+  };
 
-  // Pagination logic for client-side filters
-  const totalFilteredProducts = additionalFilteredProducts.length;
-  const totalPages = Math.ceil(totalFilteredProducts / productsPerPage);
+  const chosenCategory = categories.find(
+    (cat) => String(cat.id) === filters.categoryId
+  );
+  const pageTitle = chosenCategory ? chosenCategory.name : 'All Products';
 
-  const currentProducts = additionalFilteredProducts.slice(0, productsPerPage);
+  const handleCategorySelect = (catId) => {
+    setFilters((prev) => ({ ...prev, categoryId: String(catId) }));
+    setCurrentPage(1);
+  };
 
   return (
-    <Box className="products-page">
-      <Box className="products-page__container">
-        <FiltersSidebar
-          filters={{ ...filters, ...additionalFilters }}
-          onFilterChange={handleFilterChange}
+    <Box
+      sx={{
+        backgroundColor: theme.palette.background.default,
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        p: { xs: 2, md: 3 },
+        gap: 2,
+      }}
+    >
+      {/* MP4 banner */}
+      <Box
+        sx={{
+          width: '100%',
+          height: { xs: '150px', sm: '220px', md: '300px' },
+          overflow: 'hidden',
+          borderRadius: theme.shape.borderRadius,
+        }}
+      >
+        <video
+          src={bannerVid}
+          autoPlay
+          muted
+          loop
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+          }}
         />
-        <Box className="products-page__main">
-          <Box
-            className="products-page__header"
-            sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}
+      </Box>
+
+      {/* Shop by Category */}
+      <ShopByCategorySection onCategorySelect={handleCategorySelect} />
+
+      {/* Title */}
+      <Typography
+        variant="h4"
+        sx={{
+          ...theme.typography.h4,
+          color: theme.palette.text.primary,
+          textAlign: 'left',
+        }}
+      >
+        {pageTitle}
+      </Typography>
+
+      {/* Filters */}
+      <ProductsFilter
+        filters={filters}
+        setFilters={setFilters}
+        clientFilters={clientFilters}
+        setClientFilters={setClientFilters}
+        sortOption={sortOption}
+        setSortOption={setSortOption}
+        onResetFilters={handleResetFilters}
+      />
+
+      {/* Products */}
+      <Box sx={{ flex: 1 }}>
+        <ProductGrid
+          products={currentProducts}
+          columns={columns}
+          loading={loading}
+        />
+
+        {error && (
+          <Typography
+            variant="h6"
+            color="error"
+            sx={{ mt: 2, textAlign: 'center' }}
           >
-            <Typography variant="h4">Shop</Typography>
-            <Box className="products-page__controls">
-              {/* Sorting Options */}
-              <FormControl
-                variant="outlined"
-                size="small"
-                sx={{ minWidth: 150 }}
-              >
-                <InputLabel id="sort-label">Sort by</InputLabel>
-                <Select
-                  labelId="sort-label"
-                  value={sortOption}
-                  onChange={handleSortChange}
-                  label="Sort by"
-                >
-                  <MenuItem value="popularity">Popularity</MenuItem>
-                  <MenuItem value="priceLowToHigh">Price: Low to High</MenuItem>
-                  <MenuItem value="priceHighToLow">Price: High to Low</MenuItem>
-                  <MenuItem value="newest">Newest Arrivals</MenuItem>
-                </Select>
-              </FormControl>
-            </Box>
-          </Box>
-          {/* Product Grid */}
-          <ProductGrid
-            products={currentProducts}
-            columns={columns}
-            loading={loading}
+            {error}
+          </Typography>
+        )}
+
+        {/* Pagination & Rows Per Page */}
+        <Box
+          sx={{
+            mt: 2,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexDirection: isMobile ? 'column' : 'row',
+            gap: 2,
+          }}
+        >
+          <Pagination
+            count={totalPages}
+            page={currentPage}
+            onChange={handlePageChange}
+            variant="outlined"
+            shape="rounded"
+            color="primary"
+            showFirstButton
+            showLastButton
+            size="small"
+            siblingCount={isMobile ? 1 : 2}
           />
-          {/* Error Message */}
-          {error && (
-            <Typography
-              variant="h6"
-              color="error"
-              sx={{ mt: 2, textAlign: 'center' }}
-            >
-              {error}
-            </Typography>
-          )}
-          {/* Pagination and Rows Per Page */}
-          <Box
-            className="products-page__footer"
-            sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              mt: 2,
-            }}
+          <FormControl
+            variant="outlined"
+            size="small"
+            sx={{ minWidth: 120, mt: isMobile ? 1 : 0 }}
           >
-            <Pagination
-              count={totalPages}
-              page={currentPage}
-              onChange={handlePageChange}
-              variant="outlined"
-              shape="rounded"
-              color="primary"
-              showFirstButton
-              showLastButton
-            />
-            <FormControl variant="outlined" size="small" sx={{ minWidth: 150 }}>
-              <InputLabel id="rows-per-page-label">Rows per page</InputLabel>
-              <Select
-                labelId="rows-per-page-label"
-                value={rowsPerPage}
-                onChange={handleRowsPerPageChange}
-                label="Rows per page"
-              >
-                <MenuItem value={2}>2</MenuItem>
-                <MenuItem value={4}>4</MenuItem>
-                <MenuItem value={6}>6</MenuItem>
-                <MenuItem value={8}>8</MenuItem>
-                <MenuItem value={10}>10</MenuItem>
-              </Select>
-            </FormControl>
-          </Box>
+            <InputLabel id="rows-per-page-label">Rows per page</InputLabel>
+            <Select
+              labelId="rows-per-page-label"
+              value={rowsPerPage}
+              onChange={handleRowsPerPageChange}
+              label="Rows per page"
+              sx={{ fontSize: '0.75rem' }}
+            >
+              <MenuItem value={5}>5</MenuItem>
+              <MenuItem value={10}>10</MenuItem>
+              <MenuItem value={20}>20</MenuItem>
+              <MenuItem value={30}>30</MenuItem>
+              <MenuItem value={50}>50</MenuItem>
+              <MenuItem value={100}>100</MenuItem>
+            </Select>
+          </FormControl>
         </Box>
       </Box>
     </Box>
