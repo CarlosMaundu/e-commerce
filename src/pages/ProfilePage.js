@@ -25,20 +25,18 @@ import { FiBell, FiExternalLink } from 'react-icons/fi';
 
 import ProfileSection from '../components/profile/ProfileSection';
 import Sidebar from '../components/layout/Sidebar';
-import ProductsSection from '../components/profile/ProductsSection'; // Importing ProductsSection
+import ProductsSection from '../components/profile/ProductsSection';
 
 // Lazy-loaded sections
 const PaymentOptionsSection = React.lazy(
-  () => import('../components/profile/PaymentOptionsSection')
+  () => import('../components/profile/payments/PaymentOptionsSection')
 );
 const OrdersSection = React.lazy(
-  () => import('../components/profile/OrdersSection')
+  () => import('../components/profile/orders/OrdersSection')
 );
 const ReportsSection = React.lazy(
-  () => import('../components/profile/ReportsSection')
+  () => import('../components/profile/reports/ReportsSection')
 );
-
-// Removed unused local declarations
 const AdminDashboardSection = React.lazy(
   () => import('../components/profile/AdminDashboardSection')
 );
@@ -46,12 +44,25 @@ const CustomerDashboardSection = React.lazy(
   () => import('../components/profile/CustomerDashboardSection')
 );
 
+// NEW lazy imports for customers, messages, help center
+const CustomersSection = React.lazy(
+  () => import('../components/profile/customers/CustomersSection')
+);
+const HelpCenterSection = React.lazy(
+  () => import('../components/profile/helpcenter/HelpCenterSection')
+);
+const MessagesSection = React.lazy(
+  () => import('../components/profile/messages/MessagesSection')
+);
+const InvoicesSection = React.lazy(
+  () => import('../components/profile/invoices/InvoicesSection')
+);
+
 const defaultAvatarUrl = 'https://i.imgur.com/kIaFC3J.png';
 
 const ProfilePage = () => {
   const { user, accessToken, loading, updateUser } = useContext(AuthContext);
 
-  // Memoized URLSearchParams to fix ESLint warnings
   const location = useLocation();
   const navigate = useNavigate();
   const searchParams = useMemo(
@@ -59,7 +70,6 @@ const ProfilePage = () => {
     [location.search]
   );
 
-  // Default to 'dashboard' or 'profile'—your choice:
   const initialSection = searchParams.get('section') || 'profile';
   const [activeSection, setActiveSection] = useState(initialSection);
 
@@ -69,9 +79,6 @@ const ProfilePage = () => {
     severity: '',
   });
 
-  // -----------
-  // FORM STATE
-  // -----------
   const [formData, setFormData] = useState({
     id: user?.id || '',
     firstName: '',
@@ -91,9 +98,6 @@ const ProfilePage = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-  // -----------
-  // CHECK AUTH
-  // -----------
   useEffect(() => {
     if (!loading && !user) {
       setNotification({
@@ -104,9 +108,6 @@ const ProfilePage = () => {
     }
   }, [user, loading]);
 
-  // -----------
-  // POPULATE FORM
-  // -----------
   useEffect(() => {
     if (user) {
       const nameParts = user.name?.split(' ') || [];
@@ -126,17 +127,11 @@ const ProfilePage = () => {
     }
   }, [user]);
 
-  // -----------
-  // UPDATE SECTION
-  // -----------
   useEffect(() => {
     const section = searchParams.get('section') || 'profile';
     setActiveSection(section);
   }, [searchParams]);
 
-  // -----------
-  // VALIDATE
-  // -----------
   const validateForm = () => {
     const newErrors = {};
     if (!formData.firstName.trim()) {
@@ -154,9 +149,6 @@ const ProfilePage = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // -----------
-  // HANDLE CANCEL
-  // -----------
   const handleCancel = () => {
     if (user) {
       const nameParts = user.name?.split(' ') || [];
@@ -178,18 +170,12 @@ const ProfilePage = () => {
     }
   };
 
-  // -----------
-  // HANDLE CHANGE
-  // -----------
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     setErrors((prev) => ({ ...prev, [name]: '' }));
   };
 
-  // -----------
-  // HANDLE SUBMIT
-  // -----------
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
@@ -243,20 +229,13 @@ const ProfilePage = () => {
     }
   };
 
-  // -----------
-  // NOTIF CLOSE
-  // -----------
   const handleNotificationClose = () => {
     setNotification((prev) => ({ ...prev, open: false }));
   };
 
-  // -----------
-  // GET HEADING
-  // -----------
   const getHeadingTitle = () => {
     switch (activeSection) {
       case 'dashboard':
-        // If user is admin => "Admin Dashboard", else => "My Dashboard"
         return user && user.role === 'admin' ? 'Admin Dashboard' : 'Dashboard';
       case 'profile':
         return 'Profile';
@@ -279,9 +258,6 @@ const ProfilePage = () => {
     }
   };
 
-  // -----------
-  // RENDER SECTIONS
-  // -----------
   const renderSectionContent = () => (
     <Suspense
       fallback={
@@ -293,9 +269,6 @@ const ProfilePage = () => {
       }
     >
       {(() => {
-        // 1. If user is admin and section = dashboard => AdminDashboard
-        // 2. If user is customer and section = dashboard => CustomerDashboard
-        // 3. else other sections
         if (activeSection === 'dashboard') {
           return user?.role === 'admin' ? (
             <AdminDashboardSection />
@@ -304,7 +277,6 @@ const ProfilePage = () => {
           );
         }
 
-        // SWITCH for other sections
         switch (activeSection) {
           case 'profile':
             return (
@@ -327,10 +299,17 @@ const ProfilePage = () => {
           case 'payment-options':
             return <PaymentOptionsSection />;
           case 'products':
-            return <ProductsSection />; // Render the ProductsSection here
+            return <ProductsSection />;
           case 'reports':
             return <ReportsSection />;
-          // Add more as needed
+          case 'customers':
+            return <CustomersSection />;
+          case 'messages':
+            return <MessagesSection />;
+          case 'help-center':
+            return <HelpCenterSection />;
+          case 'invoices':
+            return <InvoicesSection />;
           default:
             return <Typography variant="body1">Coming soon...</Typography>;
         }

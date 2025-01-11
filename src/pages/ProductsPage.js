@@ -22,6 +22,7 @@ import ProductsFilter from '../components/layout/ProductsFilter';
 import ShopByCategorySection from '../components/layout/ShopByCategorySection';
 
 import bannerVid from '../images/productspage.mp4';
+import { getAllProducts } from '../services/productsService'; // Import to fetch all products for total count
 
 const ProductsPage = () => {
   const dispatch = useDispatch();
@@ -56,9 +57,10 @@ const ProductsPage = () => {
   // Sorting
   const [sortOption, setSortOption] = useState('popularity');
 
-  // Pagination with default rows per page set to 10
+  // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [totalProducts, setTotalProducts] = useState(0); // For total count
 
   const columns = isMobile ? 2 : 5;
   const productsPerPage = rowsPerPage * columns;
@@ -66,6 +68,24 @@ const ProductsPage = () => {
   useEffect(() => {
     dispatch(fetchCategories());
   }, [dispatch]);
+
+  // Fetch total product count for current filters (without limit/offset)
+  useEffect(() => {
+    (async () => {
+      try {
+        const allData = await getAllProducts({
+          title: filters.search || '',
+          categoryId: filters.categoryId || undefined,
+          price_min: filters.price_min,
+          price_max: filters.price_max,
+          // No limit/offset parameters to fetch all matching products
+        });
+        setTotalProducts(allData.length);
+      } catch (err) {
+        console.error('Failed to fetch all products for total count:', err);
+      }
+    })();
+  }, [filters]);
 
   useEffect(() => {
     const limit = productsPerPage;
@@ -111,9 +131,11 @@ const ProductsPage = () => {
     return data;
   }, [fetchedProducts, clientFilters, sortOption]);
 
-  const totalCount = processedProducts.length;
-  const totalPages = Math.ceil(totalCount / productsPerPage);
-  const currentProducts = processedProducts.slice(0, productsPerPage);
+  // Use totalProducts from separate fetch to calculate totalPages
+  const totalPages = Math.ceil(totalProducts / productsPerPage);
+
+  // Do not slice processedProducts further; it's already the current page's data
+  const currentProducts = processedProducts;
 
   const handlePageChange = (_, value) => {
     setCurrentPage(value);

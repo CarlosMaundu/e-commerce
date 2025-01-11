@@ -5,6 +5,7 @@ import cartReducer from './cartSlice';
 import productsReducer from './productsSlice';
 import wishlistReducer from './wishlistSlice';
 import categoriesReducer from './categoriesSlice';
+import fileReducer from './fileSlice';
 import { persistStore, persistReducer } from 'redux-persist';
 import storage from 'redux-persist/lib/storage'; // defaults to localStorage for web
 
@@ -30,6 +31,8 @@ const store = configureStore({
     products: productsReducer,
     wishlist: persistedWishlistReducer,
     categories: categoriesReducer,
+    files: fileReducer,
+    // ... add other reducers as needed
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

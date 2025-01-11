@@ -2,7 +2,7 @@
 
 import axios from 'axios';
 
-const API_URL = 'https://api.escuelajs.co/api/v1/categories';
+const API_URL = 'https://api.escuelajs.co/api/v1/categories/';
 
 /**
  * Get all categories

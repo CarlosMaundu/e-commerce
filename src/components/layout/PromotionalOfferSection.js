@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Typography, Button, Skeleton } from '@mui/material';
 import promotionImage from '../../images/promotion-offer.jpg';
+import placeholderImage from '../../images/placeholder.jpg'; // Import the local placeholder image
 
 const PromotionalOfferSection = () => {
   const [loading, setLoading] = useState(true);
@@ -32,8 +33,7 @@ const PromotionalOfferSection = () => {
           <Skeleton
             variant="rectangular"
             width="100%"
-            height={{ xs: '30vh', md: '40vh' }}
-            sx={{ borderRadius: '8px' }}
+            sx={{ height: { xs: '30vh', md: '40vh' }, borderRadius: '8px' }} // Corrected height prop
           />
           {/* Overlay Skeleton */}
           <Box
@@ -68,6 +68,9 @@ const PromotionalOfferSection = () => {
               objectFit: 'cover',
               filter: 'brightness(60%)',
               borderRadius: '8px',
+            }}
+            onError={(e) => {
+              e.target.src = placeholderImage; // Use local placeholder image
             }}
           />
           {/* Overlay Content */}

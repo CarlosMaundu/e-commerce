@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { getProductById } from '../services/productsService';
 import { addItem } from '../redux/cartSlice';
+import Breadcrumb from '../components/common/breadcrumb';
 
 import {
   Box,
@@ -13,7 +14,6 @@ import {
   Divider,
   Skeleton,
 } from '@mui/material';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import FavoriteIcon from '@mui/icons-material/Favorite';
 import IosShareIcon from '@mui/icons-material/IosShare';
 import StarIcon from '@mui/icons-material/Star';
@@ -57,7 +57,6 @@ const ProductDetailsPage = () => {
           color: selectedColor || null,
         })
       );
-      // No redirect after adding to cart
     }
   };
 
@@ -79,6 +78,12 @@ const ProductDetailsPage = () => {
   const sizes = ['SM', 'MD', 'LG', 'XL'];
   const colors = ['#000000', '#9CA3AF', '#FB923C', '#F87171'];
 
+  const breadcrumbItems = [
+    { label: 'Home', href: '/' },
+    { label: 'Products', href: '/products' },
+    { label: 'Product Details', href: '#' }, // Current page
+  ];
+
   // If product is not loaded yet, show skeleton placeholders
   if (!product) {
     return (
@@ -88,37 +93,29 @@ const ProductDetailsPage = () => {
           ml: 0,
           overflowX: 'hidden',
           fontFamily: 'sans-serif',
-          p: { xs: 1, md: 2 },
+          p: { xs: 1, md: 4 },
         }}
       >
-        <Button
-          startIcon={<ArrowBackIcon fontSize="small" />}
-          onClick={() => navigate(-1)}
-          sx={{
-            mb: 1,
-            textTransform: 'none',
-            fontSize: '0.75rem',
-            p: 0,
-            minWidth: 'auto',
-          }}
-        >
-          Go Back
-        </Button>
+        {/* Breadcrumb skeleton */}
+        <Box sx={{ mb: 2 }}>
+          <Skeleton variant="text" width={200} height={24} />
+        </Box>
 
-        <Grid container spacing={2}>
+        <Grid container spacing={1}>
+          {/* Left Column Skeleton */}
           <Grid item xs={12} lg={6}>
-            <Box sx={{ textAlign: 'center' }}>
+            <Box sx={{ textAlign: 'left' }}>
               <Skeleton
                 variant="rectangular"
-                width="85%"
-                height={200}
+                width="95%"
+                height={500} // matches increased image height
                 sx={{ mx: 'auto', borderRadius: '6px' }}
               />
               <Box
                 sx={{
                   display: 'flex',
                   gap: 1,
-                  justifyContent: 'center',
+                  justifyContent: 'flex-start',
                   mt: 1,
                 }}
               >
@@ -134,6 +131,8 @@ const ProductDetailsPage = () => {
               </Box>
             </Box>
           </Grid>
+
+          {/* Right Column Skeleton */}
           <Grid item xs={12} lg={6}>
             <Box>
               <Box
@@ -145,8 +144,8 @@ const ProductDetailsPage = () => {
                 }}
               >
                 <Box>
-                  <Skeleton variant="text" width={120} />
-                  <Skeleton variant="text" width={80} />
+                  <Skeleton variant="text" width={120} height={24} />
+                  <Skeleton variant="text" width={80} height={20} />
                 </Box>
                 <Box sx={{ ml: 'auto', display: 'flex', gap: 1 }}>
                   <Skeleton
@@ -176,7 +175,7 @@ const ProductDetailsPage = () => {
               >
                 <Box>
                   <Skeleton variant="text" width={60} height={30} />
-                  <Skeleton variant="text" width={100} />
+                  <Skeleton variant="text" width={100} height={20} />
                 </Box>
                 <Box sx={{ ml: 'auto', display: 'flex', gap: 1 }}>
                   <Skeleton
@@ -196,7 +195,7 @@ const ProductDetailsPage = () => {
 
               <Divider sx={{ my: 2 }} />
 
-              <Skeleton variant="text" width={100} />
+              <Skeleton variant="text" width={100} height={20} />
               <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
                 {[...Array(4)].map((_, i) => (
                   <Skeleton
@@ -211,7 +210,7 @@ const ProductDetailsPage = () => {
 
               <Divider sx={{ my: 2 }} />
 
-              <Skeleton variant="text" width={100} />
+              <Skeleton variant="text" width={100} height={20} />
               <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
                 {[...Array(4)].map((_, i) => (
                   <Skeleton
@@ -258,13 +257,13 @@ const ProductDetailsPage = () => {
               fontSize: '0.8rem',
             }}
           >
-            <Skeleton variant="text" width={80} />
-            <Skeleton variant="text" width={80} sx={{ ml: 2 }} />
+            <Skeleton variant="text" width={80} height={24} />
+            <Skeleton variant="text" width={80} height={24} sx={{ ml: 2 }} />
           </Box>
           <Box sx={{ mt: 2 }}>
-            <Skeleton variant="text" width={120} />
-            <Skeleton variant="text" width="100%" />
-            <Skeleton variant="text" width="90%" />
+            <Skeleton variant="text" width={120} height={24} />
+            <Skeleton variant="text" width="100%" height={20} />
+            <Skeleton variant="text" width="90%" height={20} />
           </Box>
         </Box>
       </Box>
@@ -296,43 +295,44 @@ const ProductDetailsPage = () => {
         p: { xs: 1, md: 2 },
       }}
     >
-      {/* Go Back Button */}
-      <Button
-        startIcon={<ArrowBackIcon fontSize="small" />}
-        onClick={() => navigate(-1)}
-        sx={{
-          mb: 1,
-          textTransform: 'none',
-          fontSize: '0.75rem',
-          p: 0,
-          minWidth: 'auto',
-        }}
-      >
-        Go Back
-      </Button>
+      {/* Breadcrumb with reduced text size in mobile */}
+      <Box sx={{ mb: 2 }}>
+        <Breadcrumb
+          items={breadcrumbItems}
+          sx={{
+            '& .MuiBreadcrumbs-ol': {
+              flexWrap: 'nowrap',
+              fontSize: { xs: '0.7rem', sm: '0.8rem', md: '1rem' },
+            },
+          }}
+        />
+      </Box>
 
-      <Grid container spacing={2}>
+      <Grid container spacing={1}>
         {/* Left Column - Images */}
         <Grid item xs={12} lg={6}>
-          <Box sx={{ textAlign: 'center' }}>
+          <Box sx={{ textAlign: 'left' }}>
+            {/* Main image container with increased height and click-to-zoom */}
             <Box
               sx={{
                 width: '100%',
-                maxHeight: '300px',
+                maxHeight: '500px',
                 overflow: 'hidden',
                 mb: 1,
+                cursor: 'zoom-in',
               }}
             >
               <img
                 src={selectedImage}
                 alt={product.title}
                 style={{
-                  width: '85%',
+                  width: '95%',
                   height: 'auto',
                   borderRadius: '6px',
                   objectFit: 'cover',
-                  maxHeight: '300px',
+                  maxHeight: '400px',
                 }}
+                onClick={() => setIsImageDialogOpen(true)}
               />
             </Box>
             <Box
@@ -340,7 +340,7 @@ const ProductDetailsPage = () => {
                 display: 'flex',
                 gap: 1,
                 flexWrap: 'wrap',
-                justifyContent: 'center',
+                justifyContent: 'flex-start',
                 mt: 1,
               }}
             >
@@ -381,7 +381,11 @@ const ProductDetailsPage = () => {
               <Box>
                 <Typography
                   variant="h6"
-                  sx={{ fontWeight: 'bold', color: '#333', fontSize: '0.9rem' }}
+                  sx={{
+                    fontWeight: 'bold',
+                    color: '#333',
+                    fontSize: '0.9rem',
+                  }}
                 >
                   {product.title}
                 </Typography>
@@ -711,7 +715,7 @@ const ProductDetailsPage = () => {
         )}
       </Box>
 
-      {/* Image Dialog */}
+      {/* Image Dialog - same functionality, now triggered by clicking the main image */}
       {isImageDialogOpen && (
         <Box
           sx={{
