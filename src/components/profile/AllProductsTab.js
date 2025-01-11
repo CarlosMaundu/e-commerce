@@ -35,6 +35,7 @@ import { fetchCategories } from '../../redux/categoriesSlice';
 import ConfirmationDialog from '../common/ConfirmationDialog';
 import Notification from '../../notification/notification';
 import ViewProductModal from '../common/ViewProductModal';
+import placeholderImage from '../../images/placeholder.jpg';
 
 // We'll call getAllProducts once to get the total item count
 import { getAllProducts } from '../../services/productsService';
@@ -46,6 +47,7 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
   const dispatch = useDispatch();
   const { products, loading, error } = useSelector((state) => state.products);
   const { categories } = useSelector((state) => state.categories);
+
   const [filters, setFilters] = useState({
     categoryId: '',
     status: '',
@@ -55,7 +57,7 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
   });
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [rowsPerPage, setRowsPerPage] = useState(5);
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [confirmationOpen, setConfirmationOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -94,7 +96,7 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
     const offset = (currentPage - 1) * rowsPerPage;
 
     // For now, we only filter by categoryId or search in the API
-    // Since "stock" or "priceSort" are done client-side, we won't pass them to the service
+    // "stock" or "priceSort" remain client-side
     const appliedFilters = {
       categoryId: filters.categoryId,
       search: filters.search, // mapped to title
@@ -118,7 +120,6 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
   //    a) Sort by price if "priceSort" is "lowToHigh" or "highToLow"
   //    b) Filter by stock if "stock" is "inStock" or "outOfStock"
   const processedProducts = useMemo(() => {
-    // Start from the Redux store's products
     let data = [...products];
 
     // a) Sort by price
@@ -151,7 +152,6 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
   };
 
   const handleAddProduct = () => {
-    // navigate to product form
     navigateToManageProduct();
   };
 
@@ -198,7 +198,7 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
     setViewProduct(null);
   };
 
-  const handlePageChange = (event, value) => {
+  const handlePageChange = (_, value) => {
     setCurrentPage(value);
   };
 
@@ -268,7 +268,6 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
                   name="categoryId"
                   value={filters.categoryId}
                   onChange={handleFilterChange}
-                  sx={{ fontSize: '0.75rem' }}
                 >
                   <MenuItem value="">
                     <em>All</em>
@@ -296,7 +295,6 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
                   name="status"
                   value={filters.status}
                   onChange={handleFilterChange}
-                  sx={{ fontSize: '0.75rem' }}
                 >
                   <MenuItem value="">
                     <em>All</em>
@@ -321,7 +319,6 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
                   name="priceSort"
                   value={filters.priceSort}
                   onChange={handleFilterChange}
-                  sx={{ fontSize: '0.75rem' }}
                 >
                   <MenuItem value="">
                     <em>None</em>
@@ -346,7 +343,6 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
                   name="stock"
                   value={filters.stock}
                   onChange={handleFilterChange}
-                  sx={{ fontSize: '0.75rem' }}
                 >
                   <MenuItem value="">
                     <em>All</em>
@@ -382,7 +378,7 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
               />
             </Grid>
 
-            {/* Add Product (Default MUI primary color) */}
+            {/* Add Product */}
             <Grid item xs={12} sm={2}>
               <Button
                 variant="contained"
@@ -466,7 +462,7 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
                 <Table aria-label="products table">
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ padding: '8px' }}>
+                      <TableCell align="left" sx={{ padding: '8px' }}>
                         <Checkbox
                           checked={isAllSelected}
                           onChange={handleSelectAll}
@@ -477,33 +473,62 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
                         />
                       </TableCell>
                       <TableCell
-                        sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}
+                        align="left"
+                        sx={{
+                          fontSize: '0.75rem',
+                          fontWeight: 'bold',
+                          padding: '8px',
+                        }}
                       >
                         Product Image
                       </TableCell>
                       <TableCell
-                        sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}
+                        align="left"
+                        sx={{
+                          fontSize: '0.75rem',
+                          fontWeight: 'bold',
+                          padding: '8px',
+                        }}
                       >
                         Name
                       </TableCell>
                       <TableCell
-                        sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}
+                        align="left"
+                        sx={{
+                          fontSize: '0.75rem',
+                          fontWeight: 'bold',
+                          padding: '8px',
+                        }}
                       >
                         Category
                       </TableCell>
                       <TableCell
-                        sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}
+                        align="left"
+                        sx={{
+                          fontSize: '0.75rem',
+                          fontWeight: 'bold',
+                          padding: '8px',
+                        }}
                       >
                         Price
                       </TableCell>
                       <TableCell
-                        sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}
+                        align="left"
+                        sx={{
+                          fontSize: '0.75rem',
+                          fontWeight: 'bold',
+                          padding: '8px',
+                        }}
                       >
                         Stock Status
                       </TableCell>
                       <TableCell
-                        sx={{ fontSize: '0.75rem', fontWeight: 'bold' }}
-                        align="center"
+                        align="left"
+                        sx={{
+                          fontSize: '0.75rem',
+                          fontWeight: 'bold',
+                          padding: '8px',
+                        }}
                       >
                         Actions
                       </TableCell>
@@ -516,7 +541,7 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
                         hover
                         selected={selectedProducts.includes(product.id)}
                       >
-                        <TableCell sx={{ padding: '8px' }}>
+                        <TableCell align="left" sx={{ padding: '8px' }}>
                           <Checkbox
                             checked={selectedProducts.includes(product.id)}
                             onChange={(e) => handleSelectProduct(e, product.id)}
@@ -526,7 +551,7 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
                             size="small"
                           />
                         </TableCell>
-                        <TableCell sx={{ padding: '8px' }}>
+                        <TableCell align="left" sx={{ padding: '8px' }}>
                           <Box
                             component="img"
                             src={product.images[0]}
@@ -538,20 +563,29 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
                               objectFit: 'cover',
                             }}
                             onError={(e) => {
-                              e.target.src = 'https://via.placeholder.com/40';
+                              e.target.src = placeholderImage;
                             }}
                           />
                         </TableCell>
-                        <TableCell sx={{ padding: '8px', fontSize: '0.75rem' }}>
+                        <TableCell
+                          align="left"
+                          sx={{ padding: '8px', fontSize: '0.75rem' }}
+                        >
                           {product.title}
                         </TableCell>
-                        <TableCell sx={{ padding: '8px', fontSize: '0.75rem' }}>
+                        <TableCell
+                          align="left"
+                          sx={{ padding: '8px', fontSize: '0.75rem' }}
+                        >
                           {product.category?.name || 'N/A'}
                         </TableCell>
-                        <TableCell sx={{ padding: '8px', fontSize: '0.75rem' }}>
+                        <TableCell
+                          align="left"
+                          sx={{ padding: '8px', fontSize: '0.75rem' }}
+                        >
                           ${product.price}
                         </TableCell>
-                        <TableCell sx={{ padding: '8px' }}>
+                        <TableCell align="left" sx={{ padding: '8px' }}>
                           {product.inStock ? (
                             <Chip
                               label="In Stock"
@@ -570,12 +604,11 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
                             />
                           )}
                         </TableCell>
-                        <TableCell sx={{ padding: '8px' }} align="center">
+                        <TableCell align="left" sx={{ padding: '8px' }}>
                           <Box
                             sx={{
                               display: 'flex',
-                              justifyContent: 'center',
-                              flexWrap: 'nowrap',
+                              alignItems: 'center',
                             }}
                           >
                             {/* View Icon */}
@@ -661,7 +694,6 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
                     value={rowsPerPage}
                     onChange={handleRowsPerPageChange}
                     label="Rows per page"
-                    sx={{ fontSize: '0.75rem' }}
                   >
                     <MenuItem value={5}>5</MenuItem>
                     <MenuItem value={10}>10</MenuItem>

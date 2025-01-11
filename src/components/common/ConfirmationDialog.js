@@ -1,3 +1,4 @@
+// src/components/common/ConfirmationDialog.js
 import React from 'react';
 import {
   Dialog,

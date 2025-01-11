@@ -122,6 +122,7 @@ const ProductsSection = () => {
         <ManageProductTab
           currentProduct={currentProduct}
           navigateToManageProduct={navigateToManageProduct}
+          navigateToManageCategoryTab={() => setActiveTab(2)}
         />
       )}
       {activeTab === 2 && <ManageCategoryTab />}

@@ -1,4 +1,4 @@
-// src/components/profile/PaymentOptionsSection.js
+// src/components/profile/payments/PaymentOptionsSection.js
 import React from 'react';
 import { Typography } from '@mui/material';
 

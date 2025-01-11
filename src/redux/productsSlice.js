@@ -8,6 +8,9 @@ import {
   deleteProduct as deleteProductAPI,
 } from '../services/productsService';
 
+// 1) Import your local placeholder image:
+import placeholderImage from '../images/placeholder.jpg';
+
 /**
  * Async thunk to fetch products with optional filters.
  */
@@ -96,9 +99,28 @@ const productsSlice = createSlice({
       })
       .addCase(fetchProducts.fulfilled, (state, action) => {
         state.loading = false;
-        state.products = action.payload;
-        // If the API returns less items than the limit,
-        // we can assume we don't have more pages, etc.
+
+        // 2) Transform all product images to use local placeholder if needed:
+        const transformed = action.payload.map((product) => {
+          if (!product.images) return product;
+
+          // Check each image URL in the product
+          const updatedImages = product.images.map((imgUrl) => {
+            if (!imgUrl || imgUrl.includes('placeimg.com')) {
+              return placeholderImage;
+            }
+            return imgUrl;
+          });
+
+          return {
+            ...product,
+            images: updatedImages,
+          };
+        });
+
+        state.products = transformed;
+
+        // If the API returns less items than the limit, assume no more pages
         state.hasMore = action.payload.length > 0;
       })
       .addCase(fetchProducts.rejected, (state, action) => {

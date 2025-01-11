@@ -1,5 +1,4 @@
-// src/redux/categoriesSlice.js
-
+// categoriesSlice.js
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import {
   fetchCategories as fetchCategoriesAPI,
@@ -7,6 +6,9 @@ import {
   updateCategory,
   deleteCategory as deleteCategoryAPI,
 } from '../services/categoryService';
+
+// IMPORT my placeholder
+import placeholderImage from '../images/placeholder.jpg';
 
 /**
  * Async thunk to fetch all categories.
@@ -81,9 +83,7 @@ const categoriesSlice = createSlice({
     loading: false,
     error: null,
   },
-  reducers: {
-    // Add synchronous reducers here if needed
-  },
+  reducers: {},
   extraReducers: (builder) => {
     builder
       // Fetch Categories
@@ -93,7 +93,16 @@ const categoriesSlice = createSlice({
       })
       .addCase(fetchCategories.fulfilled, (state, action) => {
         state.loading = false;
-        state.categories = action.payload;
+
+        // Transform placeimg.com -> local placeholder
+        const transformed = action.payload.map((cat) => {
+          if (!cat.image || cat.image.includes('placeimg.com')) {
+            return { ...cat, image: placeholderImage };
+          }
+          return cat;
+        });
+
+        state.categories = transformed;
       })
       .addCase(fetchCategories.rejected, (state, action) => {
         state.loading = false;

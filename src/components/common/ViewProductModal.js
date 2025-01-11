@@ -13,6 +13,7 @@ import {
 } from '@mui/material';
 import { FiEdit } from 'react-icons/fi';
 import { useTheme } from '@mui/material/styles';
+import placeholderImage from '../../images/placeholder.jpg';
 
 const ViewProductModal = ({ open, onClose, product, onEdit }) => {
   const theme = useTheme();
@@ -57,7 +58,7 @@ const ViewProductModal = ({ open, onClose, product, onEdit }) => {
                 objectFit: 'cover',
               }}
               onError={(e) => {
-                e.target.src = 'https://via.placeholder.com/150';
+                e.target.src = placeholderImage;
               }}
             />
             {/* Thumbnails if multiple images */}
@@ -82,7 +83,7 @@ const ViewProductModal = ({ open, onClose, product, onEdit }) => {
                           : '2px solid transparent',
                     }}
                     onError={(e) => {
-                      e.target.src = 'https://via.placeholder.com/60';
+                      e.target.src = placeholderImage;
                     }}
                   />
                 ))}
