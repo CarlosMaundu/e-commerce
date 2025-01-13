@@ -1,39 +1,40 @@
 // src/pages/LoginPage.js
-
-import React, { useContext, useState, useEffect } from 'react';
-import { useFormik } from 'formik';
-import * as Yup from 'yup';
-import { useNavigate, Link, useLocation } from 'react-router-dom'; // Import useLocation
+import React, { useContext, useState } from 'react';
 import { AuthContext } from '../context/AuthContext';
-import { login } from '../services/authService'; // Corrected import
-import { createUser } from '../services/userService'; // Removed isEmailAvailable import
-import '../styles/login.css';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import {
+  Button,
+  Grid,
+  Typography,
+  Box,
   TextField,
   InputAdornment,
-  Button,
-  Checkbox,
-  FormControlLabel,
+  CircularProgress,
   IconButton,
 } from '@mui/material';
-import CircularProgress from '@mui/material/CircularProgress'; // Added
-import {
-  AccountCircle,
-  Lock,
-  Facebook,
-  Google,
-  Twitter,
-  GitHub,
-} from '@mui/icons-material';
+import { Google, Lock, AccountCircle } from '@mui/icons-material';
+import { useFormik } from 'formik';
+import * as Yup from 'yup';
+
 import Notification from '../notification/notification';
 
 const LoginPage = () => {
-  const { user, loading, handleLogin } = useContext(AuthContext);
+  const {
+    signInWithGoogle,
+    signInWithPassword,
+    sendSignInLink,
+    resetPassword,
+  } = useContext(AuthContext);
+
   const navigate = useNavigate();
-  const location = useLocation(); // Get location
-  const from = location.state?.from || '/'; // Determine redirect path
-  const currentPath = location.pathname; // Determine current path
-  const [activeTab, setActiveTab] = useState('login');
+  const location = useLocation();
+  const from = location.state?.from || '/';
+
+  // UI toggles
+  const [showEmailPassword, setShowEmailPassword] = useState(false);
+  const [showEmailLink, setShowEmailLink] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notification, setNotification] = useState({
     open: false,
@@ -41,63 +42,85 @@ const LoginPage = () => {
     message: '',
   });
 
-  // Set active tab based on current route
-  useEffect(() => {
-    if (currentPath === '/register') {
-      setActiveTab('register');
-    } else {
-      setActiveTab('login');
-    }
-  }, [currentPath]);
-
-  // Redirect authenticated users away from the login page
-  useEffect(() => {
-    if (!loading && user) {
-      navigate(from, { replace: true }); // Redirect to intended path
-    }
-  }, [user, loading, navigate, from]);
-
-  const handleTabChange = (tab) => {
-    setActiveTab(tab);
-    if (tab === 'login') {
-      navigate('/login', { state: { from } });
-    } else {
-      navigate('/register', { state: { from } });
+  /**
+   * 1) Google sign-in
+   */
+  const handleGoogleLogin = async () => {
+    setIsSubmitting(true);
+    try {
+      await signInWithGoogle();
+      setNotification({
+        open: true,
+        severity: 'success',
+        message: 'Logged in with Google successfully!',
+      });
+      navigate(from, { replace: true });
+    } catch (err) {
+      setNotification({
+        open: true,
+        severity: 'error',
+        message: err.message || 'Google login failed.',
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
+  /**
+   * 2) Email Link form submission
+   */
+  const [emailForLink, setEmailForLink] = useState('');
+  const handleEmailLinkSubmit = async (e) => {
+    e.preventDefault();
+    if (!emailForLink) return;
+    setIsSubmitting(true);
+    try {
+      await sendSignInLink(emailForLink);
+      setNotification({
+        open: true,
+        severity: 'info',
+        message: `We sent a link to ${emailForLink}. Check your inbox to complete sign-in.`,
+      });
+      setEmailForLink('');
+      setShowEmailLink(false);
+    } catch (error) {
+      setNotification({
+        open: true,
+        severity: 'error',
+        message: error.message || 'Could not send sign-in link.',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  /**
+   * 3) Email & Password form with Formik
+   */
   const loginFormik = useFormik({
     initialValues: {
       email: '',
       password: '',
-      rememberMe: false,
     },
     validationSchema: Yup.object({
-      email: Yup.string()
-        .email('Invalid email address')
-        .required('Email is required'),
+      email: Yup.string().email('Invalid email').required('Email is required'),
       password: Yup.string().required('Password is required'),
     }),
     onSubmit: async (values) => {
       setIsSubmitting(true);
       try {
-        const userData = await login(values.email, values.password);
-        await handleLogin(userData); // Ensure tokens are stored before navigating
+        await signInWithPassword(values.email, values.password);
         setNotification({
           open: true,
           severity: 'success',
-          message: 'Login successful!',
+          message: 'Logged in successfully!',
         });
-        // Redirection is handled by useEffect
+        navigate(from, { replace: true });
       } catch (error) {
-        console.error('Login error:', error);
         setNotification({
           open: true,
           severity: 'error',
-          message:
-            error.message === 'Unauthorized'
-              ? 'Invalid credentials. Please check your email and password.'
-              : error.message || 'Login failed. Please try again.',
+          message: error.message || 'Login failed.',
         });
       } finally {
         setIsSubmitting(false);
@@ -105,184 +128,206 @@ const LoginPage = () => {
     },
   });
 
-  const registerFormik = useFormik({
-    initialValues: {
-      name: '',
-      secondName: '', // Replaced 'username' with 'secondName'
-      email: '',
-      password: '',
-      agreeToTerms: false,
-    },
-    validationSchema: Yup.object({
-      name: Yup.string().required('First name is required'),
-      secondName: Yup.string().required('Second name is required'),
-      email: Yup.string()
-        .email('Invalid email address')
-        .required('Email is required'),
-      password: Yup.string().required('Password is required'),
-      agreeToTerms: Yup.boolean().oneOf([true], 'You must agree to the terms'),
-    }),
-    onSubmit: async (values) => {
-      setIsSubmitting(true);
-      try {
-        const newUser = {
-          name: `${values.name} ${values.secondName}`, // Combine first and second name
-          email: values.email,
-          password: values.password,
-          avatar: 'https://picsum.photos/800', // Default avatar or allow user to upload
-        };
-
-        await createUser(newUser); // Removed 'createdUser' assignment
-
-        // Automatically log in the user after successful registration
-        const loginResponse = await login(values.email, values.password);
-        await handleLogin(loginResponse); // Store tokens and update user state
-
-        setNotification({
-          open: true,
-          severity: 'success',
-          message: 'Registration and login successful!',
-        });
-
-        // Redirection is handled by useEffect
-        navigate(from, { replace: true }); // Ensure immediate redirection
-
-        registerFormik.resetForm();
-      } catch (error) {
-        console.error('Registration or Login error:', error);
-        setNotification({
-          open: true,
-          severity: 'error',
-          message: error.message || 'Registration failed. Please try again.',
-        });
-      } finally {
-        setIsSubmitting(false);
-      }
-    },
-  });
-
-  if (loading) {
-    return <div>Loading...</div>; // Show loading indicator
-  }
+  /**
+   * 4) Forgot Password
+   */
+  const [forgotEmail, setForgotEmail] = useState('');
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    if (!forgotEmail) return;
+    setIsSubmitting(true);
+    try {
+      await resetPassword(forgotEmail);
+      setNotification({
+        open: true,
+        severity: 'info',
+        message: `Password reset email sent to ${forgotEmail}. Check your inbox.`,
+      });
+      setForgotEmail('');
+      setShowForgotPassword(false);
+    } catch (error) {
+      setNotification({
+        open: true,
+        severity: 'error',
+        message: error.message || 'Could not send password reset email.',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
-    <div className="background-container">
-      <div className="login-container">
-        {/* Tab Navigation */}
-        <div className="tabs-container">
-          <button
-            className={`tab-button ${activeTab === 'login' ? 'active' : ''}`}
-            onClick={() => handleTabChange('login')}
-          >
-            Login
-          </button>
-          <button
-            className={`tab-button ${activeTab === 'register' ? 'active' : ''}`}
-            onClick={() => handleTabChange('register')}
-          >
-            Register
-          </button>
-        </div>
+    <Box
+      sx={{
+        width: '100%',
+        minHeight: '100vh',
+        backgroundColor: '#f5f5f5',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        p: 2,
+      }}
+    >
+      <Box
+        sx={{
+          width: { xs: '90%', sm: '400px' },
+          p: 3,
+          backgroundColor: '#fff',
+          borderRadius: 2,
+          boxShadow: 2,
+        }}
+      >
+        <Typography
+          variant="h5"
+          sx={{ mb: 3, textAlign: 'center', fontWeight: 'bold' }}
+        >
+          Login
+        </Typography>
 
-        {/* Login Section */}
-        {activeTab === 'login' && (
-          <div className="form-section">
-            <h1>Login</h1>
-            <p>Welcome Back! Sign in with your credentials.</p>
-            <div className="social-login-icons">
-              <IconButton color="primary">
-                <Facebook />
-              </IconButton>
-              <IconButton color="error">
-                <Google />
-              </IconButton>
-              <IconButton color="primary">
-                <Twitter />
-              </IconButton>
-              <IconButton color="default">
-                <GitHub />
-              </IconButton>
-            </div>
-            <p className="or-divider">or:</p>
+        {/* Row of sign-in options */}
+        <Grid container spacing={2} sx={{ mb: 2 }}>
+          <Grid item xs={12}>
+            {/* White background for Google button */}
+            <Button
+              variant="contained"
+              fullWidth
+              disabled={isSubmitting}
+              onClick={handleGoogleLogin}
+              startIcon={<Google />}
+              sx={{
+                textTransform: 'none',
+                backgroundColor: '#ffffff',
+                color: '#000',
+                border: '1px solid #ddd',
+                '&:hover': {
+                  backgroundColor: '#f7f7f7',
+                },
+              }}
+            >
+              {isSubmitting ? (
+                <CircularProgress size={24} color="inherit" />
+              ) : (
+                'Sign in with Google'
+              )}
+            </Button>
+          </Grid>
+
+          <Grid item xs={12}>
+            {/* MUI default (blue) for Email & Password */}
+            <Button
+              variant="contained"
+              color="primary"
+              fullWidth
+              disabled={isSubmitting}
+              onClick={() => {
+                setShowEmailPassword((prev) => !prev);
+                setShowEmailLink(false);
+                setShowForgotPassword(false);
+              }}
+              sx={{ textTransform: 'none' }}
+            >
+              Sign in with Email & Password
+            </Button>
+          </Grid>
+
+          <Grid item xs={12}>
+            <Button
+              variant="outlined"
+              color="primary"
+              fullWidth
+              disabled={isSubmitting}
+              onClick={() => {
+                setShowEmailLink((prev) => !prev);
+                setShowEmailPassword(false);
+                setShowForgotPassword(false);
+              }}
+              sx={{ textTransform: 'none' }}
+            >
+              Sign in with Email Link
+            </Button>
+          </Grid>
+        </Grid>
+
+        {/* Forgot Password link - triggers the Forgot Password form */}
+        {!showForgotPassword && (
+          <Box sx={{ textAlign: 'center', mb: 2 }}>
+            <Button
+              variant="text"
+              color="secondary"
+              onClick={() => {
+                setShowForgotPassword(true);
+                setShowEmailPassword(false);
+                setShowEmailLink(false);
+              }}
+              sx={{ textTransform: 'none', fontSize: '0.8rem' }}
+            >
+              Forgot Password?
+            </Button>
+          </Box>
+        )}
+
+        {/* 1) If user chooses Email+Password */}
+        {showEmailPassword && (
+          <Box sx={{ mb: 2 }}>
             <form onSubmit={loginFormik.handleSubmit}>
-              <div className="form-group">
-                <TextField
-                  id="email"
-                  name="email"
-                  label="Email"
-                  variant="outlined"
-                  fullWidth
-                  autoComplete="email"
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <AccountCircle />
-                      </InputAdornment>
-                    ),
-                  }}
-                  onChange={loginFormik.handleChange}
-                  onBlur={loginFormik.handleBlur}
-                  value={loginFormik.values.email}
-                  error={
-                    loginFormik.touched.email &&
-                    Boolean(loginFormik.errors.email)
-                  }
-                  helperText={
-                    loginFormik.touched.email && loginFormik.errors.email
-                  }
-                />
-              </div>
-              <div className="form-group">
-                <TextField
-                  id="password"
-                  name="password"
-                  label="Password"
-                  type="password"
-                  variant="outlined"
-                  fullWidth
-                  autoComplete="current-password"
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Lock />
-                      </InputAdornment>
-                    ),
-                  }}
-                  onChange={loginFormik.handleChange}
-                  onBlur={loginFormik.handleBlur}
-                  value={loginFormik.values.password}
-                  error={
-                    loginFormik.touched.password &&
-                    Boolean(loginFormik.errors.password)
-                  }
-                  helperText={
-                    loginFormik.touched.password && loginFormik.errors.password
-                  }
-                />
-              </div>
-              <div className="form-actions">
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      id="rememberMe"
-                      name="rememberMe"
-                      color="primary"
-                      onChange={loginFormik.handleChange}
-                      checked={loginFormik.values.rememberMe}
-                    />
-                  }
-                  label="Remember me"
-                />
-                <Link to="#forgot-password" className="forgot-password-link">
-                  Forgot password?
-                </Link>
-              </div>
+              <TextField
+                label="Email"
+                id="email"
+                name="email"
+                fullWidth
+                variant="outlined"
+                sx={{ mb: 2 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <AccountCircle />
+                    </InputAdornment>
+                  ),
+                }}
+                value={loginFormik.values.email}
+                onChange={loginFormik.handleChange}
+                onBlur={loginFormik.handleBlur}
+                error={
+                  loginFormik.touched.email && Boolean(loginFormik.errors.email)
+                }
+                helperText={
+                  loginFormik.touched.email && loginFormik.errors.email
+                }
+              />
+              <TextField
+                label="Password"
+                id="password"
+                name="password"
+                type="password"
+                fullWidth
+                variant="outlined"
+                sx={{ mb: 2 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Lock />
+                    </InputAdornment>
+                  ),
+                }}
+                value={loginFormik.values.password}
+                onChange={loginFormik.handleChange}
+                onBlur={loginFormik.handleBlur}
+                error={
+                  loginFormik.touched.password &&
+                  Boolean(loginFormik.errors.password)
+                }
+                helperText={
+                  loginFormik.touched.password && loginFormik.errors.password
+                }
+              />
+
               <Button
                 type="submit"
                 variant="contained"
                 color="primary"
                 fullWidth
                 disabled={isSubmitting}
+                sx={{ textTransform: 'none' }}
               >
                 {isSubmitting ? (
                   <CircularProgress size={24} color="inherit" />
@@ -291,175 +336,96 @@ const LoginPage = () => {
                 )}
               </Button>
             </form>
-            <p className="text-center mt-3">
-              Not a member?{' '}
-              <Link
-                to="/register"
-                className="register-link"
-                onClick={() => handleTabChange('register')}
-                state={{ from }} // Preserve redirect state
-              >
-                Register
-              </Link>
-            </p>
-          </div>
+          </Box>
         )}
 
-        {/* Register Section */}
-        {activeTab === 'register' && (
-          <div className="form-section">
-            <h1>Register</h1>
-            <p>Create your account to get started.</p>
-            <div className="social-login-icons">
-              <IconButton color="primary">
-                <Facebook />
-              </IconButton>
-              <IconButton color="error">
-                <Google />
-              </IconButton>
-              <IconButton color="primary">
-                <Twitter />
-              </IconButton>
-              <IconButton color="default">
-                <GitHub />
-              </IconButton>
-            </div>
-            <p className="or-divider">or:</p>
-            <form onSubmit={registerFormik.handleSubmit}>
-              <div className="form-group">
-                <TextField
-                  id="name"
-                  name="name"
-                  label="First Name"
-                  variant="outlined"
-                  fullWidth
-                  autoComplete="given-name"
-                  onChange={registerFormik.handleChange}
-                  onBlur={registerFormik.handleBlur}
-                  value={registerFormik.values.name}
-                  error={
-                    registerFormik.touched.name &&
-                    Boolean(registerFormik.errors.name)
-                  }
-                  helperText={
-                    registerFormik.touched.name && registerFormik.errors.name
-                  }
-                />
-              </div>
-              <div className="form-group">
-                <TextField
-                  id="secondName"
-                  name="secondName"
-                  label="Second Name"
-                  variant="outlined"
-                  fullWidth
-                  autoComplete="family-name"
-                  onChange={registerFormik.handleChange}
-                  onBlur={registerFormik.handleBlur}
-                  value={registerFormik.values.secondName}
-                  error={
-                    registerFormik.touched.secondName &&
-                    Boolean(registerFormik.errors.secondName)
-                  }
-                  helperText={
-                    registerFormik.touched.secondName &&
-                    registerFormik.errors.secondName
-                  }
-                />
-              </div>
-              <div className="form-group">
-                <TextField
-                  id="email"
-                  name="email"
-                  label="Email"
-                  variant="outlined"
-                  fullWidth
-                  autoComplete="email"
-                  onChange={registerFormik.handleChange}
-                  onBlur={registerFormik.handleBlur}
-                  value={registerFormik.values.email}
-                  error={
-                    registerFormik.touched.email &&
-                    Boolean(registerFormik.errors.email)
-                  }
-                  helperText={
-                    registerFormik.touched.email && registerFormik.errors.email
-                  }
-                />
-              </div>
-              <div className="form-group">
-                <TextField
-                  id="password"
-                  name="password"
-                  label="Password"
-                  type="password"
-                  variant="outlined"
-                  fullWidth
-                  autoComplete="new-password"
-                  onChange={registerFormik.handleChange}
-                  onBlur={registerFormik.handleBlur}
-                  value={registerFormik.values.password}
-                  error={
-                    registerFormik.touched.password &&
-                    Boolean(registerFormik.errors.password)
-                  }
-                  helperText={
-                    registerFormik.touched.password &&
-                    registerFormik.errors.password
-                  }
-                />
-              </div>
-              <div className="form-actions">
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      id="agreeToTerms"
-                      name="agreeToTerms"
-                      color="primary"
-                      onChange={registerFormik.handleChange}
-                      checked={registerFormik.values.agreeToTerms}
-                    />
-                  }
-                  label="I agree to the terms"
-                />
-              </div>
+        {/* 2) If user chooses Email Link */}
+        {showEmailLink && (
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              Enter your email, we'll send you a login link:
+            </Typography>
+            <form onSubmit={handleEmailLinkSubmit}>
+              <TextField
+                type="email"
+                value={emailForLink}
+                onChange={(e) => setEmailForLink(e.target.value)}
+                fullWidth
+                variant="outlined"
+                placeholder="Your email"
+                sx={{ mb: 2 }}
+              />
               <Button
                 type="submit"
                 variant="contained"
-                color="primary"
+                color="success"
                 fullWidth
                 disabled={isSubmitting}
+                sx={{ textTransform: 'none' }}
               >
                 {isSubmitting ? (
                   <CircularProgress size={24} color="inherit" />
                 ) : (
-                  'Sign up'
+                  'Send Link'
                 )}
               </Button>
             </form>
-            <p className="text-center mt-3">
-              Already have an account?{' '}
-              <Link
-                to="/login"
-                className="login-link"
-                onClick={() => handleTabChange('login')}
-                state={{ from }} // Preserve redirect state
-              >
-                Login
-              </Link>
-            </p>
-          </div>
+          </Box>
         )}
-      </div>
+
+        {/* 3) Forgot Password Form */}
+        {showForgotPassword && (
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="body2" sx={{ mb: 1 }}>
+              Enter your email, we'll send you a password reset link:
+            </Typography>
+            <form onSubmit={handleForgotPassword}>
+              <TextField
+                type="email"
+                value={forgotEmail}
+                onChange={(e) => setForgotEmail(e.target.value)}
+                fullWidth
+                variant="outlined"
+                placeholder="Your email"
+                sx={{ mb: 2 }}
+              />
+              <Button
+                type="submit"
+                variant="contained"
+                color="secondary"
+                fullWidth
+                disabled={isSubmitting}
+                sx={{ textTransform: 'none' }}
+              >
+                {isSubmitting ? (
+                  <CircularProgress size={24} color="inherit" />
+                ) : (
+                  'Reset Password'
+                )}
+              </Button>
+            </form>
+          </Box>
+        )}
+
+        <Box sx={{ mt: 2, textAlign: 'center' }}>
+          <Typography variant="body2">
+            Don't have an account?{' '}
+            <Link to="/register" style={{ color: '#007bff' }}>
+              Sign Up
+            </Link>
+          </Typography>
+        </Box>
+      </Box>
+
       <Notification
         open={notification.open}
-        severity={notification.severity}
-        message={notification.message}
         onClose={() =>
           setNotification({ open: false, severity: '', message: '' })
         }
+        severity={notification.severity}
+        message={notification.message}
       />
-    </div>
+    </Box>
   );
 };
 

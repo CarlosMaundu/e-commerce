@@ -18,6 +18,12 @@ import ProfilePage from './pages/ProfilePage';
 import PrivateRoute from './components/PrivateRoute';
 import Footer from './components/layout/Footer';
 import CheckoutPage from './pages/CheckoutPage';
+import AdminRoute from './components/AdminRoute';
+import SignupPage from './pages/SignupPage';
+import AdminDashboardSection from './components/profile/AdminDashboardSection';
+import ReportsSection from './components/profile/reports/ReportsSection';
+import ProductsSection from './components/profile/ProductsSection';
+import CustomersSection from './components/profile/customers/CustomersSection';
 
 import { Provider } from 'react-redux';
 import store, { persistor } from './redux/store';
@@ -72,15 +78,16 @@ const App = () => {
               <ConditionalHeader />
 
               <Routes>
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/register" element={<LoginPage />} />
-
+                {/* Public (non-protected) Routes */}
                 <Route path="/" element={<HomePage />} />
                 <Route path="/products" element={<ProductsPage />} />
                 <Route path="/products/:id" element={<ProductDetailsPage />} />
                 <Route path="/cart" element={<CartPage />} />
                 <Route path="/wishlist" element={<WishlistPage />} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<SignupPage />} />
 
+                {/* Protected (Must be logged in, either customer or admin) */}
                 <Route
                   path="/profile"
                   element={
@@ -89,7 +96,6 @@ const App = () => {
                     </PrivateRoute>
                   }
                 />
-
                 <Route
                   path="/checkout"
                   element={
@@ -98,6 +104,51 @@ const App = () => {
                     </PrivateRoute>
                   }
                 />
+
+                {/* Admin-Only Routes (NESTED under PrivateRoute) */}
+                <Route
+                  path="/admin/dashboard"
+                  element={
+                    <PrivateRoute>
+                      <AdminRoute>
+                        <AdminDashboardSection />
+                      </AdminRoute>
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/admin/reports"
+                  element={
+                    <PrivateRoute>
+                      <AdminRoute>
+                        <ReportsSection />
+                      </AdminRoute>
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/admin/products"
+                  element={
+                    <PrivateRoute>
+                      <AdminRoute>
+                        <ProductsSection />
+                      </AdminRoute>
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/admin/customers"
+                  element={
+                    <PrivateRoute>
+                      <AdminRoute>
+                        <CustomersSection />
+                      </AdminRoute>
+                    </PrivateRoute>
+                  }
+                />
+
+                {/* Fallback for non-existing routes */}
+                <Route path="*" element={<div>404 Not Found</div>} />
               </Routes>
 
               {/* Optionally hide the footer */}
