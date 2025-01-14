@@ -1,22 +1,52 @@
-// src/pages/LoginPage.js
 import React, { useContext, useState } from 'react';
-import { AuthContext } from '../context/AuthContext';
-import { useNavigate, Link, useLocation } from 'react-router-dom';
 import {
-  Button,
-  Grid,
-  Typography,
   Box,
+  Button,
   TextField,
-  InputAdornment,
-  CircularProgress,
+  Typography,
+  Container,
   IconButton,
+  InputAdornment,
+  Paper,
+  Alert,
+  Snackbar,
+  Fade,
 } from '@mui/material';
-import { Google, Lock, AccountCircle } from '@mui/icons-material';
+import { styled } from '@mui/system';
+import { FcGoogle } from 'react-icons/fc';
+import { MdEmail, MdLock } from 'react-icons/md';
+import { AiOutlineEye, AiOutlineEyeInvisible } from 'react-icons/ai';
+import { AuthContext } from '../context/AuthContext';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
+import { friendlyError } from '../utils/friendlyError';
 
-import Notification from '../notification/notification';
+const StyledContainer = styled(Container)(({ theme }) => ({
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  minHeight: '100vh',
+  paddingTop: theme.spacing(8),
+  paddingBottom: theme.spacing(8),
+}));
+
+const StyledPaper = styled(Paper)(({ theme }) => ({
+  padding: theme.spacing(4),
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  maxWidth: 450,
+  width: '100%',
+  backgroundColor: '#ffffff',
+  borderRadius: 16,
+}));
+
+const StyledButton = styled(Button)(({ theme }) => ({
+  margin: theme.spacing(1, 0),
+  padding: theme.spacing(1.5),
+  borderRadius: 8,
+}));
 
 const LoginPage = () => {
   const {
@@ -30,23 +60,17 @@ const LoginPage = () => {
   const location = useLocation();
   const from = location.state?.from || '/';
 
-  // UI toggles
-  const [showEmailPassword, setShowEmailPassword] = useState(false);
-  const [showEmailLink, setShowEmailLink] = useState(false);
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showEmailLinkForm, setShowEmailLinkForm] = useState(false);
+  const [showMainForm, setShowMainForm] = useState(true);
+  const [showForgotPasswordForm, setShowForgotPasswordForm] = useState(false);
   const [notification, setNotification] = useState({
     open: false,
     severity: '',
     message: '',
   });
 
-  /**
-   * 1) Google sign-in
-   */
   const handleGoogleLogin = async () => {
-    setIsSubmitting(true);
     try {
       await signInWithGoogle();
       setNotification({
@@ -59,44 +83,11 @@ const LoginPage = () => {
       setNotification({
         open: true,
         severity: 'error',
-        message: err.message || 'Google login failed.',
+        message: friendlyError(err),
       });
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
-  /**
-   * 2) Email Link form submission
-   */
-  const [emailForLink, setEmailForLink] = useState('');
-  const handleEmailLinkSubmit = async (e) => {
-    e.preventDefault();
-    if (!emailForLink) return;
-    setIsSubmitting(true);
-    try {
-      await sendSignInLink(emailForLink);
-      setNotification({
-        open: true,
-        severity: 'info',
-        message: `We sent a link to ${emailForLink}. Check your inbox to complete sign-in.`,
-      });
-      setEmailForLink('');
-      setShowEmailLink(false);
-    } catch (error) {
-      setNotification({
-        open: true,
-        severity: 'error',
-        message: error.message || 'Could not send sign-in link.',
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  /**
-   * 3) Email & Password form with Formik
-   */
   const loginFormik = useFormik({
     initialValues: {
       email: '',
@@ -107,7 +98,6 @@ const LoginPage = () => {
       password: Yup.string().required('Password is required'),
     }),
     onSubmit: async (values) => {
-      setIsSubmitting(true);
       try {
         await signInWithPassword(values.email, values.password);
         setNotification({
@@ -120,312 +110,316 @@ const LoginPage = () => {
         setNotification({
           open: true,
           severity: 'error',
-          message: error.message || 'Login failed.',
+          message: friendlyError(error),
         });
-      } finally {
-        setIsSubmitting(false);
       }
     },
   });
 
-  /**
-   * 4) Forgot Password
-   */
-  const [forgotEmail, setForgotEmail] = useState('');
-  const handleForgotPassword = async (e) => {
+  const forgotPasswordFormik = useFormik({
+    initialValues: {
+      email: '',
+    },
+    validationSchema: Yup.object({
+      email: Yup.string().email('Invalid email').required('Email is required'),
+    }),
+    onSubmit: async (values) => {
+      try {
+        await resetPassword(values.email);
+        setNotification({
+          open: true,
+          severity: 'info',
+          message: `Password reset link sent to ${values.email}. Check your inbox.`,
+        });
+        forgotPasswordFormik.resetForm();
+        setShowForgotPasswordForm(false);
+        setShowMainForm(true);
+      } catch (error) {
+        setNotification({
+          open: true,
+          severity: 'error',
+          message: friendlyError(error),
+        });
+      }
+    },
+  });
+
+  const handleEmailLinkSubmit = async (e) => {
     e.preventDefault();
-    if (!forgotEmail) return;
-    setIsSubmitting(true);
+    if (!loginFormik.values.email) return;
     try {
-      await resetPassword(forgotEmail);
+      await sendSignInLink(loginFormik.values.email);
       setNotification({
         open: true,
         severity: 'info',
-        message: `Password reset email sent to ${forgotEmail}. Check your inbox.`,
+        message: `We sent a link to ${loginFormik.values.email}. Check your inbox to complete sign-in.`,
       });
-      setForgotEmail('');
-      setShowForgotPassword(false);
+      loginFormik.resetForm();
+      setShowEmailLinkForm(false);
+      setShowMainForm(true);
     } catch (error) {
       setNotification({
         open: true,
         severity: 'error',
-        message: error.message || 'Could not send password reset email.',
+        message: friendlyError(error),
       });
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
   return (
-    <Box
-      sx={{
-        width: '100%',
-        minHeight: '100vh',
-        backgroundColor: '#f5f5f5',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        p: 2,
-      }}
-    >
-      <Box
-        sx={{
-          width: { xs: '90%', sm: '400px' },
-          p: 3,
-          backgroundColor: '#fff',
-          borderRadius: 2,
-          boxShadow: 2,
-        }}
-      >
-        <Typography
-          variant="h5"
-          sx={{ mb: 3, textAlign: 'center', fontWeight: 'bold' }}
-        >
-          Login
-        </Typography>
+    <StyledContainer>
+      <Fade in={true} timeout={1000}>
+        <StyledPaper elevation={3}>
+          <Typography variant="h4" gutterBottom>
+            Welcome Back
+          </Typography>
 
-        {/* Row of sign-in options */}
-        <Grid container spacing={2} sx={{ mb: 2 }}>
-          <Grid item xs={12}>
-            {/* White background for Google button */}
-            <Button
-              variant="contained"
-              fullWidth
-              disabled={isSubmitting}
-              onClick={handleGoogleLogin}
-              startIcon={<Google />}
-              sx={{
-                textTransform: 'none',
-                backgroundColor: '#ffffff',
-                color: '#000',
-                border: '1px solid #ddd',
-                '&:hover': {
-                  backgroundColor: '#f7f7f7',
-                },
-              }}
-            >
-              {isSubmitting ? (
-                <CircularProgress size={24} color="inherit" />
-              ) : (
-                'Sign in with Google'
-              )}
-            </Button>
-          </Grid>
-
-          <Grid item xs={12}>
-            {/* MUI default (blue) for Email & Password */}
-            <Button
-              variant="contained"
-              color="primary"
-              fullWidth
-              disabled={isSubmitting}
-              onClick={() => {
-                setShowEmailPassword((prev) => !prev);
-                setShowEmailLink(false);
-                setShowForgotPassword(false);
-              }}
-              sx={{ textTransform: 'none' }}
-            >
-              Sign in with Email & Password
-            </Button>
-          </Grid>
-
-          <Grid item xs={12}>
-            <Button
-              variant="outlined"
-              color="primary"
-              fullWidth
-              disabled={isSubmitting}
-              onClick={() => {
-                setShowEmailLink((prev) => !prev);
-                setShowEmailPassword(false);
-                setShowForgotPassword(false);
-              }}
-              sx={{ textTransform: 'none' }}
-            >
-              Sign in with Email Link
-            </Button>
-          </Grid>
-        </Grid>
-
-        {/* Forgot Password link - triggers the Forgot Password form */}
-        {!showForgotPassword && (
-          <Box sx={{ textAlign: 'center', mb: 2 }}>
-            <Button
-              variant="text"
-              color="secondary"
-              onClick={() => {
-                setShowForgotPassword(true);
-                setShowEmailPassword(false);
-                setShowEmailLink(false);
-              }}
-              sx={{ textTransform: 'none', fontSize: '0.8rem' }}
-            >
-              Forgot Password?
-            </Button>
-          </Box>
-        )}
-
-        {/* 1) If user chooses Email+Password */}
-        {showEmailPassword && (
-          <Box sx={{ mb: 2 }}>
-            <form onSubmit={loginFormik.handleSubmit}>
-              <TextField
-                label="Email"
-                id="email"
-                name="email"
-                fullWidth
+          {showMainForm && (
+            <>
+              <StyledButton
                 variant="outlined"
-                sx={{ mb: 2 }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <AccountCircle />
-                    </InputAdornment>
-                  ),
+                fullWidth
+                startIcon={<FcGoogle />}
+                onClick={handleGoogleLogin}
+              >
+                Sign in with Google
+              </StyledButton>
+
+              <StyledButton
+                variant="outlined"
+                fullWidth
+                startIcon={<MdEmail />}
+                onClick={() => {
+                  setShowEmailLinkForm(true);
+                  setShowMainForm(false);
                 }}
+              >
+                Sign in with Email Link
+              </StyledButton>
+
+              <Typography variant="body1" sx={{ my: 2 }}>
+                OR
+              </Typography>
+
+              <Box
+                component="form"
+                onSubmit={loginFormik.handleSubmit}
+                width="100%"
+              >
+                <TextField
+                  margin="normal"
+                  required
+                  fullWidth
+                  label="Email Address"
+                  name="email"
+                  type="email"
+                  value={loginFormik.values.email}
+                  onChange={loginFormik.handleChange}
+                  onBlur={loginFormik.handleBlur}
+                  error={
+                    loginFormik.touched.email &&
+                    Boolean(loginFormik.errors.email)
+                  }
+                  helperText={
+                    loginFormik.touched.email && loginFormik.errors.email
+                  }
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <MdEmail />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+
+                <TextField
+                  margin="normal"
+                  required
+                  fullWidth
+                  label="Password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={loginFormik.values.password}
+                  onChange={loginFormik.handleChange}
+                  onBlur={loginFormik.handleBlur}
+                  error={
+                    loginFormik.touched.password &&
+                    Boolean(loginFormik.errors.password)
+                  }
+                  helperText={
+                    loginFormik.touched.password && loginFormik.errors.password
+                  }
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <MdLock />
+                      </InputAdornment>
+                    ),
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          onClick={() => setShowPassword(!showPassword)}
+                          edge="end"
+                        >
+                          {showPassword ? (
+                            <AiOutlineEyeInvisible />
+                          ) : (
+                            <AiOutlineEye />
+                          )}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+
+                <Typography
+                  variant="body2"
+                  color="primary"
+                  sx={{ mt: 1, cursor: 'pointer' }}
+                  onClick={() => {
+                    setShowForgotPasswordForm(true);
+                    setShowMainForm(false);
+                  }}
+                >
+                  Forgot Password?
+                </Typography>
+
+                <StyledButton
+                  type="submit"
+                  fullWidth
+                  variant="contained"
+                  sx={{ mt: 3 }}
+                >
+                  Sign In
+                </StyledButton>
+
+                <Button
+                  onClick={() => navigate('/register')}
+                  sx={{ mt: 2 }}
+                  fullWidth
+                >
+                  New user? Create an account
+                </Button>
+              </Box>
+            </>
+          )}
+
+          {showEmailLinkForm && (
+            <Box sx={{ width: '100%', mt: 2 }}>
+              <Typography variant="body1" sx={{ mb: 2 }}>
+                Enter your email, we'll send you a login link:
+              </Typography>
+              <TextField
+                fullWidth
+                label="Email Address"
+                name="email"
+                type="email"
                 value={loginFormik.values.email}
                 onChange={loginFormik.handleChange}
-                onBlur={loginFormik.handleBlur}
-                error={
-                  loginFormik.touched.email && Boolean(loginFormik.errors.email)
-                }
-                helperText={
-                  loginFormik.touched.email && loginFormik.errors.email
-                }
-              />
-              <TextField
-                label="Password"
-                id="password"
-                name="password"
-                type="password"
-                fullWidth
-                variant="outlined"
-                sx={{ mb: 2 }}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <Lock />
+                      <MdEmail />
                     </InputAdornment>
                   ),
                 }}
-                value={loginFormik.values.password}
-                onChange={loginFormik.handleChange}
-                onBlur={loginFormik.handleBlur}
-                error={
-                  loginFormik.touched.password &&
-                  Boolean(loginFormik.errors.password)
-                }
-                helperText={
-                  loginFormik.touched.password && loginFormik.errors.password
-                }
               />
-
-              <Button
-                type="submit"
+              <StyledButton
                 variant="contained"
-                color="primary"
                 fullWidth
-                disabled={isSubmitting}
-                sx={{ textTransform: 'none' }}
+                sx={{ mt: 2 }}
+                onClick={handleEmailLinkSubmit}
               >
-                {isSubmitting ? (
-                  <CircularProgress size={24} color="inherit" />
-                ) : (
-                  'Sign in'
-                )}
-              </Button>
-            </form>
-          </Box>
-        )}
-
-        {/* 2) If user chooses Email Link */}
-        {showEmailLink && (
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="body2" sx={{ mb: 1 }}>
-              Enter your email, we'll send you a login link:
-            </Typography>
-            <form onSubmit={handleEmailLinkSubmit}>
-              <TextField
-                type="email"
-                value={emailForLink}
-                onChange={(e) => setEmailForLink(e.target.value)}
-                fullWidth
-                variant="outlined"
-                placeholder="Your email"
-                sx={{ mb: 2 }}
-              />
+                Send Login Link
+              </StyledButton>
               <Button
-                type="submit"
-                variant="contained"
-                color="success"
+                onClick={() => {
+                  setShowEmailLinkForm(false);
+                  setShowMainForm(true);
+                }}
+                sx={{ mt: 2 }}
                 fullWidth
-                disabled={isSubmitting}
-                sx={{ textTransform: 'none' }}
+                variant="text"
               >
-                {isSubmitting ? (
-                  <CircularProgress size={24} color="inherit" />
-                ) : (
-                  'Send Link'
-                )}
+                Back to Sign In with Password
               </Button>
-            </form>
-          </Box>
-        )}
+            </Box>
+          )}
 
-        {/* 3) Forgot Password Form */}
-        {showForgotPassword && (
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="body2" sx={{ mb: 1 }}>
-              Enter your email, we'll send you a password reset link:
-            </Typography>
-            <form onSubmit={handleForgotPassword}>
-              <TextField
-                type="email"
-                value={forgotEmail}
-                onChange={(e) => setForgotEmail(e.target.value)}
-                fullWidth
-                variant="outlined"
-                placeholder="Your email"
-                sx={{ mb: 2 }}
-              />
-              <Button
-                type="submit"
-                variant="contained"
-                color="secondary"
-                fullWidth
-                disabled={isSubmitting}
-                sx={{ textTransform: 'none' }}
+          {showForgotPasswordForm && (
+            <Box sx={{ width: '100%', mt: 2 }}>
+              <Typography variant="body1" sx={{ mb: 2 }}>
+                Enter your email to receive a reset link:
+              </Typography>
+              <Box
+                component="form"
+                onSubmit={forgotPasswordFormik.handleSubmit}
+                width="100%"
               >
-                {isSubmitting ? (
-                  <CircularProgress size={24} color="inherit" />
-                ) : (
-                  'Reset Password'
-                )}
-              </Button>
-            </form>
-          </Box>
-        )}
+                <TextField
+                  fullWidth
+                  label="Email Address"
+                  name="email"
+                  type="email"
+                  value={forgotPasswordFormik.values.email}
+                  onChange={forgotPasswordFormik.handleChange}
+                  onBlur={forgotPasswordFormik.handleBlur}
+                  error={
+                    forgotPasswordFormik.touched.email &&
+                    Boolean(forgotPasswordFormik.errors.email)
+                  }
+                  helperText={
+                    forgotPasswordFormik.touched.email &&
+                    forgotPasswordFormik.errors.email
+                  }
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <MdEmail />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+                <StyledButton
+                  type="submit"
+                  variant="contained"
+                  fullWidth
+                  sx={{ mt: 2 }}
+                >
+                  Send Reset Link
+                </StyledButton>
+                <Button
+                  onClick={() => {
+                    setShowForgotPasswordForm(false);
+                    setShowMainForm(true);
+                  }}
+                  sx={{ mt: 2 }}
+                  fullWidth
+                  variant="text"
+                >
+                  Back to Sign In
+                </Button>
+              </Box>
+            </Box>
+          )}
+        </StyledPaper>
+      </Fade>
 
-        <Box sx={{ mt: 2, textAlign: 'center' }}>
-          <Typography variant="body2">
-            Don't have an account?{' '}
-            <Link to="/register" style={{ color: '#007bff' }}>
-              Sign Up
-            </Link>
-          </Typography>
-        </Box>
-      </Box>
-
-      <Notification
+      <Snackbar
         open={notification.open}
-        onClose={() =>
-          setNotification({ open: false, severity: '', message: '' })
-        }
-        severity={notification.severity}
-        message={notification.message}
-      />
-    </Box>
+        autoHideDuration={6000}
+        onClose={() => setNotification({ ...notification, open: false })}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setNotification({ ...notification, open: false })}
+          severity={notification.severity}
+          sx={{ width: '100%' }}
+        >
+          {notification.message}
+        </Alert>
+      </Snackbar>
+    </StyledContainer>
   );
 };
 

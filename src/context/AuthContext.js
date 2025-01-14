@@ -1,105 +1,67 @@
 // src/context/AuthContext.js
-import React, { createContext, useEffect, useState } from 'react';
+// src/context/AuthContext.js
+import React, { createContext, useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-
 import {
+  GoogleAuthProvider,
+  signInWithPopup,
   signInWithEmailAndPassword,
+  sendSignInLinkToEmail,
+  sendPasswordResetEmail,
   createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
-  GoogleAuthProvider,
-  signInWithPopup,
-  sendSignInLinkToEmail,
-  isSignInWithEmailLink,
-  signInWithEmailLink,
-  sendPasswordResetEmail,
+  updateProfile, // Import updateProfile for setting displayName
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { auth, db } from '../firebase';
+import { logEvent } from 'firebase/analytics';
+import { auth, analytics } from '../firebase';
 
-/**
- * Example action code settings for email link sign-in
- * You must whitelist the URL in Firebase console -> Authentication -> Sign-in method -> Email link
- */
-const actionCodeSettings = {
-  url: 'http://localhost:3000/login', // or your production domain + route
-  handleCodeInApp: true, // This is required for email link sign-in
-};
+// Import required API service methods
+import {
+  createUser as createUserInAPI,
+  getAllUsers,
+} from '../services/userService';
 
-export const AuthContext = createContext(null);
+export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null); // Will store { ...firebaseUser, role: ... }
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null); // API user profile with role, etc.
+  const [firebaseUser, setFirebaseUser] = useState(null); // Firebase user object
+  const [loading, setLoading] = useState(true); // Loading indicator for initial auth check
 
-  /**
-   * We check if the user came back via Email Link (Passwordless).
-   * If so, we finalize sign-in automatically in a useEffect.
-   */
-  useEffect(() => {
-    if (isSignInWithEmailLink(auth, window.location.href)) {
-      // We might have stored the user's email in localStorage
-      let email = window.localStorage.getItem('emailForSignIn');
-      if (!email) {
-        // If email isn't in storage, ask user
-        // or prompt for re-entry in real scenario
-        email = window.prompt('Please provide your email for confirmation');
-      }
-      if (email) {
-        signInWithEmailLink(auth, email, window.location.href)
-          .then(async (result) => {
-            window.localStorage.removeItem('emailForSignIn');
-            // Optionally create Firestore doc if new user
-            const userRef = doc(db, 'users', result.user.uid);
-            const userSnap = await getDoc(userRef);
-            if (!userSnap.exists()) {
-              await setDoc(userRef, {
-                email: result.user.email,
-                role: 'customer',
-                createdAt: new Date().toISOString(),
-              });
-            }
-          })
-          .catch((error) => {
-            console.error('Error completing sign-in with email link:', error);
-          });
-      }
-    }
-  }, []);
+  // Helper function to get a user by email using existing API services
+  const getUserByEmail = async (email) => {
+    const allUsers = await getAllUsers();
+    return allUsers.find((u) => u.email === email);
+  };
 
-  /**
-   * Listen to Firebase auth state changes
-   * and retrieve the user's role from Firestore (if any).
-   */
+  // Initialize Firebase Auth state change listener
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        // Attempt to read role or other data from Firestore
-        let role = 'customer';
-        const userRef = doc(db, 'users', firebaseUser.uid);
-        const userSnap = await getDoc(userRef);
-        if (userSnap.exists()) {
-          const userData = userSnap.data();
-          if (userData.role) {
-            role = userData.role;
-          } else {
-            // fallback if no role field
-            await setDoc(userRef, { role }, { merge: true });
+    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+      setFirebaseUser(fbUser);
+      if (fbUser) {
+        // Log successful sign in event
+        logEvent(analytics, 'login_success', { userId: fbUser.uid });
+
+        // Synchronize with external API profile using email
+        try {
+          let profile = await getUserByEmail(fbUser.email);
+          if (!profile) {
+            // Create new user profile in API if it doesn't exist
+            profile = await createUserInAPI({
+              name: fbUser.displayName || 'New User',
+              email: fbUser.email,
+              password: 'temporary', // You may omit or handle password differently
+              avatar: fbUser.photoURL || '',
+            });
           }
-        } else {
-          // If no doc, create one with default role
-          await setDoc(userRef, {
-            email: firebaseUser.email,
-            role,
-            createdAt: new Date().toISOString(),
-          });
+          setUser(profile);
+        } catch (apiError) {
+          console.error('API error:', apiError);
+          setUser(null);
         }
-
-        setUser({
-          ...firebaseUser,
-          role,
-        });
       } else {
+        // User signed out
         setUser(null);
       }
       setLoading(false);
@@ -108,96 +70,70 @@ export const AuthProvider = ({ children }) => {
     return () => unsubscribe();
   }, []);
 
-  /**
-   * Standard Email/Password Signup
-   */
-  const signUp = async ({ email, password }) => {
-    const userCredential = await createUserWithEmailAndPassword(
-      auth,
-      email,
-      password
-    );
-    // Optionally create Firestore doc if new
-    const userRef = doc(db, userCredential.user.uid);
-    await setDoc(userRef, {
-      email,
-      role: 'customer',
-      createdAt: new Date().toISOString(),
-    });
-    return userCredential;
+  // Firebase-based authentication functions
+  const signInWithGoogle = async () => {
+    logEvent(analytics, 'login_attempt', { method: 'google' });
+    const provider = new GoogleAuthProvider();
+    const result = await signInWithPopup(auth, provider);
+    // onAuthStateChanged will handle subsequent profile sync
+    return result.user;
   };
 
-  /**
-   * Standard Email/Password SignIn
-   */
   const signInWithPassword = async (email, password) => {
-    return signInWithEmailAndPassword(auth, email, password);
+    logEvent(analytics, 'login_attempt', { method: 'email_password' });
+    try {
+      const result = await signInWithEmailAndPassword(auth, email, password);
+      return result.user;
+    } catch (error) {
+      // Firebase error: Likely due to user not registered with Firebase
+      throw new Error(error.message || 'Email/Password sign-in failed.');
+    }
   };
 
-  /**
-   * Password reset (Forgot Password)
-   */
-  const resetPassword = async (email) => {
-    // If you have custom actionCodeSettings for password reset, pass them here
-    await sendPasswordResetEmail(
-      auth,
-      email /*, customActionCodeSettingsIfAny */
-    );
-  };
-
-  /**
-   * Send Email Link for passwordless sign-in
-   */
   const sendSignInLink = async (email) => {
+    const actionCodeSettings = {
+      url: window.location.origin + '/finishSignIn', // Adjust redirect URL as necessary
+      handleCodeInApp: true,
+    };
     await sendSignInLinkToEmail(auth, email, actionCodeSettings);
-    // Store the email locally so we can finish sign-in
     window.localStorage.setItem('emailForSignIn', email);
   };
 
-  /**
-   * Google sign-in
-   */
-  const signInWithGoogle = async () => {
-    const provider = new GoogleAuthProvider();
-    const result = await signInWithPopup(auth, provider);
-
-    // If new user, create Firestore doc
-    const userRef = doc(db, result.user.uid);
-    const userSnap = await getDoc(userRef);
-    if (!userSnap.exists()) {
-      await setDoc(userRef, {
-        email: result.user.email,
-        role: 'customer',
-        createdAt: new Date().toISOString(),
-      });
-    }
-    return result;
+  const resetPassword = async (email) => {
+    await sendPasswordResetEmail(auth, email);
   };
 
-  /**
-   * Sign out
-   */
+  const signUp = async ({ firstName, lastName, email, password }) => {
+    const result = await createUserWithEmailAndPassword(auth, email, password);
+    const user = result.user;
+    // Update Firebase profile with display name
+    await updateProfile(user, {
+      displayName: `${firstName} ${lastName}`,
+    });
+    // onAuthStateChanged will handle profile sync
+    return user;
+  };
+
   const logout = async () => {
     await signOut(auth);
     setUser(null);
+    setFirebaseUser(null);
   };
 
+  // The context value provided to descendants
   const value = {
-    user,
+    user, // User profile from API
+    firebaseUser, // Raw Firebase user object
     loading,
-    signUp,
-    signInWithPassword,
-    resetPassword, // forgot password
     signInWithGoogle,
-    sendSignInLink, // for passwordless
+    signInWithPassword,
+    sendSignInLink,
+    resetPassword,
+    signUp,
     logout,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {!loading && children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 AuthProvider.propTypes = {

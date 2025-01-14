@@ -107,7 +107,7 @@ const SearchContainer = styled('div')(({ theme }) => ({
 }));
 
 const Header = () => {
-  const { user, loading, handleLogout } = useContext(AuthContext);
+  const { user, loading, logout } = useContext(AuthContext);
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuAnchor, setUserMenuAnchor] = useState(null);
@@ -159,8 +159,8 @@ const Header = () => {
     setUserMenuAnchor(null);
   };
 
-  const handleLogoutClick = () => {
-    handleLogout();
+  const logoutClick = () => {
+    logout();
     setUserMenuAnchor(null);
     navigate('/login');
   };
@@ -356,7 +356,7 @@ const Header = () => {
                   Orders
                 </MenuItem>
                 <MenuItem
-                  onClick={handleLogoutClick}
+                  onClick={logoutClick}
                   sx={{ ...theme.typography.body2 }}
                 >
                   Logout
