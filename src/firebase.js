@@ -1,10 +1,8 @@
 // src/firebase.js
 import { initializeApp } from 'firebase/app';
-import { getAnalytics } from 'firebase/analytics';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getAnalytics } from 'firebase/analytics';
 
-// Pull from environment variables
 const firebaseConfig = {
   apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
   authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
@@ -17,12 +15,9 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-// Optional analytics
-const analytics = getAnalytics(app);
 
-// Export the Auth and Firestore instances
+// Initialize Firebase Analytics
+export const analytics = getAnalytics(app);
+
+// Initialize Firebase Auth
 export const auth = getAuth(app);
-export const db = getFirestore(app);
-
-// TODO: In future, set up phone/email link for MFA or other advanced features
-// e.g. phone signInWithPhoneNumber, multiFactor, email link signIn, etc.

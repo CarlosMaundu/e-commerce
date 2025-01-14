@@ -13,7 +13,7 @@ const mockSendSignInLink = jest.fn();
 // Create a dummy navigate function
 const mockNavigate = jest.fn();
 
-// Mock react-router-dom hooks for navigation
+// Mock react-router-dom hooks
 jest.mock('react-router-dom', () => {
   const actual = jest.requireActual('react-router-dom');
   return {

@@ -24,6 +24,7 @@ import AdminDashboardSection from './components/profile/AdminDashboardSection';
 import ReportsSection from './components/profile/reports/ReportsSection';
 import ProductsSection from './components/profile/ProductsSection';
 import CustomersSection from './components/profile/customers/CustomersSection';
+import FinishSignIn from './pages/FinishSignIn';
 
 import { Provider } from 'react-redux';
 import store, { persistor } from './redux/store';
@@ -86,6 +87,7 @@ const App = () => {
                 <Route path="/wishlist" element={<WishlistPage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<SignupPage />} />
+                <Route path="/finishSignIn" element={<FinishSignIn />} />
 
                 {/* Protected (Must be logged in, either customer or admin) */}
                 <Route

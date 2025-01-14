@@ -39,7 +39,7 @@ import { useNavigate } from 'react-router-dom';
 const defaultAvatarUrl = 'https://i.imgur.com/kIaFC3J.png';
 
 const Sidebar = ({ activeSection, setActiveSection }) => {
-  const { user, loading, handleLogout } = useContext(AuthContext);
+  const { user, loading, logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -116,17 +116,15 @@ const Sidebar = ({ activeSection, setActiveSection }) => {
   };
 
   // Function to handle Logout
-  const handleLogoutClick = () => {
-    handleLogout();
+  const logoutClick = () => {
+    logout();
     navigate('/login');
   };
 
   // Render individual link items
   const renderLinkItem = (item) => {
     const isLogout = item.section === 'logout';
-    const onClick = isLogout
-      ? handleLogoutClick
-      : () => handleNavItemClick(item);
+    const onClick = isLogout ? logoutClick : () => handleNavItemClick(item);
 
     return (
       <ListItem
