@@ -1,4 +1,5 @@
-import React, { useContext, useState } from 'react';
+// src/pages/WishlistPage.js
+import React, { useContext, useState, useEffect } from 'react';
 import {
   Box,
   Button,
@@ -50,15 +51,21 @@ const StyledButton = styled(Button)(({ theme }) => ({
 
 const LoginPage = () => {
   const {
+    user,
     signInWithGoogle,
     signInWithPassword,
     sendSignInLink,
     resetPassword,
   } = useContext(AuthContext);
-
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from || '/';
+
+  useEffect(() => {
+    if (user) {
+      navigate(from, { replace: true });
+    }
+  }, [user, navigate, from]);
 
   const [showPassword, setShowPassword] = useState(false);
   const [showEmailLinkForm, setShowEmailLinkForm] = useState(false);
@@ -165,6 +172,10 @@ const LoginPage = () => {
       });
     }
   };
+
+  if (user) {
+    return null;
+  }
 
   return (
     <StyledContainer>

@@ -44,9 +44,9 @@ const CustomerDashboardSection = React.lazy(
   () => import('../components/profile/CustomerDashboardSection')
 );
 
-// NEW lazy imports for customers, messages, help center
-const CustomersSection = React.lazy(
-  () => import('../components/profile/customers/CustomersSection')
+// NEW lazy imports for Users, messages, help center
+const UsersSection = React.lazy(
+  () => import('../components/profile/users/UsersSection')
 );
 const HelpCenterSection = React.lazy(
   () => import('../components/profile/helpcenter/HelpCenterSection')
@@ -245,8 +245,8 @@ const ProfilePage = () => {
         return 'Payment Options';
       case 'products':
         return 'Products';
-      case 'customers':
-        return 'Customers';
+      case 'users':
+        return 'Users';
       case 'messages':
         return 'Messages';
       case 'reports':
@@ -302,8 +302,8 @@ const ProfilePage = () => {
             return <ProductsSection />;
           case 'reports':
             return <ReportsSection />;
-          case 'customers':
-            return <CustomersSection />;
+          case 'users':
+            return <UsersSection />;
           case 'messages':
             return <MessagesSection />;
           case 'help-center':

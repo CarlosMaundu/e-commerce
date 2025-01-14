@@ -73,9 +73,9 @@ const Sidebar = ({ activeSection, setActiveSection }) => {
       adminOnly: true,
     },
     {
-      label: 'Customers',
+      label: 'Users',
       icon: <FiUsers size={20} />,
-      section: 'customers',
+      section: 'users',
       adminOnly: true,
     },
     {

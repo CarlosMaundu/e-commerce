@@ -1,164 +1,245 @@
 // src/components/common/ViewProductModal.js
-
 import React, { useState } from 'react';
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  Typography,
-  Grid,
+  Modal,
   Box,
+  Typography,
+  Button,
+  Stack,
+  IconButton,
 } from '@mui/material';
-import { FiEdit } from 'react-icons/fi';
-import { useTheme } from '@mui/material/styles';
-import placeholderImage from '../../images/placeholder.jpg';
+import { styled } from '@mui/system';
+import { FiEdit, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+
+const StyledModal = styled(Modal)({
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+});
+
+const ModalContent = styled(Box)({
+  backgroundColor: '#fff',
+  borderRadius: '12px',
+  padding: '24px',
+  maxWidth: '500px',
+  width: '95%',
+  position: 'relative',
+  maxHeight: '80vh',
+  overflowY: 'auto',
+  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+});
+
+const InfoRow = styled(Box)({
+  display: 'flex',
+  justifyContent: 'space-between',
+  padding: '12px 0',
+  borderBottom: '1px solid #eee',
+});
+
+const CloseButton = styled(Button)({
+  backgroundColor: '#fff',
+  border: '1px solid #ff1744',
+  color: '#ff1744',
+  height: '32px',
+  minWidth: '120px',
+  marginRight: '16px',
+  '&:hover': {
+    backgroundColor: '#ffe6e9',
+    border: '1px solid #ff1744',
+  },
+});
+
+const EditButton = styled(Button)({
+  backgroundColor: '#1976d2',
+  color: '#fff',
+  height: '32px',
+  minWidth: '120px',
+  '&:hover': {
+    backgroundColor: '#1565c0',
+  },
+});
+
+const ImageContainer = styled(Box)({
+  position: 'relative',
+  width: '100%',
+  height: '300px',
+  backgroundColor: '#f8f9fa',
+  borderRadius: '16px',
+  overflow: 'hidden',
+  margin: 0,
+  padding: 0,
+  '& img': {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    borderRadius: '16px',
+  },
+});
+
+const ThumbnailContainer = styled(Box)({
+  display: 'flex',
+  gap: '10px',
+  overflowX: 'auto',
+  padding: '16px 0',
+  '&::-webkit-scrollbar': {
+    display: 'none',
+  },
+});
+
+const Thumbnail = styled(Box)({
+  width: '60px',
+  height: '60px',
+  borderRadius: '4px',
+  cursor: 'pointer',
+  border: '2px solid transparent',
+  '&:hover': {
+    opacity: 0.8,
+  },
+  '&.active': {
+    border: '2px solid #1976d2',
+  },
+  '& img': {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    borderRadius: '4px',
+  },
+});
+
+const NavigationButton = styled(IconButton)({
+  position: 'absolute',
+  top: '50%',
+  transform: 'translateY(-50%)',
+  backgroundColor: 'rgba(255, 255, 255, 0.8)',
+  '&:hover': {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+  },
+});
 
 const ViewProductModal = ({ open, onClose, product, onEdit }) => {
-  const theme = useTheme();
-  const [selectedImgIndex, setSelectedImgIndex] = useState(0);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  // If no product, return null (still safe to call useState unconditionally above)
   if (!product) return null;
 
   const images = product.images || [];
-
-  const handleChangeImage = (idx) => {
-    setSelectedImgIndex(idx);
-  };
+  const handlePrevImage = () =>
+    setCurrentImageIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
+  const handleNextImage = () =>
+    setCurrentImageIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
 
   return (
-    <Dialog
+    <StyledModal
       open={open}
       onClose={onClose}
-      aria-labelledby="view-product-dialog-title"
-      maxWidth="md"
-      fullWidth
+      aria-labelledby="view-product-modal"
     >
-      <DialogTitle id="view-product-dialog-title" sx={{ fontWeight: 700 }}>
-        Product Details
-      </DialogTitle>
+      <ModalContent>
+        <Box display="flex" justifyContent="center" alignItems="center" mb={3}>
+          <Typography variant="h5" component="h2" fontWeight="600">
+            Product Details
+          </Typography>
+        </Box>
 
-      <DialogContent
-        dividers
-        sx={{ backgroundColor: theme.palette.background.default }}
-      >
-        <Grid container spacing={2}>
-          {/* Main Image */}
-          <Grid item xs={12} sm={5}>
-            <Box
-              component="img"
-              src={images[selectedImgIndex] || ''}
+        <Stack spacing={3} mb={4}>
+          <ImageContainer>
+            <img
+              src={images[currentImageIndex] || ''}
               alt={product.title}
-              sx={{
-                width: '100%',
-                height: 'auto',
-                borderRadius: theme.shape.borderRadius, // Updated to use theme's borderRadius
-                objectFit: 'cover',
-              }}
               onError={(e) => {
-                e.target.src = placeholderImage;
+                e.target.src = '/placeholder.jpg';
               }}
             />
-            {/* Thumbnails if multiple images */}
             {images.length > 1 && (
-              <Box sx={{ display: 'flex', gap: 1, mt: 2, overflowX: 'auto' }}>
-                {images.map((img, idx) => (
-                  <Box
-                    key={idx}
-                    component="img"
-                    src={img}
-                    alt={`thumb-${idx}`}
-                    onClick={() => handleChangeImage(idx)}
-                    sx={{
-                      width: 60,
-                      height: 60,
-                      borderRadius: theme.shape.borderRadius, // Updated to use theme's borderRadius
-                      objectFit: 'cover',
-                      cursor: 'pointer',
-                      border:
-                        idx === selectedImgIndex
-                          ? `2px solid ${theme.palette.primary.main}`
-                          : '2px solid transparent',
-                    }}
+              <>
+                <NavigationButton
+                  onClick={handlePrevImage}
+                  sx={{ left: 10 }}
+                  aria-label="Previous image"
+                >
+                  <FiChevronLeft />
+                </NavigationButton>
+                <NavigationButton
+                  onClick={handleNextImage}
+                  sx={{ right: 10 }}
+                  aria-label="Next image"
+                >
+                  <FiChevronRight />
+                </NavigationButton>
+              </>
+            )}
+          </ImageContainer>
+
+          {images.length > 1 && (
+            <ThumbnailContainer>
+              {images.map((image, index) => (
+                <Thumbnail
+                  key={index}
+                  className={currentImageIndex === index ? 'active' : ''}
+                  onClick={() => setCurrentImageIndex(index)}
+                >
+                  <img
+                    src={image}
+                    alt={`Thumbnail ${index + 1}`}
                     onError={(e) => {
-                      e.target.src = placeholderImage;
+                      e.target.src = '/placeholder.jpg';
                     }}
                   />
-                ))}
-              </Box>
-            )}
-          </Grid>
+                </Thumbnail>
+              ))}
+            </ThumbnailContainer>
+          )}
+        </Stack>
 
-          {/* Product Info */}
-          <Grid item xs={12} sm={7}>
-            <Typography
-              variant="h6"
-              gutterBottom
-              sx={{
-                color: theme.palette.text.primary,
-                fontWeight: 700,
-              }}
-            >
+        <Box sx={{ backgroundColor: '#f8f9fa', borderRadius: '8px', p: 2 }}>
+          <InfoRow>
+            <Typography color="#000" fontWeight="700">
+              Product Name
+            </Typography>
+            <Typography fontSize="0.9rem" color="#666" fontWeight="500">
               {product.title}
             </Typography>
-            <Typography
-              variant="body1"
-              gutterBottom
-              sx={{ color: theme.palette.text.secondary }}
-            >
-              <strong>Category:</strong> {product.category?.name || 'N/A'}
+          </InfoRow>
+          <InfoRow>
+            <Typography color="#000" fontWeight="700">
+              Price
             </Typography>
-            <Typography
-              variant="body1"
-              gutterBottom
-              sx={{ color: theme.palette.text.secondary }}
-            >
-              <strong>Price:</strong> ${product.price}
+            <Typography fontSize="0.9rem" color="#666" fontWeight="500">
+              ${product.price}
             </Typography>
-            <Typography
-              variant="body1"
-              gutterBottom
-              sx={{ color: theme.palette.text.secondary }}
-            >
-              <strong>Stock Status:</strong>{' '}
+          </InfoRow>
+          <InfoRow>
+            <Typography color="#000" fontWeight="700">
+              Category
+            </Typography>
+            <Typography fontSize="0.9rem" color="#666" fontWeight="500">
+              {product.category?.name || 'N/A'}
+            </Typography>
+          </InfoRow>
+          <InfoRow sx={{ borderBottom: 'none' }}>
+            <Typography color="#000" fontWeight="700">
+              Stock Status
+            </Typography>
+            <Typography fontSize="0.9rem" color="#666" fontWeight="500">
               {product.inStock ? 'In Stock' : 'Out of Stock'}
             </Typography>
-            <Typography
-              variant="body1"
-              gutterBottom
-              sx={{ color: theme.palette.text.secondary }}
-            >
-              <strong>Description:</strong>{' '}
-              {product.description || 'No description provided.'}
-            </Typography>
-          </Grid>
-        </Grid>
-      </DialogContent>
+          </InfoRow>
+        </Box>
 
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button
-          startIcon={<FiEdit />}
-          onClick={() => {
-            onEdit(product);
-          }}
-          color="primary"
-          variant="contained"
-          sx={{ textTransform: 'none', fontSize: '0.75rem' }}
-        >
-          Edit Product
-        </Button>
-        <Button
-          onClick={onClose}
-          color="secondary"
-          variant="outlined"
-          sx={{ textTransform: 'none', fontSize: '0.75rem' }}
-        >
-          Close
-        </Button>
-      </DialogActions>
-    </Dialog>
+        <Box mt={3} display="flex" justifyContent="flex-end">
+          <CloseButton onClick={onClose} sx={{ textTransform: 'capitalize' }}>
+            Close
+          </CloseButton>
+          <EditButton
+            variant="contained"
+            startIcon={<FiEdit />}
+            onClick={() => onEdit(product)}
+            sx={{ textTransform: 'capitalize' }}
+          >
+            Edit Product
+          </EditButton>
+        </Box>
+      </ModalContent>
+    </StyledModal>
   );
 };
 

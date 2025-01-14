@@ -5,6 +5,7 @@ Welcome to our E-Commerce platform! This project is designed to provide a robust
 ## Overview
 
 This platform serves as an end-to-end solution for:
+
 - Browsing products from various categories.
 - Managing user profiles, including personal information, addresses, payment options, and wishlists.
 - Facilitating seamless checkouts with test credit cards, enabling you to verify the payment integration without moving real money.
@@ -18,10 +19,10 @@ All communication with product, category, and user data is handled via external 
 - **User Profiles**: Registered users can edit their personal information, manage saved addresses, payment options, and view their order history and wishlist.
 - **Secure Authentication**: Users can log in, manage their profile, and securely handle personal and payment information.
 - **Admin Capabilities**:
-    - **User Management**: Admins can view and manage platform users.
-    - **Product Management**: Add, edit, or remove products.
-    - **Category Management**: Create and update product categories.
-    - **Orders Management**: Oversee all customer orders.
+  - **User Management**: Admins can view and manage platform users.
+  - **Product Management**: Add, edit, or remove products.
+  - **Category Management**: Create and update product categories.
+  - **Orders Management**: Oversee all customer orders.
 - **Checkout & Payment**: Integration with test-mode payments to simulate real card transactions without incurring charges.
 - **Responsive Design**: Supports both desktop and mobile viewports, including a collapsible/slide-out sidebar on mobile devices.
 
@@ -30,22 +31,22 @@ All communication with product, category, and user data is handled via external 
 To set up the project locally:
 
 1. **Clone the Repository**:
-     ```bash
-     git clone https://github.com/yourusername/yourproject.git
-     cd yourproject
-     ```
+   ```bash
+   git clone https://github.com/yourusername/yourproject.git
+   cd yourproject
+   ```
 2. **Install Dependencies**:
-     ```bash
-     npm install
-     ```
+   ```bash
+   npm install
+   ```
 3. **Configure Environment Variables**:
-     - Set up `.env` files for local and production environments as needed.
-     - Include your API keys and endpoints. For test payments, use your test API keys.
+   - Set up `.env` files for local and production environments as needed.
+   - Include your API keys and endpoints. For test payments, use your test API keys.
 4. **Run the Development Server**:
-     ```bash
-     npm start
-     ```
-     The application will be available at [http://localhost:3000](http://localhost:3000).
+   ```bash
+   npm start
+   ```
+   The application will be available at [http://localhost:3000](http://localhost:3000).
 
 ## Authentication and Usage
 
@@ -55,11 +56,11 @@ To set up the project locally:
 ### Example Test Credentials
 
 - **Test User**:
-    - Email: `john@mail.com`
-    - Password: `changeme`
+  - Email: `john@mail.com`
+  - Password: `changeme`
 - **Test Admin**:
-    - Email: `admin@mail.com`
-    - Password: `admin123`
+  - Email: `admin@mail.com`
+  - Password: `admin123`
 
 ## Payment Testing with Stripe-Like Integration
 
@@ -75,11 +76,11 @@ You can also use other test cards as described below.
 ### Common Test Scenarios
 
 - **Successful Payment**:
-    - Use `4242 4242 4242 4242` with any future expiration date and any three-digit CVC.
+  - Use `4242 4242 4242 4242` with any future expiration date and any three-digit CVC.
 - **Declined Payment**:
-    - Use `4000000000000002` to simulate a generic decline.
+  - Use `4000000000000002` to simulate a generic decline.
 - **3D Secure Testing**:
-    - Use cards that require authentication to simulate 3D Secure flows (e.g., `4000000000003220` requires 3DS).
+  - Use cards that require authentication to simulate 3D Secure flows (e.g., `4000000000003220` requires 3DS).
 
 ### Test Mode and Cards
 
@@ -92,25 +93,25 @@ You can also use other test cards as described below.
 This project interacts with external APIs for products, categories, and users. See examples:
 
 - **Get All Products**:
-    ```bash
-    curl https://api.escuelajs.co/api/v1/products/
-    ```
+  ```bash
+  curl https://api.escuelajs.co/api/v1/products/
+  ```
 - **Get Product by ID**:
-    ```bash
-    curl https://api.escuelajs.co/api/v1/products/120
-    ```
+  ```bash
+  curl https://api.escuelajs.co/api/v1/products/120
+  ```
 - **Create a Product**:
-    ```bash
-    curl -X POST https://api.escuelajs.co/api/v1/products/ \
-         -H "Content-Type: application/json" \
-         -d '{
-             "title": "New Product",
-             "price": 10,
-             "description": "A description",
-             "categoryId": 1,
-             "images": ["https://placeimg.com/640/480/any"]
-         }'
-    ```
+  ```bash
+  curl -X POST https://api.escuelajs.co/api/v1/products/ \
+       -H "Content-Type: application/json" \
+       -d '{
+           "title": "New Product",
+           "price": 10,
+           "description": "A description",
+           "categoryId": 1,
+           "images": ["https://placeimg.com/640/480/any"]
+       }'
+  ```
 
 For authentication, categories, users, and other endpoints, please refer to the provided API specification or GraphQL queries in the code snippet above.
 
@@ -131,21 +132,22 @@ curl https://api.stripe.com/v1/payment_intents \
 -d payment_method=pm_card_visa \
 -d "payment_method_types[]"=card
 ```
+
 Replace `sk_test_...` with your test secret key, and adjust amount, currency, and payment_method as needed.
 
 ## Examples and Interactions
 
 - **Browse Products**:
-    - Navigate to `/products` to view the product grid.
-    - Click on a product to view its details.
+  - Navigate to `/products` to view the product grid.
+  - Click on a product to view its details.
 - **Manage Profile**:
-    - Login at `/login`.
-    - Go to `/profile` to update personal information, address, or payment options.
-    - Toggle between sections in the sidebar to view orders, wishlist, or admin tools (if you're an admin).
+  - Login at `/login`.
+  - Go to `/profile` to update personal information, address, or payment options.
+  - Toggle between sections in the sidebar to view orders, wishlist, or admin tools (if you're an admin).
 - **Checkout**:
-    - Add items to your cart.
-    - Proceed to checkout, enter test payment details.
-    - Complete the transaction to see the order confirmation.
+  - Add items to your cart.
+  - Proceed to checkout, enter test payment details.
+  - Complete the transaction to see the order confirmation.
 
 ## Additional Notes
 

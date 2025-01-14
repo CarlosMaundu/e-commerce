@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { getProductById } from '../services/productsService';
 import { addItem } from '../redux/cartSlice';
-import Breadcrumb from '../components/common/breadcrumb';
+import Breadcrumb from '../components/common/Breadcrumb';
 
 import {
   Box,

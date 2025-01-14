@@ -1,16 +1,16 @@
-// src/components/profile/customers/CustomersSection.js
+// src/components/profile/users/UsersSection.js
 import React from 'react';
 import { Typography } from '@mui/material';
 
-const CustomersSection = () => {
+const UsersSection = () => {
   return (
     <>
       <Typography variant="h5" className="section-header">
-        My Customers
+        My Users
       </Typography>
       <Typography variant="body1">Manage your Customers here.</Typography>
     </>
   );
 };
 
-export default CustomersSection;
+export default UsersSection;

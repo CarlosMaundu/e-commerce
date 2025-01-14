@@ -14,7 +14,9 @@ export const friendlyError = (error) => {
       return 'No user found with this email. Please sign up first.';
     case 'auth/wrong-password':
       return 'Incorrect password. Please try again.';
-    // more mappings as needed
+    case 'auth/invalid-action-code':
+      return 'The password reset link is invalid or has expired. Please request a new password reset link.';
+    // Add more mappings as needed
     default:
       return error.message || 'An unknown error occurred. Please try again.';
   }

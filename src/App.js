@@ -23,8 +23,9 @@ import SignupPage from './pages/SignupPage';
 import AdminDashboardSection from './components/profile/AdminDashboardSection';
 import ReportsSection from './components/profile/reports/ReportsSection';
 import ProductsSection from './components/profile/ProductsSection';
-import CustomersSection from './components/profile/customers/CustomersSection';
-import FinishSignIn from './pages/FinishSignIn';
+import UsersSection from './components/profile/users/UsersSection';
+import FinishSignIn from './components/password/FinishSignIn';
+import ResetPassword from './components/password/ResetPassword';
 
 import { Provider } from 'react-redux';
 import store, { persistor } from './redux/store';
@@ -88,6 +89,7 @@ const App = () => {
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<SignupPage />} />
                 <Route path="/finishSignIn" element={<FinishSignIn />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
 
                 {/* Protected (Must be logged in, either customer or admin) */}
                 <Route
@@ -139,11 +141,11 @@ const App = () => {
                   }
                 />
                 <Route
-                  path="/admin/customers"
+                  path="/admin/users"
                   element={
                     <PrivateRoute>
                       <AdminRoute>
-                        <CustomersSection />
+                        <UsersSection />
                       </AdminRoute>
                     </PrivateRoute>
                   }
