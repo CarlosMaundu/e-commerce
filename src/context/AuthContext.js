@@ -1,5 +1,4 @@
 // src/context/AuthContext.js
-// src/context/AuthContext.js
 import React, { createContext, useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import {
@@ -120,6 +119,11 @@ export const AuthProvider = ({ children }) => {
     setFirebaseUser(null);
   };
 
+  // Added updateUser function to update local user state
+  const updateUser = (updatedUser) => {
+    setUser(updatedUser);
+  };
+
   // The context value provided to descendants
   const value = {
     user, // User profile from API
@@ -131,6 +135,7 @@ export const AuthProvider = ({ children }) => {
     resetPassword,
     signUp,
     logout,
+    updateUser, // Include the new updateUser function
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

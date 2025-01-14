@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { isSignInWithEmailLink, signInWithEmailLink } from 'firebase/auth';
-import { auth } from '../firebase';
+import { auth } from '../../firebase';
 import { CircularProgress, Box, Typography } from '@mui/material';
 
 const FinishSignIn = () => {

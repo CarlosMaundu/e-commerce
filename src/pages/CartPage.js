@@ -1,5 +1,4 @@
 // src/pages/CartPage.js
-
 import React, { useContext, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import {
@@ -25,6 +24,7 @@ import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
 import CloseIcon from '@mui/icons-material/Close';
+import UserTypeModal from '../components/common/UserTypeModal';
 
 const CartPage = () => {
   const dispatch = useDispatch();
@@ -563,81 +563,10 @@ const CartPage = () => {
 
       {/* Auth Prompt Overlay */}
       {showAuthPrompt && !user && (
-        <Box
-          sx={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            zIndex: 1300, // Higher than MUI modal z-index
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Box
-            sx={{
-              backgroundColor: 'white',
-              p: 4,
-              borderRadius: '8px',
-              textAlign: 'center',
-              width: { xs: '90%', sm: '400px' },
-              position: 'relative',
-            }}
-          >
-            {/* Close Button */}
-            <IconButton
-              onClick={() => setShowAuthPrompt(false)}
-              sx={{
-                position: 'absolute',
-                top: 8,
-                right: 8,
-                color: '#333',
-              }}
-            >
-              <CloseIcon />
-            </IconButton>
-
-            <Typography variant="body1" sx={{ mb: 3, fontSize: '0.9rem' }}>
-              To proceed to checkout, please log in or sign up:
-            </Typography>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <Button
-                  variant="contained"
-                  component={Link}
-                  to="/login"
-                  state={{ from: '/checkout' }}
-                  sx={{
-                    backgroundColor: '#007bff',
-                    '&:hover': { backgroundColor: '#0056b3' },
-                    width: '100%',
-                    textTransform: 'none',
-                    fontSize: '0.875rem',
-                  }}
-                >
-                  Existing User? Login
-                </Button>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <Button
-                  variant="contained"
-                  component={Link}
-                  to="/register"
-                  state={{ from: '/checkout' }}
-                  sx={{
-                    backgroundColor: '#C71585',
-                    '&:hover': { backgroundColor: '#a0126a' },
-                    width: '100%',
-                    textTransform: 'none',
-                    fontSize: '0.875rem',
-                  }}
-                >
-                  New User? Register
-                </Button>
-              </Grid>
-            </Grid>
-          </Box>
-        </Box>
+        <UserTypeModal
+          open={showAuthPrompt}
+          onClose={() => setShowAuthPrompt(false)}
+        />
       )}
     </Box>
   );

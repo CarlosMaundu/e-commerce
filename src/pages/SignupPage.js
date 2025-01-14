@@ -1,4 +1,5 @@
-import React, { useState, useContext } from 'react';
+// src/pages/SignupPage.js
+import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import {
   Box,
@@ -54,8 +55,15 @@ const StyledButton = styled(Button)(({ theme }) => ({
 }));
 
 const SignupPage = () => {
-  const { signUp, signInWithGoogle, sendSignInLink } = useContext(AuthContext);
+  const { signUp, signInWithGoogle, sendSignInLink, user } =
+    useContext(AuthContext);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user) {
+      navigate('/', { replace: true });
+    }
+  }, [user, navigate]);
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -190,6 +198,10 @@ const SignupPage = () => {
   };
 
   const passwordStrength = calculatePasswordStrength(formik.values.password);
+
+  if (user) {
+    return null; // Prevent rendering if user is logged in
+  }
 
   return (
     <StyledContainer>
