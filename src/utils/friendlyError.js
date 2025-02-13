@@ -16,6 +16,9 @@ export const friendlyError = (error) => {
       return 'Incorrect password. Please try again.';
     case 'auth/invalid-action-code':
       return 'The password reset link is invalid or has expired. Please request a new password reset link.';
+    case 'auth/requires-recent-login':
+    case 'auth/credential-too-old-login-again':
+      return 'For security reasons, you must re-authenticate. Please enter your current password or sign in again to update your password.';
     // Add more mappings as needed
     default:
       return error.message || 'An unknown error occurred. Please try again.';

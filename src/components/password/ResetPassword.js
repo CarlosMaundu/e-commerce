@@ -11,10 +11,6 @@ import {
   Paper,
   LinearProgress,
   Tooltip,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -23,7 +19,6 @@ import {
 import { styled } from '@mui/system';
 import { MdLock, MdCheckCircle } from 'react-icons/md';
 import { AiOutlineEye, AiOutlineEyeInvisible } from 'react-icons/ai';
-import { BsCheckCircle, BsXCircle } from 'react-icons/bs';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { confirmPasswordReset } from 'firebase/auth';
 import { auth } from '../../firebase';
@@ -54,17 +49,6 @@ const StyledButton = styled(Button)(({ theme }) => ({
   margin: theme.spacing(1, 0),
   padding: theme.spacing(1.5),
   borderRadius: 8,
-}));
-
-const TooltipContent = styled(Box)(({ theme }) => ({
-  padding: theme.spacing(1),
-  color: '#ffffff',
-  '& .MuiTypography-root': {
-    color: '#ffffff',
-  },
-  '& .MuiListItemText-primary': {
-    color: '#ffffff',
-  },
 }));
 
 const StyledDialog = styled(Dialog)(({ theme }) => ({
@@ -132,43 +116,28 @@ const ResetPassword = () => {
     return strength;
   };
 
-  const checkPasswordCriteria = (password) => ({
-    length: password.length >= 8,
-    uppercase: /[A-Z]/.test(password),
-    lowercase: /[a-z]/.test(password),
-    numberOrSpecial: /[0-9!@#$%^&*]/.test(password),
-  });
-
-  const PasswordTooltip = () => {
-    const criteria = checkPasswordCriteria(formData.password);
+  const getPasswordRequirements = () => {
     return (
-      <TooltipContent>
-        <Typography variant="subtitle2" gutterBottom>
+      <Box sx={{ p: 1 }}>
+        <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>
           Password Requirements:
         </Typography>
-        <List dense>
-          {[
-            { label: 'At least 8 characters', valid: criteria.length },
-            { label: 'One uppercase letter', valid: criteria.uppercase },
-            { label: 'One lowercase letter', valid: criteria.lowercase },
-            {
-              label: 'One number or special character',
-              valid: criteria.numberOrSpecial,
-            },
-          ].map((item, index) => (
-            <ListItem key={index}>
-              <ListItemIcon>
-                {item.valid ? (
-                  <BsCheckCircle color="#4caf50" />
-                ) : (
-                  <BsXCircle color="#f44336" />
-                )}
-              </ListItemIcon>
-              <ListItemText primary={item.label} />
-            </ListItem>
-          ))}
-        </List>
-      </TooltipContent>
+        <Typography variant="body2" sx={{ mb: 0.5 }}>
+          - At least 8 characters
+        </Typography>
+        <Typography variant="body2" sx={{ mb: 0.5 }}>
+          - One uppercase letter (A-Z)
+        </Typography>
+        <Typography variant="body2" sx={{ mb: 0.5 }}>
+          - One lowercase letter (a-z)
+        </Typography>
+        <Typography variant="body2" sx={{ mb: 0.5 }}>
+          - One special character (!@#$%^&*)
+        </Typography>
+        <Typography variant="body2" sx={{ mb: 0.5 }}>
+          - One numeric character (0-9)
+        </Typography>
+      </Box>
     );
   };
 
@@ -207,7 +176,7 @@ const ResetPassword = () => {
           </Typography>
 
           <Box component="form" onSubmit={handleSubmit} width="100%">
-            <Tooltip title={<PasswordTooltip />} placement="top" arrow>
+            <Tooltip title={getPasswordRequirements()} placement="top">
               <TextField
                 margin="normal"
                 required

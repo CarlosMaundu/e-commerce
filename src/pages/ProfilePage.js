@@ -8,7 +8,6 @@ import React, {
   useMemo,
 } from 'react';
 import { AuthContext } from '../context/AuthContext';
-import { updateUserProfile } from '../services/userService';
 import Notification from '../notification/notification';
 import {
   Typography,
@@ -27,6 +26,20 @@ import ProfileSection from '../components/profile/ProfileSection';
 import Sidebar from '../components/layout/Sidebar';
 import ProductsSection from '../components/profile/ProductsSection';
 
+import { useDispatch } from 'react-redux';
+import { updateProfileThunk } from '../redux/usersSlice';
+
+// Firebase imports to update password & reauthenticate
+import { auth } from '../firebase';
+import {
+  updatePassword,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
+} from 'firebase/auth';
+
+// Utility for nicer error messages
+import { friendlyError } from '../utils/friendlyError';
+
 // Lazy-loaded sections
 const PaymentOptionsSection = React.lazy(
   () => import('../components/profile/payments/PaymentOptionsSection')
@@ -43,8 +56,6 @@ const AdminDashboardSection = React.lazy(
 const CustomerDashboardSection = React.lazy(
   () => import('../components/profile/CustomerDashboardSection')
 );
-
-// NEW lazy imports for Users, messages, help center
 const UsersSection = React.lazy(
   () => import('../components/profile/users/UsersSection')
 );
@@ -69,6 +80,7 @@ const ProfilePage = () => {
     () => new URLSearchParams(location.search),
     [location.search]
   );
+  const dispatch = useDispatch();
 
   const initialSection = searchParams.get('section') || 'profile';
   const [activeSection, setActiveSection] = useState(initialSection);
@@ -98,6 +110,7 @@ const ProfilePage = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
+  // Check if user is authenticated
   useEffect(() => {
     if (!loading && !user) {
       setNotification({
@@ -108,6 +121,7 @@ const ProfilePage = () => {
     }
   }, [user, loading]);
 
+  // Initialize form data from user context
   useEffect(() => {
     if (user) {
       const nameParts = user.name?.split(' ') || [];
@@ -127,11 +141,13 @@ const ProfilePage = () => {
     }
   }, [user]);
 
+  // Sync active section with URL query params
   useEffect(() => {
     const section = searchParams.get('section') || 'profile';
     setActiveSection(section);
   }, [searchParams]);
 
+  // Validate form for required fields & matching passwords
   const validateForm = () => {
     const newErrors = {};
     if (!formData.firstName.trim()) {
@@ -149,6 +165,7 @@ const ProfilePage = () => {
     return Object.keys(newErrors).length === 0;
   };
 
+  // Restore the form data to original user data
   const handleCancel = () => {
     if (user) {
       const nameParts = user.name?.split(' ') || [];
@@ -176,6 +193,7 @@ const ProfilePage = () => {
     setErrors((prev) => ({ ...prev, [name]: '' }));
   };
 
+  // Form submission with password update (Firebase only) + other fields (API)
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
@@ -183,26 +201,77 @@ const ProfilePage = () => {
     const fullName =
       `${formData.firstName.trim()} ${formData.lastName.trim()}`.trim();
 
+    // Prepare data for external API (no password field now)
     const updateData = {
       id: formData.id,
       name: fullName,
       email: formData.email,
       avatar: formData.avatar,
       address: formData.address,
-      password:
-        formData.newPassword.trim() !== '' ? formData.newPassword.trim() : '',
+      // NOTE: removing 'password' to avoid external API conflict
     };
 
+    // 1) Update password in Firebase if user entered a new one
+    if (formData.newPassword.trim()) {
+      try {
+        await updatePassword(auth.currentUser, formData.newPassword.trim());
+      } catch (error) {
+        if (error.code === 'auth/requires-recent-login') {
+          if (!formData.currentPassword.trim()) {
+            setNotification({
+              open: true,
+              message:
+                'You must re-authenticate to change your password. Please enter your current password.',
+              severity: 'error',
+            });
+            return;
+          }
+          try {
+            // Reauthenticate with current password
+            const credential = EmailAuthProvider.credential(
+              auth.currentUser.email,
+              formData.currentPassword.trim()
+            );
+            await reauthenticateWithCredential(auth.currentUser, credential);
+
+            // Retry password update
+            await updatePassword(auth.currentUser, formData.newPassword.trim());
+          } catch (reauthError) {
+            setNotification({
+              open: true,
+              message: friendlyError(reauthError),
+              severity: 'error',
+            });
+            return;
+          }
+        } else {
+          // Some other error
+          setNotification({
+            open: true,
+            message: friendlyError(error),
+            severity: 'error',
+          });
+          return;
+        }
+      }
+    }
+
+    // 2) Update the profile in the external API (excluding password)
     try {
-      const updatedUser = await updateUserProfile(updateData, accessToken);
+      const updatedUser = await dispatch(
+        updateProfileThunk({ data: updateData, accessToken })
+      ).unwrap();
+
+      // Update local context with new data
       updateUser(updatedUser);
+
       setNotification({
         open: true,
         message: 'Profile updated successfully.',
         severity: 'success',
       });
 
-      if (formData.newPassword.trim() !== '') {
+      if (formData.newPassword.trim()) {
         setFormData((prev) => ({
           ...prev,
           currentPassword: '',
@@ -213,19 +282,11 @@ const ProfilePage = () => {
       setShowPasswordFields(false);
     } catch (error) {
       console.error('Failed to update profile:', error);
-      if (error.response && error.response.status === 401) {
-        setNotification({
-          open: true,
-          message: 'Profile cannot be modified, contact admin.',
-          severity: 'error',
-        });
-      } else {
-        setNotification({
-          open: true,
-          message: 'An error occurred. Please try again later.',
-          severity: 'error',
-        });
-      }
+      setNotification({
+        open: true,
+        message: error || 'An error occurred. Please try again later.',
+        severity: 'error',
+      });
     }
   };
 
@@ -233,6 +294,7 @@ const ProfilePage = () => {
     setNotification((prev) => ({ ...prev, open: false }));
   };
 
+  // Helper to get heading title based on the active section
   const getHeadingTitle = () => {
     switch (activeSection) {
       case 'dashboard':
@@ -253,11 +315,14 @@ const ProfilePage = () => {
         return 'Reports';
       case 'help-center':
         return 'Help Center';
+      case 'invoices':
+        return 'Invoices';
       default:
         return 'Profile';
     }
   };
 
+  // Dynamically render the appropriate profile section
   const renderSectionContent = () => (
     <Suspense
       fallback={

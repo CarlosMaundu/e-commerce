@@ -1,9 +1,11 @@
 // src/components/profile/ProfileSection.js
+
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Card,
   CardContent,
+  CardActions,
   Typography,
   Grid,
   TextField,
@@ -25,7 +27,8 @@ import {
   Cancel,
 } from '@mui/icons-material';
 import ReactCountryFlag from 'react-country-flag';
-import { FiTrash2 } from 'react-icons/fi';
+// We add FiEdit for the Edit button, FiTrash2 remains for deleting the uploaded file
+import { FiEdit, FiTrash2 } from 'react-icons/fi';
 import { useDispatch } from 'react-redux';
 
 import {
@@ -66,8 +69,8 @@ const currencyOptions = [
   { value: 'KES', label: 'Kenyan Shilling (KSh)' },
 ];
 
-//Phone Input Component
-function MuiPhone({ value, onChange, label }) {
+// Phone Input Component
+function MuiPhone({ value, onChange, label, disabled }) {
   const { inputValue, handlePhoneValueChange, inputRef, country, setCountry } =
     usePhoneInput({
       defaultCountry: 'us',
@@ -76,6 +79,7 @@ function MuiPhone({ value, onChange, label }) {
       onChange: (data) => {
         onChange(data.phone);
       },
+      disabled,
     });
 
   return (
@@ -89,6 +93,7 @@ function MuiPhone({ value, onChange, label }) {
       inputRef={inputRef}
       fullWidth
       size="small"
+      disabled={disabled}
       InputProps={{
         startAdornment: (
           <InputAdornment
@@ -100,6 +105,7 @@ function MuiPhone({ value, onChange, label }) {
                 value={country.iso2}
                 onChange={(e) => setCountry(e.target.value)}
                 disableUnderline
+                disabled={disabled}
                 sx={{
                   fontSize: '0.75rem',
                   '& .MuiSelect-select': { padding: '4px 8px' },
@@ -150,6 +156,7 @@ function MuiPhone({ value, onChange, label }) {
             </FormControl>
           </InputAdornment>
         ),
+        // No special pointerEvents needed here because we disable it
       }}
     />
   );
@@ -171,7 +178,6 @@ const uploadBlockStyle = {
   flexDirection: 'column',
   alignItems: 'center',
   justifyContent: 'center',
-  cursor: 'pointer',
   border: '2px dashed #ccc',
 };
 
@@ -191,7 +197,7 @@ const ProfileSection = ({
   const theme = useTheme();
   const dispatch = useDispatch();
 
-  // Toggling current password
+  // Toggles for current password visibility
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
 
   // Checking new vs confirm password match
@@ -209,6 +215,11 @@ const ProfileSection = ({
   const [uploadError, setUploadError] = useState(false);
   const [uploadedFileDetails, setUploadedFileDetails] = useState(null);
 
+  // Edit mode vs. view mode
+  const [isEditing, setIsEditing] = useState(false);
+  // Show "Saving..." on the Save Changes button during submission
+  const [isSaving, setIsSaving] = useState(false);
+
   //Check password match logic
   useEffect(() => {
     if (formData.newPassword || formData.confirmNewPassword) {
@@ -222,16 +233,17 @@ const ProfileSection = ({
     }
   }, [formData.newPassword, formData.confirmNewPassword]);
 
-  //For countries → location chaining (region data)
+  // For countries → location chaining (region data)
   const selectedCountryData = useMemo(() => {
     return countryRegionData.find(
       (c) => c.countryShortCode === formData.country
     );
   }, [formData.country]);
 
-  //Upload Handler for Avatar
+  // Upload Handler for Avatar
   const handleFileSelect = async (e) => {
-    if (uploadError) return; // if previous upload failed, block further?
+    if (!isEditing) return;
+    if (uploadError) return;
     if (!e.target.files || e.target.files.length === 0) return;
 
     const file = e.target.files[0];
@@ -273,12 +285,29 @@ const ProfileSection = ({
   };
 
   const handleDeleteUploadedFile = () => {
+    if (!isEditing) return;
     setUploadedFileDetails(null);
     handleChange({ target: { name: 'avatar', value: '' } });
     setUploadError(false);
   };
 
-  //RENDER UI
+  // Wrapping handleSubmit to show/hide "Saving..." on Save button
+  const handleWrappedSubmit = async (e) => {
+    e.preventDefault();
+    setIsSaving(true);
+    await handleSubmit(e);
+    setIsSaving(false);
+
+    // After successful submission
+    setIsEditing(false);
+  };
+
+  // Cancel -> revert changes & exit edit mode
+  const onCancelClick = () => {
+    handleCancel();
+    setIsEditing(false);
+  };
+
   return (
     <Box
       sx={{
@@ -288,13 +317,35 @@ const ProfileSection = ({
         py: 0,
       }}
     >
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleWrappedSubmit}>
         <Card sx={{ boxShadow: 1, borderRadius: 3 }}>
-          <CardContent sx={{ p: 2 }}>
-            <Typography variant="h6" color="text.primary" sx={{ mb: 2 }}>
+          <CardActions
+            sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              px: 2,
+              pt: 2,
+            }}
+          >
+            <Typography variant="h6" color="text.primary">
               Personal Details
             </Typography>
 
+            {/* Edit button if not editing & not saving */}
+            {!isEditing && !isSaving && (
+              <Button
+                variant="contained"
+                onClick={() => setIsEditing(true)}
+                startIcon={<FiEdit />}
+                sx={{ textTransform: 'none' }}
+              >
+                Edit
+              </Button>
+            )}
+          </CardActions>
+
+          <CardContent sx={{ pt: 0, pb: 2 }}>
             <Grid container spacing={2}>
               {/* FIRST & LAST NAME */}
               <Grid item xs={12} sm={6}>
@@ -309,8 +360,14 @@ const ProfileSection = ({
                   onChange={handleChange}
                   error={!!errors.firstName}
                   helperText={errors.firstName}
+                  // read-only if not editing, remove hover effect
+                  InputProps={{
+                    readOnly: !isEditing,
+                    style: { pointerEvents: !isEditing ? 'none' : 'auto' },
+                  }}
                 />
               </Grid>
+
               <Grid item xs={12} sm={6}>
                 <TextField
                   label="Last Name"
@@ -321,6 +378,10 @@ const ProfileSection = ({
                   placeholder="Enter last name"
                   value={formData.lastName}
                   onChange={handleChange}
+                  InputProps={{
+                    readOnly: !isEditing,
+                    style: { pointerEvents: !isEditing ? 'none' : 'auto' },
+                  }}
                 />
               </Grid>
 
@@ -334,6 +395,11 @@ const ProfileSection = ({
                   size="small"
                   placeholder="Enter email"
                   value={formData.email}
+                  // always read-only
+                  InputProps={{
+                    readOnly: true,
+                    style: { pointerEvents: 'none' },
+                  }}
                   onChange={handleChange}
                   error={!!errors.email}
                   helperText={errors.email}
@@ -348,6 +414,7 @@ const ProfileSection = ({
                     })
                   }
                   label="Phone Number"
+                  disabled={!isEditing}
                 />
               </Grid>
 
@@ -360,10 +427,15 @@ const ProfileSection = ({
                   Avatar (Upload)
                 </Typography>
                 <Box
-                  sx={uploadBlockStyle}
-                  onClick={() =>
-                    document.getElementById('avatarUploadFile').click()
-                  }
+                  sx={{
+                    ...uploadBlockStyle,
+                    cursor: isEditing ? 'pointer' : 'not-allowed',
+                    opacity: isEditing ? 1 : 0.65,
+                  }}
+                  onClick={() => {
+                    if (!isEditing) return;
+                    document.getElementById('avatarUploadFile').click();
+                  }}
                 >
                   {uploading ? (
                     <Box sx={{ width: '100%', height: '80px' }}>
@@ -387,7 +459,12 @@ const ProfileSection = ({
                         sx={{ fontSize: '0.75rem' }}
                       >
                         Drag &amp; Drop or{' '}
-                        <span style={{ color: '#1976d2', cursor: 'pointer' }}>
+                        <span
+                          style={{
+                            color: isEditing ? '#1976d2' : '#999',
+                            cursor: isEditing ? 'pointer' : 'default',
+                          }}
+                        >
                           Choose file
                         </span>{' '}
                         to upload
@@ -420,7 +497,8 @@ const ProfileSection = ({
                     alignItems: 'center',
                     justifyContent: 'center',
                     minHeight: '85px',
-                    borderColor: '#ccc', // same style as left
+                    borderColor: '#ccc',
+                    cursor: 'default',
                   }}
                 >
                   {!uploadedFileDetails ? (
@@ -473,6 +551,7 @@ const ProfileSection = ({
                         color="error"
                         onClick={() => handleDeleteUploadedFile()}
                         size="small"
+                        disabled={!isEditing}
                       >
                         <FiTrash2 size={16} />
                       </IconButton>
@@ -498,10 +577,19 @@ const ProfileSection = ({
                   placeholder="Enter address"
                   value={formData.address}
                   onChange={handleChange}
+                  InputProps={{
+                    readOnly: !isEditing,
+                    style: { pointerEvents: !isEditing ? 'none' : 'auto' },
+                  }}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
-                <FormControl variant="outlined" fullWidth size="small">
+                <FormControl
+                  variant="outlined"
+                  fullWidth
+                  size="small"
+                  disabled={!isEditing}
+                >
                   <InputLabel>Country</InputLabel>
                   <Select
                     label="Country"
@@ -537,14 +625,18 @@ const ProfileSection = ({
 
               {/* Location based on selected Country */}
               <Grid item xs={12} sm={6}>
-                <FormControl variant="outlined" fullWidth size="small">
+                <FormControl
+                  variant="outlined"
+                  fullWidth
+                  size="small"
+                  disabled={!isEditing || !formData.country}
+                >
                   <InputLabel>Location</InputLabel>
                   <Select
                     label="Location"
                     name="location"
                     value={formData.location || ''}
                     onChange={handleChange}
-                    disabled={!formData.country}
                   >
                     {!formData.country && (
                       <MenuItem disabled value="">
@@ -571,7 +663,12 @@ const ProfileSection = ({
                 </FormControl>
               </Grid>
               <Grid item xs={12} sm={6}>
-                <FormControl variant="outlined" fullWidth size="small">
+                <FormControl
+                  variant="outlined"
+                  fullWidth
+                  size="small"
+                  disabled={!isEditing}
+                >
                   <InputLabel>Currency</InputLabel>
                   <Select
                     label="Currency"
@@ -610,6 +707,7 @@ const ProfileSection = ({
                   placeholder="Enter current password (not enforced)"
                   value={formData.currentPassword}
                   onChange={handleChange}
+                  disabled={!isEditing}
                   InputProps={{
                     endAdornment: (
                       <InputAdornment position="end">
@@ -618,6 +716,7 @@ const ProfileSection = ({
                             setShowCurrentPassword(!showCurrentPassword)
                           }
                           edge="end"
+                          disabled={!isEditing}
                         >
                           {showCurrentPassword ? (
                             <VisibilityOff />
@@ -643,6 +742,7 @@ const ProfileSection = ({
                   placeholder="Enter new password"
                   value={formData.newPassword}
                   onChange={handleChange}
+                  disabled={!isEditing}
                   error={!!errors.newPassword}
                   helperText={errors.newPassword || ''}
                   InputProps={{
@@ -651,11 +751,13 @@ const ProfileSection = ({
                         <IconButton
                           onClick={() => setShowNewPassword(!showNewPassword)}
                           edge="end"
+                          disabled={!isEditing}
                         >
                           {showNewPassword ? <VisibilityOff /> : <Visibility />}
                         </IconButton>
                       </InputAdornment>
                     ),
+                    style: { pointerEvents: !isEditing ? 'none' : 'auto' },
                   }}
                 />
               </Grid>
@@ -670,6 +772,7 @@ const ProfileSection = ({
                   placeholder="Re-enter new password"
                   value={formData.confirmNewPassword}
                   onChange={handleChange}
+                  disabled={!isEditing}
                   error={!!errors.confirmNewPassword}
                   helperText={errors.confirmNewPassword || ''}
                   InputProps={{
@@ -690,6 +793,7 @@ const ProfileSection = ({
                             setShowConfirmNewPassword(!showConfirmNewPassword)
                           }
                           edge="end"
+                          disabled={!isEditing}
                         >
                           {showConfirmNewPassword ? (
                             <VisibilityOff />
@@ -699,6 +803,7 @@ const ProfileSection = ({
                         </IconButton>
                       </InputAdornment>
                     ),
+                    style: { pointerEvents: !isEditing ? 'none' : 'auto' },
                   }}
                 />
               </Grid>
@@ -717,6 +822,7 @@ const ProfileSection = ({
                   checked={notifOrderConfirmation}
                   onChange={(e) => setNotifOrderConfirmation(e.target.checked)}
                   sx={{ mb: 1 }}
+                  disabled={!isEditing}
                 />
               </Grid>
               <Grid item xs={12}>
@@ -726,6 +832,7 @@ const ProfileSection = ({
                   checked={notifOrderStatus}
                   onChange={(e) => setNotifOrderStatus(e.target.checked)}
                   sx={{ mb: 1 }}
+                  disabled={!isEditing}
                 />
               </Grid>
               <Grid item xs={12}>
@@ -735,6 +842,7 @@ const ProfileSection = ({
                   checked={notifOrderDelivered}
                   onChange={(e) => setNotifOrderDelivered(e.target.checked)}
                   sx={{ mb: 1 }}
+                  disabled={!isEditing}
                 />
               </Grid>
               <Grid item xs={12}>
@@ -744,46 +852,51 @@ const ProfileSection = ({
                   checked={notifEmail}
                   onChange={(e) => setNotifEmail(e.target.checked)}
                   sx={{ mb: 1 }}
+                  disabled={!isEditing}
                 />
               </Grid>
             </Grid>
           </CardContent>
 
-          {/* Footer Buttons */}
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: { xs: 'column', sm: 'row' },
-              justifyContent: 'flex-end',
-              gap: 2,
-              p: 2,
-            }}
-          >
-            <Button
-              variant="outlined"
-              onClick={handleCancel}
+          {/* Footer Buttons, only if editing */}
+          {isEditing && (
+            <Box
               sx={{
-                textTransform: 'capitalize',
-                color: 'error.main',
-                borderColor: 'error.main',
-                fontSize: '0.875rem',
-                width: { xs: '100%', sm: 'auto' },
+                display: 'flex',
+                flexDirection: { xs: 'column', sm: 'row' },
+                justifyContent: 'flex-end',
+                gap: 2,
+                p: 2,
               }}
             >
-              Cancel
-            </Button>
-            <Button
-              variant="contained"
-              type="submit"
-              sx={{
-                textTransform: 'capitalize',
-                fontSize: '0.875rem',
-                width: { xs: '100%', sm: 'auto' },
-              }}
-            >
-              Save Changes
-            </Button>
-          </Box>
+              <Button
+                variant="outlined"
+                onClick={onCancelClick}
+                sx={{
+                  textTransform: 'capitalize',
+                  color: 'error.main',
+                  borderColor: 'error.main',
+                  fontSize: '0.875rem',
+                  width: { xs: '100%', sm: 'auto' },
+                }}
+                disabled={isSaving}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="contained"
+                type="submit"
+                sx={{
+                  textTransform: 'capitalize',
+                  fontSize: '0.875rem',
+                  width: { xs: '100%', sm: 'auto' },
+                }}
+                disabled={isSaving}
+              >
+                {isSaving ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </Box>
+          )}
         </Card>
       </form>
     </Box>

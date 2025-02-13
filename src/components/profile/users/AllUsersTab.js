@@ -1,6 +1,5 @@
-// src/components/products/AllProductsTab.js
-
-import React, { useEffect, useState, useMemo } from 'react';
+// src/components/profile/users/AllUserTab.js
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Grid,
@@ -10,10 +9,6 @@ import {
   MenuItem,
   TextField,
   Button,
-  Typography,
-  Skeleton,
-  Chip,
-  IconButton,
   Checkbox,
   Table,
   TableBody,
@@ -23,159 +18,143 @@ import {
   TableRow,
   Paper,
   Tooltip,
+  IconButton,
   Pagination,
-  useMediaQuery,
   useTheme,
+  useMediaQuery,
+  Chip,
+  Typography,
+  Skeleton,
 } from '@mui/material';
-import { Search as SearchIcon, Add as AddIcon } from '@mui/icons-material';
+import { Add as AddIcon, Search as SearchIcon } from '@mui/icons-material';
 import { FiEye, FiEdit, FiTrash2 } from 'react-icons/fi';
-import { useDispatch, useSelector } from 'react-redux';
-import { fetchProducts, deleteProductThunk } from '../../redux/productsSlice';
-import { fetchCategories } from '../../redux/categoriesSlice';
-import ConfirmationDialog from '../common/ConfirmationDialog';
-import Notification from '../../notification/notification';
-import ViewProductModal from '../common/ViewProductModal';
-import placeholderImage from '../../images/placeholder.jpg';
+import ConfirmationDialog from '../../common/ConfirmationDialog';
+import ViewUserModal from '../../common/ViewUserModal';
+import Notification from '../../../notification/notification';
+import { getAllUsers, deleteUser } from '../../../services/userService';
+import placeholderImage from '../../../images/placeholder.jpg';
 
-// We'll call getAllProducts once to get the total item count
-import { getAllProducts } from '../../services/productsService';
+const DEFAULT_AVATAR_URL = 'https://i.imgur.com/kIaFC3J.png';
 
-const AllProductsTab = ({ navigateToManageProduct }) => {
+const AllUsersTab = ({ navigateToManageUser }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
-  const dispatch = useDispatch();
-  const { products, loading, error } = useSelector((state) => state.products);
-  const { categories } = useSelector((state) => state.categories);
-
+  const [users, setUsers] = useState([]);
   const [filters, setFilters] = useState({
-    categoryId: '',
+    role: '',
     status: '',
-    priceSort: '', // for client-side sorting: "lowToHigh" or "highToLow"
-    stock: '', // "inStock" or "outOfStock"
     search: '',
   });
-
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [selectedProducts, setSelectedProducts] = useState([]);
-  const [confirmationOpen, setConfirmationOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [selectedUsers, setSelectedUsers] = useState([]);
   const [notification, setNotification] = useState({
     open: false,
     message: '',
     severity: '',
   });
-
-  // View modal states
+  const [confirmationOpen, setConfirmationOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [viewUser, setViewUser] = useState(null);
   const [viewOpen, setViewOpen] = useState(false);
-  const [viewProduct, setViewProduct] = useState(null);
 
-  // Real total count of all products
-  const [totalProducts, setTotalProducts] = useState(0);
-
-  // Fetch categories on mount
+  // Fetch all users
   useEffect(() => {
-    dispatch(fetchCategories());
-  }, [dispatch]);
-
-  // 1) Fetch total product count (without limit/offset)
-  useEffect(() => {
-    (async () => {
+    const loadUsers = async () => {
       try {
-        const allData = await getAllProducts();
-        setTotalProducts(allData.length);
+        const data = await getAllUsers(); // API call to fetch all users
+        // Normalize avatars
+        const normalizedUsers = data.map((user) => ({
+          ...user,
+          avatar: user.avatar || DEFAULT_AVATAR_URL,
+        }));
+        setUsers(normalizedUsers);
       } catch (err) {
-        console.error('Failed to fetch all products for total count:', err);
+        setNotification({
+          open: true,
+          message: 'Failed to fetch users.',
+          severity: 'error',
+        });
       }
-    })();
+    };
+    loadUsers();
   }, []);
 
-  // 2) Fetch only the slice of products for the current page
-  useEffect(() => {
-    const offset = (currentPage - 1) * rowsPerPage;
+  // Filtered and paginated users
+  const processedUsers = useMemo(() => {
+    let filteredUsers = [...users];
 
-    // For now, we only filter by categoryId or search in the API
-    // "stock" or "priceSort" remain client-side
-    const appliedFilters = {
-      categoryId: filters.categoryId,
-      search: filters.search, // mapped to title
-      limit: rowsPerPage,
-      offset,
-    };
+    // Apply role filter
+    if (filters.role) {
+      filteredUsers = filteredUsers.filter(
+        (user) => user.role === filters.role
+      );
+    }
 
-    console.log(
-      'Dispatching fetchProducts with offset:',
-      offset,
-      'limit:',
-      rowsPerPage,
-      'filters:',
-      appliedFilters
+    // Apply status filter
+    if (filters.status) {
+      const isActive = filters.status === 'active';
+      filteredUsers = filteredUsers.filter((user) => user.active === isActive);
+    }
+
+    // Apply search filter
+    if (filters.search) {
+      filteredUsers = filteredUsers.filter((user) =>
+        user.name.toLowerCase().includes(filters.search.toLowerCase())
+      );
+    }
+
+    return filteredUsers.slice(
+      (currentPage - 1) * rowsPerPage,
+      currentPage * rowsPerPage
     );
+  }, [users, filters, currentPage, rowsPerPage]);
 
-    dispatch(fetchProducts(appliedFilters));
-  }, [dispatch, filters.categoryId, filters.search, currentPage, rowsPerPage]);
+  const totalUsers = useMemo(() => {
+    let count = users.length;
 
-  // 3) Client-side sorting & stock filtering
-  //    a) Sort by price if "priceSort" is "lowToHigh" or "highToLow"
-  //    b) Filter by stock if "stock" is "inStock" or "outOfStock"
-  const processedProducts = useMemo(() => {
-    let data = [...products];
-
-    // a) Sort by price
-    if (filters.priceSort === 'lowToHigh') {
-      data.sort((a, b) => a.price - b.price);
-    } else if (filters.priceSort === 'highToLow') {
-      data.sort((a, b) => b.price - a.price);
+    if (filters.role) {
+      count = users.filter((user) => user.role === filters.role).length;
     }
 
-    // b) Filter by stock
-    if (filters.stock === 'inStock') {
-      data = data.filter((p) => p.inStock === true);
-    } else if (filters.stock === 'outOfStock') {
-      data = data.filter((p) => p.inStock === false);
+    if (filters.status) {
+      const isActive = filters.status === 'active';
+      count = users.filter((user) => user.active === isActive).length;
     }
 
-    return data;
-  }, [products, filters.priceSort, filters.stock]);
+    if (filters.search) {
+      count = users.filter((user) =>
+        user.name.toLowerCase().includes(filters.search.toLowerCase())
+      ).length;
+    }
 
-  // Handlers
+    return count;
+  }, [users, filters]);
+
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
     setFilters((prev) => ({ ...prev, [name]: value }));
     setCurrentPage(1);
   };
 
-  const handleSearchChange = (e) => {
-    setFilters((prev) => ({ ...prev, search: e.target.value }));
-    setCurrentPage(1);
-  };
-
-  const handleAddProduct = () => {
-    navigateToManageProduct();
-  };
-
-  const handleDeleteClick = () => {
-    if (selectedProducts.length === 0) return;
-    setConfirmationOpen(true);
-  };
-
-  const handleConfirmDelete = async () => {
+  const handleDelete = async () => {
     setIsDeleting(true);
     try {
-      await Promise.all(
-        selectedProducts.map((id) => dispatch(deleteProductThunk(id)).unwrap())
-      );
+      await Promise.all(selectedUsers.map((id) => deleteUser(id)));
       setNotification({
         open: true,
-        message: 'Selected products deleted successfully.',
+        message: 'User(s) deleted successfully.',
         severity: 'success',
       });
-      setSelectedProducts([]);
+      setUsers((prev) =>
+        prev.filter((user) => !selectedUsers.includes(user.id))
+      );
+      setSelectedUsers([]);
     } catch (err) {
       setNotification({
         open: true,
-        message: `Failed to delete some products: ${err}`,
+        message: 'Failed to delete user(s).',
         severity: 'error',
       });
     } finally {
@@ -184,18 +163,9 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
     }
   };
 
-  const handleCancelDelete = () => {
-    setConfirmationOpen(false);
-  };
-
-  const handleViewProduct = (product) => {
-    setViewProduct(product);
+  const handleViewUser = (user) => {
+    setViewUser(user);
     setViewOpen(true);
-  };
-
-  const handleCloseView = () => {
-    setViewOpen(false);
-    setViewProduct(null);
   };
 
   const handlePageChange = (_, value) => {
@@ -207,34 +177,29 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
     setCurrentPage(1);
   };
 
-  const handleNotificationClose = () => {
-    setNotification((prev) => ({ ...prev, open: false }));
-  };
-
-  // Bulk selection logic
   const isAllSelected =
-    processedProducts.length > 0 &&
-    selectedProducts.length === processedProducts.length;
+    processedUsers.length > 0 && selectedUsers.length === processedUsers.length;
 
   const handleSelectAll = (e) => {
     if (e.target.checked) {
-      const allIds = processedProducts.map((product) => product.id);
-      setSelectedProducts(allIds);
+      const allIds = processedUsers.map((user) => user.id);
+      setSelectedUsers(allIds);
     } else {
-      setSelectedProducts([]);
+      setSelectedUsers([]);
     }
   };
 
-  const handleSelectProduct = (e, id) => {
+  const handleSelectUser = (e, id) => {
     if (e.target.checked) {
-      setSelectedProducts((prev) => [...prev, id]);
+      setSelectedUsers((prev) => [...prev, id]);
     } else {
-      setSelectedProducts((prev) => prev.filter((pid) => pid !== id));
+      setSelectedUsers((prev) => prev.filter((uid) => uid !== id));
     }
   };
 
-  // Number of pages from the real total count
-  const totalPages = Math.ceil(totalProducts / rowsPerPage);
+  const handleNotificationClose = () => {
+    setNotification((prev) => ({ ...prev, open: false }));
+  };
 
   return (
     <Box
@@ -246,7 +211,6 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
       }}
     >
       <Box sx={{ px: isMobile ? 1 : 0, py: isMobile ? 1 : 2 }}>
-        {/* Filter Bar */}
         <Box
           sx={{
             mb: 2,
@@ -258,147 +222,79 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
           }}
         >
           <Grid container spacing={2} alignItems="center">
-            {/* Category Filter */}
             <Grid item xs={12} sm={2}>
               <FormControl fullWidth variant="outlined" size="small">
-                <InputLabel id="category-filter-label">Category</InputLabel>
+                <InputLabel>Role</InputLabel>
                 <Select
-                  labelId="category-filter-label"
-                  label="Category"
-                  name="categoryId"
-                  value={filters.categoryId}
+                  name="role"
+                  value={filters.role}
                   onChange={handleFilterChange}
+                  label="Role"
                 >
                   <MenuItem value="">
                     <em>All</em>
                   </MenuItem>
-                  {categories.map((cat) => (
-                    <MenuItem
-                      key={cat.id}
-                      value={cat.id}
-                      sx={{ fontSize: '0.75rem' }}
-                    >
-                      {cat.name}
-                    </MenuItem>
-                  ))}
+                  <MenuItem value="admin">Admin</MenuItem>
+                  <MenuItem value="customer">Customer</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
-
-            {/* Status Filter (Active/Inactive) */}
             <Grid item xs={12} sm={2}>
               <FormControl fullWidth variant="outlined" size="small">
-                <InputLabel id="status-filter-label">Status</InputLabel>
+                <InputLabel>Status</InputLabel>
                 <Select
-                  labelId="status-filter-label"
-                  label="Status"
                   name="status"
                   value={filters.status}
                   onChange={handleFilterChange}
+                  label="Status"
                 >
                   <MenuItem value="">
                     <em>All</em>
                   </MenuItem>
-                  <MenuItem value="active" sx={{ fontSize: '0.75rem' }}>
-                    Active
-                  </MenuItem>
-                  <MenuItem value="inactive" sx={{ fontSize: '0.75rem' }}>
-                    Inactive
-                  </MenuItem>
+                  <MenuItem value="active">Active</MenuItem>
+                  <MenuItem value="inactive">Inactive</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
-
-            {/* Price Sort (lowToHigh, highToLow) - client-side */}
-            <Grid item xs={12} sm={2}>
-              <FormControl fullWidth variant="outlined" size="small">
-                <InputLabel id="price-sort-label">Sort by Price</InputLabel>
-                <Select
-                  labelId="price-sort-label"
-                  label="Sort by Price"
-                  name="priceSort"
-                  value={filters.priceSort}
-                  onChange={handleFilterChange}
-                >
-                  <MenuItem value="">
-                    <em>None</em>
-                  </MenuItem>
-                  <MenuItem value="lowToHigh" sx={{ fontSize: '0.75rem' }}>
-                    Low to High
-                  </MenuItem>
-                  <MenuItem value="highToLow" sx={{ fontSize: '0.75rem' }}>
-                    High to Low
-                  </MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-
-            {/* Stock Filter (inStock, outOfStock) */}
-            <Grid item xs={12} sm={2}>
-              <FormControl fullWidth variant="outlined" size="small">
-                <InputLabel id="stock-filter-label">Stock</InputLabel>
-                <Select
-                  labelId="stock-filter-label"
-                  label="Stock"
-                  name="stock"
-                  value={filters.stock}
-                  onChange={handleFilterChange}
-                >
-                  <MenuItem value="">
-                    <em>All</em>
-                  </MenuItem>
-                  <MenuItem value="inStock" sx={{ fontSize: '0.75rem' }}>
-                    In Stock
-                  </MenuItem>
-                  <MenuItem value="outOfStock" sx={{ fontSize: '0.75rem' }}>
-                    Out of Stock
-                  </MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-
-            {/* Search */}
-            <Grid item xs={12} sm={2}>
+            <Grid item xs={12} sm={4}>
               <TextField
                 variant="outlined"
                 size="small"
                 fullWidth
-                placeholder="Search Products..."
+                placeholder="Search by name..."
                 value={filters.search}
-                onChange={handleSearchChange}
+                onChange={(e) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    search: e.target.value,
+                  }))
+                }
                 InputProps={{
                   startAdornment: (
-                    <SearchIcon
-                      color="action"
-                      sx={{ mr: 1, fontSize: '1rem' }}
-                    />
+                    <SearchIcon sx={{ mr: 1, fontSize: '1rem' }} />
                   ),
-                  sx: { fontSize: '0.75rem' },
                 }}
               />
             </Grid>
-
-            {/* Add Product */}
-            <Grid item xs={12} sm={2}>
+            <Grid item xs={12} sm={2} />
+            <Grid item xs={12} sm={2} sx={{ textAlign: 'right' }}>
               <Button
                 variant="contained"
                 color="primary"
-                startIcon={<AddIcon />}
                 fullWidth
-                onClick={handleAddProduct}
+                startIcon={<AddIcon />}
+                onClick={navigateToManageUser}
                 sx={{
                   textTransform: 'none',
                   fontSize: '0.875rem',
                   height: '100%',
                 }}
               >
-                Add Product
+                Add User
               </Button>
             </Grid>
           </Grid>
         </Box>
-
-        {/* Products Table */}
         <Box
           sx={{
             px: 2,
@@ -408,7 +304,7 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
             boxShadow: 1,
           }}
         >
-          {loading ? (
+          {users.length === 0 ? (
             <Box>
               {Array.from({ length: rowsPerPage }).map((_, index) => (
                 <Box key={index} sx={{ mb: 2 }}>
@@ -416,13 +312,9 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
                 </Box>
               ))}
             </Box>
-          ) : error ? (
-            <Typography color="error">{error}</Typography>
-          ) : processedProducts.length === 0 ? (
-            <Typography>No products found.</Typography>
           ) : (
             <Box>
-              {/* Top Bar: total products + bulk delete if selected */}
+              {/* Top Bar: total users + bulk delete if selected */}
               <Box
                 sx={{
                   mb: 2,
@@ -434,19 +326,19 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
                 }}
               >
                 <Typography sx={{ fontSize: '0.75rem' }}>
-                  Total Products: {totalProducts}
+                  Total Users: {totalUsers}
                 </Typography>
 
-                {selectedProducts.length > 0 && (
+                {selectedUsers.length > 0 && (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                     <Typography sx={{ fontSize: '0.75rem' }}>
-                      {selectedProducts.length} selected
+                      {selectedUsers.length} selected
                     </Typography>
                     <Button
                       variant="contained"
                       color="error"
                       startIcon={<FiTrash2 />}
-                      onClick={handleDeleteClick}
+                      onClick={() => setConfirmationOpen(true)}
                       sx={{
                         textTransform: 'none',
                         fontSize: '0.75rem',
@@ -459,7 +351,7 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
               </Box>
 
               <TableContainer component={Paper}>
-                <Table aria-label="products table">
+                <Table aria-label="users table">
                   <TableHead>
                     <TableRow>
                       <TableCell align="left" sx={{ padding: '8px' }}>
@@ -467,7 +359,7 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
                           checked={isAllSelected}
                           onChange={handleSelectAll}
                           inputProps={{
-                            'aria-label': 'select all products',
+                            'aria-label': 'select all users',
                           }}
                           size="small"
                         />
@@ -480,7 +372,7 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
                           padding: '8px',
                         }}
                       >
-                        Product Image
+                        User
                       </TableCell>
                       <TableCell
                         align="left"
@@ -490,7 +382,7 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
                           padding: '8px',
                         }}
                       >
-                        Name
+                        Role
                       </TableCell>
                       <TableCell
                         align="left"
@@ -500,7 +392,7 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
                           padding: '8px',
                         }}
                       >
-                        Category
+                        ID
                       </TableCell>
                       <TableCell
                         align="left"
@@ -510,7 +402,7 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
                           padding: '8px',
                         }}
                       >
-                        Price
+                        Email
                       </TableCell>
                       <TableCell
                         align="left"
@@ -520,7 +412,17 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
                           padding: '8px',
                         }}
                       >
-                        Stock Status
+                        Phone
+                      </TableCell>
+                      <TableCell
+                        align="left"
+                        sx={{
+                          fontSize: '0.75rem',
+                          fontWeight: 'bold',
+                          padding: '8px',
+                        }}
+                      >
+                        Status
                       </TableCell>
                       <TableCell
                         align="left"
@@ -535,60 +437,75 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {processedProducts.map((product) => (
+                    {processedUsers.map((user) => (
                       <TableRow
-                        key={product.id}
+                        key={user.id}
                         hover
-                        selected={selectedProducts.includes(product.id)}
+                        selected={selectedUsers.includes(user.id)}
                       >
                         <TableCell align="left" sx={{ padding: '8px' }}>
                           <Checkbox
-                            checked={selectedProducts.includes(product.id)}
-                            onChange={(e) => handleSelectProduct(e, product.id)}
+                            checked={selectedUsers.includes(user.id)}
+                            onChange={(e) => handleSelectUser(e, user.id)}
                             inputProps={{
-                              'aria-label': `select product ${product.title}`,
+                              'aria-label': `select user ${user.name}`,
                             }}
                             size="small"
                           />
                         </TableCell>
                         <TableCell align="left" sx={{ padding: '8px' }}>
                           <Box
-                            component="img"
-                            src={product.images[0]}
-                            alt={product.title}
                             sx={{
-                              width: 40,
-                              height: 40,
-                              borderRadius: '50%',
-                              objectFit: 'cover',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 1,
                             }}
-                            onError={(e) => {
-                              e.target.src = placeholderImage;
-                            }}
-                          />
+                          >
+                            <Box
+                              component="img"
+                              src={user.avatar}
+                              alt={user.name}
+                              sx={{
+                                width: 40,
+                                height: 40,
+                                borderRadius: '50%',
+                                objectFit: 'cover',
+                              }}
+                              onError={(e) => {
+                                e.target.src = placeholderImage;
+                              }}
+                            />
+                            {user.name}
+                          </Box>
                         </TableCell>
                         <TableCell
                           align="left"
                           sx={{ padding: '8px', fontSize: '0.75rem' }}
                         >
-                          {product.title}
+                          {user.role}
                         </TableCell>
                         <TableCell
                           align="left"
                           sx={{ padding: '8px', fontSize: '0.75rem' }}
                         >
-                          {product.category?.name || 'N/A'}
+                          {user.id}
                         </TableCell>
                         <TableCell
                           align="left"
                           sx={{ padding: '8px', fontSize: '0.75rem' }}
                         >
-                          ${product.price}
+                          {user.email}
+                        </TableCell>
+                        <TableCell
+                          align="left"
+                          sx={{ padding: '8px', fontSize: '0.75rem' }}
+                        >
+                          {user.phone || 'N/A'}
                         </TableCell>
                         <TableCell align="left" sx={{ padding: '8px' }}>
-                          {product.inStock ? (
+                          {user.active ? (
                             <Chip
-                              label="In Stock"
+                              label="Active"
                               variant="outlined"
                               color="success"
                               size="small"
@@ -596,7 +513,7 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
                             />
                           ) : (
                             <Chip
-                              label="Out of Stock"
+                              label="Inactive"
                               variant="outlined"
                               color="error"
                               size="small"
@@ -614,7 +531,7 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
                             {/* View Icon */}
                             <Tooltip title="View">
                               <IconButton
-                                onClick={() => handleViewProduct(product)}
+                                onClick={() => handleViewUser(user)}
                                 size="small"
                                 sx={{ mr: 1 }}
                               >
@@ -629,7 +546,7 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
                             <Tooltip title="Edit">
                               <IconButton
                                 color="primary"
-                                onClick={() => navigateToManageProduct(product)}
+                                onClick={() => navigateToManageUser(user)}
                                 size="small"
                                 sx={{ mr: 1 }}
                               >
@@ -642,7 +559,7 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
                               <IconButton
                                 color="error"
                                 onClick={() => {
-                                  setSelectedProducts([product.id]);
+                                  setSelectedUsers([user.id]);
                                   setConfirmationOpen(true);
                                 }}
                                 size="small"
@@ -670,7 +587,7 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
                 }}
               >
                 <Pagination
-                  count={totalPages}
+                  count={Math.ceil(totalUsers / rowsPerPage)}
                   page={currentPage}
                   onChange={handlePageChange}
                   variant="outlined"
@@ -686,11 +603,8 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
                   size="small"
                   sx={{ minWidth: 120, mt: isMobile ? 1 : 0 }}
                 >
-                  <InputLabel id="rows-per-page-label">
-                    Rows per page
-                  </InputLabel>
+                  <InputLabel>Rows per page</InputLabel>
                   <Select
-                    labelId="rows-per-page-label"
                     value={rowsPerPage}
                     onChange={handleRowsPerPageChange}
                     label="Rows per page"
@@ -709,30 +623,24 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
         </Box>
       </Box>
 
-      {/* Confirmation Dialog */}
       <ConfirmationDialog
         open={confirmationOpen}
         title="Confirm Deletion"
-        content="Are you sure you want to delete the selected product(s)? This action is irreversible."
-        onConfirm={handleConfirmDelete}
-        onCancel={handleCancelDelete}
+        content="Are you sure you want to delete the selected user(s)? This action is irreversible."
+        onConfirm={handleDelete}
+        onCancel={() => setConfirmationOpen(false)}
         loading={isDeleting}
         confirmText="Delete"
         cancelText="Cancel"
       />
 
-      {/* View Product Modal */}
-      <ViewProductModal
+      <ViewUserModal
         open={viewOpen}
-        onClose={handleCloseView}
-        product={viewProduct}
-        onEdit={(p) => {
-          navigateToManageProduct(p);
-          setViewOpen(false);
-        }}
+        onClose={() => setViewOpen(false)}
+        user={viewUser}
+        navigateToManageUser={navigateToManageUser} // Pass the function here
       />
 
-      {/* Notification */}
       <Notification
         open={notification.open}
         onClose={handleNotificationClose}
@@ -743,4 +651,4 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
   );
 };
 
-export default AllProductsTab;
+export default AllUsersTab;

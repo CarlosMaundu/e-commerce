@@ -1,4 +1,5 @@
 // src/context/AuthContext.js
+// src/context/AuthContext.js
 import React, { createContext, useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import {
@@ -10,15 +11,14 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
-  updateProfile, // Import updateProfile for setting displayName
+  updateProfile,
 } from 'firebase/auth';
 import { logEvent } from 'firebase/analytics';
 import { auth, analytics } from '../firebase';
-
-// Import required API service methods
 import {
   createUser as createUserInAPI,
   getAllUsers,
+  fetchUserProfile,
 } from '../services/userService';
 
 export const AuthContext = createContext();
@@ -27,6 +27,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null); // API user profile with role, etc.
   const [firebaseUser, setFirebaseUser] = useState(null); // Firebase user object
   const [loading, setLoading] = useState(true); // Loading indicator for initial auth check
+  const [isLoggingIn, setIsLoggingIn] = useState(false); // New state for login status
 
   // Helper function to get a user by email using existing API services
   const getUserByEmail = async (email) => {
@@ -50,11 +51,18 @@ export const AuthProvider = ({ children }) => {
             profile = await createUserInAPI({
               name: fbUser.displayName || 'New User',
               email: fbUser.email,
-              password: 'temporary', // You may omit or handle password differently
-              avatar: fbUser.photoURL || '',
+              password: 'temporary', // Temporary placeholder password
+              avatar: fbUser.photoURL || null, // Firebase photoURL
             });
           }
-          setUser(profile);
+
+          // Ensure the avatar is properly normalized
+          const normalizedProfile = {
+            ...profile,
+            avatar: profile.avatar || 'https://i.imgur.com/kIaFC3J.png',
+          };
+
+          setUser(normalizedProfile);
         } catch (apiError) {
           console.error('API error:', apiError);
           setUser(null);
@@ -74,7 +82,6 @@ export const AuthProvider = ({ children }) => {
     logEvent(analytics, 'login_attempt', { method: 'google' });
     const provider = new GoogleAuthProvider();
     const result = await signInWithPopup(auth, provider);
-    // onAuthStateChanged will handle subsequent profile sync
     return result.user;
   };
 
@@ -84,7 +91,6 @@ export const AuthProvider = ({ children }) => {
       const result = await signInWithEmailAndPassword(auth, email, password);
       return result.user;
     } catch (error) {
-      // Firebase error: Likely due to user not registered with Firebase
       throw new Error(error.message || 'Email/Password sign-in failed.');
     }
   };
@@ -104,13 +110,28 @@ export const AuthProvider = ({ children }) => {
 
   const signUp = async ({ firstName, lastName, email, password }) => {
     const result = await createUserWithEmailAndPassword(auth, email, password);
-    const user = result.user;
+    const fbUser = result.user;
+
     // Update Firebase profile with display name
-    await updateProfile(user, {
+    await updateProfile(fbUser, {
       displayName: `${firstName} ${lastName}`,
     });
-    // onAuthStateChanged will handle profile sync
-    return user;
+
+    // Create API user profile
+    const profile = await createUserInAPI({
+      name: `${firstName} ${lastName}`,
+      email,
+      password,
+      avatar: null, // Placeholder, can be updated later
+    });
+
+    // Ensure the avatar is normalized
+    setUser({
+      ...profile,
+      avatar: profile.avatar || 'https://i.imgur.com/kIaFC3J.png',
+    });
+
+    return fbUser;
   };
 
   const logout = async () => {
@@ -119,15 +140,21 @@ export const AuthProvider = ({ children }) => {
     setFirebaseUser(null);
   };
 
-  // Added updateUser function to update local user state
-  const updateUser = (updatedUser) => {
-    setUser(updatedUser);
+  const updateUser = async (updatedUser) => {
+    try {
+      const profile = await fetchUserProfile(
+        auth.currentUser.stsTokenManager.accessToken
+      );
+      const updatedProfile = { ...profile, ...updatedUser };
+      setUser(updatedProfile);
+    } catch (error) {
+      console.error('Failed to update user:', error);
+    }
   };
 
-  // The context value provided to descendants
   const value = {
-    user, // User profile from API
-    firebaseUser, // Raw Firebase user object
+    user,
+    firebaseUser,
     loading,
     signInWithGoogle,
     signInWithPassword,
@@ -135,7 +162,9 @@ export const AuthProvider = ({ children }) => {
     resetPassword,
     signUp,
     logout,
-    updateUser, // Include the new updateUser function
+    updateUser,
+    isLoggingIn, // Expose login status
+    setIsLoggingIn, // Expose setter for login status
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

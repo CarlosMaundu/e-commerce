@@ -1,3 +1,4 @@
+// src/components/common/UserTypeModal.js
 import React from 'react';
 import {
   Dialog,
@@ -13,34 +14,37 @@ import { useNavigate } from 'react-router-dom';
 
 const StyledDialog = styled(Dialog)(({ theme }) => ({
   '& .MuiDialog-paper': {
-    borderRadius: '16px',
-    padding: theme.spacing(2),
+    borderRadius: theme.shape.modalBorderRadius,
+    padding: theme.spacing(3),
     maxWidth: '400px',
     width: '90%',
   },
 }));
 
 const StyledButton = styled(Button)(({ theme }) => ({
-  padding: theme.spacing(2),
-  borderRadius: '8px',
-  fontSize: '1rem',
-  fontWeight: 600,
-  textTransform: 'none',
-  width: '100%',
+  height: '40px',
+  minWidth: '120px',
+  fontSize: '0.875rem',
+  fontWeight: 500,
+  textTransform: 'capitalize',
   display: 'flex',
   gap: theme.spacing(1),
   alignItems: 'center',
   justifyContent: 'center',
+  padding: theme.spacing(1, 2),
 }));
 
+// UserTypeModal component
 const UserTypeModal = ({ open, onClose }) => {
   const navigate = useNavigate();
 
+  // Handle login button click
   const handleLogin = () => {
     navigate('/login');
     onClose();
   };
 
+  // Handle register button click
   const handleRegister = () => {
     navigate('/register');
     onClose();
@@ -53,7 +57,7 @@ const UserTypeModal = ({ open, onClose }) => {
       aria-labelledby="user-type-dialog-title"
     >
       <DialogTitle id="user-type-dialog-title">
-        <Typography variant="h5" component="h2" align="center" fontWeight={600}>
+        <Typography variant="h6" component="h2" align="center" fontWeight={600}>
           Are you an existing customer?
         </Typography>
       </DialogTitle>

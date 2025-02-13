@@ -1,4 +1,5 @@
 // src/components/layout/Header.js
+// src/components/layout/Header.js
 import React, { useContext, useState, useEffect, useMemo } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
@@ -107,8 +108,7 @@ const SearchContainer = styled('div')(({ theme }) => ({
 }));
 
 const Header = () => {
-  const { user, loading, logout } = useContext(AuthContext);
-
+  const { user, loading, logout, isLoggingIn } = useContext(AuthContext);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuAnchor, setUserMenuAnchor] = useState(null);
 
@@ -376,7 +376,7 @@ const Header = () => {
                 py: 1,
               }}
             >
-              Login
+              {isLoggingIn ? 'Logging in...' : 'Login'}
             </Button>
           )}
         </Box>

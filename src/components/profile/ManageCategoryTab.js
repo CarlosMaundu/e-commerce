@@ -46,12 +46,12 @@ import placeholderImage from '../../images/placeholder.jpg';
 const tableHeaderStyle = {
   fontSize: '0.75rem',
   fontWeight: 'bold',
-  padding: '8px', // for consistent row height
+  padding: '8px',
 };
 
 const tableCellStyle = {
   fontSize: '0.75rem',
-  padding: '8px', // match row height from AllProductsTab
+  padding: '8px',
 };
 
 const uploadLabelStyle = {
@@ -88,7 +88,7 @@ const ManageCategoryTab = ({
   // State for form: allowing multiple subcategories
   const [formData, setFormData] = useState({
     name: '',
-    subcategories: [''], // start with one subcategory
+    subcategories: [''],
     imageUrl: '',
   });
   const [isEditMode, setIsEditMode] = useState(false);
@@ -111,7 +111,7 @@ const ManageCategoryTab = ({
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   useEffect(() => {
     dispatch(fetchCategories());

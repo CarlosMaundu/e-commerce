@@ -10,61 +10,64 @@ import {
 } from '@mui/material';
 import { styled } from '@mui/system';
 import { FiEdit, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import { useTheme } from '@mui/material/styles'; // Import useTheme
 
-const StyledModal = styled(Modal)({
+const StyledModal = styled(Modal)(({ theme }) => ({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-});
+}));
 
-const ModalContent = styled(Box)({
-  backgroundColor: '#fff',
-  borderRadius: '12px',
-  padding: '24px',
-  maxWidth: '500px',
+const ModalContent = styled(Box)(({ theme }) => ({
+  backgroundColor: theme.palette.background.paper,
+  borderRadius: theme.shape.modalBorderRadius,
+  padding: theme.spacing(3), // 24px
+  maxWidth: 500,
   width: '95%',
   position: 'relative',
   maxHeight: '80vh',
   overflowY: 'auto',
-  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
-});
+  boxShadow: theme.shadows[3],
+}));
 
-const InfoRow = styled(Box)({
+const InfoRow = styled(Box)(({ theme }) => ({
   display: 'flex',
   justifyContent: 'space-between',
-  padding: '12px 0',
-  borderBottom: '1px solid #eee',
-});
+  padding: `${theme.spacing(1.5)} 0`, // 12px 0
+  borderBottom: `1px solid ${theme.palette.grey[200]}`,
+}));
 
-const CloseButton = styled(Button)({
-  backgroundColor: '#fff',
-  border: '1px solid #ff1744',
-  color: '#ff1744',
-  height: '32px',
-  minWidth: '120px',
-  marginRight: '16px',
+const CloseButton = styled(Button)(({ theme }) => ({
+  backgroundColor: theme.palette.common.white,
+  border: `1px solid ${theme.palette.error.main}`,
+  color: theme.palette.error.main,
+  height: 32,
+  minWidth: 120,
+  marginRight: theme.spacing(2), // 16px
+  borderRadius: theme.shape.borderRadius,
   '&:hover': {
-    backgroundColor: '#ffe6e9',
-    border: '1px solid #ff1744',
+    backgroundColor: theme.palette.error.light,
+    border: `1px solid ${theme.palette.error.main}`,
   },
-});
+}));
 
-const EditButton = styled(Button)({
-  backgroundColor: '#1976d2',
-  color: '#fff',
-  height: '32px',
-  minWidth: '120px',
+const EditButton = styled(Button)(({ theme }) => ({
+  backgroundColor: theme.palette.primary.main,
+  color: theme.palette.common.white,
+  height: 32,
+  minWidth: 120,
+  borderRadius: theme.shape.borderRadius,
   '&:hover': {
-    backgroundColor: '#1565c0',
+    backgroundColor: theme.palette.primary.dark,
   },
-});
+}));
 
-const ImageContainer = styled(Box)({
+const ImageContainer = styled(Box)(({ theme }) => ({
   position: 'relative',
   width: '100%',
-  height: '300px',
-  backgroundColor: '#f8f9fa',
-  borderRadius: '16px',
+  height: 300,
+  backgroundColor: theme.palette.grey[100],
+  borderRadius: theme.shape.imageContainerRadius,
   overflow: 'hidden',
   margin: 0,
   padding: 0,
@@ -72,52 +75,61 @@ const ImageContainer = styled(Box)({
     width: '100%',
     height: '100%',
     objectFit: 'cover',
-    borderRadius: '16px',
+    borderRadius: theme.shape.imageContainerRadius,
   },
-});
+}));
 
-const ThumbnailContainer = styled(Box)({
+const ThumbnailContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
-  gap: '10px',
+  gap: theme.spacing(1.25), // 10px
   overflowX: 'auto',
-  padding: '16px 0',
+  padding: `${theme.spacing(2)} 0`, // 16px 0
   '&::-webkit-scrollbar': {
     display: 'none',
   },
-});
+}));
 
-const Thumbnail = styled(Box)({
-  width: '60px',
-  height: '60px',
-  borderRadius: '4px',
+const Thumbnail = styled(Box)(({ theme }) => ({
+  width: 60,
+  height: 60,
+  borderRadius: theme.shape.thumbnailRadius,
   cursor: 'pointer',
-  border: '2px solid transparent',
+  border: `2px solid ${theme.palette.grey[200]}`,
   '&:hover': {
     opacity: 0.8,
   },
   '&.active': {
-    border: '2px solid #1976d2',
+    border: `2px solid ${theme.palette.primary.main}`,
   },
   '& img': {
     width: '100%',
     height: '100%',
     objectFit: 'cover',
-    borderRadius: '4px',
+    borderRadius: theme.shape.thumbnailRadius,
   },
-});
+}));
 
-const NavigationButton = styled(IconButton)({
+const NavigationButton = styled(IconButton)(({ theme }) => ({
   position: 'absolute',
   top: '50%',
   transform: 'translateY(-50%)',
   backgroundColor: 'rgba(255, 255, 255, 0.8)',
+  borderRadius: theme.shape.borderRadius,
   '&:hover': {
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
   },
-});
+}));
+
+// Define InfoBox within the same file
+const InfoBox = styled(Box)(({ theme }) => ({
+  backgroundColor: theme.palette.grey[100],
+  borderRadius: theme.shape.infoBoxRadius,
+  padding: theme.spacing(2), // 16px
+}));
 
 const ViewProductModal = ({ open, onClose, product, onEdit }) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const theme = useTheme(); // Access theme if needed
 
   if (!product) return null;
 
@@ -153,14 +165,14 @@ const ViewProductModal = ({ open, onClose, product, onEdit }) => {
               <>
                 <NavigationButton
                   onClick={handlePrevImage}
-                  sx={{ left: 10 }}
+                  sx={{ left: theme.spacing(1.25) }} // 10px
                   aria-label="Previous image"
                 >
                   <FiChevronLeft />
                 </NavigationButton>
                 <NavigationButton
                   onClick={handleNextImage}
-                  sx={{ right: 10 }}
+                  sx={{ right: theme.spacing(1.25) }} // 10px
                   aria-label="Next image"
                 >
                   <FiChevronRight />
@@ -190,40 +202,57 @@ const ViewProductModal = ({ open, onClose, product, onEdit }) => {
           )}
         </Stack>
 
-        <Box sx={{ backgroundColor: '#f8f9fa', borderRadius: '8px', p: 2 }}>
+        {/* Use the styled InfoBox */}
+        <InfoBox>
           <InfoRow>
-            <Typography color="#000" fontWeight="700">
+            <Typography color={theme.palette.text.primary} fontWeight="700">
               Product Name
             </Typography>
-            <Typography fontSize="0.9rem" color="#666" fontWeight="500">
+            <Typography
+              fontSize="0.9rem"
+              color={theme.palette.text.secondary}
+              fontWeight="500"
+            >
               {product.title}
             </Typography>
           </InfoRow>
           <InfoRow>
-            <Typography color="#000" fontWeight="700">
+            <Typography color={theme.palette.text.primary} fontWeight="700">
               Price
             </Typography>
-            <Typography fontSize="0.9rem" color="#666" fontWeight="500">
+            <Typography
+              fontSize="0.9rem"
+              color={theme.palette.text.secondary}
+              fontWeight="500"
+            >
               ${product.price}
             </Typography>
           </InfoRow>
           <InfoRow>
-            <Typography color="#000" fontWeight="700">
+            <Typography color={theme.palette.text.primary} fontWeight="700">
               Category
             </Typography>
-            <Typography fontSize="0.9rem" color="#666" fontWeight="500">
+            <Typography
+              fontSize="0.9rem"
+              color={theme.palette.text.secondary}
+              fontWeight="500"
+            >
               {product.category?.name || 'N/A'}
             </Typography>
           </InfoRow>
           <InfoRow sx={{ borderBottom: 'none' }}>
-            <Typography color="#000" fontWeight="700">
+            <Typography color={theme.palette.text.primary} fontWeight="700">
               Stock Status
             </Typography>
-            <Typography fontSize="0.9rem" color="#666" fontWeight="500">
+            <Typography
+              fontSize="0.9rem"
+              color={theme.palette.text.secondary}
+              fontWeight="500"
+            >
               {product.inStock ? 'In Stock' : 'Out of Stock'}
             </Typography>
           </InfoRow>
-        </Box>
+        </InfoBox>
 
         <Box mt={3} display="flex" justifyContent="flex-end">
           <CloseButton onClick={onClose} sx={{ textTransform: 'capitalize' }}>
