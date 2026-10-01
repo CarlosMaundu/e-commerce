@@ -129,6 +129,7 @@ const Header = () => {
   const [currentTip, setCurrentTip] = useState(tips[0]);
   const [tipKey, setTipKey] = useState(0); // re-render animation
   const [typing, setTyping] = useState(false); // to stop animation if user is typing
+  const [query, setQuery] = useState('');
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -157,6 +158,42 @@ const Header = () => {
     setMobileOpen(!mobileOpen);
   };
 
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    const term = query.trim();
+    if (mobileOpen) setMobileOpen(false);
+    navigate(
+      term ? `/products?search=${encodeURIComponent(term)}` : '/products'
+    );
+  };
+
+  const searchField = (
+    <TextField
+      variant="outlined"
+      size="small"
+      value={query}
+      onChange={(e) => setQuery(e.target.value)}
+      onFocus={() => setTyping(true)} // stop animation
+      onBlur={() => setTyping(false)} // resume animation
+      inputProps={{ 'aria-label': 'Search products', enterKeyHint: 'search' }}
+      InputProps={{
+        startAdornment: (
+          <InputAdornment position="start">
+            <SearchIcon sx={{ color: theme.palette.text.primary }} />
+          </InputAdornment>
+        ),
+      }}
+      sx={{
+        width: '100%',
+        ...theme.typography.body1,
+        transition: 'transform 0.3s ease',
+        '&:hover, &:focus-within': {
+          transform: 'scale(1.05)',
+        },
+      }}
+    />
+  );
+
   const handleLinkClick = () => {
     if (mobileOpen) setMobileOpen(false);
     setUserMenuAnchor(null);
@@ -182,6 +219,16 @@ const Header = () => {
         </IconButton>
       </Box>
       <List>
+        <ListItem sx={{ justifyContent: 'center' }}>
+          <Box
+            component="form"
+            role="search"
+            onSubmit={handleSearchSubmit}
+            sx={{ width: '100%', maxWidth: 360 }}
+          >
+            {searchField}
+          </Box>
+        </ListItem>
         <ListItem sx={{ justifyContent: 'center' }}>
           <Button
             component={Link}
@@ -258,32 +305,16 @@ const Header = () => {
         {/* Center: Animated Search Bar */}
         <Box sx={{ flexGrow: 1, display: 'flex', justifyContent: 'center' }}>
           {!isMobile && (
-            <SearchContainer>
-              <TextField
-                variant="outlined"
-                size="small"
-                onFocus={() => setTyping(true)} // stop animation
-                onBlur={() => setTyping(false)} // resume animation
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon sx={{ color: theme.palette.text.primary }} />
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{
-                  width: '100%',
-                  ...theme.typography.body1,
-                  transition: 'transform 0.3s ease',
-                  '&:hover, &:focus-within': {
-                    transform: 'scale(1.05)',
-                  },
-                }}
-              />
+            <SearchContainer
+              as="form"
+              role="search"
+              onSubmit={handleSearchSubmit}
+            >
+              {searchField}
 
               {/* Animated tip overlay (scroll up text) if not typing */}
-              {!typing && (
-                <AnimatedTipBox>
+              {!typing && !query && (
+                <AnimatedTipBox aria-hidden="true">
                   <SlidingText key={tipKey}>{currentTip}</SlidingText>
                 </AnimatedTipBox>
               )}

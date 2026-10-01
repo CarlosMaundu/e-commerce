@@ -27,6 +27,8 @@ import ProductsSection from './components/profile/ProductsSection';
 import UsersSection from './components/profile/users/UsersSection';
 import FinishSignIn from './components/password/FinishSignIn';
 import ResetPassword from './components/password/ResetPassword';
+import InformationPage from './pages/InformationPage';
+import NotFoundPage from './pages/NotFoundPage';
 
 import { Provider } from 'react-redux';
 import store, { persistor } from './redux/store';
@@ -157,7 +159,11 @@ const App = () => {
                   />
 
                   {/* Fallback for non-existing routes */}
-                  <Route path="*" element={<div>404 Not Found</div>} />
+                  <Route
+                    path="/information/:slug"
+                    element={<InformationPage />}
+                  />
+                  <Route path="*" element={<NotFoundPage />} />
                 </Routes>
 
                 {/* Optionally hide the footer */}

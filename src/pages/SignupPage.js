@@ -394,7 +394,12 @@ const SignupPage = () => {
                   label={
                     <Typography variant="body2">
                       I accept the{' '}
-                      <Link href="#" underline="hover" target="_blank">
+                      <Link
+                        href="/information/terms"
+                        underline="hover"
+                        target="_blank"
+                        rel="noopener"
+                      >
                         Terms and Conditions
                       </Link>
                     </Typography>

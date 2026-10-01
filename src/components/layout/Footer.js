@@ -12,18 +12,18 @@ const footerLinks = [
   {
     title: 'Shop',
     items: [
-      { name: 'Best Seller', to: '/categories/best-seller' },
-      { name: 'Shop Men', to: '/categories/shop-men' },
-      { name: 'Shop Women', to: '/categories/shop-women' },
-      { name: 'Shop Casual', to: '/categories/shop-casual' },
+      { name: 'Best Seller', to: '/products' },
+      { name: 'Shop Men', to: '/products?search=men' },
+      { name: 'Shop Women', to: '/products?search=women' },
+      { name: 'Shop Casual', to: '/products?search=casual' },
     ],
   },
   {
     title: 'Company',
     items: [
-      { name: 'About', to: '/about' },
-      { name: 'Careers', to: '/careers' },
-      { name: 'Press', to: '/press' },
+      { name: 'About', to: '/information/about' },
+      { name: 'Careers', to: '/information/careers' },
+      { name: 'Press', to: '/information/press' },
     ],
   },
   {
@@ -37,9 +37,9 @@ const footerLinks = [
   {
     title: 'Resources',
     items: [
-      { name: 'Documentation', to: '/documentation' },
-      { name: 'FAQ', to: '/faq' },
-      { name: 'Support', to: '/support' },
+      { name: 'Documentation', to: '/information/documentation' },
+      { name: 'FAQ', to: '/information/faq' },
+      { name: 'Support', to: '/information/support' },
     ],
   },
   {

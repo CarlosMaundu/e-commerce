@@ -39,10 +39,11 @@ const ProductsPage = () => {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   const initialCategory = queryParams.get('category') || '';
+  const urlSearch = queryParams.get('search') || '';
 
   // API filters
   const [filters, setFilters] = useState({
-    search: '',
+    search: urlSearch,
     categoryId: initialCategory,
     price_min: 0,
     price_max: 1000,
@@ -68,6 +69,17 @@ const ProductsPage = () => {
   useEffect(() => {
     dispatch(fetchCategories());
   }, [dispatch]);
+
+  // Header search (and category links) navigate here with new query params
+  // while the page may already be mounted, so keep filters in sync.
+  useEffect(() => {
+    setFilters((prev) =>
+      prev.search === urlSearch && prev.categoryId === initialCategory
+        ? prev
+        : { ...prev, search: urlSearch, categoryId: initialCategory }
+    );
+    setCurrentPage(1);
+  }, [urlSearch, initialCategory]);
 
   // Fetch total product count for current filters (without limit/offset)
   useEffect(() => {
@@ -163,7 +175,10 @@ const ProductsPage = () => {
   const chosenCategory = categories.find(
     (cat) => String(cat.id) === filters.categoryId
   );
-  const pageTitle = chosenCategory ? chosenCategory.name : 'All Products';
+  const categoryTitle = chosenCategory ? chosenCategory.name : 'All Products';
+  const pageTitle = filters.search
+    ? `Results for “${filters.search}”`
+    : categoryTitle;
 
   const handleCategorySelect = (catId) => {
     setFilters((prev) => ({ ...prev, categoryId: String(catId) }));
