@@ -182,6 +182,7 @@ const ProfileSection = ({
   handleChange,
   handleSubmit,
   handleCancel,
+  saving = false,
   showNewPassword,
   showConfirmNewPassword,
   setShowNewPassword,
@@ -334,9 +335,8 @@ const ProfileSection = ({
                   size="small"
                   placeholder="Enter email"
                   value={formData.email}
-                  onChange={handleChange}
-                  error={!!errors.email}
-                  helperText={errors.email}
+                  InputProps={{ readOnly: true }}
+                  helperText="Your sign-in email can’t be changed here."
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -601,15 +601,17 @@ const ProfileSection = ({
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6}>
                 <TextField
-                  label="Current Password (optional)"
+                  label="Current Password"
                   name="currentPassword"
                   type={showCurrentPassword ? 'text' : 'password'}
                   variant="outlined"
                   fullWidth
                   size="small"
-                  placeholder="Enter current password (not enforced)"
+                  placeholder="Needed only to change your password"
                   value={formData.currentPassword}
                   onChange={handleChange}
+                  error={!!errors.currentPassword}
+                  helperText={errors.currentPassword || ''}
                   InputProps={{
                     endAdornment: (
                       <InputAdornment position="end">
@@ -775,13 +777,14 @@ const ProfileSection = ({
             <Button
               variant="contained"
               type="submit"
+              disabled={saving}
               sx={{
                 textTransform: 'capitalize',
                 fontSize: '0.875rem',
                 width: { xs: '100%', sm: 'auto' },
               }}
             >
-              Save Changes
+              {saving ? 'Saving…' : 'Save Changes'}
             </Button>
           </Box>
         </Card>

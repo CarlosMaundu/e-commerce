@@ -25,6 +25,8 @@ import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
 import CloseIcon from '@mui/icons-material/Close';
 import UserTypeModal from '../components/common/UserTypeModal';
+import { useNotify } from '../notification/NotificationProvider';
+import { MESSAGES } from '../notification/messages';
 
 const CartPage = () => {
   const dispatch = useDispatch();
@@ -48,6 +50,7 @@ const CartPage = () => {
   const tax = subtotal * taxRate;
   const total = subtotal + shipping + tax;
 
+  const notify = useNotify();
   const [showAuthPrompt, setShowAuthPrompt] = useState(false);
   const [promoCode, setPromoCode] = useState('');
   const [appliedPromo, setAppliedPromo] = useState(null);
@@ -66,10 +69,11 @@ const CartPage = () => {
     // Placeholder logic for applying promo code
     if (promoCode.trim().toUpperCase() === 'FRIDAY35') {
       setAppliedPromo({ code: promoCode.toUpperCase(), discount: 0.35 });
+      notify.success(MESSAGES.cart.promoApplied);
       // Optionally, adjust totals based on promo
       // For simplicity, we're just storing the applied promo
     } else {
-      alert('Invalid promo code');
+      notify.error(MESSAGES.cart.invalidPromo);
     }
   };
 

@@ -1,63 +1,98 @@
 // src/context/AuthContext.js
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 import {
   GoogleAuthProvider,
+  EmailAuthProvider,
   signInWithPopup,
   signInWithEmailAndPassword,
   sendSignInLinkToEmail,
   sendPasswordResetEmail,
   createUserWithEmailAndPassword,
+  reauthenticateWithCredential,
+  updatePassword,
   signOut,
   onAuthStateChanged,
   updateProfile, // Import updateProfile for setting displayName
 } from 'firebase/auth';
 import { logEvent } from 'firebase/analytics';
-import { auth, analytics } from '../firebase';
+import { auth, analytics, withSecondaryAuth } from '../firebase';
+import { useNotify } from '../notification/NotificationProvider';
+import { MESSAGES } from '../notification/messages';
+import { UserFacingError } from '../utils/friendlyError';
 
 // Import required API service methods
 import {
   createUser as createUserInAPI,
-  getAllUsers,
+  getUserByEmail,
+  DEFAULT_AVATAR_URL,
 } from '../services/userService';
 
 export const AuthContext = createContext();
 
+const track = (eventName, params) => {
+  if (analytics) logEvent(analytics, eventName, params);
+};
+
+const requireAuth = () => {
+  if (!auth) {
+    throw new UserFacingError(
+      'Sign-in is unavailable right now. Please try again later.',
+      'auth/not-configured'
+    );
+  }
+  return auth;
+};
+
+// Where Firebase sends people after they use a password-reset or sign-in link.
+const actionUrl = (path) => `${window.location.origin}${path}`;
+
+const randomPassword = () =>
+  `${crypto.getRandomValues(new Uint32Array(4)).join('-')}Aa1!`;
+
 export const AuthProvider = ({ children }) => {
+  const notify = useNotify();
   const [user, setUser] = useState(null); // API user profile with role, etc.
   const [firebaseUser, setFirebaseUser] = useState(null); // Firebase user object
   const [loading, setLoading] = useState(true); // Loading indicator for initial auth check
 
-  // Helper function to get a user by email using existing API services
-  const getUserByEmail = async (email) => {
-    const allUsers = await getAllUsers();
-    return allUsers.find((u) => u.email === email);
+  // Name typed on the sign-up form. The auth listener fires before
+  // updateProfile() finishes, so it reads the name from here.
+  const pendingNameRef = useRef(null);
+
+  // Find the user's profile in the API, creating it on first sign-in.
+  const syncProfile = async (fbUser) => {
+    const existing = await getUserByEmail(fbUser.email);
+    if (existing) return existing;
+    return createUserInAPI({
+      name: pendingNameRef.current || fbUser.displayName || 'New User',
+      email: fbUser.email,
+      avatar: fbUser.photoURL || DEFAULT_AVATAR_URL,
+    });
   };
 
   // Initialize Firebase Auth state change listener
   useEffect(() => {
+    if (!auth) {
+      setLoading(false);
+      return undefined;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       setFirebaseUser(fbUser);
       if (fbUser) {
-        // Log successful sign in event
-        logEvent(analytics, 'login_success', { userId: fbUser.uid });
+        // Keep protected routes waiting until the profile is ready.
+        setLoading(true);
+        track('login_success', { userId: fbUser.uid });
 
-        // Synchronize with external API profile using email
         try {
-          let profile = await getUserByEmail(fbUser.email);
-          if (!profile) {
-            // Create new user profile in API if it doesn't exist
-            profile = await createUserInAPI({
-              name: fbUser.displayName || 'New User',
-              email: fbUser.email,
-              password: 'temporary', // You may omit or handle password differently
-              avatar: fbUser.photoURL || '',
-            });
-          }
-          setUser(profile);
+          setUser(await syncProfile(fbUser));
         } catch (apiError) {
-          console.error('API error:', apiError);
+          console.error('Profile sync failed:', apiError);
           setUser(null);
+          notify.error(apiError, MESSAGES.auth.profileSyncFailed);
+        } finally {
+          pendingNameRef.current = null;
         }
       } else {
         // User signed out
@@ -67,54 +102,157 @@ export const AuthProvider = ({ children }) => {
     });
 
     return () => unsubscribe();
+    // notify is stable; syncProfile only reads refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Firebase-based authentication functions
+  // Firebase-based authentication functions.
+  // These rethrow Firebase errors unchanged so callers can pass them to
+  // notify.error()/friendlyError(), which map error.code to friendly text.
   const signInWithGoogle = async () => {
-    logEvent(analytics, 'login_attempt', { method: 'google' });
+    track('login_attempt', { method: 'google' });
     const provider = new GoogleAuthProvider();
-    const result = await signInWithPopup(auth, provider);
+    const result = await signInWithPopup(requireAuth(), provider);
     // onAuthStateChanged will handle subsequent profile sync
     return result.user;
   };
 
   const signInWithPassword = async (email, password) => {
-    logEvent(analytics, 'login_attempt', { method: 'email_password' });
-    try {
-      const result = await signInWithEmailAndPassword(auth, email, password);
-      return result.user;
-    } catch (error) {
-      // Firebase error: Likely due to user not registered with Firebase
-      throw new Error(error.message || 'Email/Password sign-in failed.');
-    }
+    track('login_attempt', { method: 'email_password' });
+    const result = await signInWithEmailAndPassword(
+      requireAuth(),
+      email.trim(),
+      password
+    );
+    return result.user;
   };
 
+  // Email-link sign-in for the web uses the app's own URL; it does not depend
+  // on Firebase Dynamic Links (only mobile/Cordova link handling did).
   const sendSignInLink = async (email) => {
     const actionCodeSettings = {
-      url: window.location.origin + '/finishSignIn', // Adjust redirect URL as necessary
+      url: actionUrl('/finishSignIn'),
       handleCodeInApp: true,
     };
-    await sendSignInLinkToEmail(auth, email, actionCodeSettings);
-    window.localStorage.setItem('emailForSignIn', email);
+    await sendSignInLinkToEmail(
+      requireAuth(),
+      email.trim(),
+      actionCodeSettings
+    );
+    window.localStorage.setItem('emailForSignIn', email.trim());
   };
 
   const resetPassword = async (email) => {
-    await sendPasswordResetEmail(auth, email);
+    try {
+      await sendPasswordResetEmail(requireAuth(), email.trim(), {
+        url: actionUrl('/login'),
+      });
+    } catch (error) {
+      // Don't reveal whether an account exists for this email.
+      if (error.code === 'auth/user-not-found') return;
+      throw error;
+    }
   };
 
   const signUp = async ({ firstName, lastName, email, password }) => {
-    const result = await createUserWithEmailAndPassword(auth, email, password);
-    const user = result.user;
-    // Update Firebase profile with display name
-    await updateProfile(user, {
-      displayName: `${firstName} ${lastName}`,
+    const displayName = `${firstName.trim()} ${lastName.trim()}`.trim();
+    pendingNameRef.current = displayName;
+    try {
+      const result = await createUserWithEmailAndPassword(
+        requireAuth(),
+        email.trim(),
+        password
+      );
+      // Update Firebase profile with display name
+      await updateProfile(result.user, { displayName });
+      // onAuthStateChanged will handle profile sync
+      return result.user;
+    } catch (error) {
+      pendingNameRef.current = null;
+      throw error;
+    }
+  };
+
+  /**
+   * Change the signed-in user's Firebase password. Firebase requires a recent
+   * sign-in for this, so we re-authenticate with the current password first.
+   */
+  const changePassword = async (currentPassword, newPassword) => {
+    const current = requireAuth().currentUser;
+    if (!current) {
+      throw new UserFacingError(MESSAGES.auth.sessionRequired);
+    }
+    const hasPassword = current.providerData.some(
+      (p) => p.providerId === 'password'
+    );
+    if (!hasPassword) {
+      throw new UserFacingError(MESSAGES.profile.noPasswordAccount);
+    }
+    if (!currentPassword) {
+      throw new UserFacingError(MESSAGES.profile.currentPasswordRequired);
+    }
+    const credential = EmailAuthProvider.credential(
+      current.email,
+      currentPassword
+    );
+    await reauthenticateWithCredential(current, credential);
+    await updatePassword(current, newPassword);
+  };
+
+  /**
+   * Make sure `email` has a Firebase login, then email them a link to choose
+   * their password. Uses a secondary Auth instance so the admin stays signed
+   * in. Firebase's email-enumeration protection makes reset emails "succeed"
+   * silently for unknown addresses, so creating the login first is what
+   * guarantees the email actually arrives.
+   */
+  const ensureLoginAndSendReset = async (email, name) => {
+    const requiredAuth = requireAuth();
+    try {
+      await withSecondaryAuth(async (secondaryAuth) => {
+        const { user: created } = await createUserWithEmailAndPassword(
+          secondaryAuth,
+          email,
+          randomPassword()
+        );
+        if (name) await updateProfile(created, { displayName: name.trim() });
+      });
+    } catch (error) {
+      // Already has a login (password or Google) — just send the reset.
+      if (error.code !== 'auth/email-already-in-use') throw error;
+    }
+    await sendPasswordResetEmail(requiredAuth, email, {
+      url: actionUrl('/login'),
     });
-    // onAuthStateChanged will handle profile sync
-    return user;
+  };
+
+  /** Admin: create a store profile + login for someone else. */
+  const adminCreateUser = async ({ name, email, role, avatar }) => {
+    const cleanEmail = email.trim().toLowerCase();
+    requireAuth();
+    if (await getUserByEmail(cleanEmail)) {
+      throw new UserFacingError(
+        'A user with this email already exists.',
+        'app/profile-exists'
+      );
+    }
+    const profile = await createUserInAPI({
+      name,
+      email: cleanEmail,
+      role,
+      avatar,
+    });
+    await ensureLoginAndSendReset(cleanEmail, name);
+    return profile;
+  };
+
+  /** Admin: email a password-reset (or first-time setup) link to a user. */
+  const adminSendPasswordReset = async ({ email, name }) => {
+    await ensureLoginAndSendReset(email.trim().toLowerCase(), name);
   };
 
   const logout = async () => {
-    await signOut(auth);
+    if (auth) await signOut(auth);
     setUser(null);
     setFirebaseUser(null);
   };
@@ -134,6 +272,9 @@ export const AuthProvider = ({ children }) => {
     sendSignInLink,
     resetPassword,
     signUp,
+    changePassword,
+    adminCreateUser,
+    adminSendPasswordReset,
     logout,
     updateUser, // Include the new updateUser function
   };

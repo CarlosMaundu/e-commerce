@@ -27,8 +27,8 @@ import { BsCheckCircle, BsXCircle } from 'react-icons/bs';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { confirmPasswordReset } from 'firebase/auth';
 import { auth } from '../../firebase';
-import { friendlyError } from '../../utils/friendlyError';
-import Notification from '../../notification/notification';
+import { useNotify } from '../../notification/NotificationProvider';
+import { MESSAGES } from '../../notification/messages';
 
 const StyledContainer = styled(Container)(({ theme }) => ({
   display: 'flex',
@@ -92,11 +92,7 @@ const ResetPassword = () => {
     password: '',
     confirmPassword: '',
   });
-  const [notification, setNotification] = useState({
-    open: false,
-    severity: 'success',
-    message: '',
-  });
+  const notify = useNotify();
   const [successModalOpen, setSuccessModalOpen] = useState(false);
 
   if (mode !== 'resetPassword' || !code) {
@@ -175,11 +171,7 @@ const ResetPassword = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (formData.password !== formData.confirmPassword) {
-      setNotification({
-        open: true,
-        severity: 'error',
-        message: 'Passwords do not match!',
-      });
+      notify.error(MESSAGES.auth.passwordsDoNotMatch);
       return;
     }
 
@@ -187,12 +179,7 @@ const ResetPassword = () => {
       await confirmPasswordReset(auth, code, formData.password);
       setSuccessModalOpen(true);
     } catch (error) {
-      const errorMessage = friendlyError(error);
-      setNotification({
-        open: true,
-        severity: 'error',
-        message: errorMessage,
-      });
+      notify.error(error, MESSAGES.auth.resetFailed);
     }
   };
 
@@ -364,14 +351,6 @@ const ResetPassword = () => {
           </StyledButton>
         </DialogActions>
       </StyledDialog>
-
-      {/* Notification */}
-      <Notification
-        open={notification.open}
-        onClose={() => setNotification({ ...notification, open: false })}
-        severity={notification.severity}
-        message={notification.message}
-      />
     </>
   );
 };

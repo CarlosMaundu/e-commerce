@@ -6,6 +6,7 @@ import {
   useLocation,
 } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { NotificationProvider } from './notification/NotificationProvider';
 import ScrollToTop from './components/ScrollToTop';
 import Header from './components/layout/Header';
 import LoginPage from './pages/LoginPage';
@@ -70,97 +71,102 @@ const App = () => {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <AuthProvider>
-        <Provider store={store}>
-          <PersistGate loading={null} persistor={persistor}>
-            <Router>
-              <ScrollToTop />
+      <NotificationProvider>
+        <AuthProvider>
+          <Provider store={store}>
+            <PersistGate loading={null} persistor={persistor}>
+              <Router>
+                <ScrollToTop />
 
-              {/* Conditionally hide the header */}
-              <ConditionalHeader />
+                {/* Conditionally hide the header */}
+                <ConditionalHeader />
 
-              <Routes>
-                {/* Public (non-protected) Routes */}
-                <Route path="/" element={<HomePage />} />
-                <Route path="/products" element={<ProductsPage />} />
-                <Route path="/products/:id" element={<ProductDetailsPage />} />
-                <Route path="/cart" element={<CartPage />} />
-                <Route path="/wishlist" element={<WishlistPage />} />
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/register" element={<SignupPage />} />
-                <Route path="/finishSignIn" element={<FinishSignIn />} />
-                <Route path="/reset-password" element={<ResetPassword />} />
+                <Routes>
+                  {/* Public (non-protected) Routes */}
+                  <Route path="/" element={<HomePage />} />
+                  <Route path="/products" element={<ProductsPage />} />
+                  <Route
+                    path="/products/:id"
+                    element={<ProductDetailsPage />}
+                  />
+                  <Route path="/cart" element={<CartPage />} />
+                  <Route path="/wishlist" element={<WishlistPage />} />
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route path="/register" element={<SignupPage />} />
+                  <Route path="/finishSignIn" element={<FinishSignIn />} />
+                  <Route path="/reset-password" element={<ResetPassword />} />
 
-                {/* Protected (Must be logged in, either customer or admin) */}
-                <Route
-                  path="/profile"
-                  element={
-                    <PrivateRoute>
-                      <ProfilePage />
-                    </PrivateRoute>
-                  }
-                />
-                <Route
-                  path="/checkout"
-                  element={
-                    <PrivateRoute>
-                      <CheckoutPage />
-                    </PrivateRoute>
-                  }
-                />
+                  {/* Protected (Must be logged in, either customer or admin) */}
+                  <Route
+                    path="/profile"
+                    element={
+                      <PrivateRoute>
+                        <ProfilePage />
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/checkout"
+                    element={
+                      <PrivateRoute>
+                        <CheckoutPage />
+                      </PrivateRoute>
+                    }
+                  />
 
-                {/* Admin-Only Routes (NESTED under PrivateRoute) */}
-                <Route
-                  path="/admin/dashboard"
-                  element={
-                    <PrivateRoute>
-                      <AdminRoute>
-                        <AdminDashboardSection />
-                      </AdminRoute>
-                    </PrivateRoute>
-                  }
-                />
-                <Route
-                  path="/admin/reports"
-                  element={
-                    <PrivateRoute>
-                      <AdminRoute>
-                        <ReportsSection />
-                      </AdminRoute>
-                    </PrivateRoute>
-                  }
-                />
-                <Route
-                  path="/admin/products"
-                  element={
-                    <PrivateRoute>
-                      <AdminRoute>
-                        <ProductsSection />
-                      </AdminRoute>
-                    </PrivateRoute>
-                  }
-                />
-                <Route
-                  path="/admin/users"
-                  element={
-                    <PrivateRoute>
-                      <AdminRoute>
-                        <UsersSection />
-                      </AdminRoute>
-                    </PrivateRoute>
-                  }
-                />
+                  {/* Admin-Only Routes (NESTED under PrivateRoute) */}
+                  <Route
+                    path="/admin/dashboard"
+                    element={
+                      <PrivateRoute>
+                        <AdminRoute>
+                          <AdminDashboardSection />
+                        </AdminRoute>
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/reports"
+                    element={
+                      <PrivateRoute>
+                        <AdminRoute>
+                          <ReportsSection />
+                        </AdminRoute>
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/products"
+                    element={
+                      <PrivateRoute>
+                        <AdminRoute>
+                          <ProductsSection />
+                        </AdminRoute>
+                      </PrivateRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/users"
+                    element={
+                      <PrivateRoute>
+                        <AdminRoute>
+                          <UsersSection />
+                        </AdminRoute>
+                      </PrivateRoute>
+                    }
+                  />
 
-                {/* Fallback for non-existing routes */}
-                <Route path="*" element={<div>404 Not Found</div>} />
-              </Routes>
+                  {/* Fallback for non-existing routes */}
+                  <Route path="*" element={<div>404 Not Found</div>} />
+                </Routes>
 
-              {/* Optionally hide the footer */}
-              <HideFooterOnPaths />
-            </Router>
-          </PersistGate>
-        </Provider>
-      </AuthProvider>
+                {/* Optionally hide the footer */}
+                <HideFooterOnPaths />
+              </Router>
+            </PersistGate>
+          </Provider>
+        </AuthProvider>
+      </NotificationProvider>
     </ThemeProvider>
   );
 };

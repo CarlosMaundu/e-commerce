@@ -10,6 +10,7 @@ import {
 
 // 1) Import your local placeholder image:
 import placeholderImage from '../images/placeholder.jpg';
+import { friendlyError } from '../utils/friendlyError';
 
 /**
  * Async thunk to fetch products with optional filters.
@@ -23,7 +24,7 @@ export const fetchProducts = createAsyncThunk(
       return products;
     } catch (error) {
       console.error('Error fetching products:', error.message);
-      return rejectWithValue(error.message);
+      return rejectWithValue(friendlyError(error));
     }
   }
 );
@@ -40,7 +41,7 @@ export const createProductThunk = createAsyncThunk(
       dispatch(fetchProducts({ limit: 10, offset: 0 }));
       return newProduct;
     } catch (error) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(friendlyError(error));
     }
   }
 );
@@ -57,7 +58,7 @@ export const updateProductThunk = createAsyncThunk(
       dispatch(fetchProducts({ limit: 10, offset: 0 }));
       return updatedProduct;
     } catch (error) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(friendlyError(error));
     }
   }
 );
@@ -74,7 +75,7 @@ export const deleteProductThunk = createAsyncThunk(
       dispatch(fetchProducts({ limit: 10, offset: 0 }));
       return id;
     } catch (error) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(friendlyError(error));
     }
   }
 );

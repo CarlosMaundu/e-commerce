@@ -33,6 +33,8 @@ import {
 } from '@mui/icons-material';
 
 import logo from '../../images/logo.png';
+import { useNotify } from '../../notification/NotificationProvider';
+import { MESSAGES } from '../../notification/messages';
 
 //
 // 1) Style the AppBar, Toolbar, and Logo
@@ -108,6 +110,7 @@ const SearchContainer = styled('div')(({ theme }) => ({
 
 const Header = () => {
   const { user, loading, logout } = useContext(AuthContext);
+  const notify = useNotify();
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuAnchor, setUserMenuAnchor] = useState(null);
@@ -159,8 +162,13 @@ const Header = () => {
     setUserMenuAnchor(null);
   };
 
-  const logoutClick = () => {
-    logout();
+  const logoutClick = async () => {
+    try {
+      await logout();
+      notify.info(MESSAGES.auth.signedOut);
+    } catch (error) {
+      notify.error(error);
+    }
     setUserMenuAnchor(null);
     navigate('/login');
   };

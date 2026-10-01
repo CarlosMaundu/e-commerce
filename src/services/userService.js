@@ -1,40 +1,31 @@
 // src/services/userService.js
+//
+// User *profiles* (name, avatar, role) live in the store API. Credentials live
+// in Firebase Auth only — the API's own password field is unused by this app,
+// so we store a random placeholder there and never send real passwords.
 import axios from 'axios';
 
 const API_URL = 'https://api.escuelajs.co/api/v1';
 
-/**
- * Fetch the profile of the currently logged-in user.
- * @param {string} accessToken - Bearer token for authorization.
- * @returns {Object} User profile data.
- */
-export const fetchUserProfile = async (accessToken) => {
-  const response = await axios.get(`${API_URL}/auth/profile`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-  return response.data;
-};
+export const DEFAULT_AVATAR_URL = 'https://i.imgur.com/kIaFC3J.png';
+export const USER_ROLES = ['customer', 'admin'];
 
-/**
- * Update an existing user profile.
- * @param {Object} data - User data to update.
- * @param {string} accessToken - Bearer token for authorization.
- * @returns {Object} Updated user data.
- */
-export const updateUserProfile = async (data, accessToken) => {
-  const { id, name, email, avatar, password } = data;
-  const payload = { name, email, avatar };
-  if (password && password.trim() !== '') {
-    payload.password = password;
+// The API requires 4+ letters/numbers; this value is never used to sign in.
+const placeholderPassword = () =>
+  `p${Math.random().toString(36).slice(2, 12)}${Date.now().toString(36)}`;
+
+const isUrl = (value) => /^https?:\/\/\S+$/i.test(value || '');
+
+/** Only send fields the API understands, in the shape it validates. */
+const toApiPayload = ({ name, email, avatar, role }) => {
+  const payload = {};
+  if (name !== undefined) payload.name = name.trim();
+  if (email !== undefined) payload.email = email.trim().toLowerCase();
+  if (avatar !== undefined) {
+    payload.avatar = isUrl(avatar) ? avatar : DEFAULT_AVATAR_URL;
   }
-  const response = await axios.put(`${API_URL}/users/${id}`, payload, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-  return response.data;
+  if (role !== undefined && USER_ROLES.includes(role)) payload.role = role;
+  return payload;
 };
 
 /**
@@ -44,6 +35,16 @@ export const updateUserProfile = async (data, accessToken) => {
 export const getAllUsers = async () => {
   const response = await axios.get(`${API_URL}/users`);
   return response.data;
+};
+
+/**
+ * Find a user profile by email (case-insensitive).
+ * @returns {Object|undefined}
+ */
+export const getUserByEmail = async (email) => {
+  const target = (email || '').trim().toLowerCase();
+  const users = await getAllUsers();
+  return users.find((u) => (u.email || '').toLowerCase() === target);
 };
 
 /**
@@ -57,25 +58,40 @@ export const getUserById = async (id) => {
 };
 
 /**
- * Create a new user.
- * @param {Object} userData - New user details.
+ * Create a user profile.
+ * @param {{name: string, email: string, avatar?: string, role?: string}} userData
  * @returns {Object} Created user data.
  */
 export const createUser = async (userData) => {
-  const response = await axios.post(`${API_URL}/users/`, userData);
+  const payload = {
+    role: 'customer',
+    ...toApiPayload({ avatar: DEFAULT_AVATAR_URL, ...userData }),
+    password: placeholderPassword(),
+  };
+  const response = await axios.post(`${API_URL}/users/`, payload);
   return response.data;
 };
 
 /**
- * Update an existing user by ID.
+ * Update a user profile by ID. Passwords are managed by Firebase and are
+ * deliberately not sent.
  * @param {number} id - The user ID.
- * @param {Object} updateData - Data to update for the user.
+ * @param {{name?: string, email?: string, avatar?: string, role?: string}} updateData
  * @returns {Object} Updated user data.
  */
 export const updateUser = async (id, updateData) => {
-  const response = await axios.put(`${API_URL}/users/${id}`, updateData);
+  const response = await axios.put(
+    `${API_URL}/users/${id}`,
+    toApiPayload(updateData)
+  );
   return response.data;
 };
+
+/**
+ * Update the signed-in user's own profile. Role changes are not allowed here.
+ */
+export const updateUserProfile = async ({ id, name, email, avatar }) =>
+  updateUser(id, { name, email, avatar });
 
 /**
  * Check if an email is available.

@@ -9,6 +9,9 @@ import {
 
 // IMPORT my placeholder
 import placeholderImage from '../images/placeholder.jpg';
+import { friendlyError } from '../utils/friendlyError';
+
+export const NOT_FOUND = 'NOT_FOUND';
 
 /**
  * Async thunk to fetch all categories.
@@ -20,7 +23,7 @@ export const fetchCategories = createAsyncThunk(
       const categories = await fetchCategoriesAPI();
       return categories;
     } catch (error) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(friendlyError(error));
     }
   }
 );
@@ -37,7 +40,7 @@ export const createCategoryThunk = createAsyncThunk(
       dispatch(fetchCategories()); // Refresh categories list
       return newCategory;
     } catch (error) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(friendlyError(error));
     }
   }
 );
@@ -54,7 +57,7 @@ export const updateCategoryThunk = createAsyncThunk(
       dispatch(fetchCategories()); // Refresh categories list
       return updatedCategory;
     } catch (error) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(friendlyError(error));
     }
   }
 );
@@ -71,7 +74,8 @@ export const deleteCategoryThunk = createAsyncThunk(
       dispatch(fetchCategories()); // Refresh categories list
       return id;
     } catch (error) {
-      return rejectWithValue(error.message);
+      if (error.response?.status === 404) return rejectWithValue(NOT_FOUND);
+      return rejectWithValue(friendlyError(error));
     }
   }
 );

@@ -1,6 +1,8 @@
 // src/redux/fileSlice.js
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { uploadFile } from '../services/fileService';
+import { friendlyError } from '../utils/friendlyError';
+import { MESSAGES } from '../notification/messages';
 
 /**
  * uploadFileThunk with optional onProgress callback for tracking.
@@ -13,7 +15,7 @@ export const uploadFileThunk = createAsyncThunk(
       const fileData = await uploadFile(file, onProgress);
       return fileData;
     } catch (error) {
-      return rejectWithValue(error.message || 'File upload failed');
+      return rejectWithValue(friendlyError(error, MESSAGES.file.uploadFailed));
     }
   }
 );

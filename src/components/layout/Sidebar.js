@@ -35,11 +35,14 @@ import {
 } from 'react-icons/fi';
 import { AuthContext } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useNotify } from '../../notification/NotificationProvider';
+import { MESSAGES } from '../../notification/messages';
 
 const defaultAvatarUrl = 'https://i.imgur.com/kIaFC3J.png';
 
 const Sidebar = ({ activeSection, setActiveSection }) => {
   const { user, loading, logout } = useContext(AuthContext);
+  const notify = useNotify();
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -116,8 +119,13 @@ const Sidebar = ({ activeSection, setActiveSection }) => {
   };
 
   // Function to handle Logout
-  const logoutClick = () => {
-    logout();
+  const logoutClick = async () => {
+    try {
+      await logout();
+      notify.info(MESSAGES.auth.signedOut);
+    } catch (error) {
+      notify.error(error);
+    }
     navigate('/login');
   };
 

@@ -28,7 +28,8 @@ import {
   fetchProducts,
 } from '../../redux/productsSlice';
 import { fetchCategories } from '../../redux/categoriesSlice';
-import Notification from '../../notification/notification';
+import { useNotify } from '../../notification/NotificationProvider';
+import { MESSAGES } from '../../notification/messages';
 import RoundedToggleSwitch from '../common/RoundedToggleSwitch';
 import { uploadFileThunk } from '../../redux/fileSlice';
 import placeholderImage from '../../images/placeholder.jpg';
@@ -137,11 +138,7 @@ const ManageProductTab = ({
   const [mainImageIndex, setMainImageIndex] = useState(-1);
 
   const [errors, setErrors] = useState({});
-  const [notification, setNotification] = useState({
-    open: false,
-    message: '',
-    severity: '',
-  });
+  const notify = useNotify();
 
   // fetch categories on mount
   useEffect(() => {
@@ -239,11 +236,7 @@ const ManageProductTab = ({
 
     // limit 6
     if (formData.images.length >= 6) {
-      setNotification({
-        open: true,
-        message: 'Maximum of 6 images allowed.',
-        severity: 'warning',
-      });
+      notify.warning(MESSAGES.product.maxImages);
       return;
     }
 
@@ -289,11 +282,7 @@ const ManageProductTab = ({
       setTimeout(() => {
         setUploading(false);
       }, 1200);
-      setNotification({
-        open: true,
-        message: `File upload failed: ${error}`,
-        severity: 'error',
-      });
+      notify.error(error, MESSAGES.file.uploadFailed);
     }
   };
 
@@ -309,11 +298,7 @@ const ManageProductTab = ({
   const handleMainImageLoad = () => setMainImageLoading(false);
 
   const handleSaveDraft = () => {
-    setNotification({
-      open: true,
-      message: 'Draft saved (no validation).',
-      severity: 'info',
-    });
+    notify.info(MESSAGES.product.draftSaved);
   };
 
   const handleSaveProduct = async (e) => {
@@ -350,27 +335,15 @@ const ManageProductTab = ({
         await dispatch(
           updateProductThunk({ id: editProductId, updateData: productData })
         ).unwrap();
-        setNotification({
-          open: true,
-          message: 'Product updated successfully.',
-          severity: 'success',
-        });
+        notify.success(MESSAGES.product.updated);
       } else {
         await dispatch(createProductThunk(productData)).unwrap();
-        setNotification({
-          open: true,
-          message: 'Product created successfully.',
-          severity: 'success',
-        });
+        notify.success(MESSAGES.product.created);
       }
       dispatch(fetchProducts({ limit: 10, offset: 0 }));
       handleCancel();
     } catch (err) {
-      setNotification({
-        open: true,
-        message: `Action failed: ${err}`,
-        severity: 'error',
-      });
+      notify.error(err, MESSAGES.product.saveFailed);
     }
   };
 
@@ -394,10 +367,6 @@ const ManageProductTab = ({
     setStartDate(null);
     setEndDate(null);
     navigateToManageProduct();
-  };
-
-  const handleNotificationClose = () => {
-    setNotification((prev) => ({ ...prev, open: false }));
   };
 
   return (
@@ -1056,13 +1025,6 @@ const ManageProductTab = ({
           </form>
         </CardContent>
       </Card>
-
-      <Notification
-        open={notification.open}
-        onClose={handleNotificationClose}
-        severity={notification.severity}
-        message={notification.message}
-      />
     </Box>
   );
 };

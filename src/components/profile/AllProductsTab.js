@@ -33,7 +33,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { fetchProducts, deleteProductThunk } from '../../redux/productsSlice';
 import { fetchCategories } from '../../redux/categoriesSlice';
 import ConfirmationDialog from '../common/ConfirmationDialog';
-import Notification from '../../notification/notification';
+import { useNotify } from '../../notification/NotificationProvider';
+import { MESSAGES } from '../../notification/messages';
 import ViewProductModal from '../common/ViewProductModal';
 import placeholderImage from '../../images/placeholder.jpg';
 
@@ -61,11 +62,7 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [confirmationOpen, setConfirmationOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [notification, setNotification] = useState({
-    open: false,
-    message: '',
-    severity: '',
-  });
+  const notify = useNotify();
 
   // View modal states
   const [viewOpen, setViewOpen] = useState(false);
@@ -166,18 +163,10 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
       await Promise.all(
         selectedProducts.map((id) => dispatch(deleteProductThunk(id)).unwrap())
       );
-      setNotification({
-        open: true,
-        message: 'Selected products deleted successfully.',
-        severity: 'success',
-      });
+      notify.success(MESSAGES.product.deleted);
       setSelectedProducts([]);
     } catch (err) {
-      setNotification({
-        open: true,
-        message: `Failed to delete some products: ${err}`,
-        severity: 'error',
-      });
+      notify.error(err, MESSAGES.product.deleteFailed);
     } finally {
       setIsDeleting(false);
       setConfirmationOpen(false);
@@ -205,10 +194,6 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
   const handleRowsPerPageChange = (e) => {
     setRowsPerPage(Number(e.target.value));
     setCurrentPage(1);
-  };
-
-  const handleNotificationClose = () => {
-    setNotification((prev) => ({ ...prev, open: false }));
   };
 
   // Bulk selection logic
@@ -730,14 +715,6 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
           navigateToManageProduct(p);
           setViewOpen(false);
         }}
-      />
-
-      {/* Notification */}
-      <Notification
-        open={notification.open}
-        onClose={handleNotificationClose}
-        severity={notification.severity}
-        message={notification.message}
       />
     </Box>
   );

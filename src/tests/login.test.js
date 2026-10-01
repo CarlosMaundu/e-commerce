@@ -1,176 +1,106 @@
-// src/tests/signup.test.js
+// src/tests/login.test.js
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import SignupPage from '../pages/SignupPage';
-import { AuthContext } from '../context/AuthContext';
+import { screen, fireEvent, waitFor } from '@testing-library/react';
+import LoginPage from '../pages/LoginPage';
+import { renderWithProviders } from '../test-utils';
 
-// Create mocks for AuthContext functions
-const mockSignUp = jest.fn();
-const mockSignInWithGoogle = jest.fn();
-const mockSendSignInLink = jest.fn();
-
-// Create a dummy navigate function
 const mockNavigate = jest.fn();
-
-// Mock react-router-dom hooks for navigation
 jest.mock('react-router-dom', () => {
   const actual = jest.requireActual('react-router-dom');
-  return {
-    ...actual,
-    useNavigate: () => mockNavigate,
-  };
+  return { ...actual, useNavigate: () => mockNavigate };
 });
 
-const renderWithProviders = (ui) => {
-  return render(
-    <AuthContext.Provider
-      value={{
-        signUp: mockSignUp,
-        signInWithGoogle: mockSignInWithGoogle,
-        sendSignInLink: mockSendSignInLink,
-      }}
-    >
-      <MemoryRouter initialEntries={['/register']}>
-        <Routes>
-          <Route path="/register" element={ui} />
-        </Routes>
-      </MemoryRouter>
-    </AuthContext.Provider>
-  );
+const firebaseError = (code) =>
+  Object.assign(new Error(`Firebase: Error (${code}).`), { code });
+
+const setup = (overrides = {}) => {
+  const auth = {
+    user: null,
+    signInWithGoogle: jest.fn(),
+    signInWithPassword: jest.fn(),
+    sendSignInLink: jest.fn(),
+    resetPassword: jest.fn(),
+    ...overrides,
+  };
+  renderWithProviders(<LoginPage />, {
+    route: '/login',
+    path: '/login',
+    authContextValue: auth,
+  });
+  return auth;
 };
 
-describe('SignupPage', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
+const fillAndSubmit = (email, password) => {
+  fireEvent.change(screen.getByLabelText(/email address/i), {
+    target: { value: email },
+  });
+  fireEvent.change(
+    screen.getByLabelText(
+      (content, el) => el.tagName === 'INPUT' && el.name === 'password'
+    ),
+    { target: { value: password } }
+  );
+  fireEvent.click(screen.getByRole('button', { name: /^sign in$/i }));
+};
+
+describe('LoginPage', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  test('signs in with email and password and redirects', async () => {
+    const auth = setup();
+    fillAndSubmit('jane@example.com', 'secret123');
+
+    await waitFor(() =>
+      expect(auth.signInWithPassword).toHaveBeenCalledWith(
+        'jane@example.com',
+        'secret123'
+      )
+    );
+    expect(await screen.findByText(/you’re signed in/i)).toBeInTheDocument();
+    expect(mockNavigate).toHaveBeenCalledWith('/', { replace: true });
   });
 
-  test('renders sign up form', () => {
-    renderWithProviders(<SignupPage />);
-    expect(screen.getByLabelText(/first name/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/last name/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/email address/i)).toBeInTheDocument();
-
-    // Use custom predicate to target the password field by its name attribute
-    const passwordInput = screen.getByLabelText(
-      (content, element) =>
-        element.tagName.toLowerCase() === 'input' && element.name === 'password'
-    );
-    expect(passwordInput).toBeInTheDocument();
-
-    const confirmPasswordInput = screen.getByLabelText(
-      (content, element) =>
-        element.tagName.toLowerCase() === 'input' &&
-        element.name === 'confirmPassword'
-    );
-    expect(confirmPasswordInput).toBeInTheDocument();
+  test('shows a friendly message for wrong credentials, never the raw Firebase error', async () => {
+    setup({
+      signInWithPassword: jest
+        .fn()
+        .mockRejectedValue(firebaseError('auth/invalid-credential')),
+    });
+    fillAndSubmit('jane@example.com', 'wrong');
 
     expect(
-      screen.getByRole('button', { name: /create account/i })
+      await screen.findByText(
+        'The email or password is incorrect. Please try again.'
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/firebase/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/auth\//i)).not.toBeInTheDocument();
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  test('sends a password reset link', async () => {
+    const auth = setup({ resetPassword: jest.fn().mockResolvedValue() });
+    fireEvent.click(screen.getByText(/forgot password\?/i));
+    fireEvent.change(screen.getByLabelText(/email address/i), {
+      target: { value: 'jane@example.com' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /send reset link/i }));
+
+    await waitFor(() =>
+      expect(auth.resetPassword).toHaveBeenCalledWith('jane@example.com')
+    );
+    expect(
+      await screen.findByText(/we’ve sent a password reset link/i)
     ).toBeInTheDocument();
   });
 
-  test('allows user to sign up with email and password', async () => {
-    renderWithProviders(<SignupPage />);
-
-    fireEvent.change(screen.getByLabelText(/first name/i), {
-      target: { value: 'John' },
+  test('shows a friendly message when too many attempts are made', async () => {
+    setup({
+      signInWithPassword: jest
+        .fn()
+        .mockRejectedValue(firebaseError('auth/too-many-requests')),
     });
-    fireEvent.change(screen.getByLabelText(/last name/i), {
-      target: { value: 'Doe' },
-    });
-    fireEvent.change(screen.getByLabelText(/email address/i), {
-      target: { value: 'test@example.com' },
-    });
-
-    const passwordInput = screen.getByLabelText(
-      (content, element) =>
-        element.tagName.toLowerCase() === 'input' && element.name === 'password'
-    );
-    const confirmPasswordInput = screen.getByLabelText(
-      (content, element) =>
-        element.tagName.toLowerCase() === 'input' &&
-        element.name === 'confirmPassword'
-    );
-
-    fireEvent.change(passwordInput, { target: { value: 'password123' } });
-    fireEvent.change(confirmPasswordInput, {
-      target: { value: 'password123' },
-    });
-
-    fireEvent.click(
-      screen.getByRole('checkbox', {
-        name: /i accept the terms and conditions/i,
-      })
-    );
-    fireEvent.click(screen.getByRole('button', { name: /create account/i }));
-
-    await waitFor(() => {
-      expect(mockSignUp).toHaveBeenCalledWith({
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'test@example.com',
-        password: 'password123',
-      });
-    });
-  });
-
-  test('shows error message on sign up failure', async () => {
-    mockSignUp.mockRejectedValueOnce(new Error('Sign up failed'));
-    renderWithProviders(<SignupPage />);
-
-    fireEvent.change(screen.getByLabelText(/first name/i), {
-      target: { value: 'John' },
-    });
-    fireEvent.change(screen.getByLabelText(/last name/i), {
-      target: { value: 'Doe' },
-    });
-    fireEvent.change(screen.getByLabelText(/email address/i), {
-      target: { value: 'test@example.com' },
-    });
-
-    const passwordInput = screen.getByLabelText(
-      (content, element) =>
-        element.tagName.toLowerCase() === 'input' && element.name === 'password'
-    );
-    const confirmPasswordInput = screen.getByLabelText(
-      (content, element) =>
-        element.tagName.toLowerCase() === 'input' &&
-        element.name === 'confirmPassword'
-    );
-
-    fireEvent.change(passwordInput, { target: { value: 'password123' } });
-    fireEvent.change(confirmPasswordInput, {
-      target: { value: 'password123' },
-    });
-
-    fireEvent.click(
-      screen.getByRole('checkbox', {
-        name: /i accept the terms and conditions/i,
-      })
-    );
-    fireEvent.click(screen.getByRole('button', { name: /create account/i }));
-
-    await waitFor(() => {
-      expect(screen.getByText(/sign up failed/i)).toBeInTheDocument();
-    });
-  });
-
-  test('allows user to sign up with Google', async () => {
-    renderWithProviders(<SignupPage />);
-    fireEvent.click(
-      screen.getByRole('button', { name: /sign up with google/i })
-    );
-    await waitFor(() => {
-      expect(mockSignInWithGoogle).toHaveBeenCalled();
-    });
-  });
-
-  test('navigates to login page', () => {
-    renderWithProviders(<SignupPage />);
-    fireEvent.click(
-      screen.getByRole('button', { name: /already have an account\? sign in/i })
-    );
-    expect(mockNavigate).toHaveBeenCalledWith('/login');
+    fillAndSubmit('jane@example.com', 'whatever');
+    expect(await screen.findByText(/too many attempts/i)).toBeInTheDocument();
   });
 });

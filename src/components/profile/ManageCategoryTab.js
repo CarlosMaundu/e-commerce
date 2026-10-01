@@ -37,10 +37,12 @@ import {
   updateCategoryThunk,
   deleteCategoryThunk,
   fetchCategories,
+  NOT_FOUND,
 } from '../../redux/categoriesSlice';
 import { uploadFileThunk } from '../../redux/fileSlice';
 import ConfirmationDialog from '../common/ConfirmationDialog';
-import Notification from '../../notification/notification';
+import { useNotify } from '../../notification/NotificationProvider';
+import { MESSAGES } from '../../notification/messages';
 import placeholderImage from '../../images/placeholder.jpg';
 
 const tableHeaderStyle = {
@@ -96,11 +98,7 @@ const ManageCategoryTab = ({
 
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [confirmationOpen, setConfirmationOpen] = useState(false);
-  const [notification, setNotification] = useState({
-    open: false,
-    message: '',
-    severity: '',
-  });
+  const notify = useNotify();
 
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -121,7 +119,6 @@ const ManageCategoryTab = ({
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    setNotification((prev) => ({ ...prev, open: false }));
   };
 
   // Add subcategory field
@@ -146,19 +143,11 @@ const ManageCategoryTab = ({
     e.preventDefault();
     // Basic validations
     if (!formData.name.trim()) {
-      setNotification({
-        open: true,
-        message: 'Category name is required.',
-        severity: 'error',
-      });
+      notify.warning(MESSAGES.category.nameRequired);
       return;
     }
     if (!formData.imageUrl.trim()) {
-      setNotification({
-        open: true,
-        message: 'Category image is required. Please upload an image.',
-        severity: 'error',
-      });
+      notify.warning(MESSAGES.category.imageRequired);
       return;
     }
 
@@ -174,18 +163,10 @@ const ManageCategoryTab = ({
         await dispatch(
           updateCategoryThunk({ id: editCategoryId, updateData: categoryData })
         ).unwrap();
-        setNotification({
-          open: true,
-          message: 'Category updated successfully.',
-          severity: 'success',
-        });
+        notify.success(MESSAGES.category.updated);
       } else {
         await dispatch(createCategoryThunk(categoryData)).unwrap();
-        setNotification({
-          open: true,
-          message: 'Category created successfully.',
-          severity: 'success',
-        });
+        notify.success(MESSAGES.category.created);
       }
       dispatch(fetchCategories());
       // Reset form
@@ -194,11 +175,7 @@ const ManageCategoryTab = ({
       setEditCategoryId(null);
       setUploadedFileDetails(null);
     } catch (err) {
-      setNotification({
-        open: true,
-        message: `Action failed: ${err}`,
-        severity: 'error',
-      });
+      notify.error(err, MESSAGES.category.saveFailed);
     }
   };
 
@@ -207,7 +184,7 @@ const ManageCategoryTab = ({
     setFormData({ name: '', subcategories: [''], imageUrl: '' });
     setIsEditMode(false);
     setEditCategoryId(null);
-    setNotification({ open: false, message: '', severity: '' });
+    notify.close();
     setUploadedFileDetails(null);
   };
 
@@ -268,27 +245,15 @@ const ManageCategoryTab = ({
           dispatch(deleteCategoryThunk(id)).unwrap()
         )
       );
-      setNotification({
-        open: true,
-        message: 'Selected categories deleted successfully.',
-        severity: 'success',
-      });
+      notify.success(MESSAGES.category.deleted);
       setSelectedCategories([]);
       dispatch(fetchCategories());
     } catch (err) {
-      if (err && err.includes('404')) {
-        setNotification({
-          open: true,
-          message: `One or more categories not found (404). Refreshing list.`,
-          severity: 'error',
-        });
+      if (err === NOT_FOUND) {
+        notify.warning(MESSAGES.category.notFound);
         dispatch(fetchCategories());
       } else {
-        setNotification({
-          open: true,
-          message: `Failed to delete categories: ${err}`,
-          severity: 'error',
-        });
+        notify.error(err, MESSAGES.category.deleteFailed);
       }
     } finally {
       setIsDeleting(false);
@@ -330,11 +295,7 @@ const ManageCategoryTab = ({
         fileSize: `${(file.size / 1024).toFixed(2)} KB`,
         status: 'File Successfully Uploaded',
       });
-      setNotification({
-        open: true,
-        message: 'File uploaded successfully.',
-        severity: 'success',
-      });
+      notify.success(MESSAGES.file.uploaded);
     } catch (error) {
       setUploadError(true);
       setUploadedFileDetails({
@@ -342,18 +303,10 @@ const ManageCategoryTab = ({
         fileSize: `${(file.size / 1024).toFixed(2)} KB`,
         status: 'File Failed to Upload',
       });
-      setNotification({
-        open: true,
-        message: `File upload failed: ${error}`,
-        severity: 'error',
-      });
+      notify.error(error, MESSAGES.file.uploadFailed);
     } finally {
       setUploading(false);
     }
-  };
-
-  const handleNotificationClose = () => {
-    setNotification((prev) => ({ ...prev, open: false }));
   };
 
   // Pagination
@@ -859,14 +812,6 @@ const ManageCategoryTab = ({
         onConfirm={handleConfirmDelete}
         onCancel={handleCancelDelete}
         loading={isDeleting}
-      />
-
-      {/* Notification */}
-      <Notification
-        open={notification.open}
-        onClose={handleNotificationClose}
-        severity={notification.severity}
-        message={notification.message}
       />
     </Box>
   );

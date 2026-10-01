@@ -23,7 +23,8 @@ import {
   createPaymentIntent,
   confirmPaymentIntent,
 } from '../services/paymentsService';
-import Notification from '../notification/notification';
+import { useNotify } from '../notification/NotificationProvider';
+import { MESSAGES } from '../notification/messages';
 
 import { loadStripe } from '@stripe/stripe-js';
 import {
@@ -35,7 +36,9 @@ import {
 
 import { clearCart } from '../redux/cartSlice';
 
-const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY);
+const stripeKey = process.env.REACT_APP_STRIPE_PUBLISHABLE_KEY;
+// Without a key loadStripe() rejects on import; Elements accepts null instead.
+const stripePromise = stripeKey ? loadStripe(stripeKey) : null;
 
 const CheckoutForm = () => {
   const navigate = useNavigate();
@@ -66,18 +69,10 @@ const CheckoutForm = () => {
   const [errors, setErrors] = useState({});
 
   // Notification state
-  const [notification, setNotification] = useState({
-    open: false,
-    message: '',
-    severity: '',
-  });
+  const notify = useNotify();
 
   const stripe = useStripe();
   const elements = useElements();
-
-  const handleNotificationClose = () => {
-    setNotification((prev) => ({ ...prev, open: false }));
-  };
 
   // Validate inputs (no card validation needed manually, Stripe handles it)
   const validateInputs = () => {
@@ -117,11 +112,7 @@ const CheckoutForm = () => {
       );
 
       if (!stripe || !elements) {
-        setNotification({
-          open: true,
-          message: 'Stripe is not loaded yet. Please try again.',
-          severity: 'error',
-        });
+        notify.error(MESSAGES.checkout.paymentsUnavailable);
         return;
       }
 
@@ -159,30 +150,18 @@ const CheckoutForm = () => {
         dispatch(clearCart());
 
         // Show success notification
-        setNotification({
-          open: true,
-          message: 'Payment successful!',
-          severity: 'success',
-        });
+        notify.success(MESSAGES.checkout.paymentSucceeded);
 
         // Redirect to the user's orders after a short delay
         setTimeout(() => {
           navigate('/profile?section=orders');
         }, 2000);
       } else {
-        setNotification({
-          open: true,
-          message: 'Payment failed, please try again.',
-          severity: 'error',
-        });
+        notify.error(MESSAGES.checkout.paymentFailed);
       }
     } catch (error) {
       console.error('Error processing payment:', error);
-      setNotification({
-        open: true,
-        message: `Payment error: ${error.message}`,
-        severity: 'error',
-      });
+      notify.error(error, MESSAGES.checkout.paymentFailed);
     }
   };
 
@@ -534,14 +513,6 @@ const CheckoutForm = () => {
           </Box>
         </Grid>
       </Grid>
-
-      {/* Notification Component */}
-      <Notification
-        open={notification.open}
-        onClose={handleNotificationClose}
-        severity={notification.severity}
-        message={notification.message}
-      />
     </Box>
   );
 };

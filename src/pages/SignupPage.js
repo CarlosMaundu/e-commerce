@@ -14,8 +14,6 @@ import {
   FormControlLabel,
   Paper,
   Fade,
-  Snackbar,
-  Alert,
   Link,
 } from '@mui/material';
 import { styled } from '@mui/system';
@@ -25,7 +23,8 @@ import { AiOutlineEye, AiOutlineEyeInvisible } from 'react-icons/ai';
 import * as Yup from 'yup';
 import { useFormik } from 'formik';
 import { useNavigate } from 'react-router-dom';
-import { friendlyError } from '../utils/friendlyError';
+import { useNotify } from '../notification/NotificationProvider';
+import { MESSAGES } from '../notification/messages';
 
 const StyledContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
@@ -70,11 +69,7 @@ const SignupPage = () => {
   const [showEmailLinkForm, setShowEmailLinkForm] = useState(false);
   const [showMainForm, setShowMainForm] = useState(true);
   const [acceptTerms, setAcceptTerms] = useState(false);
-  const [notification, setNotification] = useState({
-    open: false,
-    severity: '',
-    message: '',
-  });
+  const notify = useNotify();
 
   const formik = useFormik({
     initialValues: {
@@ -103,20 +98,10 @@ const SignupPage = () => {
           email: values.email,
           password: values.password,
         });
-        setNotification({
-          open: true,
-          severity: 'success',
-          message: 'Registration successful! Redirecting...',
-        });
-        setTimeout(() => {
-          window.location.href = '/';
-        }, 1500);
+        notify.success(MESSAGES.auth.signedUp);
+        navigate('/', { replace: true });
       } catch (error) {
-        setNotification({
-          open: true,
-          severity: 'error',
-          message: friendlyError(error),
-        });
+        notify.error(error, MESSAGES.auth.signUpFailed);
       }
     },
   });
@@ -124,42 +109,27 @@ const SignupPage = () => {
   const handleGoogleSignUp = async () => {
     try {
       await signInWithGoogle();
-      setNotification({
-        open: true,
-        severity: 'success',
-        message: 'Signed up with Google! Redirecting...',
-      });
-      setTimeout(() => {
-        window.location.href = '/';
-      }, 1500);
+      notify.success(MESSAGES.auth.signedInGoogle);
+      navigate('/', { replace: true });
     } catch (error) {
-      setNotification({
-        open: true,
-        severity: 'error',
-        message: friendlyError(error),
-      });
+      notify.error(error, MESSAGES.auth.signUpFailed);
     }
   };
 
   const handleEmailLinkSubmit = async (e) => {
     e.preventDefault();
-    if (!formik.values.email) return;
+    if (!formik.values.email) {
+      notify.warning('Please enter your email address.');
+      return;
+    }
     try {
       await sendSignInLink(formik.values.email);
-      setNotification({
-        open: true,
-        severity: 'info',
-        message: `We sent a link to ${formik.values.email}. Check your inbox to complete sign-up.`,
-      });
+      notify.info(MESSAGES.auth.signInLinkSent(formik.values.email));
       formik.resetForm();
       setShowEmailLinkForm(false);
       setShowMainForm(true);
     } catch (error) {
-      setNotification({
-        open: true,
-        severity: 'error',
-        message: friendlyError(error),
-      });
+      notify.error(error, MESSAGES.auth.linkFailed);
     }
   };
 
@@ -437,9 +407,11 @@ const SignupPage = () => {
                   fullWidth
                   variant="contained"
                   sx={{ mt: 3 }}
-                  disabled={!acceptTerms || passwordStrength < 75}
+                  disabled={
+                    !acceptTerms || passwordStrength < 75 || formik.isSubmitting
+                  }
                 >
-                  Create Account
+                  {formik.isSubmitting ? 'Creating account…' : 'Create Account'}
                 </StyledButton>
 
                 <Button
@@ -496,21 +468,6 @@ const SignupPage = () => {
           )}
         </StyledPaper>
       </Fade>
-
-      <Snackbar
-        open={notification.open}
-        autoHideDuration={6000}
-        onClose={() => setNotification({ ...notification, open: false })}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert
-          onClose={() => setNotification({ ...notification, open: false })}
-          severity={notification.severity}
-          sx={{ width: '100%' }}
-        >
-          {notification.message}
-        </Alert>
-      </Snackbar>
     </StyledContainer>
   );
 };

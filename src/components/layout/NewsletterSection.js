@@ -5,15 +5,12 @@ import { Formik, Form, Field, ErrorMessage } from 'formik';
 import { Box, Typography, Button, TextField } from '@mui/material';
 import * as Yup from 'yup';
 import { addNewsletterSubscriber } from '../../services/newsletterService.js';
-import Notification from '../../notification/notification';
+import { useNotify } from '../../notification/NotificationProvider';
+import { MESSAGES } from '../../notification/messages';
 
 const NewsletterSection = () => {
   const [submitted, setSubmitted] = useState(false);
-  const [notification, setNotification] = useState({
-    open: false,
-    message: '',
-    severity: '',
-  });
+  const notify = useNotify();
 
   const initialValues = {
     email: '',
@@ -23,27 +20,15 @@ const NewsletterSection = () => {
     email: Yup.string().email('Invalid email address').required('Required'),
   });
 
-  const handleNotificationClose = () => {
-    setNotification({ ...notification, open: false });
-  };
-
   const handleSubmit = async (values, { setSubmitting, resetForm }) => {
     try {
       await addNewsletterSubscriber(values.email);
       setSubmitted(true);
       resetForm();
-      setNotification({
-        open: true,
-        message: 'You have successfully subscribed to our newsletter!',
-        severity: 'success',
-      });
+      notify.success(MESSAGES.newsletter.subscribed);
     } catch (error) {
       console.error('Error subscribing to newsletter:', error);
-      setNotification({
-        open: true,
-        message: 'Subscription failed. Please try again later.',
-        severity: 'error',
-      });
+      notify.error(MESSAGES.newsletter.failed);
     } finally {
       setSubmitting(false);
     }
@@ -197,14 +182,6 @@ const NewsletterSection = () => {
           </Typography>
         )}
       </Box>
-
-      {/* Notification Component */}
-      <Notification
-        open={notification.open}
-        onClose={handleNotificationClose}
-        severity={notification.severity}
-        message={notification.message}
-      />
     </Box>
   );
 };

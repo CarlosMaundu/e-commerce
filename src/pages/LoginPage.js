@@ -1,4 +1,4 @@
-// src/pages/WishlistPage.js
+// src/pages/LoginPage.js
 import React, { useContext, useState, useEffect } from 'react';
 import {
   Box,
@@ -9,8 +9,6 @@ import {
   IconButton,
   InputAdornment,
   Paper,
-  Alert,
-  Snackbar,
   Fade,
 } from '@mui/material';
 import { styled } from '@mui/system';
@@ -21,7 +19,8 @@ import { AuthContext } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import { friendlyError } from '../utils/friendlyError';
+import { useNotify } from '../notification/NotificationProvider';
+import { MESSAGES } from '../notification/messages';
 
 const StyledContainer = styled(Container)(({ theme }) => ({
   display: 'flex',
@@ -71,27 +70,15 @@ const LoginPage = () => {
   const [showEmailLinkForm, setShowEmailLinkForm] = useState(false);
   const [showMainForm, setShowMainForm] = useState(true);
   const [showForgotPasswordForm, setShowForgotPasswordForm] = useState(false);
-  const [notification, setNotification] = useState({
-    open: false,
-    severity: '',
-    message: '',
-  });
+  const notify = useNotify();
 
   const handleGoogleLogin = async () => {
     try {
       await signInWithGoogle();
-      setNotification({
-        open: true,
-        severity: 'success',
-        message: 'Logged in with Google successfully!',
-      });
+      notify.success(MESSAGES.auth.signedInGoogle);
       navigate(from, { replace: true });
     } catch (err) {
-      setNotification({
-        open: true,
-        severity: 'error',
-        message: friendlyError(err),
-      });
+      notify.error(err, MESSAGES.auth.signInFailed);
     }
   };
 
@@ -107,18 +94,10 @@ const LoginPage = () => {
     onSubmit: async (values) => {
       try {
         await signInWithPassword(values.email, values.password);
-        setNotification({
-          open: true,
-          severity: 'success',
-          message: 'Logged in successfully!',
-        });
+        notify.success(MESSAGES.auth.signedIn);
         navigate(from, { replace: true });
       } catch (error) {
-        setNotification({
-          open: true,
-          severity: 'error',
-          message: friendlyError(error),
-        });
+        notify.error(error, MESSAGES.auth.signInFailed);
       }
     },
   });
@@ -133,43 +112,30 @@ const LoginPage = () => {
     onSubmit: async (values) => {
       try {
         await resetPassword(values.email);
-        setNotification({
-          open: true,
-          severity: 'info',
-          message: `Password reset link sent to ${values.email}. Check your inbox.`,
-        });
+        notify.info(MESSAGES.auth.resetLinkSent(values.email));
         forgotPasswordFormik.resetForm();
         setShowForgotPasswordForm(false);
         setShowMainForm(true);
       } catch (error) {
-        setNotification({
-          open: true,
-          severity: 'error',
-          message: friendlyError(error),
-        });
+        notify.error(error, MESSAGES.auth.linkFailed);
       }
     },
   });
 
   const handleEmailLinkSubmit = async (e) => {
     e.preventDefault();
-    if (!loginFormik.values.email) return;
+    if (!loginFormik.values.email) {
+      notify.warning('Please enter your email address.');
+      return;
+    }
     try {
       await sendSignInLink(loginFormik.values.email);
-      setNotification({
-        open: true,
-        severity: 'info',
-        message: `We sent a link to ${loginFormik.values.email}. Check your inbox to complete sign-in.`,
-      });
+      notify.info(MESSAGES.auth.signInLinkSent(loginFormik.values.email));
       loginFormik.resetForm();
       setShowEmailLinkForm(false);
       setShowMainForm(true);
     } catch (error) {
-      setNotification({
-        open: true,
-        severity: 'error',
-        message: friendlyError(error),
-      });
+      notify.error(error, MESSAGES.auth.linkFailed);
     }
   };
 
@@ -300,8 +266,9 @@ const LoginPage = () => {
                   fullWidth
                   variant="contained"
                   sx={{ mt: 3 }}
+                  disabled={loginFormik.isSubmitting}
                 >
-                  Sign In
+                  {loginFormik.isSubmitting ? 'Signing in…' : 'Sign In'}
                 </StyledButton>
 
                 <Button
@@ -396,6 +363,7 @@ const LoginPage = () => {
                   variant="contained"
                   fullWidth
                   sx={{ mt: 2 }}
+                  disabled={forgotPasswordFormik.isSubmitting}
                 >
                   Send Reset Link
                 </StyledButton>
@@ -415,21 +383,6 @@ const LoginPage = () => {
           )}
         </StyledPaper>
       </Fade>
-
-      <Snackbar
-        open={notification.open}
-        autoHideDuration={6000}
-        onClose={() => setNotification({ ...notification, open: false })}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert
-          onClose={() => setNotification({ ...notification, open: false })}
-          severity={notification.severity}
-          sx={{ width: '100%' }}
-        >
-          {notification.message}
-        </Alert>
-      </Snackbar>
     </StyledContainer>
   );
 };

@@ -9,7 +9,8 @@ import React, {
 } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { updateUserProfile } from '../services/userService';
-import Notification from '../notification/notification';
+import { useNotify } from '../notification/NotificationProvider';
+import { MESSAGES } from '../notification/messages';
 import {
   Typography,
   Box,
@@ -61,7 +62,9 @@ const InvoicesSection = React.lazy(
 const defaultAvatarUrl = 'https://i.imgur.com/kIaFC3J.png';
 
 const ProfilePage = () => {
-  const { user, accessToken, loading, updateUser } = useContext(AuthContext);
+  const { user, loading, updateUser, changePassword } = useContext(AuthContext);
+  const notify = useNotify();
+  const [saving, setSaving] = useState(false);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -72,12 +75,6 @@ const ProfilePage = () => {
 
   const initialSection = searchParams.get('section') || 'profile';
   const [activeSection, setActiveSection] = useState(initialSection);
-
-  const [notification, setNotification] = useState({
-    open: false,
-    message: '',
-    severity: '',
-  });
 
   const [formData, setFormData] = useState({
     id: user?.id || '',
@@ -100,13 +97,9 @@ const ProfilePage = () => {
 
   useEffect(() => {
     if (!loading && !user) {
-      setNotification({
-        open: true,
-        message: 'You are not authenticated. Please login.',
-        severity: 'error',
-      });
+      notify.warning(MESSAGES.auth.sessionRequired);
     }
-  }, [user, loading]);
+  }, [user, loading, notify]);
 
   useEffect(() => {
     if (user) {
@@ -140,9 +133,15 @@ const ProfilePage = () => {
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
     }
-    if (formData.newPassword.trim()) {
+    if (formData.newPassword) {
+      if (!formData.currentPassword) {
+        newErrors.currentPassword = MESSAGES.profile.currentPasswordRequired;
+      }
+      if (formData.newPassword.length < 8) {
+        newErrors.newPassword = 'Use at least 8 characters.';
+      }
       if (formData.newPassword !== formData.confirmNewPassword) {
-        newErrors.confirmNewPassword = 'Passwords do not match';
+        newErrors.confirmNewPassword = MESSAGES.auth.passwordsDoNotMatch;
       }
     }
     setErrors(newErrors);
@@ -182,55 +181,58 @@ const ProfilePage = () => {
 
     const fullName =
       `${formData.firstName.trim()} ${formData.lastName.trim()}`.trim();
+    const wantsPasswordChange = formData.newPassword !== '';
 
-    const updateData = {
-      id: formData.id,
-      name: fullName,
-      email: formData.email,
-      avatar: formData.avatar,
-      address: formData.address,
-      password:
-        formData.newPassword.trim() !== '' ? formData.newPassword.trim() : '',
-    };
-
+    setSaving(true);
     try {
-      const updatedUser = await updateUserProfile(updateData, accessToken);
-      updateUser(updatedUser);
-      setNotification({
-        open: true,
-        message: 'Profile updated successfully.',
-        severity: 'success',
+      const updatedUser = await updateUserProfile({
+        id: formData.id,
+        name: fullName,
+        avatar: formData.avatar,
       });
-
-      if (formData.newPassword.trim() !== '') {
-        setFormData((prev) => ({
-          ...prev,
-          currentPassword: '',
-          newPassword: '',
-          confirmNewPassword: '',
-        }));
-      }
-      setShowPasswordFields(false);
+      updateUser(updatedUser);
     } catch (error) {
-      console.error('Failed to update profile:', error);
-      if (error.response && error.response.status === 401) {
-        setNotification({
-          open: true,
-          message: 'Profile cannot be modified, contact admin.',
-          severity: 'error',
-        });
-      } else {
-        setNotification({
-          open: true,
-          message: 'An error occurred. Please try again later.',
-          severity: 'error',
-        });
-      }
+      notify.error(error, MESSAGES.profile.updateFailed);
+      setSaving(false);
+      return;
     }
-  };
 
-  const handleNotificationClose = () => {
-    setNotification((prev) => ({ ...prev, open: false }));
+    if (wantsPasswordChange) {
+      try {
+        await changePassword(formData.currentPassword, formData.newPassword);
+      } catch (error) {
+        if (
+          error.code === 'auth/invalid-credential' ||
+          error.code === 'auth/wrong-password'
+        ) {
+          setErrors((prev) => ({
+            ...prev,
+            currentPassword: 'Your current password is incorrect.',
+          }));
+          notify.error(
+            'Your profile was saved, but your current password is incorrect, so your password wasn’t changed.'
+          );
+        } else {
+          notify.error(error, MESSAGES.profile.passwordChangeFailed);
+        }
+        setSaving(false);
+        return;
+      }
+      setFormData((prev) => ({
+        ...prev,
+        currentPassword: '',
+        newPassword: '',
+        confirmNewPassword: '',
+      }));
+    }
+
+    notify.success(
+      wantsPasswordChange
+        ? `${MESSAGES.profile.updated} ${MESSAGES.profile.passwordChanged}`
+        : MESSAGES.profile.updated
+    );
+    setShowPasswordFields(false);
+    setSaving(false);
   };
 
   const getHeadingTitle = () => {
@@ -289,6 +291,7 @@ const ProfilePage = () => {
                 handleChange={handleChange}
                 handleSubmit={handleSubmit}
                 handleCancel={handleCancel}
+                saving={saving}
                 setShowNewPassword={setShowNewPassword}
                 setShowConfirmNewPassword={setShowConfirmNewPassword}
                 defaultAvatarUrl={defaultAvatarUrl}
@@ -387,13 +390,6 @@ const ProfilePage = () => {
         </Box>
 
         {renderSectionContent()}
-
-        <Notification
-          open={notification.open}
-          onClose={handleNotificationClose}
-          severity={notification.severity}
-          message={notification.message}
-        />
       </Box>
     </Box>
   );
