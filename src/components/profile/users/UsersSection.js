@@ -40,11 +40,7 @@ import { AuthContext } from '../../../context/AuthContext';
 import { useNotify } from '../../../notification/NotificationProvider';
 import { MESSAGES } from '../../../notification/messages';
 import ConfirmationDialog from '../../common/ConfirmationDialog';
-import {
-  getAllUsers,
-  updateUser as updateUserInAPI,
-  USER_ROLES,
-} from '../../../services/userService';
+import { adminUsers, USER_ROLES } from '../../../api';
 
 const roleLabel = (role) =>
   role ? role.charAt(0).toUpperCase() + role.slice(1) : 'Customer';
@@ -198,7 +194,7 @@ const UsersSection = () => {
     setLoading(true);
     setLoadFailed(false);
     try {
-      const data = await getAllUsers();
+      const data = await adminUsers.list();
       setUsers([...data].sort((a, b) => b.id - a.id));
     } catch (error) {
       setLoadFailed(true);
@@ -245,7 +241,7 @@ const UsersSection = () => {
 
   const handleEdit = async (values) => {
     try {
-      const updated = await updateUserInAPI(editing.id, {
+      const updated = await adminUsers.update(editing.id, {
         name: values.name,
         role: editing.id === currentUser?.id ? undefined : values.role,
         avatar: values.avatar || undefined,

@@ -1,12 +1,7 @@
 // src/redux/productsSlice.js
 
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import {
-  getAllProducts,
-  createProduct,
-  updateProduct,
-  deleteProduct as deleteProductAPI,
-} from '../services/productsService';
+import { catalog, adminCatalog } from '../api';
 
 // 1) Import your local placeholder image:
 import placeholderImage from '../images/placeholder.jpg';
@@ -19,11 +14,8 @@ export const fetchProducts = createAsyncThunk(
   'products/fetchProducts',
   async (filters = {}, { rejectWithValue }) => {
     try {
-      const products = await getAllProducts(filters);
-      console.log('Fetched products with filters:', filters, products); // Debugging
-      return products;
+      return await catalog.getProducts(filters);
     } catch (error) {
-      console.error('Error fetching products:', error.message);
       return rejectWithValue(friendlyError(error));
     }
   }
@@ -36,7 +28,7 @@ export const createProductThunk = createAsyncThunk(
   'products/createProduct',
   async (productData, { dispatch, rejectWithValue }) => {
     try {
-      const newProduct = await createProduct(productData);
+      const newProduct = await adminCatalog.createProduct(productData);
       // Optionally, refetch products
       dispatch(fetchProducts({ limit: 10, offset: 0 }));
       return newProduct;
@@ -53,7 +45,7 @@ export const updateProductThunk = createAsyncThunk(
   'products/updateProduct',
   async ({ id, updateData }, { dispatch, rejectWithValue }) => {
     try {
-      const updatedProduct = await updateProduct(id, updateData);
+      const updatedProduct = await adminCatalog.updateProduct(id, updateData);
       // Optionally, refetch products
       dispatch(fetchProducts({ limit: 10, offset: 0 }));
       return updatedProduct;
@@ -70,7 +62,7 @@ export const deleteProductThunk = createAsyncThunk(
   'products/deleteProduct',
   async (id, { dispatch, rejectWithValue }) => {
     try {
-      await deleteProductAPI(id);
+      await adminCatalog.deleteProduct(id);
       // Optionally, refetch products
       dispatch(fetchProducts({ limit: 10, offset: 0 }));
       return id;

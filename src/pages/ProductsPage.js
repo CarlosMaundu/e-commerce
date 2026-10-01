@@ -22,7 +22,7 @@ import ProductsFilter from '../components/layout/ProductsFilter';
 import ShopByCategorySection from '../components/layout/ShopByCategorySection';
 
 import bannerVid from '../images/productspage.mp4';
-import { getAllProducts } from '../services/productsService'; // Import to fetch all products for total count
+import { catalog } from '../api';
 
 const ProductsPage = () => {
   const dispatch = useDispatch();
@@ -85,14 +85,13 @@ const ProductsPage = () => {
   useEffect(() => {
     (async () => {
       try {
-        const allData = await getAllProducts({
-          title: filters.search || '',
+        const total = await catalog.countProducts({
+          search: filters.search,
           categoryId: filters.categoryId || undefined,
           price_min: filters.price_min,
           price_max: filters.price_max,
-          // No limit/offset parameters to fetch all matching products
         });
-        setTotalProducts(allData.length);
+        setTotalProducts(total);
       } catch (err) {
         console.error('Failed to fetch all products for total count:', err);
       }
@@ -104,7 +103,7 @@ const ProductsPage = () => {
     const offset = (currentPage - 1) * productsPerPage;
 
     const apiFilters = {
-      title: filters.search || '',
+      search: filters.search,
       categoryId: filters.categoryId,
       price_min: filters.price_min,
       price_max: filters.price_max,

@@ -8,7 +8,7 @@ import React, {
   useMemo,
 } from 'react';
 import { AuthContext } from '../context/AuthContext';
-import { updateUserProfile } from '../services/userService';
+import { account } from '../api';
 import { useNotify } from '../notification/NotificationProvider';
 import { MESSAGES } from '../notification/messages';
 import {
@@ -185,7 +185,7 @@ const ProfilePage = () => {
 
     setSaving(true);
     try {
-      const updatedUser = await updateUserProfile({
+      const updatedUser = await account.updateProfile({
         id: formData.id,
         name: fullName,
         avatar: formData.avatar,

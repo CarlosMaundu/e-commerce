@@ -3,14 +3,13 @@ import React from 'react';
 import { screen, fireEvent, waitFor, within } from '@testing-library/react';
 import UsersSection from '../components/profile/users/UsersSection';
 import { renderWithProviders } from '../test-utils';
-import * as userService from '../services/userService';
+import { adminUsers } from '../api';
 
-jest.mock('../services/userService', () => {
-  const actual = jest.requireActual('../services/userService');
+jest.mock('../api', () => {
+  const actual = jest.requireActual('../api');
   return {
     ...actual,
-    getAllUsers: jest.fn(),
-    updateUser: jest.fn(),
+    adminUsers: { ...actual.adminUsers, list: jest.fn(), update: jest.fn() },
   };
 });
 
@@ -44,7 +43,7 @@ const setup = (overrides = {}) => {
 describe('UsersSection (admin user management)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    userService.getAllUsers.mockResolvedValue([admin, customer]);
+    adminUsers.list.mockResolvedValue([admin, customer]);
   });
 
   test('blocks non-admins', () => {
@@ -52,7 +51,7 @@ describe('UsersSection (admin user management)', () => {
     expect(
       screen.getByText(/don’t have permission to manage users/i)
     ).toBeInTheDocument();
-    expect(userService.getAllUsers).not.toHaveBeenCalled();
+    expect(adminUsers.list).not.toHaveBeenCalled();
   });
 
   test('lists and searches users', async () => {
@@ -124,7 +123,7 @@ describe('UsersSection (admin user management)', () => {
   });
 
   test('edits a user role', async () => {
-    userService.updateUser.mockResolvedValue({ ...customer, role: 'admin' });
+    adminUsers.update.mockResolvedValue({ ...customer, role: 'admin' });
     setup();
     await screen.findByText('cam@example.com');
     fireEvent.click(
@@ -138,7 +137,7 @@ describe('UsersSection (admin user management)', () => {
     );
 
     await waitFor(() =>
-      expect(userService.updateUser).toHaveBeenCalledWith(
+      expect(adminUsers.update).toHaveBeenCalledWith(
         2,
         expect.objectContaining({ role: 'admin', name: 'Cam Customer' })
       )

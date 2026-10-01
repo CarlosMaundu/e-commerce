@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
-import { getProductById } from '../services/productsService';
+import { catalog } from '../api';
 import { addItem } from '../redux/cartSlice';
 import Breadcrumb from '../components/common/Breadcrumb';
 
@@ -34,7 +34,7 @@ const ProductDetailsPage = () => {
   useEffect(() => {
     const loadProduct = async () => {
       try {
-        const data = await getProductById(id);
+        const data = await catalog.getProduct(id);
         setProduct(data);
         setSelectedImage(data.images[0]);
       } catch (error) {

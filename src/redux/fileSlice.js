@@ -1,6 +1,6 @@
 // src/redux/fileSlice.js
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { uploadFile } from '../services/fileService';
+import { adminCatalog } from '../api';
 import { friendlyError } from '../utils/friendlyError';
 import { MESSAGES } from '../notification/messages';
 
@@ -11,8 +11,7 @@ export const uploadFileThunk = createAsyncThunk(
   'files/uploadFile',
   async ({ file, onProgress }, { rejectWithValue }) => {
     try {
-      // The second argument to uploadFile can be onProgress for Axios
-      const fileData = await uploadFile(file, onProgress);
+      const fileData = await adminCatalog.uploadFile(file, onProgress);
       return fileData;
     } catch (error) {
       return rejectWithValue(friendlyError(error, MESSAGES.file.uploadFailed));

@@ -6,10 +6,15 @@ const ADMIN = { Authorization: 'Bearer owner' };
 async function call(path, options = {}) {
   const res = await fetch(`${HOST}${path}`, {
     ...options,
-    headers: { 'Content-Type': 'application/json', ...ADMIN, ...options.headers },
+    headers: {
+      'Content-Type': 'application/json',
+      ...ADMIN,
+      ...options.headers,
+    },
   });
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(`${path} -> ${res.status} ${JSON.stringify(body)}`);
+  if (!res.ok)
+    throw new Error(`${path} -> ${res.status} ${JSON.stringify(body)}`);
   return body;
 }
 
@@ -19,10 +24,18 @@ module.exports = {
     call(`/emulator/v1/projects/${PROJECT_ID}/accounts`, { method: 'DELETE' }),
 
   createAccount: (email, password, displayName) =>
-    call('/identitytoolkit.googleapis.com/v1/accounts:signUp?key=demo-api-key', {
-      method: 'POST',
-      body: JSON.stringify({ email, password, displayName, returnSecureToken: true }),
-    }),
+    call(
+      '/identitytoolkit.googleapis.com/v1/accounts:signUp?key=demo-api-key',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          email,
+          password,
+          displayName,
+          returnSecureToken: true,
+        }),
+      }
+    ),
 
   listAccounts: async () => {
     const body = await call(
@@ -38,7 +51,8 @@ module.exports = {
       `/emulator/v1/projects/${PROJECT_ID}/oobCodes`
     );
     const matches = oobCodes.filter(
-      (c) => c.email === email && (!requestType || c.requestType === requestType)
+      (c) =>
+        c.email === email && (!requestType || c.requestType === requestType)
     );
     return matches[matches.length - 1];
   },

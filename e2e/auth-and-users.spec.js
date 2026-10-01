@@ -92,7 +92,13 @@ test('forgot password: email link lets the user set a new password', async ({
   const page = await freshPage();
   const email = uniqueEmail('forgot');
   await emulator.createAccount(email, PASSWORD);
-  api.users.push({ id: 1, email, name: 'Forgot Me', role: 'customer', avatar: AVATAR });
+  api.users.push({
+    id: 1,
+    email,
+    name: 'Forgot Me',
+    role: 'customer',
+    avatar: AVATAR,
+  });
 
   await page.goto('/login');
   await page.getByText('Forgot Password?').click();
@@ -122,7 +128,13 @@ test('profile: password change goes to Firebase (old password stops working)', a
   const page = await freshPage();
   const email = uniqueEmail('changepw');
   await emulator.createAccount(email, PASSWORD);
-  api.users.push({ id: 2, email, name: 'Pat Change', role: 'customer', avatar: AVATAR });
+  api.users.push({
+    id: 2,
+    email,
+    name: 'Pat Change',
+    role: 'customer',
+    avatar: AVATAR,
+  });
 
   await login(page, email, PASSWORD);
   await expect(page.getByText('Hi, Pat Change')).toBeVisible();
@@ -153,7 +165,13 @@ test('profile: wrong current password is explained, profile still saved', async 
   const page = await freshPage();
   const email = uniqueEmail('badcurrent');
   await emulator.createAccount(email, PASSWORD);
-  api.users.push({ id: 3, email, name: 'Lee Wrong', role: 'customer', avatar: AVATAR });
+  api.users.push({
+    id: 3,
+    email,
+    name: 'Lee Wrong',
+    role: 'customer',
+    avatar: AVATAR,
+  });
 
   await login(page, email, PASSWORD);
   await expect(page.getByText('Hi, Lee Wrong')).toBeVisible();
@@ -164,7 +182,9 @@ test('profile: wrong current password is explained, profile still saved', async 
   await page.getByRole('button', { name: /save changes/i }).click();
 
   await expect(toast(page)).toContainText('current password is incorrect');
-  await expect(page.getByText('Your current password is incorrect.')).toBeVisible();
+  await expect(
+    page.getByText('Your current password is incorrect.')
+  ).toBeVisible();
   await expectNoRawErrors(page);
 });
 
@@ -174,7 +194,13 @@ test('email-link sign-in works on the web without Dynamic Links', async ({
 }) => {
   const page = await freshPage();
   const email = uniqueEmail('emaillink');
-  api.users.push({ id: 4, email, name: 'Link User', role: 'customer', avatar: AVATAR });
+  api.users.push({
+    id: 4,
+    email,
+    name: 'Link User',
+    role: 'customer',
+    avatar: AVATAR,
+  });
 
   await page.goto('/login');
   await page.getByRole('button', { name: /sign in with email link/i }).click();
@@ -231,7 +257,10 @@ test.describe('admin user management', () => {
     // Admin is still signed in as themselves.
     await expect(page.getByText('Ada Admin (you)')).toBeVisible();
 
-    expect(api.find(email)).toMatchObject({ name: 'New Hire', role: 'customer' });
+    expect(api.find(email)).toMatchObject({
+      name: 'New Hire',
+      role: 'customer',
+    });
     const accounts = await emulator.listAccounts();
     expect(accounts.map((a) => a.email)).toContain(email);
     const oob = await emulator.latestOobCode(email, 'PASSWORD_RESET');
@@ -257,7 +286,9 @@ test.describe('admin user management', () => {
     await dialog.getByLabel('Full name').fill('Dup');
     await dialog.getByLabel('Email').fill(adminEmail);
     await dialog.getByRole('button', { name: 'Add user' }).click();
-    await expect(toast(page)).toHaveText('A user with this email already exists.');
+    await expect(toast(page)).toHaveText(
+      'A user with this email already exists.'
+    );
   });
 
   test('admin can edit a user and change their role', async ({
@@ -265,7 +296,13 @@ test.describe('admin user management', () => {
     api,
   }) => {
     const email = uniqueEmail('editme');
-    api.users.push({ id: 11, email, name: 'Edit Me', role: 'customer', avatar: AVATAR });
+    api.users.push({
+      id: 11,
+      email,
+      name: 'Edit Me',
+      role: 'customer',
+      avatar: AVATAR,
+    });
     const page = await signInAsAdmin(freshPage, api);
 
     await page.getByRole('button', { name: `Edit ${email}` }).click();
@@ -279,7 +316,10 @@ test.describe('admin user management', () => {
     const row = page.getByTestId(`user-row-${email}`);
     await expect(row).toContainText('Edited Name');
     await expect(row).toContainText('Admin');
-    expect(api.find(email)).toMatchObject({ name: 'Edited Name', role: 'admin' });
+    expect(api.find(email)).toMatchObject({
+      name: 'Edited Name',
+      role: 'admin',
+    });
   });
 
   test('admin password reset works even for users with no login yet', async ({
@@ -287,20 +327,36 @@ test.describe('admin user management', () => {
     api,
   }) => {
     const email = uniqueEmail('nologin');
-    api.users.push({ id: 12, email, name: 'No Login', role: 'customer', avatar: AVATAR });
+    api.users.push({
+      id: 12,
+      email,
+      name: 'No Login',
+      role: 'customer',
+      avatar: AVATAR,
+    });
     const page = await signInAsAdmin(freshPage, api);
 
-    await page.getByRole('button', { name: `Reset password for ${email}` }).click();
+    await page
+      .getByRole('button', { name: `Reset password for ${email}` })
+      .click();
     await page.getByRole('button', { name: 'Send email' }).click();
 
-    await expect(toast(page)).toHaveText(`Password reset email sent to ${email}.`);
+    await expect(toast(page)).toHaveText(
+      `Password reset email sent to ${email}.`
+    );
     expect(await emulator.latestOobCode(email, 'PASSWORD_RESET')).toBeTruthy();
   });
 
   test('customers cannot reach admin pages', async ({ freshPage, api }) => {
     const email = uniqueEmail('customer');
     await emulator.createAccount(email, PASSWORD);
-    api.users.push({ id: 13, email, name: 'Cus Tomer', role: 'customer', avatar: AVATAR });
+    api.users.push({
+      id: 13,
+      email,
+      name: 'Cus Tomer',
+      role: 'customer',
+      avatar: AVATAR,
+    });
     const page = await freshPage();
     await login(page, email, PASSWORD);
     await expect(page.getByText('Hi, Cus Tomer')).toBeVisible();

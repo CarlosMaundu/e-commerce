@@ -92,6 +92,8 @@ export const MESSAGES = {
   newsletter: {
     subscribed: 'You’re subscribed to our newsletter.',
     failed: 'We couldn’t subscribe you right now. Please try again later.',
+    unavailable:
+      'Newsletter sign-up isn’t available yet. Please check back soon.',
   },
 };
 

@@ -38,8 +38,7 @@ import { MESSAGES } from '../../notification/messages';
 import ViewProductModal from '../common/ViewProductModal';
 import placeholderImage from '../../images/placeholder.jpg';
 
-// We'll call getAllProducts once to get the total item count
-import { getAllProducts } from '../../services/productsService';
+import { catalog } from '../../api';
 
 const AllProductsTab = ({ navigateToManageProduct }) => {
   const theme = useTheme();
@@ -76,17 +75,21 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
     dispatch(fetchCategories());
   }, [dispatch]);
 
-  // 1) Fetch total product count (without limit/offset)
+  // 1) Total matching products, for pagination
   useEffect(() => {
     (async () => {
       try {
-        const allData = await getAllProducts();
-        setTotalProducts(allData.length);
+        setTotalProducts(
+          await catalog.countProducts({
+            categoryId: filters.categoryId,
+            search: filters.search,
+          })
+        );
       } catch (err) {
-        console.error('Failed to fetch all products for total count:', err);
+        console.error('Failed to count products:', err);
       }
     })();
-  }, []);
+  }, [filters.categoryId, filters.search]);
 
   // 2) Fetch only the slice of products for the current page
   useEffect(() => {
@@ -96,19 +99,10 @@ const AllProductsTab = ({ navigateToManageProduct }) => {
     // "stock" or "priceSort" remain client-side
     const appliedFilters = {
       categoryId: filters.categoryId,
-      search: filters.search, // mapped to title
+      search: filters.search,
       limit: rowsPerPage,
       offset,
     };
-
-    console.log(
-      'Dispatching fetchProducts with offset:',
-      offset,
-      'limit:',
-      rowsPerPage,
-      'filters:',
-      appliedFilters
-    );
 
     dispatch(fetchProducts(appliedFilters));
   }, [dispatch, filters.categoryId, filters.search, currentPage, rowsPerPage]);

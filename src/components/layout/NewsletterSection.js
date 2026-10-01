@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Formik, Form, Field, ErrorMessage } from 'formik';
 import { Box, Typography, Button, TextField } from '@mui/material';
 import * as Yup from 'yup';
-import { addNewsletterSubscriber } from '../../services/newsletterService.js';
+import { newsletter } from '../../api';
 import { useNotify } from '../../notification/NotificationProvider';
 import { MESSAGES } from '../../notification/messages';
 
@@ -22,13 +22,12 @@ const NewsletterSection = () => {
 
   const handleSubmit = async (values, { setSubmitting, resetForm }) => {
     try {
-      await addNewsletterSubscriber(values.email);
+      await newsletter.subscribe(values.email);
       setSubmitted(true);
       resetForm();
       notify.success(MESSAGES.newsletter.subscribed);
     } catch (error) {
-      console.error('Error subscribing to newsletter:', error);
-      notify.error(MESSAGES.newsletter.failed);
+      notify.error(error, MESSAGES.newsletter.failed);
     } finally {
       setSubmitting(false);
     }

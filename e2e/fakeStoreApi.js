@@ -11,8 +11,10 @@ const isUrl = (v) => /^https?:\/\/\S+$/.test(v || '');
 function validate(body, { partial }) {
   const errors = [];
   const has = (k) => body[k] !== undefined;
-  if (!partial || has('email')) if (!isEmail(body.email)) errors.push('email must be an email');
-  if (!partial || has('name')) if (!body.name) errors.push('name should not be empty');
+  if (!partial || has('email'))
+    if (!isEmail(body.email)) errors.push('email must be an email');
+  if (!partial || has('name'))
+    if (!body.name) errors.push('name should not be empty');
   if (!partial || has('avatar')) {
     if (!body.avatar) errors.push('avatar should not be empty');
     if (!isUrl(body.avatar)) errors.push('avatar must be a URL address');
@@ -58,13 +60,18 @@ function createFakeStoreApi(seed = []) {
     const id = Number((pathPart.match(/^\/(\d+)$/) || [])[1]);
     const body = req.postDataJSON?.() || {};
 
-    if (method === 'GET' && !pathPart.replace('/', '')) return json(route, 200, users);
+    if (method === 'GET' && !pathPart.replace('/', ''))
+      return json(route, 200, users);
     if (method === 'GET' && id) {
       const u = users.find((x) => x.id === id);
-      return u ? json(route, 200, u) : badRequest(route, 'Could not find any entity');
+      return u
+        ? json(route, 200, u)
+        : badRequest(route, 'Could not find any entity');
     }
     if (method === 'POST' && pathPart === '/is-available') {
-      return json(route, 201, { isAvailable: !users.some((u) => u.email === body.email) });
+      return json(route, 201, {
+        isAvailable: !users.some((u) => u.email === body.email),
+      });
     }
     if (method === 'POST') {
       const errors = validate(body, { partial: false });

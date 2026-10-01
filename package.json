@@ -4,6 +4,7 @@
   "description": "E-commerce Web Application",
   "scripts": {
     "start": "react-scripts start",
+    "start:mock": "REACT_APP_DATA_SOURCE=mock react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test --watchAll=false --no-deprecation",
     "eject": "react-scripts eject",

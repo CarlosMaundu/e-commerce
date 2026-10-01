@@ -21,12 +21,7 @@ import { useNotify } from '../notification/NotificationProvider';
 import { MESSAGES } from '../notification/messages';
 import { UserFacingError } from '../utils/friendlyError';
 
-// Import required API service methods
-import {
-  createUser as createUserInAPI,
-  getUserByEmail,
-  DEFAULT_AVATAR_URL,
-} from '../services/userService';
+import { account, adminUsers } from '../api';
 
 export const AuthContext = createContext();
 
@@ -60,16 +55,13 @@ export const AuthProvider = ({ children }) => {
   // updateProfile() finishes, so it reads the name from here.
   const pendingNameRef = useRef(null);
 
-  // Find the user's profile in the API, creating it on first sign-in.
-  const syncProfile = async (fbUser) => {
-    const existing = await getUserByEmail(fbUser.email);
-    if (existing) return existing;
-    return createUserInAPI({
-      name: pendingNameRef.current || fbUser.displayName || 'New User',
+  // Load the user's store profile, created on first sign-in.
+  const syncProfile = (fbUser) =>
+    account.getProfile({
       email: fbUser.email,
-      avatar: fbUser.photoURL || DEFAULT_AVATAR_URL,
+      name: pendingNameRef.current || fbUser.displayName || 'New User',
+      avatar: fbUser.photoURL || undefined,
     });
-  };
 
   // Initialize Firebase Auth state change listener
   useEffect(() => {
@@ -230,13 +222,13 @@ export const AuthProvider = ({ children }) => {
   const adminCreateUser = async ({ name, email, role, avatar }) => {
     const cleanEmail = email.trim().toLowerCase();
     requireAuth();
-    if (await getUserByEmail(cleanEmail)) {
+    if (await adminUsers.findByEmail(cleanEmail)) {
       throw new UserFacingError(
         'A user with this email already exists.',
         'app/profile-exists'
       );
     }
-    const profile = await createUserInAPI({
+    const profile = await adminUsers.create({
       name,
       email: cleanEmail,
       role,
