@@ -25,7 +25,6 @@ import AdminDashboardSection from './components/profile/AdminDashboardSection';
 import ReportsSection from './components/profile/reports/ReportsSection';
 import ProductsSection from './components/profile/ProductsSection';
 import UsersSection from './components/profile/users/UsersSection';
-import FinishSignIn from './components/password/FinishSignIn';
 import ResetPassword from './components/password/ResetPassword';
 import InformationPage from './pages/InformationPage';
 import NotFoundPage from './pages/NotFoundPage';
@@ -95,7 +94,6 @@ const App = () => {
                   <Route path="/wishlist" element={<WishlistPage />} />
                   <Route path="/login" element={<LoginPage />} />
                   <Route path="/register" element={<SignupPage />} />
-                  <Route path="/finishSignIn" element={<FinishSignIn />} />
                   <Route path="/reset-password" element={<ResetPassword />} />
 
                   {/* Protected (Must be logged in, either customer or admin) */}
@@ -131,7 +129,7 @@ const App = () => {
                     path="/admin/reports"
                     element={
                       <PrivateRoute>
-                        <AdminRoute>
+                        <AdminRoute permissions={['orders.orders.view']}>
                           <ReportsSection />
                         </AdminRoute>
                       </PrivateRoute>
@@ -141,7 +139,7 @@ const App = () => {
                     path="/admin/products"
                     element={
                       <PrivateRoute>
-                        <AdminRoute>
+                        <AdminRoute prefix="catalog.">
                           <ProductsSection />
                         </AdminRoute>
                       </PrivateRoute>
@@ -151,7 +149,7 @@ const App = () => {
                     path="/admin/users"
                     element={
                       <PrivateRoute>
-                        <AdminRoute>
+                        <AdminRoute permissions={['admin.users.view']}>
                           <UsersSection />
                         </AdminRoute>
                       </PrivateRoute>

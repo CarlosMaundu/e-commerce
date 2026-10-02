@@ -12,7 +12,6 @@ import {
   Fade,
 } from '@mui/material';
 import { styled } from '@mui/system';
-import { FcGoogle } from 'react-icons/fc';
 import { MdEmail, MdLock } from 'react-icons/md';
 import { AiOutlineEye, AiOutlineEyeInvisible } from 'react-icons/ai';
 import { AuthContext } from '../context/AuthContext';
@@ -21,6 +20,8 @@ import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import { useNotify } from '../notification/NotificationProvider';
 import { MESSAGES } from '../notification/messages';
+import GoogleSignInButton from '../components/auth/GoogleSignInButton';
+import { GOOGLE_CLIENT_ID } from '../api/config';
 
 const StyledContainer = styled(Container)(({ theme }) => ({
   display: 'flex',
@@ -49,13 +50,8 @@ const StyledButton = styled(Button)(({ theme }) => ({
 }));
 
 const LoginPage = () => {
-  const {
-    user,
-    signInWithGoogle,
-    signInWithPassword,
-    sendSignInLink,
-    resetPassword,
-  } = useContext(AuthContext);
+  const { user, signInWithGoogle, signInWithPassword, resetPassword } =
+    useContext(AuthContext);
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from || '/';
@@ -67,14 +63,13 @@ const LoginPage = () => {
   }, [user, navigate, from]);
 
   const [showPassword, setShowPassword] = useState(false);
-  const [showEmailLinkForm, setShowEmailLinkForm] = useState(false);
   const [showMainForm, setShowMainForm] = useState(true);
   const [showForgotPasswordForm, setShowForgotPasswordForm] = useState(false);
   const notify = useNotify();
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleCredential = async (credential) => {
     try {
-      await signInWithGoogle();
+      await signInWithGoogle(credential);
       notify.success(MESSAGES.auth.signedInGoogle);
       navigate(from, { replace: true });
     } catch (err) {
@@ -122,23 +117,6 @@ const LoginPage = () => {
     },
   });
 
-  const handleEmailLinkSubmit = async (e) => {
-    e.preventDefault();
-    if (!loginFormik.values.email) {
-      notify.warning('Please enter your email address.');
-      return;
-    }
-    try {
-      await sendSignInLink(loginFormik.values.email);
-      notify.info(MESSAGES.auth.signInLinkSent(loginFormik.values.email));
-      loginFormik.resetForm();
-      setShowEmailLinkForm(false);
-      setShowMainForm(true);
-    } catch (error) {
-      notify.error(error, MESSAGES.auth.linkFailed);
-    }
-  };
-
   if (user) {
     return null;
   }
@@ -153,30 +131,19 @@ const LoginPage = () => {
 
           {showMainForm && (
             <>
-              <StyledButton
-                variant="outlined"
-                fullWidth
-                startIcon={<FcGoogle />}
-                onClick={handleGoogleLogin}
-              >
-                Sign in with Google
-              </StyledButton>
-
-              <StyledButton
-                variant="outlined"
-                fullWidth
-                startIcon={<MdEmail />}
-                onClick={() => {
-                  setShowEmailLinkForm(true);
-                  setShowMainForm(false);
-                }}
-              >
-                Sign in with Email Link
-              </StyledButton>
-
-              <Typography variant="body1" sx={{ my: 2 }}>
-                OR
-              </Typography>
+              {GOOGLE_CLIENT_ID && (
+                <>
+                  <GoogleSignInButton
+                    onCredential={handleGoogleCredential}
+                    onError={(error) =>
+                      notify.error(error, MESSAGES.auth.googleUnavailable)
+                    }
+                  />
+                  <Typography variant="body1" sx={{ my: 2 }}>
+                    OR
+                  </Typography>
+                </>
+              )}
 
               <Box
                 component="form"
@@ -280,48 +247,6 @@ const LoginPage = () => {
                 </Button>
               </Box>
             </>
-          )}
-
-          {showEmailLinkForm && (
-            <Box sx={{ width: '100%', mt: 2 }}>
-              <Typography variant="body1" sx={{ mb: 2 }}>
-                Enter your email, we'll send you a login link:
-              </Typography>
-              <TextField
-                fullWidth
-                label="Email Address"
-                name="email"
-                type="email"
-                value={loginFormik.values.email}
-                onChange={loginFormik.handleChange}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <MdEmail />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-              <StyledButton
-                variant="contained"
-                fullWidth
-                sx={{ mt: 2 }}
-                onClick={handleEmailLinkSubmit}
-              >
-                Send Login Link
-              </StyledButton>
-              <Button
-                onClick={() => {
-                  setShowEmailLinkForm(false);
-                  setShowMainForm(true);
-                }}
-                sx={{ mt: 2 }}
-                fullWidth
-                variant="text"
-              >
-                Back to Sign In with Password
-              </Button>
-            </Box>
           )}
 
           {showForgotPasswordForm && (

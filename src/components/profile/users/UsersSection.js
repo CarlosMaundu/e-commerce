@@ -40,10 +40,17 @@ import { AuthContext } from '../../../context/AuthContext';
 import { useNotify } from '../../../notification/NotificationProvider';
 import { MESSAGES } from '../../../notification/messages';
 import ConfirmationDialog from '../../common/ConfirmationDialog';
-import { adminUsers, USER_ROLES } from '../../../api';
+import { adminUsers } from '../../../api';
+import {
+  hasPermission,
+  PERMISSIONS,
+  roleLabel,
+} from '../../../auth/permissions';
 
-const roleLabel = (role) =>
-  role ? role.charAt(0).toUpperCase() + role.slice(1) : 'Customer';
+const STATUSES = [
+  { value: 'active', label: 'Active' },
+  { value: 'suspended', label: 'Suspended' },
+];
 
 const userSchema = Yup.object({
   name: Yup.string().trim().required('Please enter a name.'),
@@ -51,7 +58,7 @@ const userSchema = Yup.object({
     .trim()
     .email('Please enter a valid email address.')
     .required('Please enter an email address.'),
-  role: Yup.string().oneOf(USER_ROLES).required(),
+  role: Yup.string().required('Please choose a role.'),
   avatar: Yup.string()
     .trim()
     .url('Please enter a full image link starting with https://'),
@@ -62,6 +69,7 @@ const UserFormDialog = ({
   mode,
   initialValues,
   isSelf,
+  roles,
   onClose,
   onSubmit,
 }) => {
@@ -129,12 +137,33 @@ const UserFormDialog = ({
               disabled={isSelf}
               helperText={isSelf ? 'You can’t change your own role.' : ' '}
             >
-              {USER_ROLES.map((role) => (
-                <MenuItem key={role} value={role}>
-                  {roleLabel(role)}
+              {roles.map((role) => (
+                <MenuItem key={role.code} value={role.code}>
+                  {role.name}
                 </MenuItem>
               ))}
             </TextField>
+            {mode === 'edit' && (
+              <TextField
+                select
+                label="Status"
+                fullWidth
+                size="small"
+                {...field('status')}
+                disabled={isSelf}
+                helperText={
+                  isSelf
+                    ? 'You can’t suspend your own account.'
+                    : 'Suspended users are signed out and can’t sign in.'
+                }
+              >
+                {STATUSES.map((status) => (
+                  <MenuItem key={status.value} value={status.value}>
+                    {status.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
             <TextField
               label="Profile picture link (optional)"
               fullWidth
@@ -162,11 +191,22 @@ UserFormDialog.propTypes = {
   mode: PropTypes.oneOf(['create', 'edit']).isRequired,
   initialValues: PropTypes.object.isRequired,
   isSelf: PropTypes.bool,
+  roles: PropTypes.arrayOf(
+    PropTypes.shape({ code: PropTypes.string, name: PropTypes.string })
+  ).isRequired,
   onClose: PropTypes.func.isRequired,
   onSubmit: PropTypes.func.isRequired,
 };
 
-const EMPTY_FORM = { name: '', email: '', role: 'customer', avatar: '' };
+const EMPTY_FORM = {
+  name: '',
+  email: '',
+  role: 'customer',
+  status: 'active',
+  avatar: '',
+};
+
+const FALLBACK_ROLES = [{ code: 'customer', name: 'Customer' }];
 
 const UsersSection = () => {
   const {
@@ -178,6 +218,7 @@ const UsersSection = () => {
   const notify = useNotify();
 
   const [users, setUsers] = useState([]);
+  const [roles, setRoles] = useState(FALLBACK_ROLES);
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const [search, setSearch] = useState('');
@@ -194,8 +235,12 @@ const UsersSection = () => {
     setLoading(true);
     setLoadFailed(false);
     try {
-      const data = await adminUsers.list();
+      const [data, roleList] = await Promise.all([
+        adminUsers.list(),
+        adminUsers.listRoles().catch(() => FALLBACK_ROLES),
+      ]);
       setUsers([...data].sort((a, b) => b.id - a.id));
+      setRoles(roleList.length ? roleList : FALLBACK_ROLES);
     } catch (error) {
       setLoadFailed(true);
       notify.error(error, MESSAGES.users.loadFailed);
@@ -204,11 +249,18 @@ const UsersSection = () => {
     }
   }, [notify]);
 
-  const isAdmin = currentUser?.role === 'admin';
+  const canView = hasPermission(currentUser, PERMISSIONS.usersView);
+  const canCreate = hasPermission(currentUser, PERMISSIONS.usersCreate);
+  const canUpdate = hasPermission(currentUser, PERMISSIONS.usersUpdate);
+  const canReset = hasPermission(currentUser, PERMISSIONS.usersResetPassword);
+  // Only super admins may hand out (or see as an option) the super admin role.
+  const assignableRoles = roles.filter(
+    (r) => r.code !== 'super_admin' || currentUser?.role === 'super_admin'
+  );
 
   useEffect(() => {
-    if (isAdmin) loadUsers();
-  }, [isAdmin, loadUsers]);
+    if (canView) loadUsers();
+  }, [canView, loadUsers]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -244,6 +296,7 @@ const UsersSection = () => {
       const updated = await adminUsers.update(editing.id, {
         name: values.name,
         role: editing.id === currentUser?.id ? undefined : values.role,
+        status: editing.id === currentUser?.id ? undefined : values.status,
         avatar: values.avatar || undefined,
       });
       setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)));
@@ -261,10 +314,7 @@ const UsersSection = () => {
   const handleReset = async () => {
     setResetting(true);
     try {
-      await adminSendPasswordReset({
-        email: resetTarget.email,
-        name: resetTarget.name,
-      });
+      await adminSendPasswordReset(resetTarget);
       notify.success(MESSAGES.users.resetSent(resetTarget.email));
       setResetTarget(null);
     } catch (error) {
@@ -274,7 +324,7 @@ const UsersSection = () => {
     }
   };
 
-  if (!isAdmin) {
+  if (!canView) {
     return (
       <Typography color="text.secondary">
         You don’t have permission to manage users.
@@ -311,16 +361,18 @@ const UsersSection = () => {
               </IconButton>
             </span>
           </Tooltip>
-          <Button
-            variant="contained"
-            startIcon={<FiPlus />}
-            onClick={() => {
-              setEditing(null);
-              setFormMode('create');
-            }}
-          >
-            Add user
-          </Button>
+          {canCreate && (
+            <Button
+              variant="contained"
+              startIcon={<FiPlus />}
+              onClick={() => {
+                setEditing(null);
+                setFormMode('create');
+              }}
+            >
+              Add user
+            </Button>
+          )}
         </Stack>
       </Stack>
 
@@ -355,9 +407,9 @@ const UsersSection = () => {
           sx={{ minWidth: 160 }}
         >
           <MenuItem value="all">All roles</MenuItem>
-          {USER_ROLES.map((role) => (
-            <MenuItem key={role} value={role}>
-              {roleLabel(role)}
+          {roles.map((role) => (
+            <MenuItem key={role.code} value={role.code}>
+              {role.name}
             </MenuItem>
           ))}
         </TextField>
@@ -429,35 +481,46 @@ const UsersSection = () => {
                       </Stack>
                     </TableCell>
                     <TableCell>
-                      <Chip
-                        size="small"
-                        label={roleLabel(u.role)}
-                        color={u.role === 'admin' ? 'primary' : 'default'}
-                        variant={u.role === 'admin' ? 'filled' : 'outlined'}
-                      />
+                      <Stack direction="row" spacing={0.5}>
+                        <Chip
+                          size="small"
+                          label={roleLabel(u.role)}
+                          color={u.role !== 'customer' ? 'primary' : 'default'}
+                          variant={
+                            u.role !== 'customer' ? 'filled' : 'outlined'
+                          }
+                        />
+                        {u.status === 'suspended' && (
+                          <Chip size="small" color="error" label="Suspended" />
+                        )}
+                      </Stack>
                     </TableCell>
                     <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                      <Tooltip title="Edit">
-                        <IconButton
-                          size="small"
-                          aria-label={`Edit ${u.email}`}
-                          onClick={() => {
-                            setEditing(u);
-                            setFormMode('edit');
-                          }}
-                        >
-                          <FiEdit2 />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Send password reset email">
-                        <IconButton
-                          size="small"
-                          aria-label={`Reset password for ${u.email}`}
-                          onClick={() => setResetTarget(u)}
-                        >
-                          <FiKey />
-                        </IconButton>
-                      </Tooltip>
+                      {canUpdate && (
+                        <Tooltip title="Edit">
+                          <IconButton
+                            size="small"
+                            aria-label={`Edit ${u.email}`}
+                            onClick={() => {
+                              setEditing(u);
+                              setFormMode('edit');
+                            }}
+                          >
+                            <FiEdit2 />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      {canReset && (
+                        <Tooltip title="Send password reset email">
+                          <IconButton
+                            size="small"
+                            aria-label={`Reset password for ${u.email}`}
+                            onClick={() => setResetTarget(u)}
+                          >
+                            <FiKey />
+                          </IconButton>
+                        </Tooltip>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -482,12 +545,22 @@ const UsersSection = () => {
         open={formMode !== null}
         mode={formMode || 'create'}
         isSelf={formMode === 'edit' && editing?.id === currentUser?.id}
+        roles={
+          // Keep the user's current role selectable even if not assignable.
+          editing && !assignableRoles.some((r) => r.code === editing.role)
+            ? [
+                ...assignableRoles,
+                { code: editing.role, name: roleLabel(editing.role) },
+              ]
+            : assignableRoles
+        }
         initialValues={
           formMode === 'edit' && editing
             ? {
                 name: editing.name || '',
                 email: editing.email || '',
                 role: editing.role || 'customer',
+                status: editing.status || 'active',
                 avatar: editing.avatar || '',
               }
             : EMPTY_FORM

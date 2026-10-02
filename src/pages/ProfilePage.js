@@ -9,6 +9,7 @@ import React, {
 } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { account } from '../api';
+import { isStaff } from '../auth/permissions';
 import { useNotify } from '../notification/NotificationProvider';
 import { MESSAGES } from '../notification/messages';
 import {
@@ -238,7 +239,7 @@ const ProfilePage = () => {
   const getHeadingTitle = () => {
     switch (activeSection) {
       case 'dashboard':
-        return user && user.role === 'admin' ? 'Admin Dashboard' : 'Dashboard';
+        return isStaff(user) ? 'Admin Dashboard' : 'Dashboard';
       case 'profile':
         return 'Profile';
       case 'orders':
@@ -272,7 +273,7 @@ const ProfilePage = () => {
     >
       {(() => {
         if (activeSection === 'dashboard') {
-          return user?.role === 'admin' ? (
+          return isStaff(user) ? (
             <AdminDashboardSection />
           ) : (
             <CustomerDashboardSection />

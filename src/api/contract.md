@@ -1,121 +1,118 @@
 # Carlos Shop API contract
 
-The frontend talks to the backend only through `src/api`. This file is the
-contract the backend must implement. It follows the **OpenCart REST API**
-collection (storefront) and the Project Management portal's admin API
-(`/admin/*`), with the changes listed under *Deviations*.
-
-`src/api/mock/fakeBackend.js` implements this contract in the browser
-(`REACT_APP_DATA_SOURCE=mock`), and `src/tests/apiContract.test.js` checks it.
-When the backend changes the contract, update all three.
+The frontend talks to the backend only through `src/api`. The backend in
+`backend/` implements this contract; its integration tests
+(`backend/tests/`) check it. Storefront routes follow the **OpenCart REST
+API** collection; admin routes follow the Project Management portal's admin
+API. Deviations are listed at the end. Update this file, the backend and its
+tests together.
 
 ## Conventions
 
 | Item | Rule |
 |---|---|
-| Base URL | `REACT_APP_API_BASE_URL` (default `/api`). Storefront routes under `/rest`, admin routes under `/admin`. |
-| Auth | `Authorization: Bearer <Firebase ID token>` when signed in. The backend verifies it with the Firebase Admin SDK. No static API key. |
+| Base URL | `REACT_APP_API_BASE_URL` (default `/api`, same origin). Storefront under `/rest`, admin under `/admin`. |
+| Access token | Returned by sign-in, register and refresh as `access_token` (JWT, 15 min). Sent as `Authorization: Bearer …`. The browser keeps it **in memory only**. |
+| Refresh token | httpOnly cookie `cs_refresh`, `Path=/api/rest`, `SameSite=Lax`, `Secure` in production. Rotated on every refresh. |
+| CSRF | Cookie-authenticated routes (`/rest/refresh`, `/rest/logout`) require `X-Requested-With: XMLHttpRequest`. CORS only allows configured origins. |
+| Sessions | Each sign-in creates a session row. Access tokens carry its id, so logout, password changes and suspension take effect immediately. |
 | Locale | `X-Oc-Currency` (e.g. `USD`), `X-Oc-Merchant-Language` (e.g. `en-gb`). |
 | Envelope | Every response: `{ "success": 1 \| 0, "error": string[], "data": any }`. |
-| Errors | HTTP status plus `success: 0`. `error[]` holds **user-facing sentences** (they are shown as-is). A `success: 0` with HTTP 200 is still a failure. Optional `field_errors: { [field]: message }`. |
-| Status codes | 400 validation, 401 not signed in, 403 not allowed, 404 not found, 409 conflict, 413 file too large, 5xx server. |
-| Pagination | `limit` and 1-based `page`. List responses set `X-Total-Count`. |
-| Dates | ISO 8601 UTC strings. |
+| Errors | HTTP status plus `success: 0`. `error[]` holds **user-facing sentences** shown as-is; `field_errors: { [field]: message }` for forms. |
+| Status codes | 400 validation, 401 not signed in / session ended, 403 not allowed / suspended, 404, 409 conflict, 413 file too large, 423 locked after failed sign-ins, 429 rate limited, 5xx. |
+| Pagination | `limit` and 1-based `page`; lists set `X-Total-Count`. |
+| Dates | ISO 8601 UTC. |
 
-## Resources
+## Sign-in and sessions (`/rest`)
 
-### Product (`/rest/products`)
+| Route | Body | Notes |
+|---|---|---|
+| `POST /rest/register` | `{ firstname, lastname, email, password }` | 201 → session payload. 409 if the email exists. Password: 8+ chars, upper, lower, number or symbol. |
+| `POST /rest/login` | `{ email, password, remember_me? }` | Session payload. Same 401 for unknown email and wrong password. 5 failures → 423 for 15 minutes. |
+| `POST /rest/sociallogin` | `{ provider: "google", id_token }` | ID token from Google Identity Services, verified server-side. Creates a customer, or links Google to an existing account with the same verified email. |
+| `POST /rest/refresh` | — (cookie) | New session payload, rotated cookie. 401 when signed out. |
+| `POST /rest/logout` | — (cookie) | Revokes the session, clears the cookie. |
+| `POST /rest/forgotten` | `{ email }` | Always `{ sent: true }`; emails a reset link if the account exists. |
+| `GET /rest/reset-password?token=` | — | `{ valid, purpose: "reset" \| "setup", email }` or 400. |
+| `POST /rest/reset-password` | `{ token, password }` | Single use. Signs out all sessions. Also used for first-time setup links. |
+
+Session payload: `{ access_token, expires_in, user }` where `user` is the
+account shape below with `permissions`.
+
+## Account (`/rest/account`), signed-in user
+
+`{ customer_id, firstname, lastname, email, role, permissions[], avatar, status, has_password, date_added }`
+
+| Route | Notes |
+|---|---|
+| `GET /rest/account` | Current user with permissions. |
+| `PUT /rest/account` | `firstname`, `lastname`, `avatar`. Email is fixed. |
+| `PUT /rest/account/password` | `{ current_password, password }`. Signs out other devices. Google-only accounts get 400 with guidance to use "Forgot password". |
+
+## Catalog
+
+Product:
 
 ```json
 {
-  "product_id": 2,
-  "name": "Denim jacket",
-  "description": "…",
-  "price": 79.0,
-  "special": 59.0,            // sale price or null
-  "image": "https://…",       // main image
-  "images": ["https://…"],
+  "product_id": 2, "name": "Denim jacket", "description": "…",
+  "price": 79.0, "special": 59.0,
+  "image": "/uploads/x.png", "images": ["/uploads/x.png"],
   "category": [{ "category_id": 2, "name": "Men" }],
-  "quantity": 25,              // 0 = out of stock
-  "rating": 4,
-  "reviews": 12,
-  "manufacturer": "Brand",
+  "quantity": 25, "rating": 4, "reviews": 12, "manufacturer": "Brand",
   "options": { "sizes": ["M"], "colors": ["Navy"] },
-  "date_added": "2026-09-12T09:00:00Z",
-  "date_modified": "2026-09-12T09:00:00Z"
+  "date_added": "…", "date_modified": "…"
 }
 ```
 
 | Route | Notes |
 |---|---|
-| `GET /rest/products` | Query: `search`, `category` (includes subcategories), `price_min`, `price_max`, `limit`, `page`. Returns `Product[]` and `X-Total-Count`. |
+| `GET /rest/products` | `search`, `category` (includes subcategories), `price_min`, `price_max` (sale price counts), `limit`, `page`. |
 | `GET /rest/products/{id}` | 404 `"Product not found."` |
+| `GET /rest/categories` | Tree: `{ category_id, name, image, parent_id, categories[] }`. |
+| `GET /rest/categories/{id}` | One category with children. |
+| `PUT /rest/newsletter/subscribe` | `{ email }`; signed-in users may omit it. |
 
-### Category (`/rest/categories`)
+## Admin (`/admin`), by permission
 
-`{ category_id, name, image, parent_id, categories: Category[] }`
+Permission codes: `module.resource.action`; `*` = everything. Roles:
+`super_admin` (`*`), `admin` (all but `admin.roles.manage`), `catalog_manager`
+(`catalog.*`), `order_manager` (`orders.*`), `support`
+(`admin.users.view`, `orders.orders.view`), `customer` (none).
 
-| Route | Notes |
-|---|---|
-| `GET /rest/categories` | Top-level categories with nested `categories`. |
-| `GET /rest/categories/{id}` | One category with its children. |
+| Route | Permission | Notes |
+|---|---|---|
+| `POST /admin/products` | `catalog.products.create` | All validation problems reported at once. `special` must be below `price`. Images: `/uploads/…` or https links, max 6. |
+| `PUT /admin/products/{id}` | `catalog.products.update` | Partial. |
+| `DELETE /admin/products/{id}` | `catalog.products.delete` | |
+| `POST /admin/categories` | `catalog.categories.create` | `{ name, image, subcategories: string[] }` |
+| `PUT /admin/categories/{id}` | `catalog.categories.update` | Removing a subcategory that has products → 409. |
+| `DELETE /admin/categories/{id}` | `catalog.categories.delete` | 409 if it or its children have products. |
+| `POST /admin/files` | `catalog.files.upload` | multipart `file`; JPG/PNG/WebP/GIF ≤ 5 MB → `{ url: "/uploads/…" }`. |
+| `GET /admin/roles` | `admin.users.view` | `{ code, name, description, is_system, user_count }[]` |
+| `GET /admin/users` | `admin.users.view` | `email`, `search`, `limit`, `page`. |
+| `POST /admin/users` | `admin.users.create` | `{ firstname, lastname, email, role, avatar }`. Emails a setup link. Only super admins create super admins. |
+| `PUT /admin/users/{id}` | `admin.users.update` | `firstname`, `lastname`, `avatar`, `role`, `status` (`active` \| `suspended`). No changing your own role or status; only super admins touch super admins; suspension signs the user out. |
+| `POST /admin/users/{id}/reset-password` | `admin.users.reset_password` | Emails a reset link, or a setup link if the user has no password. |
 
-### Account (`/rest/account`), signed-in user only
-
-`{ customer_id, firstname, lastname, email, role, avatar, status, date_added }`
-
-| Route | Notes |
-|---|---|
-| `GET /rest/account` | 404 if the user has no profile yet. |
-| `POST /rest/account` | Creates the caller's profile: `{ firstname, lastname, avatar }`. Email comes from the token. 409 if it exists. |
-| `PUT /rest/account` | Updates `firstname`, `lastname`, `avatar`. Email and password are owned by Firebase Auth. |
-
-### Newsletter
-
-| Route | Notes |
-|---|---|
-| `PUT /rest/newsletter/subscribe` | Body `{ email }` (guests); signed-in users may omit it. 400 for an invalid email. |
-
-### Admin catalog (role `admin` or `super_admin`)
-
-| Route | Body / notes |
-|---|---|
-| `POST /admin/products` | `{ name, description, price, special, quantity, category_id, images[], options }`. 400 lists every validation problem. |
-| `PUT /admin/products/{id}` | Partial update, same fields. |
-| `DELETE /admin/products/{id}` | |
-| `POST /admin/categories` | `{ name, image, subcategories: string[] }` |
-| `PUT /admin/categories/{id}` | Partial; `subcategories` replaces the children. |
-| `DELETE /admin/categories/{id}` | 409 if it or its children still have products. |
-| `POST /admin/files` | `multipart/form-data` with `file`. Returns `{ url, filename, size }`. 413 over 5 MB. |
-
-### Admin users (role `admin` or `super_admin`)
-
-| Route | Notes |
-|---|---|
-| `GET /admin/users` | Optional `email` filter. Returns customers (profile shape above). |
-| `POST /admin/users` | `{ firstname, lastname, email, role, avatar }`. 409 on a duplicate email. The frontend then creates the Firebase login and sends the password-setup email. |
-| `PUT /admin/users/{id}` | `firstname`, `lastname`, `avatar`, `role`. 403 `"You can’t change your own role."` |
-
-Planned next (phase 2): `PUT /admin/users/{id}/status`, `/admin/roles`,
-`/admin/permissions/by-module`, following the portal's admin API.
+All admin writes are recorded in `audit_logs`.
 
 ## Deviations from the OpenCart collection
 
-1. **No `X-Oc-Merchant-Id`.** A key shipped in a browser app is public; the
-   Firebase ID token identifies the caller instead.
-2. **No `/login`, `/register`, `/logout`, `/forgotten`, `/sociallogin`.**
-   Firebase Auth handles credentials in the browser.
-3. **`X-Oc-Session` is not used yet.** Guest carts will use a Firebase
-   anonymous sign-in (phase 3).
-4. **Extensions:** `price_min`/`price_max` on product lists, the
-   `X-Total-Count` header, `email` in the newsletter body, `POST /rest/account`,
-   `options` on products, and all `/admin/*` routes.
-5. The collection documents request bodies but its sample responses are empty
-   placeholders; the response shapes above are defined by us.
+1. **No `X-Oc-Merchant-Id` key.** A key in a browser app is public; signed-in
+   users send their access token instead.
+2. **`/rest/sociallogin` takes a Google ID token** (`id_token`), not a
+   provider access token, and only Google is supported.
+3. **Extensions:** `/rest/refresh`, `GET`/`POST /rest/reset-password`,
+   `current_password` on password change, `price_min`/`price_max`,
+   `X-Total-Count`, `email` in the newsletter body, product `options`, and
+   all `/admin/*` routes.
+4. **`X-Oc-Session` (guest carts) is not implemented yet** (phase 3).
+5. The collection's sample responses are empty; the shapes above are ours.
 
-## How the frontend maps fields
+## Field mapping in the frontend
 
-`src/api/remote/mappers.js` converts contract fields to the names screens
-already use, e.g. `product_id → id`, `name → title`, `special → specialPrice`
-(+ `discountPercentage`), `date_added → creationAt`,
-`firstname + lastname → name`.
+`src/api/mappers.js` converts to the names screens use: `product_id → id`,
+`name → title`, `special → specialPrice` (+ `discountPercentage`),
+`date_added → creationAt`, `firstname + lastname → name`,
+`has_password → hasPassword`.

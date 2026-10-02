@@ -9,7 +9,6 @@ import { NotificationProvider } from './notification/NotificationProvider';
 const defaultAuthContextValue = {
   signInWithGoogle: jest.fn(),
   signInWithPassword: jest.fn(),
-  sendSignInLink: jest.fn(),
   resetPassword: jest.fn(),
   signUp: jest.fn(),
   logout: jest.fn(),

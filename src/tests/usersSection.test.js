@@ -9,7 +9,12 @@ jest.mock('../api', () => {
   const actual = jest.requireActual('../api');
   return {
     ...actual,
-    adminUsers: { ...actual.adminUsers, list: jest.fn(), update: jest.fn() },
+    adminUsers: {
+      ...actual.adminUsers,
+      list: jest.fn(),
+      update: jest.fn(),
+      listRoles: jest.fn(),
+    },
   };
 });
 
@@ -18,6 +23,12 @@ const admin = {
   name: 'Ada Admin',
   email: 'ada@example.com',
   role: 'admin',
+  permissions: [
+    'admin.users.view',
+    'admin.users.create',
+    'admin.users.update',
+    'admin.users.reset_password',
+  ],
   avatar: '',
 };
 const customer = {
@@ -44,6 +55,11 @@ describe('UsersSection (admin user management)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     adminUsers.list.mockResolvedValue([admin, customer]);
+    adminUsers.listRoles.mockResolvedValue([
+      { code: 'customer', name: 'Customer' },
+      { code: 'admin', name: 'Admin' },
+      { code: 'super_admin', name: 'Super admin' },
+    ]);
   });
 
   test('blocks non-admins', () => {
@@ -130,7 +146,9 @@ describe('UsersSection (admin user management)', () => {
       screen.getByRole('button', { name: /edit cam@example.com/i })
     );
     const dialog = await screen.findByRole('dialog');
-    fireEvent.mouseDown(within(dialog).getByRole('combobox'));
+    fireEvent.mouseDown(
+      within(dialog).getByRole('combobox', { name: /role/i })
+    );
     fireEvent.click(await screen.findByRole('option', { name: 'Admin' }));
     fireEvent.click(
       within(dialog).getByRole('button', { name: /save changes/i })
@@ -158,13 +176,37 @@ describe('UsersSection (admin user management)', () => {
     fireEvent.click(await screen.findByRole('button', { name: /send email/i }));
 
     await waitFor(() =>
-      expect(auth.adminSendPasswordReset).toHaveBeenCalledWith({
-        email: 'cam@example.com',
-        name: 'Cam Customer',
-      })
+      expect(auth.adminSendPasswordReset).toHaveBeenCalledWith(customer)
     );
     expect(
       await screen.findByText('Password reset email sent to cam@example.com.')
     ).toBeInTheDocument();
+  });
+
+  test('hides actions the user has no permission for', async () => {
+    setup({ user: { ...admin, permissions: ['admin.users.view'] } });
+    expect(await screen.findByText('cam@example.com')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /add user/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /edit cam@example.com/i })
+    ).not.toBeInTheDocument();
+  });
+
+  test('only super admins are offered the super admin role', async () => {
+    setup();
+    await screen.findByText('cam@example.com');
+    fireEvent.click(screen.getByRole('button', { name: /add user/i }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.mouseDown(
+      within(dialog).getByRole('combobox', { name: /role/i })
+    );
+    expect(
+      await screen.findByRole('option', { name: 'Admin' })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('option', { name: 'Super admin' })
+    ).not.toBeInTheDocument();
   });
 });

@@ -197,14 +197,10 @@ describe('SignupPage', () => {
     expect(screen.queryByText(/firebase/i)).not.toBeInTheDocument();
   });
 
-  test('allows user to sign up with Google', async () => {
+  test('hides Google sign-up when no Google client ID is configured', () => {
     renderWithProviders(<SignupPage />);
-    fireEvent.click(
-      screen.getByRole('button', { name: /sign up with google/i })
-    );
-    await waitFor(() => {
-      expect(mockSignInWithGoogle).toHaveBeenCalled();
-    });
+    expect(screen.queryByTestId('google-signin')).not.toBeInTheDocument();
+    expect(screen.queryByText(/^OR$/)).not.toBeInTheDocument();
   });
 
   test('navigates to login page', () => {

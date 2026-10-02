@@ -17,7 +17,6 @@ import {
   Link,
 } from '@mui/material';
 import { styled } from '@mui/system';
-import { FcGoogle } from 'react-icons/fc';
 import { MdEmail, MdPerson, MdLock } from 'react-icons/md';
 import { AiOutlineEye, AiOutlineEyeInvisible } from 'react-icons/ai';
 import * as Yup from 'yup';
@@ -25,6 +24,8 @@ import { useFormik } from 'formik';
 import { useNavigate } from 'react-router-dom';
 import { useNotify } from '../notification/NotificationProvider';
 import { MESSAGES } from '../notification/messages';
+import GoogleSignInButton from '../components/auth/GoogleSignInButton';
+import { GOOGLE_CLIENT_ID } from '../api/config';
 
 const StyledContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
@@ -54,8 +55,7 @@ const StyledButton = styled(Button)(({ theme }) => ({
 }));
 
 const SignupPage = () => {
-  const { signUp, signInWithGoogle, sendSignInLink, user } =
-    useContext(AuthContext);
+  const { signUp, signInWithGoogle, user } = useContext(AuthContext);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -66,8 +66,6 @@ const SignupPage = () => {
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [showEmailLinkForm, setShowEmailLinkForm] = useState(false);
-  const [showMainForm, setShowMainForm] = useState(true);
   const [acceptTerms, setAcceptTerms] = useState(false);
   const notify = useNotify();
 
@@ -106,30 +104,13 @@ const SignupPage = () => {
     },
   });
 
-  const handleGoogleSignUp = async () => {
+  const handleGoogleCredential = async (credential) => {
     try {
-      await signInWithGoogle();
+      await signInWithGoogle(credential);
       notify.success(MESSAGES.auth.signedInGoogle);
       navigate('/', { replace: true });
     } catch (error) {
       notify.error(error, MESSAGES.auth.signUpFailed);
-    }
-  };
-
-  const handleEmailLinkSubmit = async (e) => {
-    e.preventDefault();
-    if (!formik.values.email) {
-      notify.warning('Please enter your email address.');
-      return;
-    }
-    try {
-      await sendSignInLink(formik.values.email);
-      notify.info(MESSAGES.auth.signInLinkSent(formik.values.email));
-      formik.resetForm();
-      setShowEmailLinkForm(false);
-      setShowMainForm(true);
-    } catch (error) {
-      notify.error(error, MESSAGES.auth.linkFailed);
     }
   };
 
@@ -181,158 +162,101 @@ const SignupPage = () => {
             Create Account
           </Typography>
 
-          {showMainForm && (
-            <>
-              <StyledButton
-                variant="outlined"
-                fullWidth
-                startIcon={<FcGoogle />}
-                onClick={handleGoogleSignUp}
-              >
-                Sign up with Google
-              </StyledButton>
+          <>
+            {GOOGLE_CLIENT_ID && (
+              <>
+                <GoogleSignInButton
+                  text="signup_with"
+                  onCredential={handleGoogleCredential}
+                  onError={(error) =>
+                    notify.error(error, MESSAGES.auth.googleUnavailable)
+                  }
+                />
+                <Typography variant="body1" sx={{ my: 2 }}>
+                  OR
+                </Typography>
+              </>
+            )}
 
-              <StyledButton
-                variant="outlined"
+            <Box component="form" onSubmit={formik.handleSubmit} width="100%">
+              <TextField
+                margin="normal"
+                required
                 fullWidth
-                startIcon={<MdEmail />}
-                onClick={() => {
-                  setShowEmailLinkForm(true);
-                  setShowMainForm(false);
+                label="First Name"
+                name="firstName"
+                value={formik.values.firstName}
+                onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
+                error={
+                  formik.touched.firstName && Boolean(formik.errors.firstName)
+                }
+                helperText={formik.touched.firstName && formik.errors.firstName}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <MdPerson />
+                    </InputAdornment>
+                  ),
                 }}
-              >
-                Sign up with Email Link
-              </StyledButton>
+              />
+              <TextField
+                margin="normal"
+                required
+                fullWidth
+                label="Last Name"
+                name="lastName"
+                value={formik.values.lastName}
+                onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
+                error={
+                  formik.touched.lastName && Boolean(formik.errors.lastName)
+                }
+                helperText={formik.touched.lastName && formik.errors.lastName}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <MdPerson />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+              <TextField
+                margin="normal"
+                required
+                fullWidth
+                label="Email Address"
+                name="email"
+                type="email"
+                value={formik.values.email}
+                onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
+                error={formik.touched.email && Boolean(formik.errors.email)}
+                helperText={formik.touched.email && formik.errors.email}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <MdEmail />
+                    </InputAdornment>
+                  ),
+                }}
+              />
 
-              <Typography variant="body1" sx={{ my: 2 }}>
-                OR
-              </Typography>
-
-              <Box component="form" onSubmit={formik.handleSubmit} width="100%">
+              <Tooltip title={getPasswordRequirements()} placement="top">
                 <TextField
                   margin="normal"
                   required
                   fullWidth
-                  label="First Name"
-                  name="firstName"
-                  value={formik.values.firstName}
+                  label="Password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={formik.values.password}
                   onChange={formik.handleChange}
                   onBlur={formik.handleBlur}
                   error={
-                    formik.touched.firstName && Boolean(formik.errors.firstName)
+                    formik.touched.password && Boolean(formik.errors.password)
                   }
-                  helperText={
-                    formik.touched.firstName && formik.errors.firstName
-                  }
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <MdPerson />
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-                <TextField
-                  margin="normal"
-                  required
-                  fullWidth
-                  label="Last Name"
-                  name="lastName"
-                  value={formik.values.lastName}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  error={
-                    formik.touched.lastName && Boolean(formik.errors.lastName)
-                  }
-                  helperText={formik.touched.lastName && formik.errors.lastName}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <MdPerson />
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-                <TextField
-                  margin="normal"
-                  required
-                  fullWidth
-                  label="Email Address"
-                  name="email"
-                  type="email"
-                  value={formik.values.email}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  error={formik.touched.email && Boolean(formik.errors.email)}
-                  helperText={formik.touched.email && formik.errors.email}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <MdEmail />
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-
-                <Tooltip title={getPasswordRequirements()} placement="top">
-                  <TextField
-                    margin="normal"
-                    required
-                    fullWidth
-                    label="Password"
-                    name="password"
-                    type={showPassword ? 'text' : 'password'}
-                    value={formik.values.password}
-                    onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
-                    error={
-                      formik.touched.password && Boolean(formik.errors.password)
-                    }
-                    helperText={
-                      formik.touched.password && formik.errors.password
-                    }
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <MdLock />
-                        </InputAdornment>
-                      ),
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton
-                            onClick={() => setShowPassword(!showPassword)}
-                            edge="end"
-                          >
-                            {showPassword ? (
-                              <AiOutlineEyeInvisible />
-                            ) : (
-                              <AiOutlineEye />
-                            )}
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    }}
-                  />
-                </Tooltip>
-
-                <TextField
-                  margin="normal"
-                  required
-                  fullWidth
-                  label="Confirm Password"
-                  name="confirmPassword"
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  value={formik.values.confirmPassword}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  error={
-                    formik.touched.confirmPassword &&
-                    Boolean(formik.errors.confirmPassword)
-                  }
-                  helperText={
-                    formik.touched.confirmPassword &&
-                    formik.errors.confirmPassword
-                  }
+                  helperText={formik.touched.password && formik.errors.password}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -342,12 +266,10 @@ const SignupPage = () => {
                     endAdornment: (
                       <InputAdornment position="end">
                         <IconButton
-                          onClick={() =>
-                            setShowConfirmPassword(!showConfirmPassword)
-                          }
+                          onClick={() => setShowPassword(!showPassword)}
                           edge="end"
                         >
-                          {showConfirmPassword ? (
+                          {showPassword ? (
                             <AiOutlineEyeInvisible />
                           ) : (
                             <AiOutlineEye />
@@ -357,120 +279,121 @@ const SignupPage = () => {
                     ),
                   }}
                 />
+              </Tooltip>
 
-                <Box sx={{ mt: 2 }}>
-                  <LinearProgress
-                    variant="determinate"
-                    value={passwordStrength}
-                    sx={{
-                      height: 8,
-                      borderRadius: 5,
-                      backgroundColor: '#e0e0e0',
-                      '& .MuiLinearProgress-bar': {
-                        backgroundColor:
-                          passwordStrength <= 25
-                            ? '#f44336'
-                            : passwordStrength <= 50
-                              ? '#ff9800'
-                              : passwordStrength <= 75
-                                ? '#ffc107'
-                                : '#4caf50',
-                      },
-                    }}
-                  />
-                  <Typography variant="caption" color="textSecondary">
-                    Password Strength: {passwordStrength}%
-                  </Typography>
-                </Box>
-
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={acceptTerms}
-                      onChange={(e) => setAcceptTerms(e.target.checked)}
-                      color="primary"
-                    />
-                  }
-                  label={
-                    <Typography variant="body2">
-                      I accept the{' '}
-                      <Link
-                        href="/information/terms"
-                        underline="hover"
-                        target="_blank"
-                        rel="noopener"
-                      >
-                        Terms and Conditions
-                      </Link>
-                    </Typography>
-                  }
-                  sx={{ mt: 2 }}
-                />
-
-                <StyledButton
-                  type="submit"
-                  fullWidth
-                  variant="contained"
-                  sx={{ mt: 3 }}
-                  disabled={
-                    !acceptTerms || passwordStrength < 75 || formik.isSubmitting
-                  }
-                >
-                  {formik.isSubmitting ? 'Creating account…' : 'Create Account'}
-                </StyledButton>
-
-                <Button
-                  onClick={() => navigate('/login')}
-                  sx={{ mt: 2 }}
-                  fullWidth
-                >
-                  Already have an account? Sign In
-                </Button>
-              </Box>
-            </>
-          )}
-
-          {showEmailLinkForm && (
-            <Box sx={{ width: '100%', mt: 2 }}>
-              <Typography variant="body1" sx={{ mb: 2 }}>
-                Enter your email, we'll send you a sign-up link:
-              </Typography>
               <TextField
+                margin="normal"
+                required
                 fullWidth
-                label="Email Address"
-                name="email"
-                type="email"
-                value={formik.values.email}
+                label="Confirm Password"
+                name="confirmPassword"
+                type={showConfirmPassword ? 'text' : 'password'}
+                value={formik.values.confirmPassword}
                 onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
+                error={
+                  formik.touched.confirmPassword &&
+                  Boolean(formik.errors.confirmPassword)
+                }
+                helperText={
+                  formik.touched.confirmPassword &&
+                  formik.errors.confirmPassword
+                }
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <MdEmail />
+                      <MdLock />
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={() =>
+                          setShowConfirmPassword(!showConfirmPassword)
+                        }
+                        edge="end"
+                      >
+                        {showConfirmPassword ? (
+                          <AiOutlineEyeInvisible />
+                        ) : (
+                          <AiOutlineEye />
+                        )}
+                      </IconButton>
                     </InputAdornment>
                   ),
                 }}
               />
+
+              <Box sx={{ mt: 2 }}>
+                <LinearProgress
+                  variant="determinate"
+                  value={passwordStrength}
+                  sx={{
+                    height: 8,
+                    borderRadius: 5,
+                    backgroundColor: '#e0e0e0',
+                    '& .MuiLinearProgress-bar': {
+                      backgroundColor:
+                        passwordStrength <= 25
+                          ? '#f44336'
+                          : passwordStrength <= 50
+                            ? '#ff9800'
+                            : passwordStrength <= 75
+                              ? '#ffc107'
+                              : '#4caf50',
+                    },
+                  }}
+                />
+                <Typography variant="caption" color="textSecondary">
+                  Password Strength: {passwordStrength}%
+                </Typography>
+              </Box>
+
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={acceptTerms}
+                    onChange={(e) => setAcceptTerms(e.target.checked)}
+                    color="primary"
+                  />
+                }
+                label={
+                  <Typography variant="body2">
+                    I accept the{' '}
+                    <Link
+                      href="/information/terms"
+                      underline="hover"
+                      target="_blank"
+                      rel="noopener"
+                    >
+                      Terms and Conditions
+                    </Link>
+                  </Typography>
+                }
+                sx={{ mt: 2 }}
+              />
+
               <StyledButton
+                type="submit"
+                fullWidth
                 variant="contained"
-                fullWidth
-                sx={{ mt: 2 }}
-                onClick={handleEmailLinkSubmit}
+                sx={{ mt: 3 }}
+                disabled={
+                  !acceptTerms || passwordStrength < 75 || formik.isSubmitting
+                }
               >
-                Send Sign-Up Link
+                {formik.isSubmitting ? 'Creating account…' : 'Create Account'}
               </StyledButton>
+
               <Button
-                onClick={() => {
-                  setShowEmailLinkForm(false);
-                  setShowMainForm(true);
-                }}
+                onClick={() => navigate('/login')}
                 sx={{ mt: 2 }}
                 fullWidth
-                variant="text"
               >
-                Back to Sign Up with Password
+                Already have an account? Sign In
               </Button>
             </Box>
-          )}
+          </>
         </StyledPaper>
       </Fade>
     </StyledContainer>

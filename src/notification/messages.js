@@ -14,15 +14,13 @@ export const MESSAGES = {
     signedInGoogle: 'Welcome! You’re signed in with Google.',
     signedOut: 'You’ve been signed out.',
     signedUp: 'Your account has been created. Welcome!',
-    signInLinkSent: (email) =>
-      `We sent a sign-in link to ${email}. Open it on this device to continue.`,
-    signInLinkCompleted: 'You’re signed in. Redirecting…',
-    signInLinkConfirmEmail:
-      'Please confirm the email address you used to request the link.',
     resetLinkSent: (email) =>
       `If an account exists for ${email}, we’ve sent a password reset link. Check your inbox and spam folder.`,
     passwordReset: 'Your password has been reset. You can now sign in.',
     sessionRequired: 'Please sign in to continue.',
+    sessionExpired: 'Your session has ended. Please sign in again.',
+    googleUnavailable:
+      'Google sign-in isn’t available right now. Please sign in with your email and password.',
     passwordsDoNotMatch: 'The passwords don’t match.',
     signInFailed: 'We couldn’t sign you in. Please try again.',
     signUpFailed: 'We couldn’t create your account. Please try again.',

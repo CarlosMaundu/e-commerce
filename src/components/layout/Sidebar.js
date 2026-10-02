@@ -37,6 +37,12 @@ import { AuthContext } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useNotify } from '../../notification/NotificationProvider';
 import { MESSAGES } from '../../notification/messages';
+import {
+  hasPermission,
+  hasPermissionPrefix,
+  PERMISSIONS,
+  roleLabel,
+} from '../../auth/permissions';
 
 const defaultAvatarUrl = 'https://i.imgur.com/kIaFC3J.png';
 
@@ -50,10 +56,14 @@ const Sidebar = ({ activeSection, setActiveSection }) => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  // Determine if the user is an admin
-  const isAdmin = user && user.role === 'admin';
+  // Each staff item states what it needs; the backend enforces the same.
+  const can = {
+    catalog: hasPermissionPrefix(user, 'catalog.'),
+    users: hasPermission(user, PERMISSIONS.usersView),
+    orders: hasPermission(user, PERMISSIONS.ordersView),
+  };
 
-  // Define full menu items, marking some as admin-only
+  // Define full menu items; `visible: false` hides staff-only items
   const fullMenuItems = [
     { label: 'Dashboard', icon: <FiHome size={20} />, section: 'dashboard' },
     { label: 'Profile', icon: <FiUser size={20} />, section: 'profile' },
@@ -73,25 +83,25 @@ const Sidebar = ({ activeSection, setActiveSection }) => {
       label: 'Products',
       icon: <FiBox size={20} />,
       section: 'products',
-      adminOnly: true,
+      visible: can.catalog,
     },
     {
       label: 'Users',
       icon: <FiUsers size={20} />,
       section: 'users',
-      adminOnly: true,
+      visible: can.users,
     },
     {
       label: 'Invoices',
       icon: <FiFileText size={20} />,
       section: 'invoices',
-      adminOnly: true,
+      visible: can.orders,
     },
     {
       label: 'Reports',
       icon: <FiBarChart2 size={20} />,
       section: 'reports',
-      adminOnly: true,
+      visible: can.orders,
     },
     {
       label: 'Help Center',
@@ -100,8 +110,7 @@ const Sidebar = ({ activeSection, setActiveSection }) => {
     },
   ];
 
-  // Filter out admin-only items if the user is not an admin
-  const menuItems = fullMenuItems.filter((item) => !item.adminOnly || isAdmin);
+  const menuItems = fullMenuItems.filter((item) => item.visible !== false);
 
   const logoutItem = {
     label: 'Logout',
@@ -271,9 +280,7 @@ const Sidebar = ({ activeSection, setActiveSection }) => {
                   {user?.name || 'Anonymous'}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {user?.role
-                    ? user.role.charAt(0).toUpperCase() + user.role.slice(1)
-                    : 'No Role'}
+                  {user ? roleLabel(user.role) : 'No Role'}
                 </Typography>
               </Box>
             )}
