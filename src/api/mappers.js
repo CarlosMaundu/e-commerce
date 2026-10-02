@@ -14,6 +14,7 @@ export const categoryFromApi = (c) =>
     id: c.category_id,
     name: c.name,
     image: c.image || '',
+    productCount: c.product_count || 0,
     subcategories: (c.categories || []).map(categoryFromApi),
   };
 
@@ -148,7 +149,8 @@ export const productToApi = (f) => ({
 export const productQueryToApi = (f = {}) => {
   const q = {};
   if (f.search) q.search = f.search;
-  if (f.categoryId) q.category = f.categoryId;
+  if (f.categoryIds?.length) q.category = f.categoryIds.join(',');
+  else if (f.categoryId) q.category = f.categoryId;
   if (f.brandIds?.length) q.brand = f.brandIds.join(',');
   if (f.priceMin !== undefined && f.priceMin !== '') q.price_min = f.priceMin;
   if (f.priceMax !== undefined && f.priceMax !== '') q.price_max = f.priceMax;
@@ -156,7 +158,8 @@ export const productQueryToApi = (f = {}) => {
   if (f.inStock) q.in_stock = 1;
   if (f.onSale) q.on_sale = 1;
   if (f.featured) q.featured = 1;
-  if (f.tag) q.tag = f.tag;
+  if (f.tags?.length) q.tag = f.tags.join(',');
+  else if (f.tag) q.tag = f.tag;
   Object.entries(f.attrs || {}).forEach(([name, values]) => {
     if (values?.length) q[`attr[${name}]`] = values.join(',');
   });
@@ -193,6 +196,7 @@ export const promotionFromApi = (p) => ({
   subtitle: p.subtitle || '',
   code: p.code || null,
   link: p.link || '/products',
+  image: p.image || '',
   endsAt: p.ends_at,
   daily: Boolean(p.daily),
 });

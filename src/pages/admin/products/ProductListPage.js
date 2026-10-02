@@ -9,7 +9,6 @@ import {
 import {
   Avatar,
   Box,
-  Breadcrumbs,
   Button,
   Checkbox,
   Chip,
@@ -28,7 +27,6 @@ import {
   TableCell,
   TableContainer,
   TableHead,
-  TablePagination,
   TableRow,
   Tabs,
   TextField,
@@ -49,6 +47,12 @@ import { AuthContext } from '../../../context/AuthContext';
 import { hasPermission, PERMISSIONS } from '../../../auth/permissions';
 import { adminCatalog, catalog } from '../../../api';
 import { useNotify } from '../../../notification/NotificationProvider';
+import {
+  PAGE_SIZE,
+  PageHeader,
+  StandardPagination,
+  TablePanel,
+} from '../../../components/admin/DataTable';
 import ConfirmationDialog from '../../../components/common/ConfirmationDialog';
 import { EmptyState } from '../../../components/ui';
 import { formatDate, formatMoney } from '../../../utils/format';
@@ -135,9 +139,9 @@ const ProductListPage = () => {
   const [params, setParams] = useSearchParams();
   const tab = params.get('tab') || '';
   const page = Number(params.get('page') || 0);
-  const [rowsPerPage, setRowsPerPage] = useState(20);
+  const [rowsPerPage, setRowsPerPage] = useState(PAGE_SIZE);
   const [search, setSearch] = useState(params.get('search') || '');
-  const [categoryId, setCategoryId] = useState('');
+  const [categoryId, setCategoryId] = useState(params.get('category') || '');
   const [brandId, setBrandId] = useState(params.get('brand') || '');
   const [categories, setCategories] = useState([]);
   const [brands, setBrands] = useState([]);
@@ -254,53 +258,37 @@ const ProductListPage = () => {
 
   return (
     <Stack spacing={3}>
-      <Box>
-        <Breadcrumbs aria-label="Breadcrumb">
-          <Link component={RouterLink} to="/admin" underline="hover">
-            Home
-          </Link>
-          <Typography color="text.primary">Products</Typography>
-        </Breadcrumbs>
-        <Stack
-          direction="row"
-          alignItems="center"
-          spacing={1.5}
-          sx={{ mt: 1 }}
-          flexWrap="wrap"
-          useFlexGap
-        >
-          <Typography variant="h3" component="h1" sx={{ flex: 1 }}>
-            Product list
-          </Typography>
-          <Button
-            startIcon={<FiDownload />}
-            onClick={exportCsv}
-            disabled={!rows.length}
-            sx={{ bgcolor: 'background.neutral' }}
-          >
-            Export
-          </Button>
-          {canCreate && (
+      <PageHeader
+        crumbs={[
+          { label: 'Home', to: '/admin' },
+          { label: 'Products', to: '/admin/products' },
+        ]}
+        title="Product list"
+        actions={
+          <>
             <Button
-              variant="contained"
-              startIcon={<FiPlus />}
-              component={RouterLink}
-              to="/admin/products/new"
+              startIcon={<FiDownload />}
+              onClick={exportCsv}
+              disabled={!rows.length}
+              sx={{ bgcolor: 'background.neutral' }}
             >
-              Add product
+              Export
             </Button>
-          )}
-        </Stack>
-      </Box>
+            {canCreate && (
+              <Button
+                variant="contained"
+                startIcon={<FiPlus />}
+                component={RouterLink}
+                to="/admin/products/new"
+              >
+                Add product
+              </Button>
+            )}
+          </>
+        }
+      />
 
-      <Box
-        sx={{
-          border: 1,
-          borderColor: 'divider',
-          borderRadius: 1,
-          overflow: 'hidden',
-        }}
-      >
+      <TablePanel>
         <Tabs
           value={tab}
           onChange={(_, v) => setParam({ tab: v, page: null })}
@@ -620,19 +608,17 @@ const ProductListPage = () => {
             Try another tab, search or filter.
           </EmptyState>
         )}
-        <TablePagination
-          component="div"
+        <StandardPagination
           count={data?.total || 0}
           page={page}
-          onPageChange={(_, p) => setParam({ page: p || null })}
           rowsPerPage={rowsPerPage}
-          rowsPerPageOptions={[10, 20, 50]}
+          onPageChange={(_, p) => setParam({ page: p || null })}
           onRowsPerPageChange={(e) => {
             setRowsPerPage(Number(e.target.value));
             setParam({ page: null });
           }}
         />
-      </Box>
+      </TablePanel>
 
       <Menu
         anchorEl={menu?.anchor}

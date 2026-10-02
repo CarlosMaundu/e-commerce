@@ -6,7 +6,7 @@ import { query, transaction } from '../db';
 import { audit } from '../lib/audit';
 import { fail, handler, ok, parse } from '../lib/http';
 import { singleImage, uploadedUrl } from '../lib/uploads';
-import { authenticate, requireAnyPermission, requirePermission } from '../middleware/auth';
+import { authenticate, requirePermission } from '../middleware/auth';
 import {
   buildWhere,
   hydrate,
@@ -202,9 +202,7 @@ export const adminCatalogRoutes = () => {
   const router = Router();
   router.use(authenticate);
 
-  const canSeeProducts = requireAnyPermission(
-    'catalog.products.create', 'catalog.products.update', 'catalog.products.delete'
-  );
+  const canSeeProducts = requirePermission('catalog.products.view');
 
   // ---------- products ----------
   router.get(
@@ -330,7 +328,7 @@ export const adminCatalogRoutes = () => {
 
   router.post(
     '/brands',
-    requirePermission('catalog.categories.create'),
+    requirePermission('catalog.brands.create'),
     handler(async (req, res) => {
       const b = parse(brandBody, req.body);
       const id = await query<{ id: number }>('INSERT INTO brands (name, logo) VALUES ($1, $2) RETURNING id', [b.name, b.logo])
@@ -343,7 +341,7 @@ export const adminCatalogRoutes = () => {
 
   router.put(
     '/brands/:id',
-    requirePermission('catalog.categories.update'),
+    requirePermission('catalog.brands.update'),
     handler(async (req, res) => {
       const id = Number(req.params.id);
       if (!(await query('SELECT 1 FROM brands WHERE id = $1', [id])).rows[0]) fail(404, 'Brand not found.');
@@ -358,7 +356,7 @@ export const adminCatalogRoutes = () => {
 
   router.delete(
     '/brands/:id',
-    requirePermission('catalog.categories.delete'),
+    requirePermission('catalog.brands.delete'),
     handler(async (req, res) => {
       const id = Number(req.params.id);
       const { rowCount } = await query('DELETE FROM brands WHERE id = $1', [id]);

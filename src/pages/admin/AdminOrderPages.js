@@ -14,29 +14,38 @@ import {
   Divider,
   FormControlLabel,
   Grid,
-  InputAdornment,
   MenuItem,
   Skeleton,
   Stack,
-  Tab,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
-  TablePagination,
   TableRow,
-  Tabs,
   TextField,
   Typography,
 } from '@mui/material';
-import { FiChevronLeft, FiSearch } from 'react-icons/fi';
+import { FiChevronLeft } from 'react-icons/fi';
 import { AuthContext } from '../../context/AuthContext';
 import { adminOrders } from '../../api';
 import { formatAddress } from '../../api/mappers';
 import { hasPermission } from '../../auth/permissions';
 import { useNotify } from '../../notification/NotificationProvider';
 import { SectionCard, StatusChip } from '../../components/ui';
+import {
+  EmptyRow,
+  LoadingRows,
+  PAGE_SIZE,
+  PageHeader,
+  PanelTabs,
+  PanelToolbar,
+  RowActions,
+  SearchField,
+  StandardPagination,
+  TablePanel,
+  usePaging,
+} from '../../components/admin/DataTable';
 import { formatDateTime, formatMoney, optionText } from '../../utils/format';
 
 const STATUS_TABS = [
@@ -64,7 +73,7 @@ export const AdminOrdersPage = () => {
   const status = params.get('status') || '';
   const [search, setSearch] = useState(params.get('search') || '');
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(20);
+  const [rowsPerPage, setRowsPerPage] = useState(PAGE_SIZE);
   const [data, setData] = useState(null);
 
   useEffect(() => {
@@ -89,8 +98,7 @@ export const AdminOrdersPage = () => {
     };
   }, [status, page, rowsPerPage, params, notify]);
 
-  const submitSearch = (e) => {
-    e.preventDefault();
+  const submitSearch = () => {
     setPage(0);
     setParams({
       ...(status ? { status } : {}),
@@ -100,46 +108,31 @@ export const AdminOrdersPage = () => {
 
   return (
     <Stack spacing={3}>
-      <Typography variant="h3" component="h1">
-        Orders
-      </Typography>
-      <SectionCard>
-        <Stack
-          direction={{ xs: 'column', md: 'row' }}
-          spacing={2}
-          justifyContent="space-between"
-          alignItems={{ md: 'center' }}
-          sx={{ mb: 2 }}
-        >
-          <Tabs
-            value={STATUS_TABS.some((t) => t.value === status) ? status : ''}
-            onChange={(_, v) => {
-              setPage(0);
-              setParams(v ? { status: v } : {});
-            }}
-            variant="scrollable"
-          >
-            {STATUS_TABS.map((t) => (
-              <Tab key={t.label} label={t.label} value={t.value} />
-            ))}
-          </Tabs>
-          <Box component="form" onSubmit={submitSearch}>
-            <TextField
-              size="small"
-              placeholder="Order #, email or name"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              inputProps={{ 'aria-label': 'Search orders' }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <FiSearch />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Box>
-        </Stack>
+      <PageHeader
+        crumbs={[
+          { label: 'Home', to: '/admin' },
+          { label: 'Orders', to: '/admin/orders' },
+        ]}
+        title="Orders"
+      />
+      <TablePanel>
+        <PanelTabs
+          value={STATUS_TABS.some((t) => t.value === status) ? status : ''}
+          onChange={(v) => {
+            setPage(0);
+            setParams(v ? { status: v } : {});
+          }}
+          tabs={STATUS_TABS.map((t) => ({ value: t.value, label: t.label }))}
+        />
+        <PanelToolbar>
+          <SearchField
+            value={search}
+            onChange={setSearch}
+            onSubmit={submitSearch}
+            placeholder="Order #, email or name"
+            label="Search orders"
+          />
+        </PanelToolbar>
         <TableContainer>
           <Table aria-label="Orders">
             <TableHead>
@@ -225,19 +218,17 @@ export const AdminOrdersPage = () => {
             </TableBody>
           </Table>
         </TableContainer>
-        <TablePagination
-          component="div"
+        <StandardPagination
           count={data?.total || 0}
           page={page}
-          onPageChange={(_, p) => setPage(p)}
           rowsPerPage={rowsPerPage}
+          onPageChange={(_, p) => setPage(p)}
           onRowsPerPageChange={(e) => {
             setRowsPerPage(Number(e.target.value));
             setPage(0);
           }}
-          rowsPerPageOptions={[20, 50, 100]}
         />
-      </SectionCard>
+      </TablePanel>
     </Stack>
   );
 };
@@ -515,6 +506,7 @@ export const AdminReturnsPage = () => {
   const canUpdate = hasPermission(user, 'orders.returns.update');
   const [status, setStatus] = useState('requested');
   const [list, setList] = useState(null);
+  const paging = usePaging();
 
   const load = useCallback(() => {
     setList(null);
@@ -546,23 +538,32 @@ export const AdminReturnsPage = () => {
     approved: ['refunded'],
   };
 
+  const shown = paging.slice(list || []);
+
   return (
     <Stack spacing={3}>
-      <Typography variant="h3" component="h1">
-        Returns
-      </Typography>
-      <SectionCard>
-        <Tabs value={status} onChange={(_, v) => setStatus(v)} sx={{ mb: 2 }}>
-          {[
-            ['Requested', 'requested'],
-            ['Approved', 'approved'],
-            ['Refunded', 'refunded'],
-            ['Rejected', 'rejected'],
-            ['All', ''],
-          ].map(([l, v]) => (
-            <Tab key={l} label={l} value={v} />
-          ))}
-        </Tabs>
+      <PageHeader
+        crumbs={[
+          { label: 'Home', to: '/admin' },
+          { label: 'Returns', to: '/admin/returns' },
+        ]}
+        title="Returns"
+      />
+      <TablePanel>
+        <PanelTabs
+          value={status}
+          onChange={(v) => {
+            setStatus(v);
+            paging.reset();
+          }}
+          tabs={[
+            { value: 'requested', label: 'Requested' },
+            { value: 'approved', label: 'Approved' },
+            { value: 'refunded', label: 'Refunded' },
+            { value: 'rejected', label: 'Rejected' },
+            { value: '', label: 'All' },
+          ]}
+        />
         <TableContainer>
           <Table aria-label="Returns">
             <TableHead>
@@ -571,19 +572,13 @@ export const AdminReturnsPage = () => {
                 <TableCell>Customer</TableCell>
                 <TableCell>Reason</TableCell>
                 <TableCell>Status</TableCell>
-                <TableCell align="right">Actions</TableCell>
+                <TableCell align="right" />
               </TableRow>
             </TableHead>
             <TableBody>
-              {!list && (
-                <TableRow>
-                  <TableCell colSpan={5}>
-                    <Skeleton height={40} />
-                  </TableCell>
-                </TableRow>
-              )}
-              {list?.map((r) => (
-                <TableRow key={r.id}>
+              {!list && <LoadingRows cols={5} />}
+              {shown.map((r) => (
+                <TableRow key={r.id} hover data-testid={`return-row-${r.id}`}>
                   <TableCell>
                     <Typography variant="subtitle2">
                       {r.quantity} × {r.product}
@@ -615,39 +610,32 @@ export const AdminReturnsPage = () => {
                     <StatusChip status={r.status} label={r.status} />
                   </TableCell>
                   <TableCell align="right">
-                    {canUpdate &&
-                      (actions[r.status] || []).map((next) => (
-                        <Button
-                          key={next}
-                          size="small"
-                          onClick={() => update(r, next)}
-                          color={next === 'rejected' ? 'error' : 'primary'}
-                        >
-                          {next === 'approved'
-                            ? 'Approve'
-                            : next === 'rejected'
-                              ? 'Reject'
-                              : 'Mark refunded'}
-                        </Button>
-                      ))}
+                    <RowActions
+                      label={`Actions for return of ${r.product}`}
+                      items={(canUpdate ? actions[r.status] || [] : []).map(
+                        (next) => ({
+                          label:
+                            next === 'approved'
+                              ? 'Approve'
+                              : next === 'rejected'
+                                ? 'Reject'
+                                : 'Mark refunded',
+                          color: next === 'rejected' ? 'error' : undefined,
+                          onClick: () => update(r, next),
+                        })
+                      )}
+                    />
                   </TableCell>
                 </TableRow>
               ))}
               {list && !list.length && (
-                <TableRow>
-                  <TableCell
-                    colSpan={5}
-                    align="center"
-                    sx={{ py: 5, color: 'text.secondary' }}
-                  >
-                    No returns here.
-                  </TableCell>
-                </TableRow>
+                <EmptyRow cols={5}>No returns here.</EmptyRow>
               )}
             </TableBody>
           </Table>
         </TableContainer>
-      </SectionCard>
+        <StandardPagination count={list?.length || 0} {...paging.props} />
+      </TablePanel>
     </Stack>
   );
 };

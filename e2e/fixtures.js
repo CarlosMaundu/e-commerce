@@ -31,4 +31,10 @@ async function openProduct(page, name) {
   await expect(page.getByRole('heading', { name, level: 1 })).toBeVisible();
 }
 
-module.exports = { test, expect, toast, login, openProduct };
+/** Opens a row's ⋮ menu and picks an item (the standard admin table). */
+async function rowAction(page, rowLabel, item) {
+  await page.getByRole('button', { name: `Actions for ${rowLabel}` }).click();
+  await page.getByRole('menuitem', { name: item, exact: true }).click();
+}
+
+module.exports = { test, expect, toast, login, openProduct, rowAction };

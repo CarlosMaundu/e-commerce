@@ -7,7 +7,6 @@ import { useDispatch, useSelector } from 'react-redux';
 import {
   Alert,
   Box,
-  Breadcrumbs,
   Button,
   Chip,
   Container,
@@ -43,6 +42,7 @@ import {
 } from '../redux/wishlistSlice';
 import { useNotify } from '../notification/NotificationProvider';
 import ProductCard from '../components/common/ProductCard';
+import PageBreadcrumbs from '../components/common/PageBreadcrumbs';
 import { EmptyState } from '../components/ui';
 import { formatDate, formatMoney } from '../utils/format';
 import { isColorAttribute, swatchFor } from '../utils/colors';
@@ -65,7 +65,7 @@ const Gallery = ({ images, title }) => {
         <Stack
           direction={{ xs: 'row', md: 'column' }}
           spacing={1}
-          sx={{ overflow: 'auto', maxHeight: { md: 560 } }}
+          sx={{ overflow: 'auto', maxHeight: { md: 'min(480px, 58vh)' } }}
         >
           {images.map((src, i) => (
             <Box
@@ -102,6 +102,8 @@ const Gallery = ({ images, title }) => {
         sx={{
           flex: 1,
           aspectRatio: '1 / 1',
+          maxHeight: { md: 'min(480px, 58vh)' },
+          maxWidth: { md: 'min(480px, 58vh)' },
           borderRadius: 1,
           overflow: 'hidden',
         }}
@@ -479,11 +481,21 @@ const ProductDetailsPage = () => {
     [product, selected]
   );
 
+  // Photos follow what's chosen so far (e.g. a colour before a size).
   const images = useMemo(() => {
     if (!product) return [];
-    const own = variant?.images || [];
+    const matching = product.variants.filter((v) =>
+      Object.entries(selected).every(([k, val]) => !val || v.options[k] === val)
+    );
+    const own = variant?.images?.length
+      ? variant.images
+      : matching.length
+        ? (matching[0].images || []).filter((src) =>
+            matching.every((v) => v.images.includes(src))
+          )
+        : [];
     return [...own, ...product.images.filter((src) => !own.includes(src))];
-  }, [product, variant]);
+  }, [product, variant, selected]);
 
   if (error) {
     return (
@@ -591,30 +603,28 @@ const ProductDetailsPage = () => {
 
   return (
     <Container maxWidth="xl" sx={{ py: { xs: 3, md: 4 } }}>
-      <Breadcrumbs aria-label="Breadcrumb" sx={{ mb: 3 }}>
-        <Link component={RouterLink} to="/" underline="hover">
-          Home
-        </Link>
-        <Link component={RouterLink} to="/products" underline="hover">
-          Products
-        </Link>
-        {product.category && (
-          <Link
-            component={RouterLink}
-            to={`/products?category=${product.category.id}`}
-            underline="hover"
-          >
-            {product.category.name}
-          </Link>
-        )}
-        <Typography color="text.primary">{product.title}</Typography>
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        sx={{ mb: 3 }}
+        items={[
+          { label: 'Home', to: '/' },
+          { label: 'Products', to: '/products' },
+          ...(product.category
+            ? [
+                {
+                  label: product.category.name,
+                  to: `/products?category=${product.category.id}`,
+                },
+              ]
+            : []),
+          { label: product.title, to: `/products/${product.id}` },
+        ]}
+      />
 
-      <Grid container spacing={{ xs: 3, md: 6 }}>
-        <Grid item xs={12} md={6}>
+      <Grid container spacing={{ xs: 3, md: 5 }}>
+        <Grid item xs={12} md={6} lg={5}>
           <Gallery images={images} title={product.title} />
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={6} lg={7}>
           <Stack spacing={2.5}>
             <Box>
               {product.brand && (
@@ -641,7 +651,7 @@ const ProductDetailsPage = () => {
                   )}
                 </Link>
               )}
-              <Typography variant="h3" component="h1">
+              <Typography variant="h4" component="h1">
                 {product.title}
               </Typography>
               {product.rating > 0 && (
@@ -676,7 +686,7 @@ const ProductDetailsPage = () => {
               alignItems="baseline"
               data-testid="product-price"
             >
-              <Typography variant="h3" component="p">
+              <Typography variant="h4" component="p">
                 {formatMoney(special ?? price)}
               </Typography>
               {special !== null && special !== undefined && (
@@ -730,7 +740,13 @@ const ProductDetailsPage = () => {
             </Typography>
 
             {shopper ? (
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+              <Stack
+                direction="row"
+                spacing={1.5}
+                alignItems="center"
+                flexWrap="wrap"
+                useFlexGap
+              >
                 <Stack
                   direction="row"
                   alignItems="center"
@@ -738,49 +754,63 @@ const ProductDetailsPage = () => {
                     border: 1,
                     borderColor: 'divider',
                     borderRadius: '8px',
-                    alignSelf: 'flex-start',
+                    height: 40,
                   }}
                 >
                   <IconButton
+                    size="small"
                     aria-label="Decrease quantity"
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
                     disabled={quantity <= 1}
+                    sx={{ borderRadius: '8px', width: 36, height: 36 }}
                   >
-                    <FiMinus />
+                    <FiMinus size={16} />
                   </IconButton>
                   <Typography
-                    sx={{ minWidth: 36, textAlign: 'center', fontWeight: 600 }}
+                    sx={{ minWidth: 32, textAlign: 'center', fontWeight: 600 }}
                     aria-label="Quantity"
                   >
                     {quantity}
                   </Typography>
                   <IconButton
+                    size="small"
                     aria-label="Increase quantity"
                     onClick={() => setQuantity(Math.min(maxQty, quantity + 1))}
                     disabled={quantity >= maxQty}
+                    sx={{ borderRadius: '8px', width: 36, height: 36 }}
                   >
-                    <FiPlus />
+                    <FiPlus size={16} />
                   </IconButton>
                 </Stack>
                 <Button
                   variant="contained"
-                  size="large"
                   startIcon={<FiShoppingCart />}
                   onClick={add}
                   disabled={!needsChoice && !inStock}
-                  sx={{ flex: 1 }}
+                  sx={{ minWidth: 180 }}
                 >
                   Add to cart
                 </Button>
-                <Button
-                  variant="outlined"
-                  size="large"
-                  onClick={toggleWishlist}
-                  startIcon={<FiHeart fill={saved ? 'currentColor' : 'none'} />}
-                  color={saved ? 'error' : 'primary'}
+                <Tooltip
+                  title={saved ? 'Remove from wishlist' : 'Add to wishlist'}
                 >
-                  {saved ? 'Saved' : 'Save'}
-                </Button>
+                  <IconButton
+                    onClick={toggleWishlist}
+                    aria-label={
+                      saved ? 'Remove from wishlist' : 'Add to wishlist'
+                    }
+                    sx={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: '8px',
+                      border: 1,
+                      borderColor: saved ? 'error.main' : 'divider',
+                      color: saved ? 'error.main' : 'text.secondary',
+                    }}
+                  >
+                    <FiHeart fill={saved ? 'currentColor' : 'none'} />
+                  </IconButton>
+                </Tooltip>
               </Stack>
             ) : (
               <Alert severity="info">

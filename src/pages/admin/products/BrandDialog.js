@@ -1,8 +1,7 @@
 // src/pages/admin/products/BrandDialog.js — add or edit a brand and its logo.
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import {
-  Box,
   Button,
   Dialog,
   DialogActions,
@@ -10,15 +9,13 @@ import {
   DialogTitle,
   Stack,
   TextField,
-  Typography,
 } from '@mui/material';
-import { FiImage, FiUpload, FiX } from 'react-icons/fi';
 import { adminCatalog } from '../../../api';
 import { useNotify } from '../../../notification/NotificationProvider';
+import ImageField from '../../../components/admin/ImageField';
 
 const BrandDialog = ({ open, brand, initialName = '', onClose, onSaved }) => {
   const notify = useNotify();
-  const fileRef = useRef(null);
   const [name, setName] = useState('');
   const [logo, setLogo] = useState('');
   const [busy, setBusy] = useState(false);
@@ -30,19 +27,6 @@ const BrandDialog = ({ open, brand, initialName = '', onClose, onSaved }) => {
       setLogo(brand?.logo || '');
     }
   }, [open, brand, initialName]);
-
-  const upload = async (file) => {
-    if (!file) return;
-    setUploading(true);
-    try {
-      const { url } = await adminCatalog.uploadFile(file);
-      setLogo(url);
-    } catch (error) {
-      notify.error(error, 'We couldn’t upload that logo.');
-    } finally {
-      setUploading(false);
-    }
-  };
 
   const save = async (e) => {
     e.preventDefault();
@@ -65,7 +49,7 @@ const BrandDialog = ({ open, brand, initialName = '', onClose, onSaved }) => {
       open={open}
       onClose={busy ? undefined : onClose}
       fullWidth
-      maxWidth="xs"
+      maxWidth="sm"
     >
       <form onSubmit={save}>
         <DialogTitle>{brand ? 'Edit brand' : 'Add brand'}</DialogTitle>
@@ -79,68 +63,14 @@ const BrandDialog = ({ open, brand, initialName = '', onClose, onSaved }) => {
               autoFocus
               fullWidth
             />
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                Logo
-              </Typography>
-              <Stack direction="row" spacing={2} alignItems="center">
-                <Box
-                  sx={{
-                    width: 160,
-                    height: 72,
-                    borderRadius: '8px',
-                    bgcolor: 'background.neutral',
-                    display: 'grid',
-                    placeItems: 'center',
-                    color: 'text.disabled',
-                    overflow: 'hidden',
-                  }}
-                >
-                  {logo ? (
-                    <Box
-                      component="img"
-                      src={logo}
-                      alt={`${name} logo`}
-                      sx={{ maxWidth: '90%', maxHeight: '80%' }}
-                    />
-                  ) : (
-                    <FiImage size={24} />
-                  )}
-                </Box>
-                <Stack spacing={1}>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    startIcon={<FiUpload />}
-                    onClick={() => fileRef.current?.click()}
-                    disabled={uploading}
-                  >
-                    {uploading ? 'Uploading…' : logo ? 'Replace' : 'Upload'}
-                  </Button>
-                  {logo && (
-                    <Button
-                      size="small"
-                      color="error"
-                      startIcon={<FiX />}
-                      onClick={() => setLogo('')}
-                    >
-                      Remove
-                    </Button>
-                  )}
-                </Stack>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp,image/gif"
-                  hidden
-                  aria-label="Logo file"
-                  onChange={(e) => upload(e.target.files?.[0])}
-                />
-              </Stack>
-              <Typography variant="caption" sx={{ mt: 1, display: 'block' }}>
-                PNG with a transparent background works best. Up to 5 MB.
-              </Typography>
-            </Box>
+            <ImageField
+              label="Logo"
+              value={logo}
+              onChange={setLogo}
+              onUploading={setUploading}
+              contain
+              hint="PNG with a transparent background works best (JPG, WebP or GIF also work). Up to 5 MB."
+            />
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>

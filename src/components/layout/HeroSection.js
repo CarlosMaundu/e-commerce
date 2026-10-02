@@ -75,6 +75,11 @@ const HeroSection = ({ compact = false }) => {
         position: 'relative',
         borderRadius: 1,
         overflow: 'hidden',
+        // Slick adds 30px under the slider for its dots; without removing it
+        // the rounded bottom corners sit below the image.
+        '& .slick-slider, & .slick-dotted.slick-slider': { mb: 0 },
+        '& .slick-list': { borderRadius: 1 },
+        '& .slick-slide > div': { lineHeight: 0 },
         '& .slick-dots': {
           bottom: 14,
           '& li button:before': { fontSize: 10, color: '#fff', opacity: 0.6 },
@@ -135,7 +140,6 @@ const HeroSection = ({ compact = false }) => {
                   component={RouterLink}
                   to={banner.link}
                   variant="contained"
-                  size={compact ? 'medium' : 'large'}
                 >
                   Shop now
                 </Button>

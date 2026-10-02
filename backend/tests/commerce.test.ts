@@ -345,7 +345,7 @@ describe('custom roles', () => {
     await createUser('root@example.com', 'super_admin');
     const { token } = await signIn('root@example.com');
     const perms = await request(app).get('/api/admin/permissions').set(bearer(token));
-    expect(perms.body.data.map((g: any) => g.name)).toEqual(['Administration', 'Catalog', 'Orders']);
+    expect(perms.body.data.map((g: any) => g.name)).toEqual(['Administration', 'Catalog', 'Dashboard', 'Orders']);
 
     const created = await request(app).post('/api/admin/roles').set(bearer(token)).send({
       name: 'Stock Clerk', description: 'Keeps stock up to date', permissions: ['catalog.products.update'],
@@ -378,7 +378,8 @@ describe('custom roles', () => {
     expect((await request(app).post('/api/admin/roles').set(bearer(boss)).send({ name: 'Mine' })).status).toBe(403);
 
     const dup = await request(app).post('/api/admin/roles/support/duplicate').set(bearer(root)).send({ name: 'Senior support' });
-    expect(dup.body.data).toMatchObject({ code: 'senior_support', permissions: ['admin.users.view', 'orders.orders.view'] });
+    expect(dup.body.data).toMatchObject({ code: 'senior_support' });
+    expect(dup.body.data.permissions).toEqual((await request(app).get('/api/admin/roles/support').set(bearer(root))).body.data.permissions);
     const clash = await request(app).post('/api/admin/roles').set(bearer(root)).send({ name: 'senior SUPPORT' });
     expect(clash.status).toBe(409);
   });

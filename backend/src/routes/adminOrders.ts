@@ -8,6 +8,7 @@ import { sendOrderStatusEmail } from '../lib/mailer';
 import { addHistory, loadOrder, NEXT_STATUSES, orderLink, restock, statusName, toContractOrder } from '../lib/orders';
 import { PaymentGateway } from '../lib/payments';
 import { round2 } from '../lib/pricing';
+import { hasPermission } from '../lib/users';
 import { authenticate, requirePermission } from '../middleware/auth';
 import { RETURN_SELECT, toContractReturn } from './orders';
 
@@ -75,6 +76,9 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
     }
     const changing = b.order_status !== order.status;
     if (!changing && !b.comment) fail(400, 'Choose a new status or add a comment.');
+    if (changing && b.order_status === 'refunded' && !hasPermission(req.auth!.permissions, 'orders.orders.refund')) {
+      fail(403, 'You don’t have permission to refund orders.');
+    }
 
     if (changing && b.order_status === 'refunded' && order.payment_status === 'paid' && order.payment_method === 'stripe') {
       if (!payments) fail(503, 'Card refunds aren’t available right now.');
@@ -103,7 +107,7 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
     ok(res, (await loadOrder(order.id, { admin: true }))!.contract);
   }));
 
-  router.get('/returns', requirePermission('orders.orders.view'), handler(async (req, res) => {
+  router.get('/returns', requirePermission('orders.returns.view'), handler(async (req, res) => {
     const status = typeof req.query.status === 'string' ? req.query.status : '';
     const { rows } = await query(
       `SELECT r.*, oi.name AS product_name, oi.image, u.email AS customer_email,
@@ -130,7 +134,7 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
   }));
 
   // Figures for the admin dashboard, computed from real orders.
-  router.get('/dashboard', requirePermission('orders.orders.view'), handler(async (_req, res) => {
+  router.get('/dashboard', requirePermission('dashboard.overview.view'), handler(async (_req, res) => {
     const revenueBetween = async (from: string, to: string) => {
       const r = (await query(
         `SELECT COALESCE(sum(total), 0) AS revenue, count(*)::int AS orders FROM orders

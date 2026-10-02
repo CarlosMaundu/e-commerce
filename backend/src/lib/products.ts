@@ -145,7 +145,7 @@ export const loadProduct = async (id: number, { publishedOnly = false } = {}) =>
 
 export interface ProductFilters {
   search?: string;
-  category?: number;
+  category?: number[];
   brand?: number[];
   price_min?: number;
   price_max?: number;
@@ -153,7 +153,7 @@ export interface ProductFilters {
   in_stock?: boolean;
   on_sale?: boolean;
   featured?: boolean;
-  tag?: string;
+  tag?: string[];
   attr?: Record<string, string[]>;
   status?: 'published' | 'draft';
 }
@@ -186,9 +186,9 @@ export const buildWhere = (f: ProductFilters, params: unknown[]) => {
     where.push(`(p.name ILIKE ${s} OR p.description ILIKE ${s} OR p.sku ILIKE ${s}
       OR b.name ILIKE ${s} OR ${exact} = ANY(SELECT lower(t) FROM unnest(p.tags) t))`);
   }
-  if (f.category) {
+  if (f.category?.length) {
     where.push(`p.category_id IN (WITH RECURSIVE tree AS (
-        SELECT id FROM categories WHERE id = ${bind(f.category)}
+        SELECT id FROM categories WHERE id = ANY(${bind(f.category)}::int[])
         UNION ALL SELECT c.id FROM categories c JOIN tree t ON c.parent_id = t.id
       ) SELECT id FROM tree)`);
   }
@@ -202,7 +202,9 @@ export const buildWhere = (f: ProductFilters, params: unknown[]) => {
       WHERE pv.product_id = p.id AND pv.special IS NOT NULL))`);
   }
   if (f.featured) where.push('p.featured');
-  if (f.tag) where.push(`${bind(f.tag.toLowerCase())} = ANY(SELECT lower(t) FROM unnest(p.tags) t)`);
+  if (f.tag?.length) {
+    where.push(`EXISTS (SELECT 1 FROM unnest(p.tags) t WHERE lower(t) = ANY(${bind(f.tag.map((t) => t.toLowerCase()))}::text[]))`);
+  }
   for (const [name, values] of Object.entries(f.attr || {})) {
     if (!values.length) continue;
     where.push(`EXISTS (SELECT 1 FROM jsonb_array_elements(p.attributes) a

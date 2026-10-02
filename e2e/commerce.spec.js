@@ -186,7 +186,8 @@ test('an order moves through fulfilment and a delivered item can be returned', a
   );
 
   await admin.goto('/admin/returns');
-  await admin.getByRole('button', { name: 'Approve' }).click();
+  await admin.getByRole('button', { name: /^Actions for return of/ }).click();
+  await admin.getByRole('menuitem', { name: 'Approve' }).click();
   await expect(toast(admin)).toHaveText('Return marked approved.');
 
   await page.goto('/account/returns');
@@ -220,20 +221,40 @@ test('a super admin creates, then deletes, a custom role', async ({ page }) => {
   });
   await login(page, 'root@example.com', 'Hi, Sue Per');
   await page.goto('/admin/roles');
+  // Built-in roles can be viewed and duplicated, never deleted.
+  await page.getByRole('button', { name: 'Actions for Super admin' }).click();
   await expect(
-    page.getByRole('button', { name: 'Delete role Super admin' })
-  ).toHaveCount(0); // built-in roles can't be deleted
+    page.getByRole('menuitem', { name: 'View permissions' })
+  ).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Delete' })).toHaveCount(0);
+  await page.keyboard.press('Escape');
 
   await page.getByRole('button', { name: 'New role' }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('Role name').fill('Stock clerk');
   await dialog.getByLabel('What is this role for?').fill('Keeps stock up');
-  await dialog.getByRole('checkbox', { name: 'Edit products' }).check();
+  await dialog.getByRole('checkbox', { name: /^Edit products/ }).check();
+  await dialog
+    .getByRole('checkbox', { name: 'View products, including drafts' })
+    .check();
   await dialog.getByRole('button', { name: 'Save role' }).click();
   await expect(toast(page)).toHaveText('Role created.');
-  await expect(page.getByText('Keeps stock up')).toBeVisible();
+  const row = page.getByTestId('role-row-stock_clerk');
+  await expect(row).toContainText('Keeps stock up');
+  await expect(row).toContainText('2 of 30');
 
-  await page.getByRole('button', { name: 'Delete role Stock clerk' }).click();
+  // The Permissions tab lists who holds each permission.
+  await page.getByRole('tab', { name: /Permissions/ }).click();
+  await page
+    .getByRole('textbox', { name: 'Search permissions' })
+    .fill('drafts');
+  await expect(page.getByRole('table', { name: 'Permissions' })).toContainText(
+    'Stock clerk'
+  );
+  await page.getByRole('tab', { name: /Roles/ }).click();
+
+  await page.getByRole('button', { name: 'Actions for Stock clerk' }).click();
+  await page.getByRole('menuitem', { name: 'Delete' }).click();
   await page
     .getByRole('dialog')
     .getByRole('button', { name: /delete/i })

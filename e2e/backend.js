@@ -26,8 +26,10 @@ const resetUsers = async () => {
   // Catalog back to the demo seed: products added by tests (no SKU) go,
   // and every variant has stock so option choices are predictable.
   await db().query('DELETE FROM products WHERE sku IS NULL');
+  await db().query("DELETE FROM brands WHERE logo NOT LIKE '/uploads/demo-%'");
+  // Top-level categories tests add (the demo ones have demo images).
   await db().query(
-    'DELETE FROM brands WHERE id NOT IN (SELECT brand_id FROM products WHERE brand_id IS NOT NULL)'
+    "DELETE FROM categories WHERE parent_id IS NULL AND image NOT LIKE '/uploads/demo-%'"
   );
   await db().query('UPDATE product_variants SET quantity = 20');
   await db().query(

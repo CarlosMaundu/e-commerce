@@ -70,8 +70,17 @@ const theme = createTheme({
     MuiButton: {
       defaultProps: { disableElevation: true },
       styleOverrides: {
-        root: { borderRadius: CONTROL_RADIUS, paddingInline: 16 },
-        sizeLarge: { paddingBlock: 10, fontSize: '0.95rem' },
+        // One height per size across the shop and back office:
+        // small 32px (cards, tables), medium 40px (default), large 48px
+        // (the main action of a page, e.g. Checkout or Place order).
+        root: {
+          borderRadius: CONTROL_RADIUS,
+          paddingInline: 16,
+          whiteSpace: 'nowrap',
+        },
+        sizeSmall: { height: 32, paddingInline: 12, fontSize: '0.8125rem' },
+        sizeMedium: { height: 40, fontSize: '0.875rem' },
+        sizeLarge: { height: 48, paddingInline: 22, fontSize: '0.95rem' },
         outlined: { borderColor: line },
       },
     },

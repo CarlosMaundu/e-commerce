@@ -7,21 +7,17 @@ import {
   Box,
   Button,
   Checkbox,
-  Chip,
   Collapse,
   Divider,
   FormControlLabel,
-  IconButton,
   InputAdornment,
-  Radio,
   Rating,
   Slider,
   Stack,
   TextField,
-  Tooltip,
   Typography,
 } from '@mui/material';
-import { FiCheck, FiChevronDown, FiChevronUp } from 'react-icons/fi';
+import { FiChevronDown, FiChevronUp } from 'react-icons/fi';
 import { isColorAttribute, swatchFor } from '../../utils/colors';
 
 const csv = (v) => (v ? v.split(',').filter(Boolean) : []);
@@ -38,7 +34,7 @@ export const useProductQuery = () => {
     const num = (k) => (params.get(k) ? Number(params.get(k)) : undefined);
     return {
       search: params.get('search') || '',
-      categoryId: params.get('category') || '',
+      categoryIds: csv(params.get('category')),
       brandIds: csv(params.get('brand')),
       priceMin: num('price_min'),
       priceMax: num('price_max'),
@@ -46,7 +42,7 @@ export const useProductQuery = () => {
       inStock: params.get('in_stock') === '1',
       onSale: params.get('on_sale') === '1',
       featured: params.get('featured') === '1',
-      tag: params.get('tag') || '',
+      tags: csv(params.get('tag')),
       attrs,
       sort: params.get('sort') || '',
       page: num('page') || 1,
@@ -198,10 +194,69 @@ PriceFilter.propTypes = {
   update: PropTypes.func.isRequired,
 };
 
+/** A checkbox row: label, optional count, optional leading visual. */
+const CheckRow = ({
+  checked,
+  onChange,
+  label,
+  count,
+  lead,
+  indent = false,
+}) => (
+  <FormControlLabel
+    sx={{ mr: 0, ...(indent ? { pl: 3 } : {}) }}
+    control={<Checkbox size="small" checked={checked} onChange={onChange} />}
+    label={
+      <Stack direction="row" spacing={1} alignItems="center">
+        {lead}
+        <Typography variant="body2" component="span">
+          {label}
+          {count !== undefined && <Count n={count} />}
+        </Typography>
+      </Stack>
+    }
+  />
+);
+
+CheckRow.propTypes = {
+  checked: PropTypes.bool.isRequired,
+  onChange: PropTypes.func.isRequired,
+  label: PropTypes.node.isRequired,
+  count: PropTypes.number,
+  lead: PropTypes.node,
+  indent: PropTypes.bool,
+};
+
+/** Long lists show the first few with "Show more". */
+const MoreList = ({ items, limit = 6, children }) => {
+  const [all, setAll] = useState(false);
+  const shown = all ? items : items.slice(0, limit);
+  return (
+    <Stack>
+      {shown.map(children)}
+      {items.length > limit && (
+        <Button
+          size="small"
+          onClick={() => setAll(!all)}
+          sx={{ alignSelf: 'flex-start', mt: 0.5 }}
+        >
+          {all ? 'Show less' : `Show ${items.length - limit} more`}
+        </Button>
+      )}
+    </Stack>
+  );
+};
+
+MoreList.propTypes = {
+  items: PropTypes.array.isRequired,
+  limit: PropTypes.number,
+  children: PropTypes.func.isRequired,
+};
+
 const ProductFilters = ({ facets, categories, filters, update, clearAll }) => {
   const toggle = (list, value) =>
     list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
-  const activeCategory = String(filters.categoryId || '');
+  const cats = filters.categoryIds;
 
   return (
     <Box aria-label="Filters" component="aside">
@@ -221,58 +276,55 @@ const ProductFilters = ({ facets, categories, filters, update, clearAll }) => {
       <Divider />
 
       <Section title="Category">
-        <Stack spacing={0.25}>
-          {[
-            { id: '', name: 'All products', subcategories: [] },
-            ...categories,
-          ].map((c) => (
-            <React.Fragment key={c.id || 'all'}>
-              <FormControlLabel
-                control={
-                  <Radio
-                    size="small"
-                    checked={activeCategory === String(c.id)}
-                  />
-                }
-                label={c.name}
-                onChange={() => update({ category: c.id })}
-              />
-              {activeCategory &&
-                (String(c.id) === activeCategory ||
-                  c.subcategories?.some(
-                    (s) => String(s.id) === activeCategory
-                  )) &&
-                c.subcategories?.map((s) => (
-                  <FormControlLabel
-                    key={s.id}
-                    sx={{ pl: 3 }}
-                    control={
-                      <Radio
-                        size="small"
-                        checked={activeCategory === String(s.id)}
-                      />
-                    }
-                    label={s.name}
-                    onChange={() => update({ category: s.id })}
-                  />
-                ))}
-            </React.Fragment>
-          ))}
+        <Stack>
+          {categories.map((c) => {
+            const open =
+              cats.includes(String(c.id)) ||
+              c.subcategories?.some((s) => cats.includes(String(s.id)));
+            return (
+              <React.Fragment key={c.id}>
+                <CheckRow
+                  checked={cats.includes(String(c.id))}
+                  onChange={() =>
+                    update({ category: toggle(cats, String(c.id)) })
+                  }
+                  label={c.name}
+                />
+                {open &&
+                  c.subcategories?.map((s) => (
+                    <CheckRow
+                      key={s.id}
+                      indent
+                      checked={cats.includes(String(s.id))}
+                      onChange={() =>
+                        update({ category: toggle(cats, String(s.id)) })
+                      }
+                      label={s.name}
+                    />
+                  ))}
+              </React.Fragment>
+            );
+          })}
         </Stack>
       </Section>
       <Divider />
 
       <Section title="Availability">
         <Stack>
-          <FormControlLabel
-            control={<Checkbox size="small" checked={filters.inStock} />}
-            label="In stock"
+          <CheckRow
+            checked={filters.inStock}
             onChange={(e) => update({ in_stock: e.target.checked })}
+            label="In stock"
           />
-          <FormControlLabel
-            control={<Checkbox size="small" checked={filters.onSale} />}
-            label="On sale"
+          <CheckRow
+            checked={filters.onSale}
             onChange={(e) => update({ on_sale: e.target.checked })}
+            label="On sale"
+          />
+          <CheckRow
+            checked={filters.featured}
+            onChange={(e) => update({ featured: e.target.checked })}
+            label="Featured"
           />
         </Stack>
       </Section>
@@ -286,38 +338,29 @@ const ProductFilters = ({ facets, categories, filters, update, clearAll }) => {
       {facets?.brands?.length > 0 && (
         <>
           <Section title="Brands">
-            <Stack>
-              {facets.brands.map((b) => (
-                <FormControlLabel
+            <MoreList items={facets.brands}>
+              {(b) => (
+                <CheckRow
                   key={b.id}
-                  control={
-                    <Checkbox
-                      size="small"
-                      checked={filters.brandIds.includes(String(b.id))}
-                    />
-                  }
-                  label={
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      {b.logo && (
-                        <Box
-                          component="img"
-                          src={b.logo}
-                          alt=""
-                          sx={{ height: 20, width: 50, objectFit: 'contain' }}
-                        />
-                      )}
-                      <span>
-                        {b.name}
-                        <Count n={b.productCount} />
-                      </span>
-                    </Stack>
-                  }
+                  checked={filters.brandIds.includes(String(b.id))}
                   onChange={() =>
                     update({ brand: toggle(filters.brandIds, String(b.id)) })
                   }
+                  label={b.name}
+                  count={b.productCount}
+                  lead={
+                    b.logo ? (
+                      <Box
+                        component="img"
+                        src={b.logo}
+                        alt=""
+                        sx={{ height: 18, width: 28, objectFit: 'contain' }}
+                      />
+                    ) : null
+                  }
                 />
-              ))}
-            </Stack>
+              )}
+            </MoreList>
           </Section>
           <Divider />
         </>
@@ -326,19 +369,22 @@ const ProductFilters = ({ facets, categories, filters, update, clearAll }) => {
       <Section title="Rating">
         <Stack>
           {[4, 3, 2].map((stars) => (
-            <FormControlLabel
+            <CheckRow
               key={stars}
-              control={
-                <Radio size="small" checked={filters.rating === stars} />
+              checked={filters.rating === stars}
+              onChange={() =>
+                update({ rating: filters.rating === stars ? null : stars })
               }
               label={
-                <Stack direction="row" spacing={0.75} alignItems="center">
+                <Stack
+                  direction="row"
+                  spacing={0.75}
+                  alignItems="center"
+                  component="span"
+                >
                   <Rating value={stars} readOnly size="small" />
-                  <Typography variant="body2">& up</Typography>
+                  <span>& up</span>
                 </Stack>
-              }
-              onClick={() =>
-                update({ rating: filters.rating === stars ? null : stars })
               }
             />
           ))}
@@ -353,62 +399,32 @@ const ProductFilters = ({ facets, categories, filters, update, clearAll }) => {
           <React.Fragment key={attr.name}>
             <Divider />
             <Section title={attr.name}>
-              {colour ? (
-                <Stack direction="row" flexWrap="wrap" gap={1}>
-                  {attr.values.map(({ value, count }) => {
-                    const on = chosen.includes(value);
-                    return (
-                      <Tooltip key={value} title={`${value} (${count})`}>
-                        <IconButton
-                          aria-label={value}
-                          aria-pressed={on}
-                          onClick={() =>
-                            update({ [key]: toggle(chosen, value) })
-                          }
+              <MoreList items={attr.values} limit={8}>
+                {({ value, count }) => (
+                  <CheckRow
+                    key={value}
+                    checked={chosen.includes(value)}
+                    onChange={() => update({ [key]: toggle(chosen, value) })}
+                    label={value}
+                    count={count}
+                    lead={
+                      colour ? (
+                        <Box
+                          aria-hidden
                           sx={{
-                            width: 32,
-                            height: 32,
-                            borderRadius: '8px',
+                            width: 16,
+                            height: 16,
+                            borderRadius: '4px',
                             background: swatchFor(value),
-                            border: 2,
-                            borderColor: on ? 'primary.main' : 'divider',
-                            color: [
-                              'white',
-                              'cream',
-                              'beige',
-                              'silver',
-                              'floral',
-                            ].includes(value.toLowerCase())
-                              ? '#222'
-                              : '#fff',
-                            '&:hover': {
-                              background: swatchFor(value),
-                              opacity: 0.85,
-                            },
+                            border: 1,
+                            borderColor: 'divider',
                           }}
-                        >
-                          {on && <FiCheck size={14} />}
-                        </IconButton>
-                      </Tooltip>
-                    );
-                  })}
-                </Stack>
-              ) : (
-                <Stack direction="row" flexWrap="wrap" gap={0.75}>
-                  {attr.values.map(({ value, count }) => (
-                    <Chip
-                      key={value}
-                      label={`${value} (${count})`}
-                      size="small"
-                      clickable
-                      color={chosen.includes(value) ? 'primary' : 'default'}
-                      variant={chosen.includes(value) ? 'filled' : 'outlined'}
-                      aria-pressed={chosen.includes(value)}
-                      onClick={() => update({ [key]: toggle(chosen, value) })}
-                    />
-                  ))}
-                </Stack>
-              )}
+                        />
+                      ) : null
+                    }
+                  />
+                )}
+              </MoreList>
             </Section>
           </React.Fragment>
         );
@@ -418,21 +434,17 @@ const ProductFilters = ({ facets, categories, filters, update, clearAll }) => {
         <>
           <Divider />
           <Section title="Tags" defaultOpen={false}>
-            <Stack direction="row" flexWrap="wrap" gap={0.75}>
-              {facets.tags.map(({ tag, count }) => (
-                <Chip
+            <MoreList items={facets.tags}>
+              {({ tag, count }) => (
+                <CheckRow
                   key={tag}
-                  label={`#${tag} (${count})`}
-                  size="small"
-                  clickable
-                  color={filters.tag === tag ? 'primary' : 'default'}
-                  variant={filters.tag === tag ? 'filled' : 'outlined'}
-                  onClick={() =>
-                    update({ tag: filters.tag === tag ? null : tag })
-                  }
+                  checked={filters.tags.includes(tag)}
+                  onChange={() => update({ tag: toggle(filters.tags, tag) })}
+                  label={`#${tag}`}
+                  count={count}
                 />
-              ))}
-            </Stack>
+              )}
+            </MoreList>
           </Section>
         </>
       )}

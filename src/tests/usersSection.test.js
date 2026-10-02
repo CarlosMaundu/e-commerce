@@ -143,8 +143,9 @@ describe('UsersSection (admin user management)', () => {
     setup();
     await screen.findByText('cam@example.com');
     fireEvent.click(
-      screen.getByRole('button', { name: /edit cam@example.com/i })
+      screen.getByRole('button', { name: /actions for cam@example.com/i })
     );
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Edit' }));
     const dialog = await screen.findByRole('dialog');
     fireEvent.mouseDown(
       within(dialog).getByRole('combobox', { name: /role/i })
@@ -169,9 +170,10 @@ describe('UsersSection (admin user management)', () => {
     });
     await screen.findByText('cam@example.com');
     fireEvent.click(
-      screen.getByRole('button', {
-        name: /reset password for cam@example.com/i,
-      })
+      screen.getByRole('button', { name: /actions for cam@example.com/i })
+    );
+    fireEvent.click(
+      await screen.findByRole('menuitem', { name: 'Send password reset' })
     );
     fireEvent.click(await screen.findByRole('button', { name: /send email/i }));
 
@@ -189,8 +191,14 @@ describe('UsersSection (admin user management)', () => {
     expect(
       screen.queryByRole('button', { name: /add user/i })
     ).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', { name: /actions for cam@example.com/i })
+    );
     expect(
-      screen.queryByRole('button', { name: /edit cam@example.com/i })
+      await screen.findByRole('menuitem', { name: 'View account' })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('menuitem', { name: 'Edit' })
     ).not.toBeInTheDocument();
   });
 

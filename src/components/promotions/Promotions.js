@@ -172,7 +172,7 @@ export const PromoStrip = ({ onClose }) => {
             variant="contained"
             color="warning"
             onClick={() => navigate(promo.link)}
-            sx={{ color: '#fff', py: 0.25 }}
+            sx={{ color: '#fff' }}
           >
             View deal
           </Button>
@@ -192,46 +192,150 @@ export const PromoStrip = ({ onClose }) => {
 
 PromoStrip.propTypes = { onClose: PropTypes.func.isRequired };
 
-/** Compact sale banner for the home page, rotating between offers. */
+/**
+ * Home-page offers banner: one offer at a time, sliding in, with a faded
+ * photo behind it, a countdown and a "View deal" link. Arrows sit centred on
+ * the sides; dots below.
+ */
 export const PromoBanner = () => {
   const navigate = useNavigate();
   const promos = usePromotions();
   const { index, setIndex, pause } = useRotation(promos.length, 7000);
-  const promo = promos[index];
-  if (!promo) return null;
+  if (!promos.length) return null;
   const step = (d) => setIndex((i) => (i + d + promos.length) % promos.length);
+  const arrow = (side) => ({
+    position: 'absolute',
+    top: '50%',
+    [side]: 12,
+    transform: 'translateY(-50%)',
+    zIndex: 2,
+    width: 36,
+    height: 36,
+    bgcolor: 'background.paper',
+    boxShadow: 1,
+    '&:hover': { bgcolor: 'background.paper' },
+    display: { xs: 'none', sm: 'inline-flex' },
+  });
+
   return (
     <Box
       component="section"
       aria-roledescription="carousel"
       aria-label="Offers"
+      data-testid="promo-banner"
       {...pause}
       sx={{
-        bgcolor: 'promo.main',
-        borderRadius: 1,
-        px: { xs: 2, md: 4 },
-        py: { xs: 2.5, md: 3 },
-        display: 'grid',
-        gridTemplateColumns: { xs: '1fr', md: 'auto 1fr auto auto' },
-        alignItems: 'center',
-        gap: { xs: 1.5, md: 3 },
         position: 'relative',
-        '@keyframes promoIn': {
-          from: { opacity: 0, transform: 'translateY(4px)' },
-          to: { opacity: 1 },
-        },
+        borderRadius: 1,
+        overflow: 'hidden',
+        bgcolor: 'promo.main',
+        minHeight: { xs: 260, sm: 200 },
       }}
     >
+      {promos.map((promo, i) => {
+        const active = i === index;
+        return (
+          <Box
+            key={promo.id}
+            aria-hidden={!active}
+            sx={{
+              position: 'absolute',
+              inset: 0,
+              opacity: active ? 1 : 0,
+              transform: active
+                ? 'translateX(0)'
+                : `translateX(${i < index ? '-' : ''}40px)`,
+              transition: 'opacity .6s ease, transform .6s ease',
+              pointerEvents: active ? 'auto' : 'none',
+            }}
+          >
+            {promo.image && (
+              <Box
+                aria-hidden
+                sx={{
+                  position: 'absolute',
+                  inset: 0,
+                  backgroundImage: `url(${promo.image})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  opacity: 0.16,
+                  transform: active ? 'scale(1.04)' : 'scale(1)',
+                  transition: 'transform 7s linear',
+                }}
+              />
+            )}
+            <Box
+              sx={{
+                position: 'relative',
+                height: '100%',
+                px: { xs: 3, sm: 8 },
+                py: 3,
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', md: '1fr auto auto' },
+                alignItems: 'center',
+                alignContent: 'center',
+                gap: { xs: 2, md: 4 },
+              }}
+            >
+              <Box sx={{ minWidth: 0 }}>
+                <Typography
+                  variant="h4"
+                  component="h2"
+                  sx={{ color: 'promo.text' }}
+                >
+                  {promo.title}
+                </Typography>
+                <Typography
+                  sx={{ color: 'promo.text', opacity: 0.85, mt: 0.5 }}
+                >
+                  {promo.subtitle}
+                  {promo.code && (
+                    <Box
+                      component="span"
+                      sx={{
+                        ml: 1,
+                        px: 1,
+                        py: 0.25,
+                        borderRadius: '6px',
+                        border: '1px dashed',
+                        fontWeight: 700,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {promo.code}
+                    </Box>
+                  )}
+                </Typography>
+              </Box>
+              <Stack
+                spacing={0.5}
+                alignItems={{ xs: 'flex-start', md: 'center' }}
+              >
+                <Typography variant="caption" sx={{ color: 'promo.text' }}>
+                  {promo.daily ? 'Today only — ends in' : 'Ends in'}
+                </Typography>
+                <Countdown endsAt={promo.endsAt} size="large" />
+              </Stack>
+              <Button
+                variant="contained"
+                color="warning"
+                onClick={() => navigate(promo.link)}
+                tabIndex={active ? 0 : -1}
+                sx={{ color: '#fff', justifySelf: { xs: 'start', md: 'end' } }}
+              >
+                View deal
+              </Button>
+            </Box>
+          </Box>
+        );
+      })}
       {promos.length > 1 && (
-        <Stack
-          direction="row"
-          spacing={0.5}
-          sx={{ display: { xs: 'none', md: 'flex' } }}
-        >
+        <>
           <IconButton
             size="small"
             aria-label="Previous offer"
             onClick={() => step(-1)}
+            sx={arrow('left')}
           >
             <FiChevronLeft />
           </IconButton>
@@ -239,76 +343,43 @@ export const PromoBanner = () => {
             size="small"
             aria-label="Next offer"
             onClick={() => step(1)}
+            sx={arrow('right')}
           >
             <FiChevronRight />
           </IconButton>
-        </Stack>
-      )}
-      <Box key={promo.id} sx={{ minWidth: 0, animation: 'promoIn .35s ease' }}>
-        <Typography variant="h4" component="h2" sx={{ color: 'promo.text' }}>
-          {promo.title}
-        </Typography>
-        <Typography sx={{ color: 'promo.text', opacity: 0.85 }}>
-          {promo.subtitle}
-          {promo.code && (
-            <Box
-              component="span"
-              sx={{
-                ml: 1,
-                px: 1,
-                py: 0.25,
-                borderRadius: '6px',
-                border: '1px dashed',
-                fontWeight: 700,
-              }}
-            >
-              {promo.code}
-            </Box>
-          )}
-        </Typography>
-      </Box>
-      <Stack spacing={0.5} alignItems={{ xs: 'flex-start', md: 'center' }}>
-        <Typography variant="caption" sx={{ color: 'promo.text' }}>
-          {promo.daily ? 'Today only — ends in' : 'Ends in'}
-        </Typography>
-        <Countdown endsAt={promo.endsAt} size="large" />
-      </Stack>
-      <Button
-        variant="contained"
-        color="warning"
-        size="large"
-        onClick={() => navigate(promo.link)}
-        sx={{ color: '#fff', justifySelf: { xs: 'stretch', md: 'end' } }}
-      >
-        View deal
-      </Button>
-      {promos.length > 1 && (
-        <Stack
-          direction="row"
-          spacing={0.75}
-          justifyContent="center"
-          sx={{ gridColumn: '1 / -1' }}
-        >
-          {promos.map((p, i) => (
-            <Box
-              key={p.id}
-              component="button"
-              aria-label={`Show offer ${i + 1}`}
-              aria-current={i === index}
-              onClick={() => setIndex(i)}
-              sx={{
-                width: i === index ? 20 : 8,
-                height: 8,
-                p: 0,
-                border: 0,
-                cursor: 'pointer',
-                borderRadius: 999,
-                bgcolor: i === index ? 'warning.main' : alpha('#7A3C0A', 0.25),
-                transition: 'width .2s',
-              }}
-            />
-          ))}
-        </Stack>
+          <Stack
+            direction="row"
+            spacing={0.75}
+            sx={{
+              position: 'absolute',
+              bottom: 12,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 2,
+            }}
+          >
+            {promos.map((p, i) => (
+              <Box
+                key={p.id}
+                component="button"
+                aria-label={`Show offer ${i + 1}`}
+                aria-current={i === index}
+                onClick={() => setIndex(i)}
+                sx={{
+                  width: i === index ? 20 : 8,
+                  height: 8,
+                  p: 0,
+                  border: 0,
+                  cursor: 'pointer',
+                  borderRadius: 999,
+                  bgcolor:
+                    i === index ? 'warning.main' : alpha('#7A3C0A', 0.25),
+                  transition: 'width .2s',
+                }}
+              />
+            ))}
+          </Stack>
+        </>
       )}
     </Box>
   );

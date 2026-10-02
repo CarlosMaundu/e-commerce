@@ -21,10 +21,14 @@ test('home shows brands, this week’s most viewed and 15 featured products', as
     page.getByRole('button', { name: 'View deal' }).first()
   ).toBeVisible();
 
-  await page.getByRole('button', { name: /^Pulse Audio, 3 products$/ }).click();
+  // The brand strip scrolls; its first copy of each logo is clickable.
+  await page
+    .getByTestId('brand-marquee')
+    .getByRole('button', { name: 'IKEA', exact: true })
+    .click({ force: true });
   await expect(page).toHaveURL(/\/products\?brand=\d+$/);
   await expect(
-    page.getByRole('heading', { name: 'Pulse Audio', level: 1 })
+    page.getByRole('heading', { name: 'IKEA', level: 1 })
   ).toBeVisible();
   await expect(page.getByText('3 results')).toBeVisible();
 
@@ -39,7 +43,11 @@ test('filters narrow the list and live in the address bar', async ({
   await page.goto('/products');
   await expect(page.getByText('31 results')).toBeVisible();
 
-  await page.getByRole('button', { name: 'Rose', exact: true }).click();
+  await page
+    .locator('#filter-color')
+    .getByRole('button', { name: /^Show \d+ more$/ })
+    .click();
+  await page.getByRole('checkbox', { name: /^Rose/ }).check();
   await expect(page).toHaveURL(/attr\.Color=Rose/);
   await expect(page.getByText('1 result', { exact: true })).toBeVisible();
   await expect(
@@ -54,6 +62,10 @@ test('filters narrow the list and live in the address bar', async ({
     .click();
   await expect(page.getByText('31 results')).toBeVisible();
 
+  await page
+    .getByRole('button', { name: /^Show \d+ more$/ })
+    .first()
+    .click();
   await page.getByRole('checkbox', { name: /Kairo Leather/ }).check();
   await expect(page.getByText('3 results')).toBeVisible();
   await page.getByRole('checkbox', { name: 'On sale' }).check();

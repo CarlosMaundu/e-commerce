@@ -64,6 +64,7 @@ import CategoriesPage from './pages/admin/products/CategoriesPage';
 import StaffProfilePage from './pages/admin/StaffProfilePage';
 import SecuritySettingsPage from './pages/admin/SecuritySettingsPage';
 import AuditLogPage from './pages/admin/AuditLogPage';
+import UserAccountPage from './pages/admin/UserAccountPage';
 import StaffNotice from './components/StaffNotice';
 
 const ORDERS_VIEW = ['orders.orders.view'];
@@ -255,7 +256,7 @@ const App = () => (
                   <Route
                     path="returns"
                     element={
-                      <AdminRoute permissions={ORDERS_VIEW}>
+                      <AdminRoute permissions={['orders.returns.view']}>
                         <AdminReturnsPage />
                       </AdminRoute>
                     }
@@ -278,7 +279,7 @@ const App = () => (
                   <Route
                     path="security"
                     element={
-                      <AdminRoute permissions={['admin.security.manage']}>
+                      <AdminRoute permissions={['admin.security.view']}>
                         <SecuritySettingsPage />
                       </AdminRoute>
                     }
@@ -300,9 +301,17 @@ const App = () => (
                     }
                   />
                   <Route
-                    path="roles"
+                    path="users/:id"
                     element={
                       <AdminRoute permissions={USERS_VIEW}>
+                        <UserAccountPage />
+                      </AdminRoute>
+                    }
+                  />
+                  <Route
+                    path="roles"
+                    element={
+                      <AdminRoute permissions={['admin.roles.view']}>
                         <AdminRolesPage />
                       </AdminRoute>
                     }

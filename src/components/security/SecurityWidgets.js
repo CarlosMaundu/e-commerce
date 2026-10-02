@@ -21,6 +21,7 @@ import {
 import { FiMonitor, FiSmartphone, FiTablet } from 'react-icons/fi';
 import { formatDateTime } from '../../utils/format';
 import { EmptyState } from '../ui';
+import { PAGE_SIZE, StandardPagination, usePaging } from '../admin/DataTable';
 
 const DEVICE_ICONS = {
   mobile: FiSmartphone,
@@ -48,6 +49,7 @@ export const SessionsTable = ({
   showUser = false,
   emptyText = 'No active sessions.',
 }) => {
+  const paging = usePaging();
   if (!sessions) return <Skeleton height={120} />;
   if (!sessions.length) return <EmptyState title={emptyText} />;
   return (
@@ -64,7 +66,7 @@ export const SessionsTable = ({
           </TableRow>
         </TableHead>
         <TableBody>
-          {sessions.map((s) => {
+          {paging.slice(sessions).map((s) => {
             const Icon = DEVICE_ICONS[s.device] || FiMonitor;
             return (
               <TableRow key={s.id} data-testid={`session-${s.id}`}>
@@ -152,6 +154,9 @@ export const SessionsTable = ({
           })}
         </TableBody>
       </Table>
+      {sessions.length > PAGE_SIZE && (
+        <StandardPagination count={sessions.length} {...paging.props} />
+      )}
     </TableContainer>
   );
 };

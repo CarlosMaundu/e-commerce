@@ -245,7 +245,10 @@ test.describe('admin user management', () => {
     await expect(camPage.getByText('Hi, Cam Customer')).toBeVisible();
 
     await signInAsAdmin(page);
-    await page.getByRole('button', { name: 'Edit cam@example.com' }).click();
+    await page
+      .getByRole('button', { name: 'Actions for cam@example.com' })
+      .click();
+    await page.getByRole('menuitem', { name: 'Edit', exact: true }).click();
     const dialog = page.getByRole('dialog');
     await dialog.getByRole('combobox', { name: /role/i }).click();
     await page.getByRole('option', { name: 'Catalog manager' }).click();
@@ -270,7 +273,10 @@ test.describe('admin user management', () => {
     page,
   }) => {
     await signInAsAdmin(page);
-    await page.getByRole('button', { name: 'Edit boss@example.com' }).click();
+    await page
+      .getByRole('button', { name: 'Actions for boss@example.com' })
+      .click();
+    await page.getByRole('menuitem', { name: 'Edit', exact: true }).click();
     const dialog = page.getByRole('dialog');
     await expect(
       dialog.getByRole('combobox', { name: /role/i })
@@ -298,8 +304,9 @@ test.describe('admin user management', () => {
     });
     await signInAsAdmin(page);
     await page
-      .getByRole('button', { name: 'Reset password for cam@example.com' })
+      .getByRole('button', { name: 'Actions for cam@example.com' })
       .click();
+    await page.getByRole('menuitem', { name: 'Send password reset' }).click();
     await page.getByRole('button', { name: 'Send email' }).click();
     await expect(toast(page)).toHaveText(
       'Password reset email sent to cam@example.com.'

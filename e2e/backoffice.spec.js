@@ -19,11 +19,13 @@ const signInAdmin = async (page) => {
   await expect(page).toHaveURL(/\/admin/);
 };
 
-const addValues = async (row, values) => {
-  const input = row.getByLabel('Values');
-  for (const v of values) {
-    await input.fill(v);
-    await input.press('Enter');
+/** Fills a variation card: option name and its values. */
+const fillOption = async (card, name, values) => {
+  await card.getByRole('combobox', { name: 'Option name' }).fill(name);
+  for (const [i, v] of values.entries()) {
+    if (i > 0)
+      await card.getByRole('button', { name: 'Add another value' }).click();
+    await card.getByRole('textbox', { name: `${name} value ${i + 1}` }).fill(v);
   }
 };
 
@@ -51,13 +53,9 @@ test('admin adds a product with variants and a new brand; the shop sells those o
   await page
     .getByLabel('This product has variants, like size or color')
     .check();
-  await addValues(page.getByTestId('variation-0'), ['Red', 'Blue']);
-  await page.getByRole('button', { name: 'Add another variation' }).click();
-  await page
-    .getByTestId('variation-1')
-    .getByLabel('Variation', { exact: true })
-    .fill('Size');
-  await addValues(page.getByTestId('variation-1'), ['42', '43']);
+  await fillOption(page.getByTestId('variation-0'), 'Color', ['Red', 'Blue']);
+  await page.getByRole('button', { name: 'Add another option' }).click();
+  await fillOption(page.getByTestId('variation-1'), 'Size', ['42', '43']);
   await expect(page.getByText('4 combinations')).toBeVisible();
 
   // 5. Pricing and quantity: a default price, stock for all, one own price.
@@ -121,7 +119,7 @@ test('staff don’t shop, but can view the shop as a customer and come back', as
 
   await page.goto('/admin/users');
   await page
-    .getByRole('button', { name: 'More actions for cam@example.com' })
+    .getByRole('button', { name: 'Actions for cam@example.com' })
     .click();
   await page.getByRole('menuitem', { name: 'View as customer' }).click();
   await page
@@ -196,9 +194,80 @@ test('a locked-out customer is unlocked from Users', async ({ page }) => {
   const row = page.getByTestId('user-row-cam@example.com');
   await expect(row).toContainText('Locked');
   await page
-    .getByRole('button', { name: 'More actions for cam@example.com' })
+    .getByRole('button', { name: 'Actions for cam@example.com' })
     .click();
   await page.getByRole('menuitem', { name: 'Unlock account' }).click();
   await expect(toast(page)).toHaveText('cam@example.com can sign in again.');
   await expect(row).not.toContainText('Locked');
+});
+
+test('staff open a customer’s account read-only', async ({ page }) => {
+  await createUser({
+    email: 'cam@example.com',
+    firstname: 'Cam',
+    lastname: 'Customer',
+  });
+  await signInAdmin(page);
+  await page.goto('/admin/users');
+  await page.getByRole('tab', { name: /Customers/ }).click();
+  await page
+    .getByRole('button', { name: 'Actions for cam@example.com' })
+    .click();
+  await page.getByRole('menuitem', { name: 'View account' }).click();
+  await expect(page).toHaveURL(/\/admin\/users\/\d+$/);
+  await expect(
+    page.getByRole('heading', { name: 'Cam Customer', level: 1 })
+  ).toBeVisible();
+  await expect(
+    page.getByText('You’re viewing this account read-only.')
+  ).toBeVisible();
+  await expect(
+    page.getByRole('table', { name: 'Recent orders' })
+  ).toContainText('No orders yet.');
+  // Viewing isn't acting: no banner, still the admin.
+  await expect(page.getByTestId('impersonation-banner')).toHaveCount(0);
+  await page.getByRole('link', { name: 'Users' }).first().click();
+  await expect(page).toHaveURL(/\/admin\/users$/);
+});
+
+test('categories and brands are tables with add dialogs; variation photos stay linked', async ({
+  page,
+}) => {
+  await signInAdmin(page);
+  await page.goto('/admin/products/categories');
+  await page.getByRole('button', { name: 'Add category' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Category name').fill('Garden');
+  await expect(dialog.getByRole('button', { name: 'Upload' })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Save category' }).click();
+  await expect(toast(page)).toHaveText('Category added.');
+  await page
+    .getByRole('textbox', { name: 'Search categories and subcategories' })
+    .fill('Garden');
+  await expect(page.getByTestId('category-row-Garden')).toBeVisible();
+
+  await page.goto('/admin/products/brands');
+  await expect(
+    page.getByRole('table', { name: 'Brands' }).locator('tbody tr')
+  ).toHaveCount(10); // first page
+  await page.getByRole('button', { name: 'Add brand' }).click();
+  await page.getByRole('dialog').getByLabel('Brand name').fill('Summit Gear');
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: 'Save brand' })
+    .click();
+  await expect(toast(page)).toHaveText('Brand added.');
+
+  // Linked photos load from the product (regression: they used to show 0).
+  await page.goto('/admin/products?search=crew-neck');
+  await page.getByRole('link', { name: 'Cotton crew-neck shirt' }).click();
+  await page.getByRole('button', { name: /Variations/ }).click();
+  await expect(
+    page.getByRole('button', { name: 'Link images to Black' })
+  ).toHaveText('2 images linked');
+  await page.getByRole('button', { name: 'Link images to White' }).click();
+  await expect(page.getByRole('dialog')).toContainText(
+    'Photos for Color: White'
+  );
+  await expect(page.getByRole('dialog').getByText('1 selected')).toBeVisible();
 });

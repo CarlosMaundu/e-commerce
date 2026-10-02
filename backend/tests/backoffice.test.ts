@@ -212,3 +212,67 @@ describe('security settings', () => {
     expect((await request(app).get('/api/admin/audit').set(bearer(ops.token))).status).toBe(403);
   });
 });
+
+describe('viewing accounts and fine-grained permissions', () => {
+  test('staff view a customer’s account without acting as them', async () => {
+    await createUser('help@example.com', 'support');
+    const janeId = await createUser('jane@example.com');
+    const jane = await signIn('jane@example.com');
+    await request(app).post('/api/rest/account/address').set(bearer(jane.token)).send({
+      firstname: 'Jane', lastname: 'Doe', address_1: '1 Market St', city: 'Nairobi', country: 'ke',
+    }).expect(201);
+    await request(app).post('/api/rest/cart').set(bearer(jane.token)).send({ product_id: await tote(), quantity: 2 }).expect(200);
+
+    const support = await signIn('help@example.com');
+    const res = await request(app).get(`/api/admin/users/${janeId}/account`).set(bearer(support.token));
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({
+      user: { email: 'jane@example.com' },
+      staff: false,
+      stats: { orders: 0, cart: 2, sessions: 1 },
+      addresses: [{ city: 'Nairobi' }],
+      orders: [],
+    });
+    // Nothing was started in Jane's name.
+    expect((await query('SELECT count(*)::int AS n FROM sessions WHERE impersonator_id IS NOT NULL')).rows[0].n).toBe(0);
+
+    await createUser('cat@example.com', 'catalog_manager');
+    const cat = await signIn('cat@example.com');
+    expect((await request(app).get(`/api/admin/users/${janeId}/account`).set(bearer(cat.token))).status).toBe(403);
+  });
+
+  test('suspending and refunding need their own permissions', async () => {
+    const roleId = (await query(
+      `INSERT INTO roles (code, name, is_system) VALUES ('editor', 'Editor', false) RETURNING id`
+    )).rows[0].id;
+    await query(
+      `INSERT INTO role_permissions (role_id, permission_id) SELECT $1, id FROM permissions WHERE code = ANY($2)`,
+      [roleId, ['admin.users.view', 'admin.users.update']]
+    );
+    await createUser('ed@example.com', 'editor');
+    const janeId = await createUser('jane@example.com');
+    const ed = await signIn('ed@example.com');
+    await request(app).put(`/api/admin/users/${janeId}`).set(bearer(ed.token)).send({ firstname: 'Janet' }).expect(200);
+    const suspend = await request(app).put(`/api/admin/users/${janeId}`).set(bearer(ed.token)).send({ status: 'suspended' });
+    expect(suspend.body.error).toEqual(['You don’t have permission to suspend or reactivate users.']);
+  });
+
+  test('custom roles made before a permission existed receive it', async () => {
+    const roleId = (await query(
+      `INSERT INTO roles (code, name, is_system) VALUES ('old_ops', 'Old ops', false) RETURNING id`
+    )).rows[0].id;
+    await query(
+      `INSERT INTO role_permissions (role_id, permission_id) SELECT $1, id FROM permissions WHERE code = 'orders.orders.update'`,
+      [roleId]
+    );
+    // Pretend refunds are a brand-new permission, then re-run the seed.
+    await query("DELETE FROM permissions WHERE code = 'orders.orders.refund'");
+    const { runSeed } = await import('../src/seed');
+    await runSeed();
+    const codes = (await query(
+      `SELECT p.code FROM role_permissions rp JOIN permissions p ON p.id = rp.permission_id WHERE rp.role_id = $1 ORDER BY 1`,
+      [roleId]
+    )).rows.map((r) => r.code);
+    expect(codes).toEqual(['orders.orders.refund', 'orders.orders.update']);
+  });
+});

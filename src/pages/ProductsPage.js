@@ -1,19 +1,16 @@
 // src/pages/ProductsPage.js — Aurora-style catalogue: compact hero,
 // breadcrumb, results bar, filter sidebar and product grid.
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   Alert,
   Box,
-  Breadcrumbs,
   Button,
   Chip,
   Container,
   Divider,
   Drawer,
   IconButton,
-  Link,
   MenuItem,
   Pagination,
   Select,
@@ -24,6 +21,7 @@ import {
   useTheme,
 } from '@mui/material';
 import { FiFilter, FiX } from 'react-icons/fi';
+import PageBreadcrumbs from '../components/common/PageBreadcrumbs';
 import HeroSection from '../components/layout/HeroSection';
 import ProductCard from '../components/common/ProductCard';
 import ProductFilters, {
@@ -79,13 +77,14 @@ const ProductsPage = () => {
   useEffect(() => {
     let active = true;
     catalog
-      .filters(filters.categoryId || undefined)
+      .filters(filters.categoryIds.join(',') || undefined)
       .then((f) => active && setFacets(f))
       .catch(() => {});
     return () => {
       active = false;
     };
-  }, [filters.categoryId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.categoryIds.join(',')]);
 
   const queryKey = JSON.stringify(filters);
   useEffect(() => {
@@ -108,7 +107,14 @@ const ProductsPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryKey]);
 
-  const { category, parent } = findCategory(categories, filters.categoryId);
+  const chosenCategories = filters.categoryIds
+    .map((id) => findCategory(categories, id))
+    .filter((c) => c.category);
+  // Breadcrumb and title follow a single chosen category.
+  const { category, parent } =
+    chosenCategories.length === 1
+      ? chosenCategories[0]
+      : { category: null, parent: null };
   const brandNames = (facets?.brands || [])
     .filter((b) => filters.brandIds.includes(String(b.id)))
     .map((b) => b.name);
@@ -120,17 +126,25 @@ const ProductsPage = () => {
         ? brandNames[0]
         : filters.onSale
           ? 'On sale'
-          : filters.tag
-            ? `#${filters.tag}`
-            : 'All products');
+          : filters.tags.length === 1
+            ? `#${filters.tags[0]}`
+            : chosenCategories.length > 1
+              ? chosenCategories.map((c) => c.category.name).join(', ')
+              : 'All products');
 
   // Active filters as removable chips.
   const chips = useMemo(() => {
     const list = [];
     if (filters.search)
       list.push({ label: `“${filters.search}”`, clear: { search: null } });
-    if (category)
-      list.push({ label: category.name, clear: { category: null } });
+    chosenCategories.forEach(({ category: c }) =>
+      list.push({
+        label: c.name,
+        clear: {
+          category: filters.categoryIds.filter((id) => id !== String(c.id)),
+        },
+      })
+    );
     brandNames.forEach((name) => {
       const b = facets.brands.find((x) => x.name === name);
       list.push({
@@ -152,8 +166,12 @@ const ProductsPage = () => {
       list.push({ label: 'On sale', clear: { on_sale: null } });
     if (filters.featured)
       list.push({ label: 'Featured', clear: { featured: null } });
-    if (filters.tag)
-      list.push({ label: `#${filters.tag}`, clear: { tag: null } });
+    filters.tags.forEach((t) =>
+      list.push({
+        label: `#${t}`,
+        clear: { tag: filters.tags.filter((x) => x !== t) },
+      })
+    );
     Object.entries(filters.attrs).forEach(([name, values]) =>
       values.forEach((v) =>
         list.push({
@@ -164,7 +182,7 @@ const ProductsPage = () => {
     );
     return list;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryKey, category, facets]);
+  }, [queryKey, categories, facets]);
 
   const panel = (
     <ProductFilters
@@ -181,30 +199,24 @@ const ProductsPage = () => {
     <Container maxWidth="xl" sx={{ pb: 6 }}>
       <HeroSection compact />
 
-      <Breadcrumbs aria-label="Breadcrumb" sx={{ mt: 3 }}>
-        <Link component={RouterLink} to="/" underline="hover">
-          Home
-        </Link>
-        {category ? (
-          <Link component={RouterLink} to="/products" underline="hover">
-            Products
-          </Link>
-        ) : (
-          <Typography color="text.primary">Products</Typography>
-        )}
-        {parent && (
-          <Link
-            component={RouterLink}
-            to={`/products?category=${parent.id}`}
-            underline="hover"
-          >
-            {parent.name}
-          </Link>
-        )}
-        {category && (
-          <Typography color="text.primary">{category.name}</Typography>
-        )}
-      </Breadcrumbs>
+      <PageBreadcrumbs
+        sx={{ mt: 3 }}
+        items={[
+          { label: 'Home', to: '/' },
+          { label: 'Products', to: '/products' },
+          ...(parent
+            ? [{ label: parent.name, to: `/products?category=${parent.id}` }]
+            : []),
+          ...(category
+            ? [
+                {
+                  label: category.name,
+                  to: `/products?category=${category.id}`,
+                },
+              ]
+            : []),
+        ]}
+      />
 
       <Stack
         direction="row"

@@ -371,6 +371,26 @@ export const adminUsers = {
     });
     return userFromApi(data);
   },
+  /** Read-only account overview (no impersonation). */
+  async account(id) {
+    const { data } = await http().get(`/admin/users/${id}/account`);
+    return {
+      user: userFromApi(data.user),
+      staff: data.staff,
+      stats: {
+        orders: data.stats.orders,
+        spent: Number(data.stats.spent),
+        lastOrder: data.stats.last_order,
+        wishlist: data.stats.wishlist,
+        cart: data.stats.cart,
+        returns: data.stats.returns,
+        reviews: data.stats.reviews,
+        sessions: data.stats.sessions,
+      },
+      addresses: (data.addresses || []).map(addressFromApi),
+      orders: data.orders ? data.orders.map(orderFromApi) : null,
+    };
+  },
   /** Emails a reset link (or a first-time setup link if no password yet). */
   async sendPasswordReset(id) {
     const { data } = await http().post(`/admin/users/${id}/reset-password`);

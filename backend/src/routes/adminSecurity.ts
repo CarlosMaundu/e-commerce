@@ -138,7 +138,7 @@ export const adminSecurityRoutes = () => {
   // ---------- fix blocked accounts ----------
   router.post(
     '/users/:id/unlock',
-    requirePermission('admin.users.update'),
+    requirePermission('admin.users.unlock'),
     handler(async (req, res) => {
       const target = await loadTarget(Number(req.params.id), req.auth!.user);
       await query('UPDATE users SET failed_login_attempts = 0, locked_until = NULL, updated_at = now() WHERE id = $1', [target.id]);
@@ -149,7 +149,7 @@ export const adminSecurityRoutes = () => {
 
   router.post(
     '/users/:id/signout',
-    requirePermission('admin.users.update'),
+    requirePermission('admin.users.signout'),
     handler(async (req, res) => {
       const target = await loadTarget(Number(req.params.id), req.auth!.user);
       if (target.id === req.auth!.userId) fail(400, 'To sign yourself out of other devices, use your profile page.');
@@ -230,7 +230,7 @@ export const adminSecurityRoutes = () => {
   // ---------- sign-in sessions across the shop ----------
   router.get(
     '/security/sessions',
-    requirePermission('admin.security.manage'),
+    requirePermission('admin.security.view'),
     handler(async (req, res) => {
       const { staff } = parse(z.object({ staff: z.enum(['1', '0']).optional() }), req.query);
       const rows = (
@@ -274,7 +274,7 @@ export const adminSecurityRoutes = () => {
   // ---------- security settings ----------
   router.get(
     '/security/settings',
-    requirePermission('admin.security.manage'),
+    requirePermission('admin.security.view'),
     handler(async (_req, res) => {
       const row = (
         await query(

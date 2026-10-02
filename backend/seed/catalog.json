@@ -67,31 +67,160 @@
    "logo": "brand-kairo-leather.svg"
   },
   {
-   "name": "Pulse Audio",
-   "color": "#C2185B",
-   "logo": "brand-pulse-audio.svg"
-  },
-  {
    "name": "Verde Beauty",
    "color": "#2E7D32",
    "logo": "brand-verde-beauty.svg"
   },
   {
-   "name": "Stride Footwear",
-   "color": "#E65100",
-   "logo": "brand-stride-footwear.svg"
+   "name": "Nike",
+   "color": "#111111",
+   "logo": "brand-nike.svg",
+   "real": true
   },
   {
-   "name": "Tidal Tech",
-   "color": "#0277BD",
-   "logo": "brand-tidal-tech.svg"
+   "name": "Adidas",
+   "color": "#000000",
+   "logo": "brand-adidas.svg",
+   "real": true
+  },
+  {
+   "name": "Puma",
+   "color": "#242B2F",
+   "logo": "brand-puma.svg",
+   "real": true
+  },
+  {
+   "name": "New Balance",
+   "color": "#CF0A2C",
+   "logo": "brand-newbalance.svg",
+   "real": true
+  },
+  {
+   "name": "Zara",
+   "color": "#000000",
+   "logo": "brand-zara.svg",
+   "real": true
+  },
+  {
+   "name": "H&M",
+   "color": "#E50010",
+   "logo": "brand-handm.svg",
+   "real": true
+  },
+  {
+   "name": "Uniqlo",
+   "color": "#FF0000",
+   "logo": "brand-uniqlo.svg",
+   "real": true
+  },
+  {
+   "name": "Under Armour",
+   "color": "#1D1D1D",
+   "logo": "brand-underarmour.svg",
+   "real": true
+  },
+  {
+   "name": "The North Face",
+   "color": "#000000",
+   "logo": "brand-thenorthface.svg",
+   "real": true
+  },
+  {
+   "name": "Reebok",
+   "color": "#E41D1B",
+   "logo": "brand-reebok.svg",
+   "real": true
+  },
+  {
+   "name": "Apple",
+   "color": "#000000",
+   "logo": "brand-apple.svg",
+   "real": true
+  },
+  {
+   "name": "Samsung",
+   "color": "#1428A0",
+   "logo": "brand-samsung.svg",
+   "real": true
+  },
+  {
+   "name": "Sony",
+   "color": "#111111",
+   "logo": "brand-sony.svg",
+   "real": true
+  },
+  {
+   "name": "JBL",
+   "color": "#FF3300",
+   "logo": "brand-jbl.svg",
+   "real": true
+  },
+  {
+   "name": "Bose",
+   "color": "#000000",
+   "logo": "brand-bose.svg",
+   "real": true
+  },
+  {
+   "name": "Beats",
+   "color": "#005571",
+   "logo": "brand-beats.svg",
+   "real": true
+  },
+  {
+   "name": "Fitbit",
+   "color": "#00B0B9",
+   "logo": "brand-fitbit.svg",
+   "real": true
+  },
+  {
+   "name": "Garmin",
+   "color": "#000000",
+   "logo": "brand-garmin.svg",
+   "real": true
+  },
+  {
+   "name": "SteelSeries",
+   "color": "#FF5200",
+   "logo": "brand-steelseries.svg",
+   "real": true
+  },
+  {
+   "name": "Razer",
+   "color": "#00FF00",
+   "logo": "brand-razer.svg",
+   "real": true
+  },
+  {
+   "name": "Sennheiser",
+   "color": "#000000",
+   "logo": "brand-sennheiser.svg",
+   "real": true
+  },
+  {
+   "name": "Xiaomi",
+   "color": "#FF6900",
+   "logo": "brand-xiaomi.svg",
+   "real": true
+  },
+  {
+   "name": "IKEA",
+   "color": "#0058A3",
+   "logo": "brand-ikea.svg",
+   "real": true
+  },
+  {
+   "name": "Hermès",
+   "color": "#0091CD",
+   "logo": "brand-hermes.svg",
+   "real": true
   }
  ],
  "products": [
   {
    "name": "Linen summer dress",
    "category": "Dresses",
-   "brand": "Northwind Apparel",
+   "brand": "Zara",
    "price": 49.99,
    "sku": "NW-DRS-LIN",
    "featured": true,
@@ -158,7 +287,7 @@
   {
    "name": "Wrap midi dress",
    "category": "Dresses",
-   "brand": "Northwind Apparel",
+   "brand": "Zara",
    "price": 69,
    "sku": "NW-DRS-WRP",
    "tags": [
@@ -231,7 +360,7 @@
   {
    "name": "Chunky knit sweater",
    "category": "Tops & knitwear",
-   "brand": "Northwind Apparel",
+   "brand": "Uniqlo",
    "price": 58,
    "special": 46,
    "sku": "NW-KNT-CHK",
@@ -340,7 +469,7 @@
   {
    "name": "Ribbed tank top",
    "category": "Tops & knitwear",
-   "brand": "Northwind Apparel",
+   "brand": "H&M",
    "price": 19,
    "sku": "NW-TOP-RIB",
    "tags": [
@@ -413,7 +542,7 @@
   {
    "name": "Cotton crew-neck shirt",
    "category": "Shirts & tees",
-   "brand": "Northwind Apparel",
+   "brand": "Uniqlo",
    "price": 24.5,
    "sku": "NW-TEE-CRW",
    "featured": true,
@@ -591,7 +720,7 @@
   {
    "name": "Fleece hoodie",
    "category": "Shirts & tees",
-   "brand": "Northwind Apparel",
+   "brand": "Under Armour",
    "price": 54,
    "sku": "NW-HOD-FLC",
    "tags": [
@@ -672,7 +801,7 @@
   {
    "name": "Denim jacket",
    "category": "Jackets & coats",
-   "brand": "Northwind Apparel",
+   "brand": "H&M",
    "price": 79,
    "special": 59,
    "sku": "NW-JKT-DNM",
@@ -754,7 +883,7 @@
   {
    "name": "Wool overshirt",
    "category": "Jackets & coats",
-   "brand": "Northwind Apparel",
+   "brand": "The North Face",
    "price": 95,
    "sku": "NW-JKT-WOL",
    "tags": [
@@ -852,7 +981,7 @@
   {
    "name": "Running sneakers",
    "category": "Shoes",
-   "brand": "Stride Footwear",
+   "brand": "Nike",
    "price": 110,
    "special": 89,
    "sku": "ST-RUN-AIR",
@@ -1006,7 +1135,7 @@
   {
    "name": "Canvas low-top sneakers",
    "category": "Shoes",
-   "brand": "Stride Footwear",
+   "brand": "Adidas",
    "price": 55,
    "sku": "ST-CNV-LOW",
    "tags": [
@@ -1318,7 +1447,7 @@
   {
    "name": "Eau de parfum",
    "category": "Beauty",
-   "brand": "Lumen & Co",
+   "brand": "Hermès",
    "price": 85,
    "sku": "LC-EDP-AMB",
    "tags": [
@@ -1398,7 +1527,7 @@
   {
    "name": "Ceramic table lamp",
    "category": "Home",
-   "brand": "Aster Home",
+   "brand": "IKEA",
    "price": 64,
    "sku": "AH-LMP-CER",
    "quantity": 0,
@@ -1540,7 +1669,7 @@
   {
    "name": "Linen throw pillow",
    "category": "Home",
-   "brand": "Aster Home",
+   "brand": "IKEA",
    "price": 29,
    "sku": "AH-PLW-LIN",
    "tags": [
@@ -1613,7 +1742,7 @@
   {
    "name": "Stoneware mug set",
    "category": "Home",
-   "brand": "Aster Home",
+   "brand": "IKEA",
    "price": 34,
    "sku": "AH-MUG-SET",
    "tags": [
@@ -2016,7 +2145,7 @@
   {
    "name": "Wireless earbuds",
    "category": "Electronics",
-   "brand": "Pulse Audio",
+   "brand": "Samsung",
    "price": 89,
    "sku": "PA-EAR-WLS",
    "featured": true,
@@ -2082,7 +2211,7 @@
   {
    "name": "Over-ear headphones",
    "category": "Electronics",
-   "brand": "Pulse Audio",
+   "brand": "Sony",
    "price": 199,
    "special": 169,
    "sku": "PA-HDP-OVR",
@@ -2158,7 +2287,7 @@
   {
    "name": "Smart fitness band",
    "category": "Electronics",
-   "brand": "Tidal Tech",
+   "brand": "Fitbit",
    "price": 59,
    "special": 45,
    "sku": "TT-FIT-BND",
@@ -2249,7 +2378,7 @@
   {
    "name": "Portable Bluetooth speaker",
    "category": "Electronics",
-   "brand": "Pulse Audio",
+   "brand": "JBL",
    "price": 79,
    "sku": "PA-SPK-PRT",
    "tags": [
@@ -2338,7 +2467,7 @@
   {
    "name": "Smartwatch Series 3",
    "category": "Electronics",
-   "brand": "Tidal Tech",
+   "brand": "Apple",
    "price": 249,
    "sku": "TT-SWT-S3",
    "featured": true,
@@ -2422,7 +2551,7 @@
   {
    "name": "Mechanical keyboard",
    "category": "Electronics",
-   "brand": "Tidal Tech",
+   "brand": "SteelSeries",
    "price": 120,
    "sku": "TT-KBD-MEC",
    "tags": [
@@ -2513,21 +2642,24 @@
    "subtitle": "Use code FRIDAY35 at checkout.",
    "code": "FRIDAY35",
    "link": "/products?on_sale=1",
-   "daily": true
+   "daily": true,
+   "image": "cat-women.jpg"
   },
   {
    "title": "New season has landed",
    "subtitle": "Fresh jackets, knits and leather goods.",
    "code": null,
    "link": "/products?tag=new-season",
-   "days": 6
+   "days": 6,
+   "image": "overshirt-camel.jpg"
   },
   {
    "title": "10% off your first order",
    "subtitle": "Use code WELCOME10.",
    "code": "WELCOME10",
    "link": "/products?featured=1",
-   "days": 12
+   "days": 12,
+   "image": "cat-home.jpg"
   }
  ]
 }

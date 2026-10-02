@@ -1,9 +1,9 @@
 // src/layouts/StorefrontLayout.js — header, page, footer for shopper pages.
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Outlet, Link as RouterLink } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { Box, Container, Stack, Typography } from '@mui/material';
-import { FiChevronLeft } from 'react-icons/fi';
+import PageBreadcrumbs from '../components/common/PageBreadcrumbs';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
 import ImpersonationBanner from '../components/ImpersonationBanner';
@@ -27,46 +27,41 @@ export const AccountPage = ({
   children,
   back = '/account',
   backLabel = 'My account',
-}) => (
-  <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
-    <Typography
-      component={RouterLink}
-      to={back}
-      variant="body2"
-      sx={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 0.5,
-        color: 'text.secondary',
-        textDecoration: 'none',
-        mb: 2,
-        '&:hover': { color: 'primary.main' },
-      }}
-    >
-      <FiChevronLeft /> {backLabel}
-    </Typography>
-    <Stack
-      direction={{ xs: 'column', sm: 'row' }}
-      justifyContent="space-between"
-      alignItems={{ sm: 'flex-end' }}
-      spacing={2}
-      sx={{ mb: 3 }}
-    >
-      <Box>
-        <Typography variant="h3" component="h1">
-          {title}
-        </Typography>
-        {subtitle && (
-          <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-            {subtitle}
+}) => {
+  const here = useLocation().pathname;
+  return (
+    <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
+      <PageBreadcrumbs
+        sx={{ mb: 2 }}
+        items={[
+          { label: 'Home', to: '/' },
+          { label: backLabel, to: back },
+          ...(here && here !== back ? [{ label: title, to: here }] : []),
+        ]}
+      />
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        justifyContent="space-between"
+        alignItems={{ sm: 'flex-end' }}
+        spacing={2}
+        sx={{ mb: 3 }}
+      >
+        <Box>
+          <Typography variant="h3" component="h1">
+            {title}
           </Typography>
-        )}
-      </Box>
-      {action}
-    </Stack>
-    {children}
-  </Container>
-);
+          {subtitle && (
+            <Typography color="text.secondary" sx={{ mt: 0.5 }}>
+              {subtitle}
+            </Typography>
+          )}
+        </Box>
+        {action}
+      </Stack>
+      {children}
+    </Container>
+  );
+};
 AccountPage.propTypes = {
   title: PropTypes.node.isRequired,
   subtitle: PropTypes.node,

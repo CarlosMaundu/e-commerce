@@ -2,9 +2,7 @@
 // AuditLogsModule, simplified): search, area and date filters.
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Box,
   Chip,
-  InputAdornment,
   MenuItem,
   Skeleton,
   Stack,
@@ -13,15 +11,21 @@ import {
   TableCell,
   TableContainer,
   TableHead,
-  TablePagination,
   TableRow,
   TextField,
   Typography,
 } from '@mui/material';
-import { FiSearch } from 'react-icons/fi';
 import { adminSecurity } from '../../api';
 import { useNotify } from '../../notification/NotificationProvider';
 import { EmptyState } from '../../components/ui';
+import {
+  PAGE_SIZE,
+  PageHeader,
+  PanelToolbar,
+  SearchField,
+  StandardPagination,
+  TablePanel,
+} from '../../components/admin/DataTable';
 import { formatDateTime } from '../../utils/format';
 
 const AREAS = [
@@ -53,7 +57,7 @@ const AuditLogPage = () => {
   });
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [rowsPerPage, setRowsPerPage] = useState(PAGE_SIZE);
   const [data, setData] = useState(null);
 
   const load = useCallback(async () => {
@@ -83,81 +87,55 @@ const AuditLogPage = () => {
 
   return (
     <Stack spacing={3}>
-      <Box>
-        <Typography variant="h3" component="h1">
-          Audit log
-        </Typography>
-        <Typography color="text.secondary">
-          Sign-ins and every change made in the back office. Actions taken while
-          acting as a customer show who really did them.
-        </Typography>
-      </Box>
+      <PageHeader
+        crumbs={[
+          { label: 'Home', to: '/admin' },
+          { label: 'Audit log', to: '/admin/audit' },
+        ]}
+        title="Audit log"
+        subtitle="Sign-ins and every change made in the back office. Actions taken while acting as a customer show who really did them."
+      />
 
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5}>
-        <Box
-          component="form"
-          onSubmit={(e) => {
-            e.preventDefault();
-            set({ search: search.trim() });
-          }}
-          sx={{ flex: 1 }}
-        >
+      <TablePanel>
+        <PanelToolbar>
+          <SearchField
+            value={search}
+            onChange={setSearch}
+            onSubmit={() => set({ search: search.trim() })}
+            placeholder="Search by person or target"
+            label="Search the audit log"
+          />
+          <TextField
+            select
+            size="small"
+            label="Area"
+            value={filters.action}
+            onChange={(e) => set({ action: e.target.value })}
+            sx={{ minWidth: 220 }}
+          >
+            {AREAS.map((a) => (
+              <MenuItem key={a.value} value={a.value}>
+                {a.label}
+              </MenuItem>
+            ))}
+          </TextField>
           <TextField
             size="small"
-            fullWidth
-            placeholder="Search by person or target"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            inputProps={{ 'aria-label': 'Search the audit log' }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <FiSearch />
-                </InputAdornment>
-              ),
-            }}
+            type="date"
+            label="From"
+            InputLabelProps={{ shrink: true }}
+            value={filters.from}
+            onChange={(e) => set({ from: e.target.value })}
           />
-        </Box>
-        <TextField
-          select
-          size="small"
-          label="Area"
-          value={filters.action}
-          onChange={(e) => set({ action: e.target.value })}
-          sx={{ minWidth: 220 }}
-        >
-          {AREAS.map((a) => (
-            <MenuItem key={a.value} value={a.value}>
-              {a.label}
-            </MenuItem>
-          ))}
-        </TextField>
-        <TextField
-          size="small"
-          type="date"
-          label="From"
-          InputLabelProps={{ shrink: true }}
-          value={filters.from}
-          onChange={(e) => set({ from: e.target.value })}
-        />
-        <TextField
-          size="small"
-          type="date"
-          label="To"
-          InputLabelProps={{ shrink: true }}
-          value={filters.to}
-          onChange={(e) => set({ to: e.target.value })}
-        />
-      </Stack>
-
-      <Box
-        sx={{
-          border: 1,
-          borderColor: 'divider',
-          borderRadius: 1,
-          overflow: 'hidden',
-        }}
-      >
+          <TextField
+            size="small"
+            type="date"
+            label="To"
+            InputLabelProps={{ shrink: true }}
+            value={filters.to}
+            onChange={(e) => set({ to: e.target.value })}
+          />
+        </PanelToolbar>
         <TableContainer>
           <Table aria-label="Audit log" sx={{ minWidth: 760 }}>
             <TableHead>
@@ -240,19 +218,17 @@ const AuditLogPage = () => {
         {data && !data.activity.length && (
           <EmptyState title="Nothing matches those filters." />
         )}
-        <TablePagination
-          component="div"
+        <StandardPagination
           count={data?.total || 0}
           page={page}
-          onPageChange={(_, p) => setPage(p)}
           rowsPerPage={rowsPerPage}
-          rowsPerPageOptions={[25, 50, 100]}
+          onPageChange={(_, p) => setPage(p)}
           onRowsPerPageChange={(e) => {
             setRowsPerPage(Number(e.target.value));
             setPage(0);
           }}
         />
-      </Box>
+      </TablePanel>
     </Stack>
   );
 };

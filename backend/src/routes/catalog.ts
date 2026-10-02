@@ -21,6 +21,7 @@ interface CategoryRow {
   name: string;
   image: string;
   parent_id: number | null;
+  product_count: number;
 }
 
 const buildTree = (rows: CategoryRow[], parentId: number | null): unknown[] =>
@@ -31,15 +32,25 @@ const buildTree = (rows: CategoryRow[], parentId: number | null): unknown[] =>
       name: c.name,
       image: c.image,
       parent_id: c.parent_id ?? 0,
+      product_count: c.product_count,
       categories: buildTree(rows, c.id),
     }));
 
 export const loadCategoryTree = async (rootId?: number) => {
-  const rows = (await query<CategoryRow>('SELECT id, name, image, parent_id FROM categories ORDER BY id')).rows;
+  const rows = (
+    await query<CategoryRow>(
+      `SELECT c.id, c.name, c.image, c.parent_id,
+         (SELECT count(*)::int FROM products p WHERE p.category_id = c.id) AS product_count
+       FROM categories c ORDER BY c.id`
+    )
+  ).rows;
   if (rootId === undefined) return buildTree(rows, null);
   const root = rows.find((c) => c.id === rootId);
   if (!root) return null;
-  return { category_id: root.id, name: root.name, image: root.image, parent_id: root.parent_id ?? 0, categories: buildTree(rows, root.id) };
+  return {
+    category_id: root.id, name: root.name, image: root.image, parent_id: root.parent_id ?? 0,
+    product_count: root.product_count, categories: buildTree(rows, root.id),
+  };
 };
 
 const csv = (v: unknown) =>
@@ -56,7 +67,7 @@ const flag = z
 /** Storefront and admin list filters, from the query string. */
 export const filterQuery = z.object({
   search: z.string().trim().max(100).optional(),
-  category: z.coerce.number().int().positive().optional(),
+  category: z.any().transform((v) => csv(v).map(Number).filter((n) => Number.isInteger(n) && n > 0)).optional(),
   brand: z.any().transform((v) => csv(v).map(Number).filter((n) => Number.isInteger(n) && n > 0)).optional(),
   price_min: z.coerce.number().min(0).optional(),
   price_max: z.coerce.number().min(0).optional(),
@@ -64,7 +75,7 @@ export const filterQuery = z.object({
   in_stock: flag,
   on_sale: flag,
   featured: flag,
-  tag: z.string().trim().max(60).optional(),
+  tag: z.any().transform((v) => csv(v).map((t) => t.slice(0, 60)).slice(0, 20)).optional(),
   attr: z
     .record(z.any())
     .transform((o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k.slice(0, 60), csv(v).slice(0, 20)])))
@@ -109,6 +120,12 @@ const reviewBody = z.object({
     .min(10, 'Please write at least a sentence (10 characters or more).')
     .max(5000, 'Please keep your review under 5,000 characters.'),
 });
+
+/**
+ * Attributes shoppers filter by. Others (scent, shade, strap, switch…) are
+ * choices made on the product page, not ways to browse.
+ */
+export const FILTER_ATTRIBUTES = ['color', 'colour', 'size', 'material', 'fabric material'];
 
 const startOfTomorrow = () => {
   const d = new Date();
@@ -257,7 +274,7 @@ export const catalogRoutes = () => {
   router.get(
     '/product_filters',
     handler(async (req, res) => {
-      const { category } = parse(z.object({ category: z.coerce.number().int().positive().optional() }), req.query);
+      const { category } = parse(filterQuery.pick({ category: true }), req.query);
       const params: unknown[] = [];
       const whereSql = buildWhere({ status: 'published', category }, params);
       const brands = (
@@ -283,7 +300,7 @@ export const catalogRoutes = () => {
         )
       ).rows;
       const attributes: { name: string; values: { value: string; count: number }[] }[] = [];
-      for (const r of attrRows) {
+      for (const r of attrRows.filter((x) => FILTER_ATTRIBUTES.includes(x.name.toLowerCase()))) {
         let group = attributes.find((a) => a.name.toLowerCase() === r.name.toLowerCase());
         if (!group) attributes.push((group = { name: r.name, values: [] }));
         if (!group.values.some((v) => v.value === r.value)) group.values.push({ value: r.value, count: r.count });
@@ -337,6 +354,7 @@ export const catalogRoutes = () => {
           subtitle: p.subtitle,
           code: p.code,
           link: p.link,
+          image: p.image,
           ends_at: p.ends_at || startOfTomorrow(),
           daily: !p.ends_at,
         }))

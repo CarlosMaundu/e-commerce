@@ -17,19 +17,14 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
-  InputAdornment,
-  ListItemIcon,
-  Menu,
+  Link,
   MenuItem,
-  Paper,
-  Skeleton,
   Stack,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
-  TablePagination,
   TableRow,
   TextField,
   Tooltip,
@@ -41,13 +36,25 @@ import {
   FiEye,
   FiKey,
   FiLogOut,
-  FiMoreVertical,
   FiPlus,
   FiRefreshCw,
-  FiSearch,
   FiUnlock,
+  FiUser,
 } from 'react-icons/fi';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import {
+  EmptyRow,
+  LoadingRows,
+  PageHeader,
+  PanelTabs,
+  PanelToolbar,
+  RowActions,
+  SearchField,
+  StandardPagination,
+  TablePanel,
+  usePaging,
+} from '../../admin/DataTable';
+import { formatDate } from '../../../utils/format';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import { AuthContext } from '../../../context/AuthContext';
@@ -234,7 +241,6 @@ const UsersSection = () => {
   } = useContext(AuthContext);
   const notify = useNotify();
   const navigate = useNavigate();
-  const [menu, setMenu] = useState(null); // { anchor, user }
   const [activityUser, setActivityUser] = useState(null);
   const [actAs, setActAs] = useState(null);
   const [signOutTarget, setSignOutTarget] = useState(null);
@@ -246,8 +252,7 @@ const UsersSection = () => {
   const [loadFailed, setLoadFailed] = useState(false);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const paging = usePaging();
 
   const [formMode, setFormMode] = useState(null); // 'create' | 'edit' | null
   const [editing, setEditing] = useState(null);
@@ -280,6 +285,8 @@ const UsersSection = () => {
     currentUser,
     PERMISSIONS.usersImpersonate
   );
+  const canUnlock = hasPermission(currentUser, PERMISSIONS.usersUnlock);
+  const canSignOut = hasPermission(currentUser, PERMISSIONS.usersSignout);
   const staffRoles = new Set(
     roles.filter((r) => r.is_staff).map((r) => r.code)
   );
@@ -341,18 +348,14 @@ const UsersSection = () => {
       (u) =>
         (roleFilter === 'all' ||
           u.role === roleFilter ||
-          (roleFilter === '__staff' && isStaffRole(u.role))) &&
+          (roleFilter === '__staff' && isStaffRole(u.role)) ||
+          (roleFilter === '__customers' && !isStaffRole(u.role))) &&
         (!q ||
           (u.name || '').toLowerCase().includes(q) ||
           (u.email || '').toLowerCase().includes(q))
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [users, search, roleFilter, roles]);
-
-  const visible = filtered.slice(
-    page * rowsPerPage,
-    page * rowsPerPage + rowsPerPage
-  );
 
   const handleCreate = async (values) => {
     try {
@@ -408,128 +411,131 @@ const UsersSection = () => {
     );
   }
 
+  const staffBadge = (u) => isStaffRole(u.role);
+  const roleTab =
+    roleFilter === '__staff' ||
+    roleFilter === '__customers' ||
+    roleFilter === 'all'
+      ? roleFilter
+      : 'role';
+
   return (
-    <Box>
-      <Stack
-        direction={{ xs: 'column', sm: 'row' }}
-        spacing={2}
-        justifyContent="space-between"
-        alignItems={{ xs: 'stretch', sm: 'center' }}
-        sx={{ mb: 2 }}
-      >
-        <Box>
-          <Typography variant="h5" className="section-header">
-            Users
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Add people, change their role, unlock accounts, or help a customer
-            by viewing the shop as them.
-          </Typography>
-        </Box>
-        <Stack direction="row" spacing={1}>
-          <Tooltip title="Refresh">
-            <span>
-              <IconButton
-                onClick={loadUsers}
-                disabled={loading}
-                aria-label="Refresh users"
+    <Stack spacing={3}>
+      <PageHeader
+        crumbs={[
+          { label: 'Home', to: '/admin' },
+          { label: 'Users', to: '/admin/users' },
+        ]}
+        title="Users"
+        subtitle="Customers and back-office staff. Open an account to see orders, addresses and activity."
+        actions={
+          <>
+            <Tooltip title="Refresh">
+              <span>
+                <IconButton
+                  onClick={loadUsers}
+                  disabled={loading}
+                  aria-label="Refresh users"
+                >
+                  <FiRefreshCw />
+                </IconButton>
+              </span>
+            </Tooltip>
+            {canCreate && (
+              <Button
+                variant="contained"
+                startIcon={<FiPlus />}
+                onClick={() => {
+                  setEditing(null);
+                  setFormMode('create');
+                }}
               >
-                <FiRefreshCw />
-              </IconButton>
-            </span>
-          </Tooltip>
-          {canCreate && (
-            <Button
-              variant="contained"
-              startIcon={<FiPlus />}
-              onClick={() => {
-                setEditing(null);
-                setFormMode('create');
-              }}
-            >
-              Add user
-            </Button>
-          )}
-        </Stack>
-      </Stack>
+                Add user
+              </Button>
+            )}
+          </>
+        }
+      />
 
-      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
-        <TextField
-          size="small"
-          placeholder="Search by name or email"
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(0);
+      <TablePanel>
+        <PanelTabs
+          value={roleTab}
+          onChange={(v) => {
+            if (v !== 'role') setRoleFilter(v);
+            paging.reset();
           }}
-          sx={{ flex: 1 }}
-          inputProps={{ 'aria-label': 'Search users' }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <FiSearch />
-              </InputAdornment>
-            ),
-          }}
+          tabs={[
+            { value: 'all', label: 'All', count: users.length },
+            {
+              value: '__customers',
+              label: 'Customers',
+              count: users.filter((u) => !staffBadge(u)).length,
+            },
+            {
+              value: '__staff',
+              label: 'Back office',
+              count: users.filter(staffBadge).length,
+            },
+            ...(roleTab === 'role'
+              ? [{ value: 'role', label: roleLabel(roleFilter) }]
+              : []),
+          ]}
         />
-        <TextField
-          select
-          size="small"
-          label="Role"
-          value={roleFilter}
-          onChange={(e) => {
-            setRoleFilter(e.target.value);
-            setPage(0);
-          }}
-          sx={{ minWidth: 160 }}
-        >
-          <MenuItem value="all">All roles</MenuItem>
-          <MenuItem value="__staff">Back office (any role)</MenuItem>
-          {roles.map((role) => (
-            <MenuItem key={role.code} value={role.code}>
-              {role.name}
-            </MenuItem>
-          ))}
-        </TextField>
-      </Stack>
+        <PanelToolbar>
+          <SearchField
+            value={search}
+            onChange={(v) => {
+              setSearch(v);
+              paging.reset();
+            }}
+            placeholder="Search by name or email"
+            label="Search users"
+          />
+          <TextField
+            select
+            size="small"
+            label="Role"
+            value={roleTab === 'role' ? roleFilter : 'all'}
+            onChange={(e) => {
+              setRoleFilter(e.target.value);
+              paging.reset();
+            }}
+            sx={{ minWidth: 180 }}
+          >
+            <MenuItem value="all">All roles</MenuItem>
+            {roles.map((role) => (
+              <MenuItem key={role.code} value={role.code}>
+                {role.name}
+              </MenuItem>
+            ))}
+          </TextField>
+        </PanelToolbar>
 
-      <Paper variant="outlined">
         <TableContainer>
-          <Table size="small" aria-label="Users">
+          <Table aria-label="Users" sx={{ minWidth: 720 }}>
             <TableHead>
               <TableRow>
                 <TableCell>User</TableCell>
                 <TableCell>Role</TableCell>
+                <TableCell>Status</TableCell>
                 <TableCell>Last sign-in</TableCell>
-                <TableCell align="right">Actions</TableCell>
+                <TableCell>Joined</TableCell>
+                <TableCell align="right" />
               </TableRow>
             </TableHead>
             <TableBody>
-              {loading &&
-                Array.from({ length: 5 }).map((_, i) => (
-                  <TableRow key={`s-${i}`}>
-                    <TableCell colSpan={4}>
-                      <Skeleton height={36} />
-                    </TableCell>
-                  </TableRow>
-                ))}
-
-              {!loading && visible.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
-                    <Typography color="text.secondary">
-                      {loadFailed
-                        ? MESSAGES.users.loadFailed
-                        : search || roleFilter !== 'all'
-                          ? 'No users match your search.'
-                          : 'No users yet.'}
-                    </Typography>
-                  </TableCell>
-                </TableRow>
+              {loading && <LoadingRows cols={6} />}
+              {!loading && !filtered.length && (
+                <EmptyRow cols={6}>
+                  {loadFailed
+                    ? MESSAGES.users.loadFailed
+                    : search || roleFilter !== 'all'
+                      ? 'No users match your search.'
+                      : 'No users yet.'}
+                </EmptyRow>
               )}
-
               {!loading &&
-                visible.map((u) => (
+                paging.slice(filtered).map((u) => (
                   <TableRow
                     key={u.id}
                     hover
@@ -538,17 +544,22 @@ const UsersSection = () => {
                     <TableCell>
                       <Stack direction="row" spacing={1.5} alignItems="center">
                         <Avatar
-                          src={u.avatar}
+                          src={u.avatar || undefined}
                           alt=""
-                          sx={{ width: 32, height: 32 }}
+                          sx={{ width: 36, height: 36 }}
                         >
                           {(u.name || '?').charAt(0)}
                         </Avatar>
                         <Box sx={{ minWidth: 0 }}>
-                          <Typography variant="body2" fontWeight={600} noWrap>
+                          <Link
+                            component={RouterLink}
+                            to={`/admin/users/${u.id}`}
+                            underline="hover"
+                            sx={{ fontWeight: 600, display: 'block' }}
+                          >
                             {u.name}
                             {u.id === currentUser?.id && ' (you)'}
-                          </Typography>
+                          </Link>
                           <Typography
                             variant="caption"
                             color="text.secondary"
@@ -560,16 +571,23 @@ const UsersSection = () => {
                       </Stack>
                     </TableCell>
                     <TableCell>
+                      <Chip
+                        size="small"
+                        label={roleLabel(u.role)}
+                        color={staffBadge(u) ? 'primary' : 'default'}
+                        variant={staffBadge(u) ? 'filled' : 'outlined'}
+                      />
+                    </TableCell>
+                    <TableCell>
                       <Stack direction="row" spacing={0.5}>
                         <Chip
                           size="small"
-                          label={roleLabel(u.role)}
-                          color={isStaffRole(u.role) ? 'primary' : 'default'}
-                          variant={isStaffRole(u.role) ? 'filled' : 'outlined'}
+                          variant="outlined"
+                          color={u.status === 'suspended' ? 'error' : 'success'}
+                          label={
+                            u.status === 'suspended' ? 'Suspended' : 'Active'
+                          }
                         />
-                        {u.status === 'suspended' && (
-                          <Chip size="small" color="error" label="Suspended" />
-                        )}
                         {u.lockedUntil && (
                           <Chip size="small" color="warning" label="Locked" />
                         )}
@@ -580,60 +598,71 @@ const UsersSection = () => {
                         {u.lastLogin ? timeAgo(u.lastLogin) : 'Never'}
                       </Typography>
                     </TableCell>
-                    <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                      {canUpdate && (
-                        <Tooltip title="Edit">
-                          <IconButton
-                            size="small"
-                            aria-label={`Edit ${u.email}`}
-                            onClick={() => {
+                    <TableCell>
+                      <Typography variant="body2" color="text.secondary">
+                        {formatDate(u.creationAt)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <RowActions
+                        label={`Actions for ${u.email}`}
+                        items={[
+                          {
+                            label: 'View account',
+                            icon: <FiUser />,
+                            onClick: () => navigate(`/admin/users/${u.id}`),
+                          },
+                          {
+                            label: 'Edit',
+                            icon: <FiEdit2 />,
+                            hidden: !canUpdate,
+                            onClick: () => {
                               setEditing(u);
                               setFormMode('edit');
-                            }}
-                          >
-                            <FiEdit2 />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      {canReset && (
-                        <Tooltip title="Send password reset email">
-                          <IconButton
-                            size="small"
-                            aria-label={`Reset password for ${u.email}`}
-                            onClick={() => setResetTarget(u)}
-                          >
-                            <FiKey />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      <IconButton
-                        size="small"
-                        aria-label={`More actions for ${u.email}`}
-                        onClick={(e) =>
-                          setMenu({ anchor: e.currentTarget, user: u })
-                        }
-                      >
-                        <FiMoreVertical />
-                      </IconButton>
+                            },
+                          },
+                          {
+                            label: 'Send password reset',
+                            icon: <FiKey />,
+                            hidden: !canReset,
+                            onClick: () => setResetTarget(u),
+                          },
+                          {
+                            label: 'View as customer',
+                            icon: <FiEye />,
+                            hidden:
+                              !canImpersonate ||
+                              staffBadge(u) ||
+                              u.status !== 'active',
+                            onClick: () => setActAs(u),
+                          },
+                          {
+                            label: 'Activity and sessions',
+                            icon: <FiActivity />,
+                            onClick: () => setActivityUser(u),
+                          },
+                          {
+                            label: 'Unlock account',
+                            icon: <FiUnlock />,
+                            hidden: !canUnlock || !u.lockedUntil,
+                            onClick: () => unlock(u),
+                          },
+                          {
+                            label: 'Sign out everywhere',
+                            icon: <FiLogOut />,
+                            hidden: !canSignOut || u.id === currentUser?.id,
+                            onClick: () => setSignOutTarget(u),
+                          },
+                        ]}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}
             </TableBody>
           </Table>
         </TableContainer>
-        <TablePagination
-          component="div"
-          count={filtered.length}
-          page={page}
-          onPageChange={(_, p) => setPage(p)}
-          rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={(e) => {
-            setRowsPerPage(parseInt(e.target.value, 10));
-            setPage(0);
-          }}
-          rowsPerPageOptions={[10, 25, 50]}
-        />
-      </Paper>
+        <StandardPagination count={filtered.length} {...paging.props} />
+      </TablePanel>
 
       <UserFormDialog
         open={formMode !== null}
@@ -665,66 +694,6 @@ const UsersSection = () => {
         }}
         onSubmit={formMode === 'edit' ? handleEdit : handleCreate}
       />
-
-      <Menu
-        anchorEl={menu?.anchor}
-        open={Boolean(menu)}
-        onClose={() => setMenu(null)}
-      >
-        {menu &&
-          canImpersonate &&
-          !isStaffRole(menu.user.role) &&
-          menu.user.status === 'active' && (
-            <MenuItem
-              onClick={() => {
-                setActAs(menu.user);
-                setMenu(null);
-              }}
-            >
-              <ListItemIcon>
-                <FiEye />
-              </ListItemIcon>
-              View as customer
-            </MenuItem>
-          )}
-        <MenuItem
-          onClick={() => {
-            setActivityUser(menu.user);
-            setMenu(null);
-          }}
-        >
-          <ListItemIcon>
-            <FiActivity />
-          </ListItemIcon>
-          Activity and sessions
-        </MenuItem>
-        {menu && canUpdate && menu.user.lockedUntil && (
-          <MenuItem
-            onClick={() => {
-              unlock(menu.user);
-              setMenu(null);
-            }}
-          >
-            <ListItemIcon>
-              <FiUnlock />
-            </ListItemIcon>
-            Unlock account
-          </MenuItem>
-        )}
-        {menu && canUpdate && menu.user.id !== currentUser?.id && (
-          <MenuItem
-            onClick={() => {
-              setSignOutTarget(menu.user);
-              setMenu(null);
-            }}
-          >
-            <ListItemIcon>
-              <FiLogOut />
-            </ListItemIcon>
-            Sign out everywhere
-          </MenuItem>
-        )}
-      </Menu>
 
       <UserActivityDialog
         user={activityUser}
@@ -764,7 +733,7 @@ const UsersSection = () => {
         onConfirm={handleReset}
         onCancel={() => setResetTarget(null)}
       />
-    </Box>
+    </Stack>
   );
 };
 

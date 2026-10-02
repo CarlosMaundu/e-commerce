@@ -2,14 +2,13 @@
 // edit a product, laid out like Aurora's numbered product listing steps:
 // vital info, description, images, variations, pricing and quantity,
 // inventory, and tags.
-import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useContext, useEffect, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
-import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   Alert,
   Autocomplete,
   Box,
-  Breadcrumbs,
   Button,
   Checkbox,
   Chip,
@@ -17,7 +16,6 @@ import {
   FormControlLabel,
   IconButton,
   InputAdornment,
-  Link,
   MenuItem,
   Radio,
   RadioGroup,
@@ -47,22 +45,12 @@ import { hasPermission, PERMISSIONS } from '../../../auth/permissions';
 import { adminCatalog, catalog } from '../../../api';
 import { useNotify } from '../../../notification/NotificationProvider';
 import ConfirmationDialog from '../../../components/common/ConfirmationDialog';
-import { isColorAttribute, swatchFor } from '../../../utils/colors';
 import { formatMoney } from '../../../utils/format';
 import BrandDialog from './BrandDialog';
+import PageBreadcrumbs from '../../../components/common/PageBreadcrumbs';
+import VariationsEditor from './VariationsEditor';
 
 const MAX_IMAGES = 10;
-const ATTRIBUTE_SUGGESTIONS = [
-  'Color',
-  'Size',
-  'Material',
-  'Fabric material',
-  'Style',
-  'Shade',
-  'Scent',
-  'Strap',
-  'Capacity',
-];
 const NEW_BRAND = '__new__';
 
 const EMPTY = {
@@ -83,7 +71,41 @@ const EMPTY = {
   tags: [],
   featured: false,
   status: 'published',
+  imageLinks: {},
 };
+
+/** Photos linked to each option value, recovered from the variants. */
+const linksFrom = (attributes, variants) => {
+  const links = {};
+  attributes.forEach((a) => {
+    a.values.forEach((value) => {
+      const withValue = variants.filter((v) => v.options[a.name] === value);
+      if (!withValue.length) return;
+      const common = withValue[0].images.filter((src) =>
+        withValue.every((v) => v.images.includes(src))
+      );
+      if (common.length)
+        links[a.name] = { ...(links[a.name] || {}), [value]: common };
+    });
+  });
+  return links;
+};
+
+/** A variant's photos: those linked to each of its option values. */
+export const variantImages = (options, links) => [
+  ...new Set(
+    Object.entries(options).flatMap(
+      ([name, value]) => links[name]?.[value] || []
+    )
+  ),
+];
+
+/** Trimmed names and values, without blanks or duplicates. */
+const cleanAttributes = (attributes) =>
+  attributes.map((a) => ({
+    name: a.name.trim(),
+    values: [...new Set(a.values.map((v) => v.trim()).filter(Boolean))],
+  }));
 
 const fromProduct = (p) => ({
   title: p.title,
@@ -116,6 +138,7 @@ const fromProduct = (p) => ({
   tags: p.tags,
   featured: p.featured,
   status: p.status,
+  imageLinks: linksFrom(p.attributes, p.variants),
 });
 
 const combos = (attributes) =>
@@ -146,13 +169,7 @@ const syncVariants = (attributes, current) => {
         price: '',
         specialPrice: '',
         quantity: 0,
-        // A new size of an existing colour starts with that colour's photos.
-        images:
-          current.find((v) =>
-            Object.entries(v.options).some(
-              ([k, val]) => isColorAttribute(k) && options[k] === val
-            )
-          )?.images || [],
+        images: [],
       }
   );
 };
@@ -352,7 +369,7 @@ const ProductFormPage = () => {
     isNew ? PERMISSIONS.productsCreate : PERMISSIONS.productsUpdate
   );
   const canDelete = !isNew && hasPermission(user, PERMISSIONS.productsDelete);
-  const canAddBrand = hasPermission(user, 'catalog.categories.create');
+  const canAddBrand = hasPermission(user, 'catalog.brands.create');
 
   const [form, setForm] = useState(isNew ? EMPTY : null);
   const [original, setOriginal] = useState(null);
@@ -417,7 +434,7 @@ const ProductFormPage = () => {
     setForm((f) => ({
       ...f,
       attributes,
-      variants: syncVariants(attributes, f.variants),
+      variants: syncVariants(cleanAttributes(attributes), f.variants),
     }));
 
   const setVariant = (index, changes) =>
@@ -428,54 +445,48 @@ const ProductFormPage = () => {
       ),
     }));
 
-  // Variant photos are assigned by colour (or the first variation).
-  const imageAttribute = useMemo(
-    () =>
-      form?.attributes.find(
-        (a) => isColorAttribute(a.name) && a.values.length
-      ) || null,
-    [form?.attributes]
-  );
-
-  const imagesForValue = (value) =>
-    form.variants.find((v) => v.options[imageAttribute.name] === value)
-      ?.images || [];
-
-  const setImagesForValue = (value, images) =>
-    setForm((f) => ({
-      ...f,
-      variants: f.variants.map((v) =>
-        v.options[imageAttribute.name] === value ? { ...v, images } : v
-      ),
-    }));
-
+  /** Uploads photos into the gallery; returns their URLs. */
   const uploadFiles = async (files) => {
     const list = Array.from(files || []).slice(
       0,
       MAX_IMAGES - form.images.length
     );
-    if (!list.length) return;
+    const urls = [];
+    if (!list.length) {
+      if (files?.length)
+        notify.error(`You can add up to ${MAX_IMAGES} photos.`);
+      return urls;
+    }
     setUploading(list.length);
     for (const file of list) {
       try {
         // eslint-disable-next-line no-await-in-loop
         const { url } = await adminCatalog.uploadFile(file);
+        urls.push(url);
         setForm((f) => ({ ...f, images: [...f.images, url] }));
       } catch (error) {
         notify.error(error, `We couldn’t upload ${file.name}.`);
       }
       setUploading((n) => n - 1);
     }
+    return urls;
   };
 
   const removeImage = (src) =>
     setForm((f) => ({
       ...f,
-      images: f.images.filter((s) => s !== src),
-      variants: f.variants.map((v) => ({
-        ...v,
-        images: v.images.filter((s) => s !== src),
-      })),
+      images: f.images.filter((x) => x !== src),
+      imageLinks: Object.fromEntries(
+        Object.entries(f.imageLinks).map(([name, byValue]) => [
+          name,
+          Object.fromEntries(
+            Object.entries(byValue).map(([v, urls]) => [
+              v,
+              urls.filter((x) => x !== src),
+            ])
+          ),
+        ])
+      ),
     }));
 
   const makeCover = (src) =>
@@ -509,7 +520,10 @@ const ProductFormPage = () => {
 
   const save = async (status) => {
     const next = { ...form, status: status || form.status };
-    const found = validate(next);
+    const found = validate({
+      ...next,
+      attributes: cleanAttributes(next.attributes),
+    });
     setErrors(found);
     if (Object.keys(found).length) {
       setOpen(
@@ -525,7 +539,14 @@ const ProductFormPage = () => {
       return;
     }
     const payload = next.hasVariants
-      ? next
+      ? {
+          ...next,
+          attributes: cleanAttributes(next.attributes),
+          variants: next.variants.map((v) => ({
+            ...v,
+            images: variantImages(v.options, next.imageLinks),
+          })),
+        }
       : { ...next, attributes: [], variants: [] };
     setSaving(true);
     try {
@@ -605,14 +626,17 @@ const ProductFormPage = () => {
         disabled={readOnly || saving}
         style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}
       >
-        <Breadcrumbs aria-label="Breadcrumb">
-          <Link component={RouterLink} to="/admin/products" underline="hover">
-            Products
-          </Link>
-          <Typography color="text.primary">
-            {isNew ? 'Add product' : original?.title}
-          </Typography>
-        </Breadcrumbs>
+        <PageBreadcrumbs
+          items={[
+            { label: 'Products', to: '/admin/products' },
+            isNew
+              ? { label: 'Add product', to: '/admin/products/new' }
+              : {
+                  label: original?.title || 'Product',
+                  to: `/admin/products/${id}`,
+                },
+          ]}
+        />
 
         <Stack
           direction={{ xs: 'column', sm: 'row' }}
@@ -986,7 +1010,7 @@ const ProductFormPage = () => {
                 const yes = e.target.value === 'yes';
                 set({ hasVariants: yes });
                 if (yes && !form.attributes.length)
-                  setAttributes([{ name: 'Color', values: [] }]);
+                  setAttributes([{ name: 'Color', values: [''] }]);
               }}
             >
               <FormControlLabel
@@ -1005,123 +1029,15 @@ const ProductFormPage = () => {
                 {errors.attributes && (
                   <Alert severity="error">{errors.attributes}</Alert>
                 )}
-                {form.attributes.map((a, i) => (
-                  <Stack
-                    key={i}
-                    direction={{ xs: 'column', md: 'row' }}
-                    spacing={1.5}
-                    sx={{
-                      p: 2,
-                      bgcolor: 'background.neutral',
-                      borderRadius: 1,
-                    }}
-                    data-testid={`variation-${i}`}
-                  >
-                    <Autocomplete
-                      freeSolo
-                      options={ATTRIBUTE_SUGGESTIONS.filter(
-                        (s) =>
-                          !form.attributes.some(
-                            (x, j) => j !== i && x.name === s
-                          )
-                      )}
-                      value={a.name}
-                      onInputChange={(_, name) =>
-                        setAttributes(
-                          form.attributes.map((x, j) =>
-                            j === i ? { ...x, name } : x
-                          )
-                        )
-                      }
-                      sx={{ width: { md: 220 } }}
-                      renderInput={(params) => (
-                        <TextField {...params} size="small" label="Variation" />
-                      )}
-                    />
-                    <Autocomplete
-                      multiple
-                      freeSolo
-                      options={[]}
-                      value={a.values}
-                      onChange={(_, values) =>
-                        setAttributes(
-                          form.attributes.map((x, j) =>
-                            j === i
-                              ? {
-                                  ...x,
-                                  values: [
-                                    ...new Set(
-                                      values
-                                        .map((v) => v.trim())
-                                        .filter(Boolean)
-                                    ),
-                                  ],
-                                }
-                              : x
-                          )
-                        )
-                      }
-                      sx={{ flex: 1 }}
-                      renderTags={(values, getTagProps) =>
-                        values.map((v, k) => (
-                          <Chip
-                            {...getTagProps({ index: k })}
-                            key={v}
-                            size="small"
-                            label={v}
-                            avatar={
-                              isColorAttribute(a.name) ? (
-                                <Box
-                                  sx={{
-                                    borderRadius: '50%',
-                                    background: swatchFor(v),
-                                    border: 1,
-                                    borderColor: 'divider',
-                                  }}
-                                />
-                              ) : undefined
-                            }
-                          />
-                        ))
-                      }
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          size="small"
-                          label="Values"
-                          placeholder={
-                            a.values.length
-                              ? ''
-                              : 'Type a value and press Enter'
-                          }
-                        />
-                      )}
-                    />
-                    <IconButton
-                      aria-label={`Remove variation ${a.name || i + 1}`}
-                      onClick={() =>
-                        setAttributes(form.attributes.filter((_, j) => j !== i))
-                      }
-                      sx={{ alignSelf: 'center' }}
-                    >
-                      <FiTrash2 />
-                    </IconButton>
-                  </Stack>
-                ))}
-                {form.attributes.length < 5 && (
-                  <Button
-                    startIcon={<FiPlus />}
-                    onClick={() =>
-                      setAttributes([
-                        ...form.attributes,
-                        { name: '', values: [] },
-                      ])
-                    }
-                    sx={{ alignSelf: 'flex-start' }}
-                  >
-                    Add another variation
-                  </Button>
-                )}
+                <VariationsEditor
+                  attributes={form.attributes}
+                  onChange={setAttributes}
+                  links={form.imageLinks}
+                  onLinksChange={(imageLinks) => set({ imageLinks })}
+                  images={form.images}
+                  onUpload={uploadFiles}
+                  uploading={uploading > 0}
+                />
                 {form.variants.length > 0 && (
                   <Typography color="text.secondary">
                     {form.variants.length} combination
@@ -1219,63 +1135,6 @@ const ProductFormPage = () => {
                     {errors.variants}
                   </Alert>
                 )}
-                {imageAttribute && form.images.length > 0 && (
-                  <Box
-                    sx={{
-                      mb: 3,
-                      p: 2,
-                      bgcolor: 'background.neutral',
-                      borderRadius: 1,
-                    }}
-                  >
-                    <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
-                      Photos for each {imageAttribute.name.toLowerCase()}
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{ mb: 1.5 }}
-                    >
-                      Shoppers see these when they pick that{' '}
-                      {imageAttribute.name.toLowerCase()}.
-                    </Typography>
-                    <Stack spacing={1.5}>
-                      {imageAttribute.values.map((value) => (
-                        <Stack
-                          key={value}
-                          direction={{ xs: 'column', sm: 'row' }}
-                          spacing={2}
-                          alignItems={{ sm: 'center' }}
-                        >
-                          <Stack
-                            direction="row"
-                            spacing={1}
-                            alignItems="center"
-                            sx={{ width: 120 }}
-                          >
-                            <Box
-                              sx={{
-                                width: 16,
-                                height: 16,
-                                borderRadius: '4px',
-                                background: swatchFor(value),
-                                border: 1,
-                                borderColor: 'divider',
-                              }}
-                            />
-                            <Typography variant="body2">{value}</Typography>
-                          </Stack>
-                          <ImagePicker
-                            images={form.images}
-                            chosen={imagesForValue(value)}
-                            onChange={(imgs) => setImagesForValue(value, imgs)}
-                            labelText={`Photos for ${value}`}
-                          />
-                        </Stack>
-                      ))}
-                    </Stack>
-                  </Box>
-                )}
                 <TableContainer
                   sx={{ border: 1, borderColor: 'divider', borderRadius: 1 }}
                 >
@@ -1345,10 +1204,12 @@ const ProductFormPage = () => {
                               spacing={1}
                               alignItems="center"
                             >
-                              {v.images[0] ? (
+                              {variantImages(v.options, form.imageLinks)[0] ? (
                                 <Box
                                   component="img"
-                                  src={v.images[0]}
+                                  src={
+                                    variantImages(v.options, form.imageLinks)[0]
+                                  }
                                   alt=""
                                   sx={{
                                     width: 32,

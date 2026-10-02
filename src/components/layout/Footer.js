@@ -123,20 +123,14 @@ const Footer = () => {
                   bgcolor: 'background.neutralDeep',
                   borderRadius: 1,
                   px: 2,
-                  height: 42,
+                  height: 40,
                 }}
               />
               <Button
                 type="submit"
                 variant="contained"
-                color="inherit"
                 disabled={busy}
                 endIcon={<FiArrowRight />}
-                sx={{
-                  bgcolor: 'text.primary',
-                  color: '#fff',
-                  '&:hover': { bgcolor: '#000' },
-                }}
               >
                 Subscribe
               </Button>

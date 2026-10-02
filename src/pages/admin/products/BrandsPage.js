@@ -1,16 +1,18 @@
-// src/pages/admin/products/BrandsPage.js — brands and their logos.
-import React, { useContext, useEffect, useState } from 'react';
+// src/pages/admin/products/BrandsPage.js — brands and logos in the standard
+// table; add and edit in a dialog.
+import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import {
   Box,
-  Breadcrumbs,
   Button,
-  Card,
-  IconButton,
   Link,
-  Skeleton,
   Stack,
-  Tooltip,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   Typography,
 } from '@mui/material';
 import { FiEdit2, FiPlus, FiTrash2 } from 'react-icons/fi';
@@ -19,19 +21,31 @@ import { hasPermission } from '../../../auth/permissions';
 import { adminCatalog } from '../../../api';
 import { useNotify } from '../../../notification/NotificationProvider';
 import ConfirmationDialog from '../../../components/common/ConfirmationDialog';
-import { EmptyState } from '../../../components/ui';
+import {
+  EmptyRow,
+  LoadingRows,
+  PageHeader,
+  PanelToolbar,
+  RowActions,
+  SearchField,
+  StandardPagination,
+  TablePanel,
+  usePaging,
+} from '../../../components/admin/DataTable';
 import BrandDialog from './BrandDialog';
 
 const BrandsPage = () => {
   const { user } = useContext(AuthContext);
   const notify = useNotify();
+  const paging = usePaging();
   const [brands, setBrands] = useState(null);
+  const [search, setSearch] = useState('');
   const [editing, setEditing] = useState(null); // {} = new
   const [deleting, setDeleting] = useState(null);
   const [busy, setBusy] = useState(false);
-  const canCreate = hasPermission(user, 'catalog.categories.create');
-  const canUpdate = hasPermission(user, 'catalog.categories.update');
-  const canDelete = hasPermission(user, 'catalog.categories.delete');
+  const canCreate = hasPermission(user, 'catalog.brands.create');
+  const canUpdate = hasPermission(user, 'catalog.brands.update');
+  const canDelete = hasPermission(user, 'catalog.brands.delete');
 
   const load = () =>
     adminCatalog
@@ -46,6 +60,11 @@ const BrandsPage = () => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return (brands || []).filter((b) => !q || b.name.toLowerCase().includes(q));
+  }, [brands, search]);
 
   const remove = async () => {
     setBusy(true);
@@ -63,24 +82,15 @@ const BrandsPage = () => {
 
   return (
     <Stack spacing={3}>
-      <Box>
-        <Breadcrumbs aria-label="Breadcrumb">
-          <Link component={RouterLink} to="/admin/products" underline="hover">
-            Products
-          </Link>
-          <Typography color="text.primary">Brands</Typography>
-        </Breadcrumbs>
-        <Stack direction="row" alignItems="center" sx={{ mt: 1 }}>
-          <Box sx={{ flex: 1 }}>
-            <Typography variant="h3" component="h1">
-              Brands
-            </Typography>
-            <Typography color="text.secondary">
-              Shoppers can filter by brand, and logos appear on the home page
-              and product pages.
-            </Typography>
-          </Box>
-          {canCreate && (
+      <PageHeader
+        crumbs={[
+          { label: 'Products', to: '/admin/products' },
+          { label: 'Brands', to: '/admin/products/brands' },
+        ]}
+        title="Brands"
+        subtitle="Shoppers can filter by brand; logos scroll across the home page and appear on product pages."
+        actions={
+          canCreate && (
             <Button
               variant="contained"
               startIcon={<FiPlus />}
@@ -88,98 +98,103 @@ const BrandsPage = () => {
             >
               Add brand
             </Button>
-          )}
-        </Stack>
-      </Box>
-
-      {brands && !brands.length ? (
-        <EmptyState title="No brands yet">
-          Add your first brand and its logo.
-        </EmptyState>
-      ) : (
-        <Box
-          sx={{
-            display: 'grid',
-            gridTemplateColumns: {
-              xs: 'repeat(1, 1fr)',
-              sm: 'repeat(2, 1fr)',
-              lg: 'repeat(3, 1fr)',
-              xl: 'repeat(4, 1fr)',
-            },
-            gap: 2,
-          }}
-        >
-          {(brands || Array.from({ length: 6 })).map((b, i) =>
-            b ? (
-              <Card key={b.id} sx={{ p: 2.5 }} data-testid={`brand-${b.name}`}>
-                <Box
-                  sx={{
-                    height: 72,
-                    display: 'grid',
-                    placeItems: 'center',
-                    bgcolor: 'background.paper',
-                    borderRadius: '8px',
-                    mb: 2,
-                  }}
-                >
-                  {b.logo ? (
+          )
+        }
+      />
+      <TablePanel>
+        <PanelToolbar>
+          <SearchField
+            value={search}
+            onChange={(v) => {
+              setSearch(v);
+              paging.reset();
+            }}
+            placeholder="Search brands"
+          />
+        </PanelToolbar>
+        <TableContainer>
+          <Table aria-label="Brands" sx={{ minWidth: 560 }}>
+            <TableHead>
+              <TableRow>
+                <TableCell>Logo</TableCell>
+                <TableCell>Brand</TableCell>
+                <TableCell align="right">Products</TableCell>
+                <TableCell align="right" />
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {!brands && <LoadingRows cols={4} />}
+              {brands && !filtered.length && (
+                <EmptyRow cols={4}>
+                  {search ? 'No brands match your search.' : 'No brands yet.'}
+                </EmptyRow>
+              )}
+              {paging.slice(filtered).map((b) => (
+                <TableRow key={b.id} hover data-testid={`brand-${b.name}`}>
+                  <TableCell sx={{ width: 120 }}>
                     <Box
-                      component="img"
-                      src={b.logo}
-                      alt={`${b.name} logo`}
-                      sx={{ maxWidth: '85%', maxHeight: 52 }}
-                    />
-                  ) : (
-                    <Typography variant="h6" color="text.secondary">
+                      sx={{
+                        width: 88,
+                        height: 44,
+                        borderRadius: '8px',
+                        bgcolor: 'background.neutral',
+                        display: 'grid',
+                        placeItems: 'center',
+                      }}
+                    >
+                      {b.logo ? (
+                        <Box
+                          component="img"
+                          src={b.logo}
+                          alt={`${b.name} logo`}
+                          sx={{ maxWidth: '80%', maxHeight: 30 }}
+                        />
+                      ) : (
+                        <Typography variant="caption">No logo</Typography>
+                      )}
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
                       {b.name}
                     </Typography>
-                  )}
-                </Box>
-                <Stack direction="row" alignItems="center">
-                  <Box sx={{ flex: 1 }}>
-                    <Typography variant="subtitle1">{b.name}</Typography>
+                  </TableCell>
+                  <TableCell align="right">
                     <Link
                       component={RouterLink}
                       to={`/admin/products?brand=${b.id}`}
-                      variant="body2"
                       underline="hover"
                     >
-                      {b.productCount} product{b.productCount === 1 ? '' : 's'}
+                      {b.productCount}
                     </Link>
-                  </Box>
-                  {canUpdate && (
-                    <Tooltip title="Edit">
-                      <IconButton
-                        aria-label={`Edit ${b.name}`}
-                        onClick={() => setEditing(b)}
-                      >
-                        <FiEdit2 />
-                      </IconButton>
-                    </Tooltip>
-                  )}
-                  {canDelete && (
-                    <Tooltip title="Delete">
-                      <IconButton
-                        aria-label={`Delete ${b.name}`}
-                        onClick={() => setDeleting(b)}
-                      >
-                        <FiTrash2 />
-                      </IconButton>
-                    </Tooltip>
-                  )}
-                </Stack>
-              </Card>
-            ) : (
-              <Skeleton
-                key={i}
-                variant="rounded"
-                height={170}
-                sx={{ borderRadius: 1 }}
-              />
-            )
-          )}
-        </Box>
-      )}
+                  </TableCell>
+                  <TableCell align="right">
+                    <RowActions
+                      label={`Actions for ${b.name}`}
+                      items={[
+                        {
+                          label: 'Edit',
+                          icon: <FiEdit2 />,
+                          onClick: () => setEditing(b),
+                          hidden: !canUpdate,
+                        },
+                        {
+                          label: 'Delete',
+                          icon: <FiTrash2 />,
+                          color: 'error',
+                          onClick: () => setDeleting(b),
+                          hidden: !canDelete,
+                        },
+                      ]}
+                    />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+        <StandardPagination count={filtered.length} {...paging.props} />
+      </TablePanel>
 
       <BrandDialog
         open={Boolean(editing)}

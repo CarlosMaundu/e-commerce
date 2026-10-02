@@ -32,15 +32,22 @@ describe('storefront catalog', () => {
   test('filters: brand, sale, stock, rating, tag, attributes; sorting', async () => {
     const get = (query: Record<string, unknown>) => request(app).get('/api/rest/products').query(query);
     const facets = (await request(app).get('/api/rest/product_filters')).body.data;
-    const pulse = facets.brands.find((b: any) => b.name === 'Pulse Audio');
-    expect(pulse).toMatchObject({ count: 3, logo: expect.stringMatching(/^\/uploads\/demo-brand-/) });
+    const ikea = facets.brands.find((b: any) => b.name === 'IKEA');
+    expect(ikea).toMatchObject({ count: 3, logo: expect.stringMatching(/^\/uploads\/demo-brand-/) });
+    // Only browsing attributes are filters; product-page choices aren't.
+    expect(facets.attributes.map((a: any) => a.name).sort()).toEqual(['Color', 'Material', 'Size']);
     expect(facets.price).toEqual({ min: 15, max: 249 });
     expect(facets.attributes.find((a: any) => a.name === 'Size').values.map((v: any) => v.value)).toEqual(
       expect.arrayContaining(['S', 'M', '30 ml', '42'])
     );
 
-    const byBrand = await get({ brand: String(pulse.brand_id) });
-    expect(byBrand.body.data.map((p: any) => p.brand.name)).toEqual(['Pulse Audio', 'Pulse Audio', 'Pulse Audio']);
+    const byBrand = await get({ brand: String(ikea.brand_id) });
+    expect(byBrand.body.data.map((p: any) => p.brand.name)).toEqual(['IKEA', 'IKEA', 'IKEA']);
+    const cats = (await request(app).get('/api/rest/categories')).body.data;
+    const shoes = cats.find((c: any) => c.name === 'Shoes').category_id;
+    const beauty = cats.find((c: any) => c.name === 'Beauty').category_id;
+    const two = await get({ category: `${shoes},${beauty}` });
+    expect(new Set(two.body.data.map((p: any) => p.category[0].name))).toEqual(new Set(['Shoes', 'Beauty']));
     const sale = await get({ on_sale: 1 });
     expect(sale.body.data.every((p: any) => p.special !== null)).toBe(true);
     const inStock = await get({ in_stock: 1 });
@@ -116,11 +123,11 @@ describe('storefront catalog', () => {
 
   test('brands and promotions for the storefront', async () => {
     const brands = await request(app).get('/api/rest/manufacturers');
-    expect(brands.body.data).toHaveLength(8);
-    expect(brands.body.data[0]).toMatchObject({ name: 'Aster Home', product_count: 4 });
+    expect(brands.body.data.length).toBeGreaterThan(20);
+    expect(brands.body.data.find((b: any) => b.name === 'Nike')).toMatchObject({ product_count: 1, image: expect.stringMatching(/nike\.svg$/) });
     const promos = await request(app).get('/api/rest/promotions');
     expect(promos.body.data.map((p: any) => p.code)).toEqual(['FRIDAY35', null, 'WELCOME10']);
-    expect(promos.body.data[0]).toMatchObject({ daily: true, link: '/products?on_sale=1' });
+    expect(promos.body.data[0]).toMatchObject({ daily: true, link: "/products?on_sale=1", image: expect.stringMatching(/^\/uploads\/demo-/) });
     expect(new Date(promos.body.data[0].ends_at).getTime()).toBeGreaterThan(Date.now());
     await query("UPDATE promotions SET ends_at = now() - interval '1 minute' WHERE code = 'WELCOME10'");
     expect((await request(app).get('/api/rest/promotions')).body.data).toHaveLength(2);
@@ -314,7 +321,8 @@ describe('admin users', () => {
     const setup = await request(app).post('/api/rest/reset-password').send({ token: tokenFrom(sentEmails[0].link), password: 'F1rst!Login' });
     expect(setup.status).toBe(200);
     const login = await signIn('hire@example.com', 'F1rst!Login');
-    expect(login.user.permissions).toEqual(['admin.users.view', 'orders.orders.view']);
+    expect(login.user.permissions).toEqual(expect.arrayContaining(['admin.users.view', 'orders.orders.view', 'admin.users.unlock']));
+    expect(login.user.permissions).not.toContain('admin.users.update');
   });
 
   test('role rules: no self-change, only super admins grant super admin', async () => {

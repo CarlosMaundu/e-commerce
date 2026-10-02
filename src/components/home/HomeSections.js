@@ -65,64 +65,83 @@ SectionTitle.propTypes = {
 export const BrandsStrip = () => {
   const brands = useLoad(() => catalog.brands());
   const navigate = useNavigate();
-  const list = (brands || []).filter((b) => b.productCount > 0);
+  const list = (brands || []).filter((b) => b.logo);
   if (brands && !list.length) return null;
+  const tile = (b, copy) => (
+    <Box
+      key={`${b.id}-${copy}`}
+      component="button"
+      type="button"
+      onClick={() => navigate(`/products?brand=${b.id}`)}
+      aria-label={copy ? undefined : b.name}
+      aria-hidden={copy ? true : undefined}
+      tabIndex={copy ? -1 : 0}
+      title={b.name}
+      sx={{
+        flex: '0 0 auto',
+        width: { xs: 120, md: 150 },
+        height: 84,
+        mx: 0.75,
+        border: 0,
+        borderRadius: 1,
+        bgcolor: 'background.neutral',
+        cursor: 'pointer',
+        display: 'grid',
+        placeItems: 'center',
+        transition: 'background-color .15s',
+        '&:hover': { bgcolor: 'background.neutralDeep' },
+        '&:focus-visible': {
+          outline: '2px solid',
+          outlineColor: 'primary.main',
+        },
+      }}
+    >
+      <Box
+        component="img"
+        src={b.logo}
+        alt=""
+        sx={{ maxWidth: '62%', maxHeight: 44 }}
+      />
+    </Box>
+  );
   return (
     <Box component="section" aria-labelledby="brands-title">
       <SectionTitle id="brands-title">Our brands</SectionTitle>
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: {
-            xs: 'repeat(2, 1fr)',
-            sm: 'repeat(4, 1fr)',
-            lg: 'repeat(8, 1fr)',
-          },
-          gap: 1.5,
-        }}
-      >
-        {(brands ? list : Array.from({ length: 8 })).map((b, i) =>
-          b ? (
-            <Card
-              key={b.id}
-              sx={{
-                bgcolor: 'background.neutral',
-                transition: 'background-color .15s',
-                '&:hover': { bgcolor: 'background.neutralDeep' },
-              }}
-            >
-              <CardActionArea
-                onClick={() => navigate(`/products?brand=${b.id}`)}
-                aria-label={`${b.name}, ${b.productCount} products`}
-                sx={{
-                  height: 88,
-                  display: 'grid',
-                  placeItems: 'center',
-                  px: 2,
-                }}
-              >
-                {b.logo ? (
-                  <Box
-                    component="img"
-                    src={b.logo}
-                    alt=""
-                    sx={{ maxWidth: '100%', maxHeight: 56 }}
-                  />
-                ) : (
-                  <Typography variant="subtitle1">{b.name}</Typography>
-                )}
-              </CardActionArea>
-            </Card>
-          ) : (
-            <Skeleton
-              key={i}
-              variant="rounded"
-              height={88}
-              sx={{ borderRadius: 1 }}
-            />
-          )
-        )}
-      </Box>
+      {!brands ? (
+        <Skeleton variant="rounded" height={84} sx={{ borderRadius: 1 }} />
+      ) : (
+        <Box
+          sx={{
+            overflow: 'hidden',
+            maskImage:
+              'linear-gradient(to right, transparent, #000 6%, #000 94%, transparent)',
+            '&:hover .marquee, &:focus-within .marquee': {
+              animationPlayState: 'paused',
+            },
+            '@keyframes marquee': {
+              from: { transform: 'translateX(0)' },
+              to: { transform: 'translateX(-50%)' },
+            },
+            '@media (prefers-reduced-motion: reduce)': {
+              '& .marquee': { animation: 'none' },
+            },
+          }}
+        >
+          {/* Two copies, so the strip loops seamlessly. */}
+          <Box
+            className="marquee"
+            data-testid="brand-marquee"
+            sx={{
+              display: 'flex',
+              width: 'max-content',
+              animation: `marquee ${list.length * 2.5}s linear infinite`,
+            }}
+          >
+            {list.map((b) => tile(b, false))}
+            {list.map((b) => tile(b, true))}
+          </Box>
+        </Box>
+      )}
     </Box>
   );
 };
@@ -345,9 +364,7 @@ export const FeaturedGrid = () => {
           component={RouterLink}
           to="/products"
           variant="contained"
-          size="large"
           endIcon={<FiArrowRight />}
-          sx={{ bgcolor: 'text.primary', '&:hover': { bgcolor: '#000' } }}
         >
           Load more products
         </Button>

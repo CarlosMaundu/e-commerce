@@ -33,7 +33,7 @@ interface Spec {
     reviews: { author: string; rating: number; title: string; text: string; verified: boolean; days_ago: number }[];
     views: number;
   }[];
-  promotions: { title: string; subtitle: string; code: string | null; link: string; daily?: boolean; days?: number }[];
+  promotions: { title: string; subtitle: string; code: string | null; link: string; image?: string; daily?: boolean; days?: number }[];
 }
 
 const SEED_DIR = path.join(__dirname, '..', 'seed');
@@ -155,9 +155,10 @@ export const seedDemoCatalog = async ({ replace = false } = {}) => {
     for (const [position, promo] of spec.promotions.entries()) {
       const codeExists = promo.code && (await db.query('SELECT 1 FROM coupons WHERE code = $1', [promo.code])).rows[0];
       await db.query(
-        `INSERT INTO promotions (title, subtitle, code, link, ends_at, position)
-         VALUES ($1, $2, $3, $4, CASE WHEN $5::int IS NULL THEN NULL ELSE now() + make_interval(days => $5::int) END, $6)`,
-        [promo.title, promo.subtitle, codeExists ? promo.code : null, promo.link, promo.daily ? null : promo.days ?? 7, position]
+        `INSERT INTO promotions (title, subtitle, code, link, ends_at, position, image)
+         VALUES ($1, $2, $3, $4, CASE WHEN $5::int IS NULL THEN NULL ELSE now() + make_interval(days => $5::int) END, $6, $7)`,
+        [promo.title, promo.subtitle, codeExists ? promo.code : null, promo.link, promo.daily ? null : promo.days ?? 7, position,
+          promo.image ? copy('catalog', promo.image) : '']
       );
     }
   });

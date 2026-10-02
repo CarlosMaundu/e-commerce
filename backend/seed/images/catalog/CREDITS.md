@@ -4,7 +4,14 @@ Product and category photos are from [Unsplash](https://unsplash.com) and used u
 [Unsplash License](https://unsplash.com/license): free to use, including commercially, without
 permission. Photos were cropped to 800 × 800. Unsplash+ (premium) photos were excluded.
 
-Brand logos in `../brands/` are simple wordmarks made for this demo; the brands are fictional.
+Brand logos in `../brands/`:
+
+- `brand-aster-home.svg`, `brand-kairo-leather.svg`, `brand-lumen--co.svg`, `brand-northwind-apparel.svg`,
+  `brand-verde-beauty.svg` are wordmarks made for this demo; those brands are fictional.
+- All other logos are from [Simple Icons](https://simpleicons.org) (CC0 1.0). They are trademarks of
+  their owners, used here only to identify brands in demo data, and imply no endorsement or
+  affiliation. Before going live, use only brands you actually sell and follow each owner's logo
+  guidelines.
 
 | File | Photographer | Source |
 | --- | --- | --- |

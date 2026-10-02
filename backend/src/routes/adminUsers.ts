@@ -8,8 +8,10 @@ import { audit } from '../lib/audit';
 import { fail, handler, ok, parse } from '../lib/http';
 import { sendAccountSetupEmail, sendPasswordResetEmail } from '../lib/mailer';
 import { revokeAllSessions } from '../lib/sessions';
-import { findUserByEmail, findUserById, roleIdFor, toContractUser, UserRow } from '../lib/users';
-import { authenticate, requirePermission } from '../middleware/auth';
+import { toContractOrder } from '../lib/orders';
+import { findUserByEmail, findUserById, hasPermission, permissionsForRole, roleIdFor, toContractUser, UserRow } from '../lib/users';
+import { toContractAddress } from './checkout';
+import { authenticate, requireAnyPermission, requirePermission } from '../middleware/auth';
 import { issueEmailToken, resetLink } from './auth';
 
 const isSuperAdmin = (u: UserRow) => u.role === 'super_admin';
@@ -36,7 +38,7 @@ export const adminUserRoutes = () => {
 
   router.get(
     '/roles',
-    requirePermission('admin.users.view'),
+    requireAnyPermission('admin.users.view', 'admin.roles.view'),
     handler(async (_req, res) => {
       const { rows } = await query(
         `SELECT r.code, r.name, r.description, r.is_system,
@@ -85,6 +87,65 @@ export const adminUserRoutes = () => {
   );
 
   const roleCode = z.string().trim().min(1);
+
+  // A read-only view of someone's account, for helping them (no impersonation).
+  router.get(
+    '/users/:id/account',
+    requirePermission('admin.users.view'),
+    handler(async (req, res) => {
+      const user = await findUserById(Number(req.params.id));
+      if (!user) fail(404, 'User not found.');
+      const id = user!.id;
+      const permissions = await permissionsForRole(user!.role_id);
+      const stats = (
+        await query(
+          `SELECT count(*)::int AS orders,
+             COALESCE(sum(total) FILTER (WHERE status NOT IN ('cancelled', 'refunded')), 0) AS spent,
+             max(placed_at) AS last_order
+           FROM orders WHERE user_id = $1 AND placed_at IS NOT NULL`,
+          [id]
+        )
+      ).rows[0];
+      const counts = (
+        await query(
+          `SELECT (SELECT count(*)::int FROM wishlist_items WHERE user_id = $1) AS wishlist,
+             (SELECT COALESCE(sum(quantity), 0)::int FROM cart_items WHERE user_id = $1) AS cart,
+             (SELECT count(*)::int FROM returns WHERE user_id = $1) AS returns,
+             (SELECT count(*)::int FROM product_reviews WHERE user_id = $1) AS reviews,
+             (SELECT count(*)::int FROM sessions WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > now()) AS sessions`,
+          [id]
+        )
+      ).rows[0];
+      const addresses = (
+        await query('SELECT * FROM addresses WHERE user_id = $1 ORDER BY is_default DESC, id', [id])
+      ).rows.map(toContractAddress);
+      const canSeeOrders = hasPermission(req.auth!.permissions, 'orders.orders.view');
+      const orders = canSeeOrders
+        ? (
+            await query(
+              `SELECT o.*, (SELECT COALESCE(sum(quantity), 0)::int FROM order_items WHERE order_id = o.id) AS item_count
+               FROM orders o WHERE o.user_id = $1 AND o.placed_at IS NOT NULL
+               ORDER BY o.placed_at DESC LIMIT 10`,
+              [id]
+            )
+          ).rows.map((o) => toContractOrder(o))
+        : null;
+      ok(res, {
+        user: toContractUser(user!, permissions),
+        staff: permissions.length > 0,
+        stats: {
+          orders: stats.orders,
+          spent: Number(stats.spent),
+          last_order: stats.last_order,
+          ...counts,
+        },
+        addresses,
+        orders,
+      });
+    })
+  );
+
+
 
   router.post(
     '/users',
@@ -146,6 +207,9 @@ export const adminUserRoutes = () => {
       }
       if (b.status !== undefined && b.status !== target.status) {
         if (target.id === actor.id) fail(403, 'You can’t suspend your own account.');
+        if (!hasPermission(req.auth!.permissions, 'admin.users.suspend')) {
+          fail(403, 'You don’t have permission to suspend or reactivate users.');
+        }
         if (b.status === 'suspended') await ensureAnotherSuperAdmin(target);
       }
       await query(

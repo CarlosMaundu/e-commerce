@@ -11,6 +11,7 @@ import { hasPermission } from '../lib/users';
 import { authenticate, requirePermission } from '../middleware/auth';
 
 const MODULE_NAMES: Record<string, string> = {
+  dashboard: 'Dashboard',
   catalog: 'Catalog',
   orders: 'Orders',
   admin: 'Administration',
@@ -72,7 +73,7 @@ export const adminRoleRoutes = () => {
       );
     });
 
-  router.get('/permissions', requirePermission('admin.users.view'), handler(async (_req, res) => {
+  router.get('/permissions', requirePermission('admin.roles.view'), handler(async (_req, res) => {
     const { rows } = await query("SELECT code, module, description FROM permissions WHERE code <> '*' ORDER BY module, code");
     const groups = new Map<string, { code: string; description: string }[]>();
     for (const r of rows) {
@@ -84,7 +85,7 @@ export const adminRoleRoutes = () => {
     })));
   }));
 
-  router.get('/roles/:code', requirePermission('admin.users.view'), handler(async (req, res) => {
+  router.get('/roles/:code', requirePermission('admin.roles.view'), handler(async (req, res) => {
     const role = await loadRole(req.params.code);
     if (!role) fail(404, 'Role not found.');
     ok(res, role!.contract);
