@@ -9,6 +9,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "migrate": "tsx src/migrate.ts",
+    "seed:demo": "tsx src/demoCatalog.ts --replace",
     "test": "jest --runInBand",
     "lint": "tsc --noEmit -p tsconfig.json"
   },

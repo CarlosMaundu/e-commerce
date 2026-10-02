@@ -40,7 +40,8 @@ export const adminUserRoutes = () => {
     handler(async (_req, res) => {
       const { rows } = await query(
         `SELECT r.code, r.name, r.description, r.is_system,
-                (SELECT count(*)::int FROM users u WHERE u.role_id = r.id) AS user_count
+                (SELECT count(*)::int FROM users u WHERE u.role_id = r.id) AS user_count,
+                EXISTS (SELECT 1 FROM role_permissions rp WHERE rp.role_id = r.id) AS is_staff
          FROM roles r ORDER BY r.id`
       );
       ok(res, rows);

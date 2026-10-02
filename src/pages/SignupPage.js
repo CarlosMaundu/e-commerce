@@ -46,7 +46,7 @@ const StyledPaper = styled(Paper)(({ theme }) => ({
   width: '100%',
   backgroundColor: theme.palette.background.paper,
   border: `1px solid ${theme.palette.divider}`,
-  borderRadius: 24,
+  borderRadius: 12,
 }));
 
 const StyledButton = styled(Button)(({ theme }) => ({
@@ -331,7 +331,7 @@ const SignupPage = () => {
                   value={passwordStrength}
                   sx={{
                     height: 8,
-                    borderRadius: 5,
+                    borderRadius: 1,
                     backgroundColor: '#e0e0e0',
                     '& .MuiLinearProgress-bar': {
                       backgroundColor:

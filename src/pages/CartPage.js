@@ -124,7 +124,7 @@ const CartPage = () => {
                 spacing={2.5}
                 alignItems={{ sm: 'center' }}
                 data-testid="cart-line"
-                sx={{ bgcolor: 'background.neutral', borderRadius: 4, p: 2.5 }}
+                sx={{ bgcolor: 'background.neutral', borderRadius: 1, p: 2.5 }}
               >
                 <Box
                   component={RouterLink}
@@ -133,7 +133,7 @@ const CartPage = () => {
                     width: 96,
                     height: 96,
                     flexShrink: 0,
-                    borderRadius: 3,
+                    borderRadius: 1,
                     bgcolor: 'background.paper',
                     display: 'grid',
                     placeItems: 'center',
@@ -310,7 +310,7 @@ const CartPage = () => {
                     sx={{
                       flex: 1,
                       bgcolor: 'background.neutral',
-                      borderRadius: 2,
+                      borderRadius: 1,
                       px: 1.5,
                       height: 40,
                     }}

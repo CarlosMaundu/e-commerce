@@ -196,7 +196,8 @@ test.describe('admin user management', () => {
       role: 'admin',
     });
     await login(page, 'boss@example.com');
-    await expect(page.getByText('Hi, Ada Admin')).toBeVisible();
+    // Staff land in the back office.
+    await expect(page).toHaveURL(/\/admin/);
     await page.goto('/admin/users');
     await expect(page.getByRole('table', { name: 'Users' })).toBeVisible();
   };
@@ -225,7 +226,9 @@ test.describe('admin user management', () => {
     const userPage = await freshPage();
     await setPasswordFromEmail(userPage, 'hire@example.com', 'F1rst!Login');
     await login(userPage, 'hire@example.com', 'F1rst!Login');
-    await expect(userPage.getByText('Hi, New Hire')).toBeVisible();
+    // Support is a back-office role, so they land in the back office.
+    await expect(userPage).toHaveURL(/\/admin/);
+    await expect(userPage.getByText('New Hire').first()).toBeVisible();
   });
 
   test('admin changes a role and suspends a user, who is signed out', async ({

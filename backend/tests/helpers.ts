@@ -41,7 +41,7 @@ export const resetDatabase = async () => {
   await query(
     `TRUNCATE audit_logs, auth_tokens, sessions, users, products, categories, coupons, orders,
        order_items, order_history, returns, cart_items, checkout_state, wishlist_items, addresses,
-       newsletter_subscribers, role_permissions, roles, permissions RESTART IDENTITY CASCADE`
+       newsletter_subscribers, brands, promotions, role_permissions, roles, permissions RESTART IDENTITY CASCADE`
   );
   await runSeed();
   sentEmails.length = 0;

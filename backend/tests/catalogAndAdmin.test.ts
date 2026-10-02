@@ -1,4 +1,5 @@
 import request from 'supertest';
+import { query } from '../src/db';
 import { app, bearer, closePool, createUser, resetDatabase, sentEmails, signIn } from './helpers';
 import { tokenFrom } from './mailerMock';
 
@@ -11,20 +12,118 @@ describe('storefront catalog', () => {
   test('lists, searches, filters by category tree and paginates', async () => {
     const all = await request(app).get('/api/rest/products');
     expect(all.body.success).toBe(1);
-    expect(all.body.data.length).toBe(12);
-    expect(all.headers['x-total-count']).toBe('12');
+    expect(all.body.data.length).toBe(31);
+    expect(all.headers['x-total-count']).toBe('31');
 
     const dresses = await request(app).get('/api/rest/products').query({ search: 'dress' });
     expect(dresses.body.data.map((p: { name: string }) => p.name).sort()).toEqual(['Linen summer dress', 'Wrap midi dress']);
 
     const page2 = await request(app).get('/api/rest/products').query({ limit: 5, page: 2 });
     expect(page2.body.data.length).toBe(5);
-    expect(page2.headers['x-total-count']).toBe('12');
+    expect(page2.headers['x-total-count']).toBe('31');
 
     const cats = await request(app).get('/api/rest/categories');
     const men = cats.body.data.find((c: { name: string }) => c.name === 'Men');
     const menProducts = await request(app).get('/api/rest/products').query({ category: men.category_id });
-    expect(menProducts.body.data.every((p: { category: { name: string }[] }) => p.category[0].name === 'Men')).toBe(true);
+    const names = new Set(menProducts.body.data.map((p: { category: { name: string }[] }) => p.category[0].name));
+    expect([...names].sort()).toEqual(['Jackets & coats', 'Shirts & tees']);
+  });
+
+  test('filters: brand, sale, stock, rating, tag, attributes; sorting', async () => {
+    const get = (query: Record<string, unknown>) => request(app).get('/api/rest/products').query(query);
+    const facets = (await request(app).get('/api/rest/product_filters')).body.data;
+    const pulse = facets.brands.find((b: any) => b.name === 'Pulse Audio');
+    expect(pulse).toMatchObject({ count: 3, logo: expect.stringMatching(/^\/uploads\/demo-brand-/) });
+    expect(facets.price).toEqual({ min: 15, max: 249 });
+    expect(facets.attributes.find((a: any) => a.name === 'Size').values.map((v: any) => v.value)).toEqual(
+      expect.arrayContaining(['S', 'M', '30 ml', '42'])
+    );
+
+    const byBrand = await get({ brand: String(pulse.brand_id) });
+    expect(byBrand.body.data.map((p: any) => p.brand.name)).toEqual(['Pulse Audio', 'Pulse Audio', 'Pulse Audio']);
+    const sale = await get({ on_sale: 1 });
+    expect(sale.body.data.every((p: any) => p.special !== null)).toBe(true);
+    const inStock = await get({ in_stock: 1 });
+    expect(inStock.body.data.map((p: any) => p.name)).not.toContain('Ceramic table lamp');
+    const tagged = await get({ tag: 'New-Season' });
+    expect(tagged.body.data.length).toBeGreaterThan(2);
+    expect(tagged.body.data.every((p: any) => p.tags.includes('new-season'))).toBe(true);
+    const rose = await get({ 'attr[color]': 'Rose' });
+    expect(rose.body.data.map((p: any) => p.name)).toEqual(['Over-ear headphones']);
+    const rated = await get({ rating: 4.5 });
+    expect(rated.body.data.every((p: any) => p.rating >= 4.5)).toBe(true);
+
+    const cheap = await get({ sort: 'price_asc', limit: 3 });
+    expect(cheap.body.data.map((p: any) => p.special ?? p.price)).toEqual([15, 18, 19]);
+    const bad = await get({ sort: 'random' });
+    expect(bad.body.error).toEqual(['Please choose a valid sort order.']);
+  });
+
+  test('product views feed the weekly popular list', async () => {
+    const lamp = (await request(app).get('/api/rest/products').query({ search: 'lamp' })).body.data[0];
+    for (let i = 0; i < 400; i += 1) {
+      await query(
+        `INSERT INTO product_views (product_id, day, views) VALUES ($1, current_date, 1)
+         ON CONFLICT (product_id, day) DO UPDATE SET views = product_views.views + 1`, [lamp.product_id]);
+    }
+    await request(app).get(`/api/rest/products/${lamp.product_id}`).expect(200);
+    const views = (await query('SELECT views FROM product_views WHERE product_id = $1 AND day = current_date', [lamp.product_id])).rows[0].views;
+    expect(views).toBeGreaterThan(400);
+    const popular = await request(app).get('/api/rest/products').query({ sort: 'popular', limit: 1 });
+    expect(popular.body.data[0].name).toBe('Ceramic table lamp');
+  });
+
+  test('variants carry their own price, stock and images', async () => {
+    const list = await request(app).get('/api/rest/products').query({ search: 'Hydrating' });
+    const serum = list.body.data[0];
+    expect(serum.attributes).toEqual([{ name: 'Size', values: ['30 ml', '50 ml'] }]);
+    expect(serum.variants.map((v: any) => [v.options.Size, v.price, v.own_price])).toEqual([['30 ml', 32, false], ['50 ml', 48, true]]);
+    const tee = (await request(app).get('/api/rest/products').query({ search: 'crew-neck' })).body.data[0];
+    const black = tee.variants.find((v: any) => v.options.Color === 'Black');
+    expect(black.images[0]).toMatch(/demo-tee-black\.jpg$/);
+    expect(tee.quantity).toBe(tee.variants.reduce((s: number, v: any) => s + v.quantity, 0));
+  });
+
+  test('reviews: summary, sign-in to write, one each, rating kept up to date', async () => {
+    const product = (await request(app).get('/api/rest/products').query({ search: 'Canvas tote' })).body.data[0];
+    const before = await request(app).get(`/api/rest/products/${product.product_id}/reviews`);
+    expect(before.body.data.summary.count).toBe(product.reviews);
+    expect(before.body.data.reviews.length).toBe(product.reviews);
+
+    const guest = await request(app).post(`/api/rest/products/${product.product_id}/review`).send({ rating: 5, text: 'Lovely bag indeed.' });
+    expect(guest.status).toBe(401);
+
+    await createUser('rev@example.com');
+    const { token } = await signIn('rev@example.com');
+    const short = await request(app).post(`/api/rest/products/${product.product_id}/review`).set(bearer(token)).send({ rating: 5, text: 'Nice' });
+    expect(short.body.error).toEqual(['Please write at least a sentence (10 characters or more).']);
+    const noStars = await request(app).post(`/api/rest/products/${product.product_id}/review`).set(bearer(token)).send({ text: 'Really sturdy and roomy.' });
+    expect(noStars.body.error).toEqual(['Please choose a star rating.']);
+    const okRes = await request(app).post(`/api/rest/products/${product.product_id}/review`).set(bearer(token))
+      .send({ rating: 1, title: 'Strap broke', text: 'The strap came loose after a week.' });
+    expect(okRes.status).toBe(201);
+    expect(okRes.body.data.verified).toBe(false); // never bought it
+    const again = await request(app).post(`/api/rest/products/${product.product_id}/review`).set(bearer(token))
+      .send({ rating: 5, text: 'Changed my mind, love it.' });
+    expect(again.status).toBe(409);
+
+    const after = await request(app).get(`/api/rest/products/${product.product_id}`);
+    expect(after.body.data.reviews).toBe(product.reviews + 1);
+    expect(after.body.data.rating).toBeLessThan(product.rating);
+    const latest = (await request(app).get(`/api/rest/products/${product.product_id}/reviews`)).body.data.reviews[0];
+    expect(latest).toMatchObject({ author: 'Test U.', rating: 1, title: 'Strap broke' });
+  });
+
+  test('brands and promotions for the storefront', async () => {
+    const brands = await request(app).get('/api/rest/manufacturers');
+    expect(brands.body.data).toHaveLength(8);
+    expect(brands.body.data[0]).toMatchObject({ name: 'Aster Home', product_count: 4 });
+    const promos = await request(app).get('/api/rest/promotions');
+    expect(promos.body.data.map((p: any) => p.code)).toEqual(['FRIDAY35', null, 'WELCOME10']);
+    expect(promos.body.data[0]).toMatchObject({ daily: true, link: '/products?on_sale=1' });
+    expect(new Date(promos.body.data[0].ends_at).getTime()).toBeGreaterThan(Date.now());
+    await query("UPDATE promotions SET ends_at = now() - interval '1 minute' WHERE code = 'WELCOME10'");
+    expect((await request(app).get('/api/rest/promotions')).body.data).toHaveLength(2);
   });
 
   test('price filters use the sale price', async () => {
@@ -65,10 +164,9 @@ describe('admin catalog permissions', () => {
 
     const created = await request(app).post('/api/admin/products').set(bearer(manager.token)).send({
       name: 'Rain jacket', price: 100, special: 80, quantity: 3, images: ['https://example.com/r.png'],
-      options: { sizes: ['M'], colors: ['Navy'] },
     });
     expect(created.status).toBe(201);
-    expect(created.body.data).toMatchObject({ name: 'Rain jacket', price: 100, special: 80, quantity: 3 });
+    expect(created.body.data).toMatchObject({ name: 'Rain jacket', price: 100, special: 80, quantity: 3, status: 'published' });
 
     const users = await request(app).get('/api/admin/users').set(bearer(manager.token));
     expect(users.status).toBe(403);
@@ -86,6 +184,96 @@ describe('admin catalog permissions', () => {
 
     const image = await request(app).post('/api/admin/products').set(bearer(token)).send({ name: 'X', price: 10, images: ['javascript:alert(1)'] });
     expect(image.status).toBe(400);
+  });
+
+  test('variants: validated, stock summed, ids kept across edits', async () => {
+    await createUser('cat@example.com', 'catalog_manager');
+    const { token } = await signIn('cat@example.com');
+    const base = {
+      name: 'Trail jacket', price: 120, sku: 'TRL-1', tags: ['outdoor', 'Outdoor', 'rain'],
+      attributes: [{ name: 'Color', values: ['Red', 'Blue'] }, { name: 'Size', values: ['M', 'L'] }],
+    };
+    const missing = await request(app).post('/api/admin/products').set(bearer(token))
+      .send({ ...base, variants: [{ options: { Color: 'Red' }, quantity: 1 }] });
+    expect(missing.body.error).toEqual(['Every variant needs a size from the list.']);
+    const twice = await request(app).post('/api/admin/products').set(bearer(token)).send({
+      ...base, variants: [{ options: { Color: 'Red', Size: 'M' } }, { options: { color: 'Red', size: 'M' } }],
+    });
+    expect(twice.body.error).toEqual(['Red / M is listed twice.']);
+    const cheap = await request(app).post('/api/admin/products').set(bearer(token)).send({
+      ...base, variants: [{ options: { Color: 'Red', Size: 'M' }, price: 50, special: 60 }],
+    });
+    expect(cheap.body.error).toEqual(['The sale price for Red / M must be lower than the regular price.']);
+
+    const created = await request(app).post('/api/admin/products').set(bearer(token)).send({
+      ...base,
+      variants: [
+        { options: { Color: 'Red', Size: 'M' }, quantity: 4, sku: 'TRL-1-RM', images: ['https://example.com/red.png'] },
+        { options: { Color: 'Blue', Size: 'L' }, quantity: 6, price: 130 },
+      ],
+    });
+    expect(created.status).toBe(201);
+    const p = created.body.data;
+    expect(p).toMatchObject({ quantity: 10, tags: ['outdoor', 'rain'], sku: 'TRL-1' });
+    expect(p.variants.map((v: any) => [v.options, v.price, v.quantity])).toEqual([
+      [{ Color: 'Red', Size: 'M' }, 120, 4],
+      [{ Color: 'Blue', Size: 'L' }, 130, 6],
+    ]);
+
+    // Editing keeps the id of a combination that stays.
+    const edited = await request(app).put(`/api/admin/products/${p.product_id}`).set(bearer(token)).send({
+      variants: [{ options: { Color: 'Red', Size: 'M' }, quantity: 9 }],
+    });
+    expect(edited.body.data.variants).toHaveLength(1);
+    expect(edited.body.data.variants[0]).toMatchObject({ variant_id: p.variants[0].variant_id, quantity: 9 });
+    expect(edited.body.data.quantity).toBe(9);
+
+    const dupSku = await request(app).post('/api/admin/products').set(bearer(token)).send({ name: 'Copy', price: 5, sku: 'trl-1' });
+    expect(dupSku.status).toBe(409);
+    expect(dupSku.body.error).toEqual(['Another product already uses that SKU.']);
+  });
+
+  test('drafts stay off the storefront; the admin list counts and filters', async () => {
+    await createUser('cat@example.com', 'catalog_manager');
+    const { token } = await signIn('cat@example.com');
+    const draft = await request(app).post('/api/admin/products').set(bearer(token)).send({ name: 'Secret launch', price: 10, status: 'draft' });
+    expect((await request(app).get(`/api/rest/products/${draft.body.data.product_id}`)).status).toBe(404);
+    expect((await request(app).get('/api/rest/products').query({ search: 'Secret' })).body.data).toEqual([]);
+
+    const list = await request(app).get('/api/admin/products').set(bearer(token)).query({ status: 'draft' });
+    expect(list.body.data.products.map((p: any) => p.name)).toEqual(['Secret launch']);
+    expect(list.body.data.counts).toMatchObject({ all: 32, published: 31, draft: 1, out: 2 });
+    const out = await request(app).get('/api/admin/products').set(bearer(token)).query({ stock: 'out' });
+    expect(out.body.data.products.map((p: any) => p.name)).toContain('Ceramic table lamp');
+    const tags = await request(app).get('/api/admin/product_tags').set(bearer(token));
+    expect(tags.body.data[0]).toMatchObject({ tag: expect.any(String), count: expect.any(Number) });
+
+    await createUser('cus@example.com');
+    const customer = await signIn('cus@example.com');
+    expect((await request(app).get('/api/admin/products').set(bearer(customer.token))).status).toBe(403);
+  });
+
+  test('brands: managed with category permissions, unique names, logos as images', async () => {
+    await createUser('cat@example.com', 'catalog_manager');
+    await createUser('ops@example.com', 'order_manager');
+    const { token } = await signIn('cat@example.com');
+    const ops = await signIn('ops@example.com');
+    expect((await request(app).post('/api/admin/brands').set(bearer(ops.token)).send({ name: 'Nope' })).status).toBe(403);
+
+    const created = await request(app).post('/api/admin/brands').set(bearer(token)).send({ name: 'Oak & Iron', logo: '/uploads/oak.png' });
+    expect(created.status).toBe(201);
+    expect(created.body.data).toMatchObject({ name: 'Oak & Iron', logo: '/uploads/oak.png', product_count: 0 });
+    const dup = await request(app).post('/api/admin/brands').set(bearer(token)).send({ name: 'oak & iron' });
+    expect(dup.body.error).toEqual(['A brand with that name already exists.']);
+    const badLogo = await request(app).post('/api/admin/brands').set(bearer(token)).send({ name: 'X', logo: 'javascript:alert(1)' });
+    expect(badLogo.status).toBe(400);
+
+    const product = await request(app).post('/api/admin/products').set(bearer(token))
+      .send({ name: 'Oak stool', price: 80, brand_id: created.body.data.brand_id });
+    expect(product.body.data.brand).toMatchObject({ name: 'Oak & Iron' });
+    await request(app).delete(`/api/admin/brands/${created.body.data.brand_id}`).set(bearer(token)).expect(200);
+    const after = await request(app).get(`/api/admin/products/${product.body.data.product_id}`).set(bearer(token));
+    expect(after.body.data.brand).toBeNull();
   });
 
   test('categories with products cannot be deleted', async () => {

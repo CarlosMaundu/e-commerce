@@ -30,7 +30,10 @@ import {
   FiPackage,
   FiRotateCcw,
   FiShield,
+  FiUser,
   FiUsers,
+  FiLock,
+  FiActivity,
 } from 'react-icons/fi';
 import { AuthContext } from '../context/AuthContext';
 import {
@@ -102,6 +105,23 @@ export const adminNav = (user) =>
         },
       ],
     },
+    {
+      heading: 'System',
+      items: [
+        {
+          label: 'Security',
+          to: '/admin/security',
+          icon: <FiLock />,
+          show: hasPermission(user, PERMISSIONS.securityManage),
+        },
+        {
+          label: 'Audit log',
+          to: '/admin/audit',
+          icon: <FiActivity />,
+          show: hasPermission(user, PERMISSIONS.auditView),
+        },
+      ],
+    },
   ]
     .map((g) => ({ ...g, items: g.items.filter((i) => i.show) }))
     .filter((g) => g.items.length);
@@ -156,7 +176,7 @@ const Rail = ({ onNavigate }) => {
                     gap: 1.5,
                     px: 1.5,
                     py: 1,
-                    borderRadius: 2,
+                    borderRadius: 1,
                     color: 'text.primary',
                     textDecoration: 'none',
                     fontWeight: 500,
@@ -287,12 +307,24 @@ const AdminLayout = () => {
               anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
               transformOrigin={{ vertical: 'top', horizontal: 'right' }}
             >
+              <Box sx={{ px: 2, py: 1 }}>
+                <Typography variant="subtitle2">{user?.name}</Typography>
+                <Typography variant="caption">{user?.email}</Typography>
+              </Box>
+              <Divider />
               <MenuItem
                 component={RouterLink}
-                to="/account"
+                to="/admin/profile"
                 onClick={() => setMenuAnchor(null)}
               >
-                My account
+                <FiUser style={{ marginRight: 8 }} /> My profile
+              </MenuItem>
+              <MenuItem
+                component={RouterLink}
+                to="/"
+                onClick={() => setMenuAnchor(null)}
+              >
+                <FiExternalLink style={{ marginRight: 8 }} /> Visit shop
               </MenuItem>
               <Divider />
               <MenuItem
@@ -307,7 +339,7 @@ const AdminLayout = () => {
             </Menu>
           </Stack>
         </Stack>
-        <Box component="main" sx={{ p: { xs: 2, md: 4 }, maxWidth: 1480 }}>
+        <Box component="main" sx={{ p: { xs: 2, md: 4 }, maxWidth: 1600 }}>
           <Outlet />
         </Box>
       </Box>

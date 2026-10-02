@@ -12,7 +12,14 @@ import React, {
 } from 'react';
 import { useDispatch } from 'react-redux';
 import PropTypes from 'prop-types';
-import { account, adminUsers, auth, onSessionExpired } from '../api';
+import {
+  account,
+  adminUsers,
+  auth,
+  impersonation,
+  onSessionExpired,
+} from '../api';
+import { canShop } from '../auth/permissions';
 import { useNotify } from '../notification/NotificationProvider';
 import { MESSAGES } from '../notification/messages';
 import { resetToGuest, syncCartAfterSignIn } from '../redux/cartSlice';
@@ -38,13 +45,15 @@ export const AuthProvider = ({ children }) => {
     if (id === syncedFor.current) return;
     const wasSignedIn = syncedFor.current !== null;
     syncedFor.current = id;
-    if (id !== null) {
+    if (id !== null && canShop(user)) {
       dispatch(syncCartAfterSignIn());
       dispatch(syncWishlistAfterSignIn());
-    } else if (wasSignedIn) {
+    } else if (wasSignedIn || id !== null) {
+      // Signed out, or a back-office account (they don't shop).
       dispatch(resetToGuest());
       dispatch(resetWishlistToGuest());
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, loading, dispatch]);
 
   useEffect(() => {
@@ -124,6 +133,20 @@ export const AuthProvider = ({ children }) => {
   const adminSendPasswordReset = (target) =>
     adminUsers.sendPasswordReset(target.id);
 
+  /** Staff: start acting as a customer (their cart, orders and account). */
+  const startImpersonation = async (customerId) => {
+    const customer = await impersonation.start(customerId);
+    setUser(customer);
+    return customer;
+  };
+
+  /** Back to the staff member's own session (null if it had ended). */
+  const stopImpersonation = async () => {
+    const staff = await impersonation.stop();
+    setUser(staff);
+    return staff;
+  };
+
   const refreshUser = useCallback(async () => {
     const fresh = await account.getProfile();
     setUser(fresh);
@@ -147,6 +170,8 @@ export const AuthProvider = ({ children }) => {
     adminCreateUser,
     adminSendPasswordReset,
     refreshUser,
+    startImpersonation,
+    stopImpersonation,
     logout,
     updateUser,
   };

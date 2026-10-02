@@ -6,7 +6,8 @@ import { query } from '../db';
 import { audit } from '../lib/audit';
 import { fail, handler, ok, parse } from '../lib/http';
 import { loadOrder, ORDER_STATUSES, RETURN_REASONS, toContractOrder } from '../lib/orders';
-import { authenticate } from '../middleware/auth';
+import { resolveItem } from '../lib/products';
+import { authenticate, customersOnly } from '../middleware/auth';
 import { buildCart } from './cart';
 
 export const toContractReturn = (r: any) => ({
@@ -35,7 +36,7 @@ export const orderRoutes = () => {
   router.get('/order_statuses', (_req, res) => ok(res, ORDER_STATUSES));
   router.get('/return_reasons', (_req, res) => ok(res, RETURN_REASONS));
 
-  router.use(['/customerorders', '/returns'], authenticate);
+  router.use(['/customerorders', '/returns'], authenticate, customersOnly);
 
   router.get('/customerorders', handler(async (req, res) => {
     const q = parse(
@@ -79,13 +80,15 @@ export const orderRoutes = () => {
     if (!loaded) fail(404, 'Order not found.');
     let added = 0;
     for (const item of loaded!.items) {
-      const product = item.product_id && (await query('SELECT quantity FROM products WHERE id = $1', [item.product_id])).rows[0];
-      if (!product || product.quantity <= 0) continue;
+      if (!item.product_id) continue;
+      const resolved = await resolveItem(item.product_id, item.options).catch(() => null);
+      if (!resolved || resolved.stock <= 0) continue;
+      const cap = Math.min(resolved.stock, 99);
       await query(
-        `INSERT INTO cart_items (user_id, product_id, quantity, options) VALUES ($1, $2, $3, $4::jsonb)
+        `INSERT INTO cart_items (user_id, product_id, variant_id, quantity, options) VALUES ($1, $2, $3, $4, $5::jsonb)
          ON CONFLICT (user_id, product_id, options)
-         DO UPDATE SET quantity = LEAST(cart_items.quantity + EXCLUDED.quantity, $5)`,
-        [req.auth!.userId, item.product_id, Math.min(item.quantity, product.quantity), JSON.stringify(item.options), product.quantity]
+         DO UPDATE SET quantity = LEAST(cart_items.quantity + EXCLUDED.quantity, $6), variant_id = EXCLUDED.variant_id`,
+        [req.auth!.userId, item.product_id, resolved.variantId, Math.min(item.quantity, cap), JSON.stringify(resolved.options), cap]
       );
       added += 1;
     }

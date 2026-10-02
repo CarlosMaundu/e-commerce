@@ -11,6 +11,11 @@ const line = '#E4E9F0';
 const neutral = '#F5F7FA'; // tinted surface for cards, tiles, table heads
 const neutralDeep = '#EBF0F5';
 
+// One radius everywhere, taken from the Curated Picks cards: 12px for cards
+// and surfaces (sx `borderRadius: 1`), 8px for controls and images inside them.
+export const RADIUS = 12;
+export const CONTROL_RADIUS = 8;
+
 const theme = createTheme({
   palette: {
     mode: 'light',
@@ -35,7 +40,7 @@ const theme = createTheme({
     background: { default: '#FFFFFF', paper: '#FFFFFF', neutral, neutralDeep },
     promo: { main: '#FFF1E6', text: '#7A3C0A', accent: '#F27A1A' },
   },
-  shape: { borderRadius: 12 },
+  shape: { borderRadius: RADIUS },
   typography: {
     fontFamily: '"Plus Jakarta Sans", "Segoe UI", Roboto, Arial, sans-serif',
     h1: { fontWeight: 700, fontSize: '2.5rem', letterSpacing: '-0.02em' },
@@ -65,7 +70,7 @@ const theme = createTheme({
     MuiButton: {
       defaultProps: { disableElevation: true },
       styleOverrides: {
-        root: { borderRadius: 8, paddingInline: 16 },
+        root: { borderRadius: CONTROL_RADIUS, paddingInline: 16 },
         sizeLarge: { paddingBlock: 10, fontSize: '0.95rem' },
         outlined: { borderColor: line },
       },
@@ -80,13 +85,15 @@ const theme = createTheme({
     MuiPaper: {
       defaultProps: { elevation: 0 },
       styleOverrides: {
-        rounded: { borderRadius: 16 },
+        rounded: { borderRadius: RADIUS },
         outlined: { borderColor: line },
       },
     },
     MuiCard: {
       defaultProps: { elevation: 0 },
-      styleOverrides: { root: { borderRadius: 20, backgroundColor: neutral } },
+      styleOverrides: {
+        root: { borderRadius: RADIUS, backgroundColor: neutral },
+      },
     },
     MuiChip: {
       styleOverrides: {
@@ -97,7 +104,7 @@ const theme = createTheme({
     MuiOutlinedInput: {
       styleOverrides: {
         root: {
-          borderRadius: 10,
+          borderRadius: CONTROL_RADIUS,
           backgroundColor: '#fff',
           '& .MuiOutlinedInput-notchedOutline': { borderColor: line },
         },
@@ -115,7 +122,7 @@ const theme = createTheme({
       },
     },
     MuiDialog: {
-      styleOverrides: { paper: { borderRadius: 20 } },
+      styleOverrides: { paper: { borderRadius: RADIUS } },
     },
     MuiTooltip: {
       styleOverrides: {
@@ -128,7 +135,7 @@ const theme = createTheme({
       },
     },
     MuiAlert: {
-      styleOverrides: { root: { borderRadius: 10 } },
+      styleOverrides: { root: { borderRadius: CONTROL_RADIUS } },
     },
     MuiLinearProgress: {
       styleOverrides: {

@@ -1,6 +1,7 @@
 // src/lib/orders.ts — order statuses, loading and contract shapes.
 import { config } from '../config';
 import { query } from '../db';
+import { returnStock } from './products';
 
 export const ORDER_STATUSES = [
   { code: 'awaiting_payment', name: 'Awaiting payment' },
@@ -122,10 +123,4 @@ export const loadOrder = async (id: number, { userId, admin = false }: { userId?
 };
 
 /** Puts stock back for every line of an order (cancellations). */
-export const restock = async (db: Db, orderId: number) => {
-  await db.query(
-    `UPDATE products p SET quantity = p.quantity + oi.quantity, updated_at = now()
-     FROM order_items oi WHERE oi.order_id = $1 AND oi.product_id = p.id`,
-    [orderId]
-  );
-};
+export const restock = returnStock;

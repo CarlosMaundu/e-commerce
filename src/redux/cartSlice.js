@@ -9,16 +9,29 @@ import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
 import { cart as cartApi } from '../api';
 import { friendlyError } from '../utils/friendlyError';
 
+/** Same choice, same line: options in a stable order. */
 const optionKey = (options = {}) =>
-  [options.size || '', options.color || ''].join('|');
+  Object.keys(options)
+    .sort()
+    .map((k) => `${k}=${options[k]}`)
+    .join('|');
 
 export const guestKey = (productId, options) =>
   `${productId}|${optionKey(options)}`;
 
-const unitPriceOf = (product) =>
-  product.specialPrice !== null && product.specialPrice !== undefined
-    ? product.specialPrice
-    : product.price;
+/** Price a guest pays for a product or its chosen variant. */
+const priceOf = (product, variant) => {
+  const source = variant || product;
+  const special =
+    source.specialPrice !== null && source.specialPrice !== undefined
+      ? source.specialPrice
+      : null;
+  return {
+    price: source.price,
+    specialPrice: special,
+    unitPrice: special ?? source.price,
+  };
+};
 
 const emptyServer = {
   items: [],
@@ -61,14 +74,19 @@ export const loadCart = createAsyncThunk(
 
 export const addToCart = createAsyncThunk(
   'cart/add',
-  run(async ({ product, quantity = 1, options = {} }, { getState }) => {
-    if (getState().cart.mode !== 'server') {
-      return { guest: { product, quantity, options } };
+  run(
+    async (
+      { product, quantity = 1, options = {}, variant = null },
+      { getState }
+    ) => {
+      if (getState().cart.mode !== 'server') {
+        return { guest: { product, quantity, options, variant } };
+      }
+      return {
+        server: await cartApi.add({ productId: product.id, quantity, options }),
+      };
     }
-    return {
-      server: await cartApi.add({ productId: product.id, quantity, options }),
-    };
-  })
+  )
 );
 
 export const setCartQuantity = createAsyncThunk(
@@ -135,7 +153,7 @@ const cartSlice = createSlice({
       .addCase(addToCart.fulfilled, (state, action) => {
         const { guest, server } = action.payload;
         if (server) return setServer(state, server);
-        const { product, quantity, options } = guest;
+        const { product, quantity, options, variant } = guest;
         const key = guestKey(product.id, options);
         const existing = state.guestItems.find((i) => i.key === key);
         if (existing) {
@@ -145,12 +163,10 @@ const cartSlice = createSlice({
             key,
             productId: product.id,
             title: product.title,
-            image: (product.images || [])[0] || '',
+            image: variant?.images?.[0] || (product.images || [])[0] || '',
             options,
             quantity,
-            price: product.price,
-            specialPrice: product.specialPrice ?? null,
-            unitPrice: unitPriceOf(product),
+            ...priceOf(product, variant),
           });
         }
       })

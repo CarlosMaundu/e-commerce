@@ -256,7 +256,7 @@ const AdminDashboardPage = () => {
                   spacing={1.5}
                   sx={{
                     bgcolor: 'background.paper',
-                    borderRadius: 3,
+                    borderRadius: 1,
                     p: 1.5,
                     textDecoration: 'none',
                     color: 'text.primary',
@@ -349,7 +349,7 @@ const AdminDashboardPage = () => {
                             textDecoration: 'none',
                             color: 'text.primary',
                             p: 1,
-                            borderRadius: 2,
+                            borderRadius: 1,
                             '&:hover': { bgcolor: 'background.neutral' },
                           }}
                         >

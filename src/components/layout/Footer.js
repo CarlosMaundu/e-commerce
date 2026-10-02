@@ -121,7 +121,7 @@ const Footer = () => {
                 sx={{
                   flex: 1,
                   bgcolor: 'background.neutralDeep',
-                  borderRadius: 2,
+                  borderRadius: 1,
                   px: 2,
                   height: 42,
                 }}

@@ -15,6 +15,7 @@ import { styled } from '@mui/material/styles';
 import { MdEmail, MdLock } from 'react-icons/md';
 import { AiOutlineEye, AiOutlineEyeInvisible } from 'react-icons/ai';
 import { AuthContext } from '../context/AuthContext';
+import { isStaff } from '../auth/permissions';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
@@ -41,7 +42,7 @@ const StyledPaper = styled(Paper)(({ theme }) => ({
   width: '100%',
   backgroundColor: theme.palette.background.paper,
   border: `1px solid ${theme.palette.divider}`,
-  borderRadius: 24,
+  borderRadius: 12,
 }));
 
 const StyledButton = styled(Button)(({ theme }) => ({
@@ -55,12 +56,16 @@ const LoginPage = () => {
     useContext(AuthContext);
   const navigate = useNavigate();
   const location = useLocation();
-  const from = location.state?.from || '/';
+  const from = location.state?.from;
+  // Back-office users start in the back office; customers where they were.
+  const destination = (signedIn) =>
+    from || (isStaff(signedIn) ? '/admin' : '/');
 
   useEffect(() => {
     if (user) {
-      navigate(from, { replace: true });
+      navigate(destination(user), { replace: true });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, navigate, from]);
 
   const [showPassword, setShowPassword] = useState(false);
@@ -70,9 +75,9 @@ const LoginPage = () => {
 
   const handleGoogleCredential = async (credential) => {
     try {
-      await signInWithGoogle(credential);
+      const signedIn = await signInWithGoogle(credential);
       notify.success(MESSAGES.auth.signedInGoogle);
-      navigate(from, { replace: true });
+      navigate(destination(signedIn), { replace: true });
     } catch (err) {
       notify.error(err, MESSAGES.auth.signInFailed);
     }
@@ -89,9 +94,12 @@ const LoginPage = () => {
     }),
     onSubmit: async (values) => {
       try {
-        await signInWithPassword(values.email, values.password);
+        const signedIn = await signInWithPassword(
+          values.email,
+          values.password
+        );
         notify.success(MESSAGES.auth.signedIn);
-        navigate(from, { replace: true });
+        navigate(destination(signedIn), { replace: true });
       } catch (error) {
         notify.error(error, MESSAGES.auth.signInFailed);
       }

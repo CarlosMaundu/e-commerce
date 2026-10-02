@@ -10,6 +10,6 @@ export const audit = (
   userId: number | null = req.auth?.userId ?? null
 ) =>
   query(
-    'INSERT INTO audit_logs (user_id, action, target, details, ip_address) VALUES ($1, $2, $3, $4, $5)',
-    [userId, action, target, JSON.stringify(details), String(req.ip || '')]
+    'INSERT INTO audit_logs (user_id, action, target, details, ip_address, impersonator_id) VALUES ($1, $2, $3, $4, $5, $6)',
+    [userId, action, target, JSON.stringify(details), String(req.ip || ''), req.auth?.impersonatorId ?? null]
   ).catch((error) => console.error('Audit log failed:', error));

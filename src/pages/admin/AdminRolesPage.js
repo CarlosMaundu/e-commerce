@@ -107,7 +107,7 @@ const RoleDialog = ({ mode, role, groups, me, onClose, onSaved }) => {
                     <Box
                       sx={{
                         bgcolor: 'background.neutral',
-                        borderRadius: 3,
+                        borderRadius: 1,
                         p: 2,
                         height: '100%',
                       }}

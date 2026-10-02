@@ -64,7 +64,7 @@ const Thumbs = ({ items }) => (
           width: 56,
           height: 56,
           objectFit: 'contain',
-          borderRadius: 2,
+          borderRadius: 1,
           bgcolor: 'background.paper',
           border: 1,
           borderColor: 'divider',
@@ -145,7 +145,7 @@ export const OrdersPage = () => {
               sx={{
                 display: 'block',
                 bgcolor: 'background.neutral',
-                borderRadius: 4,
+                borderRadius: 1,
                 p: 3,
                 color: 'text.primary',
                 textDecoration: 'none',
@@ -422,7 +422,7 @@ export const OrderDetailPage = () => {
                         width: 72,
                         height: 72,
                         objectFit: 'contain',
-                        borderRadius: 2,
+                        borderRadius: 1,
                         bgcolor: 'background.neutral',
                       }}
                     />
@@ -627,7 +627,7 @@ export const ReturnsPage = () => {
               direction="row"
               spacing={2}
               alignItems="center"
-              sx={{ bgcolor: 'background.neutral', borderRadius: 4, p: 2.5 }}
+              sx={{ bgcolor: 'background.neutral', borderRadius: 1, p: 2.5 }}
             >
               <Box
                 component="img"
@@ -637,7 +637,7 @@ export const ReturnsPage = () => {
                   width: 56,
                   height: 56,
                   objectFit: 'contain',
-                  borderRadius: 2,
+                  borderRadius: 1,
                   bgcolor: 'background.paper',
                 }}
               />

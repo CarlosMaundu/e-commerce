@@ -6,9 +6,11 @@ import { Box, Container, Stack, Typography } from '@mui/material';
 import { FiChevronLeft } from 'react-icons/fi';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
+import ImpersonationBanner from '../components/ImpersonationBanner';
 
 const StorefrontLayout = () => (
   <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <ImpersonationBanner />
     <Header />
     <Box component="main" sx={{ flex: 1 }}>
       <Outlet />

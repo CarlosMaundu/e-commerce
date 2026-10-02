@@ -1,18 +1,17 @@
 // src/seed.ts — idempotent: roles/permissions every start, first super admin
 // from ADMIN_EMAIL/ADMIN_PASSWORD, sample catalog only into an empty shop.
-import fs from 'fs';
-import path from 'path';
 import { config } from './config';
 import { query, transaction } from './db';
+import { seedDemoCatalog } from './demoCatalog';
 import { hashPassword } from './lib/security';
 
 export const PERMISSIONS: Record<string, string> = {
   'catalog.products.create': 'Add products',
   'catalog.products.update': 'Edit products',
   'catalog.products.delete': 'Delete products',
-  'catalog.categories.create': 'Add categories',
-  'catalog.categories.update': 'Edit categories',
-  'catalog.categories.delete': 'Delete categories',
+  'catalog.categories.create': 'Add categories and brands',
+  'catalog.categories.update': 'Edit categories and brands',
+  'catalog.categories.delete': 'Delete categories and brands',
   'catalog.files.upload': 'Upload product and category images',
   'orders.orders.view': 'View all orders',
   'orders.orders.update': 'Change order status',
@@ -21,7 +20,9 @@ export const PERMISSIONS: Record<string, string> = {
   'admin.users.create': 'Add users',
   'admin.users.update': 'Edit users, roles and status',
   'admin.users.reset_password': 'Send password reset emails',
+  'admin.users.impersonate': 'View the shop as a customer',
   'admin.roles.manage': 'Create and edit roles',
+  'admin.security.manage': 'Manage security settings and sign-in sessions',
   'admin.audit.view': 'View the audit log',
 };
 
@@ -86,58 +87,12 @@ const seedSuperAdmin = async () => {
   console.log(`Created first super admin ${adminEmail}`);
 };
 
-const SAMPLE_CATEGORIES = [
-  ['Women', 'curated-pick1.png'],
-  ['Men', 'curated-pick2.png'],
-  ['Beauty', 'curated-pick3.png'],
-  ['Home', 'curated-pick6.png'],
-  ['Accessories', 'curated-pick9.png'],
-  ['Electronics', 'curated-pick11.png'],
-];
-
-const SAMPLE_PRODUCTS: [string, string, number, number | null, number][] = [
-  ['Linen summer dress', 'Women', 49.99, null, 25],
-  ['Denim jacket', 'Men', 79, 59, 25],
-  ['Cotton crew-neck shirt', 'Men', 24.5, null, 40],
-  ['Hydrating face serum', 'Beauty', 32, null, 60],
-  ['Ceramic table lamp', 'Home', 64, null, 0],
-  ['Leather card wallet', 'Accessories', 29, 22, 35],
-  ['Wireless earbuds', 'Electronics', 89, null, 18],
-  ['Wrap midi dress', 'Women', 69, null, 12],
-  ['Wool overshirt', 'Men', 95, null, 9],
-  ['Scented soy candle', 'Home', 18, null, 80],
-  ['Canvas tote bag', 'Accessories', 15, null, 50],
-  ['Smart fitness band', 'Electronics', 59, 45, 22],
-];
-
+// Demo catalog (seed/catalog.json), only when sample data is on and the shop is empty.
 const seedSampleCatalog = async () => {
   if (!config.seed.sampleCatalog) return;
   if ((await query('SELECT 1 FROM products LIMIT 1')).rows[0]) return;
   if ((await query('SELECT 1 FROM categories LIMIT 1')).rows[0]) return;
-
-  fs.mkdirSync(config.uploadsDir, { recursive: true });
-  const imageFor = (file: string) => {
-    const target = path.join(config.uploadsDir, `sample-${file}`);
-    if (!fs.existsSync(target)) fs.copyFileSync(path.join(__dirname, '..', 'seed', 'images', file), target);
-    return `${config.publicUploadsPath}/sample-${file}`;
-  };
-
-  await transaction(async (client) => {
-    const ids: Record<string, { id: number; image: string }> = {};
-    for (const [name, file] of SAMPLE_CATEGORIES) {
-      const image = imageFor(file);
-      const { rows } = await client.query('INSERT INTO categories (name, image) VALUES ($1, $2) RETURNING id', [name, image]);
-      ids[name] = { id: rows[0].id, image };
-    }
-    for (const [name, category, price, special, quantity] of SAMPLE_PRODUCTS) {
-      await client.query(
-        `INSERT INTO products (name, description, price, special, quantity, category_id, images, manufacturer, rating, reviews)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, 'Sample Brand', 4, 12)`,
-        [name, `Sample product: ${name}.`, price, special, quantity, ids[category].id, JSON.stringify([ids[category].image])]
-      );
-    }
-  });
-  console.log('Seeded sample catalog');
+  await seedDemoCatalog();
 };
 
 // Sample promo codes, only when sample data is on and no coupons exist yet.
@@ -156,6 +111,6 @@ const seedSampleCoupons = async () => {
 export const runSeed = async () => {
   await seedRoles();
   await seedSuperAdmin();
+  await seedSampleCoupons(); // first: promotions refer to coupons
   await seedSampleCatalog();
-  await seedSampleCoupons();
 };

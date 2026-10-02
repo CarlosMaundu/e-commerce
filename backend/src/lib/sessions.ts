@@ -7,6 +7,7 @@ import { Request, Response } from 'express';
 import { config } from '../config';
 import { query } from '../db';
 import { randomToken, sha256, signAccessToken } from './security';
+import { getSettings } from './settings';
 import { permissionsForRole, toContractUser, UserRow } from './users';
 
 export const REFRESH_COOKIE = 'cs_refresh';
@@ -34,13 +35,25 @@ export const clearRefreshCookie = (res: Response) =>
     path: COOKIE_PATH,
   });
 
+/** Who is acting as this session's user, if anyone (impersonation). */
+export const impersonatorOf = async (sessionId: string) => {
+  const row = (
+    await query(
+      `SELECT u.id, u.firstname, u.lastname, u.email FROM sessions s JOIN users u ON u.id = s.impersonator_id
+       WHERE s.id = $1`,
+      [sessionId]
+    )
+  ).rows[0];
+  return row ? { customer_id: row.id, name: `${row.firstname} ${row.lastname}`.trim(), email: row.email } : null;
+};
+
 /** Response body for every successful sign-in or refresh. */
 const sessionPayload = async (user: UserRow, sessionId: string) => {
   const permissions = await permissionsForRole(user.role_id);
   return {
     access_token: signAccessToken({ sub: String(user.id), sid: sessionId }),
     expires_in: config.accessTokenMinutes * 60,
-    user: toContractUser(user, permissions),
+    user: { ...toContractUser(user, permissions), impersonator: await impersonatorOf(sessionId) },
   };
 };
 
@@ -51,14 +64,27 @@ export const startSession = async (
   { rememberMe = false } = {}
 ) => {
   const refreshToken = randomToken();
+  const staff = (await permissionsForRole(user.role_id)).length > 0;
+  const limits = (await getSettings()).staff_sessions;
   const days = rememberMe ? config.rememberMeDays : config.sessionDays;
-  const expires = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+  // Back-office sessions are shorter and limited in number.
+  const ms = staff ? Math.min(days * 24, limits.max_hours) * 3600000 : days * 24 * 3600000;
+  const expires = new Date(Date.now() + ms);
   const { userAgent, ip } = clientInfo(req);
   const { rows } = await query<{ id: string }>(
     `INSERT INTO sessions (user_id, refresh_hash, user_agent, ip_address, expires_at)
      VALUES ($1, $2, $3, $4, $5) RETURNING id`,
     [user.id, sha256(refreshToken), userAgent, ip, expires]
   );
+  if (staff) {
+    await query(
+      `UPDATE sessions SET revoked_at = now() WHERE id IN (
+         SELECT id FROM sessions WHERE user_id = $1 AND impersonator_id IS NULL AND revoked_at IS NULL
+           AND expires_at > now()
+         ORDER BY created_at DESC OFFSET $2)`,
+      [user.id, limits.max_concurrent]
+    );
+  }
   await query(
     'UPDATE users SET last_login_at = now(), failed_login_attempts = 0, locked_until = NULL WHERE id = $1',
     [user.id]
@@ -78,10 +104,29 @@ export const rotateSession = async (res: Response, refreshToken: string, user: U
   return sessionPayload(user, sessionId);
 };
 
+/**
+ * Starts a short customer session for a staff member acting as that customer.
+ * The staff member's own session stays valid, to return to afterwards.
+ */
+export const startImpersonation = async (req: Request, res: Response, customer: UserRow) => {
+  const refreshToken = randomToken();
+  const expires = new Date(Date.now() + IMPERSONATION_MINUTES * 60000);
+  const { userAgent, ip } = clientInfo(req);
+  const { rows } = await query<{ id: string }>(
+    `INSERT INTO sessions (user_id, refresh_hash, user_agent, ip_address, expires_at, impersonator_id, parent_session_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+    [customer.id, sha256(refreshToken), userAgent, ip, expires, req.auth!.userId, req.auth!.sessionId]
+  );
+  setRefreshCookie(res, refreshToken, expires);
+  return sessionPayload(customer, rows[0].id);
+};
+
+export const IMPERSONATION_MINUTES = 30;
+
 export const findSessionByRefresh = async (refreshToken: string) =>
   (
-    await query<{ id: string; user_id: number; expires_at: Date }>(
-      `SELECT id, user_id, expires_at FROM sessions
+    await query<{ id: string; user_id: number; expires_at: Date; last_activity_at: Date; impersonator_id: number | null }>(
+      `SELECT id, user_id, expires_at, last_activity_at, impersonator_id FROM sessions
        WHERE refresh_hash = $1 AND revoked_at IS NULL AND expires_at > now()`,
       [sha256(refreshToken)]
     )

@@ -11,9 +11,14 @@ import {
   cartItemToApi,
   orderFromApi,
   returnFromApi,
+  activityFromApi,
+  brandFromApi,
   categoryFromApi,
   categoryToApi,
   productFromApi,
+  promotionFromApi,
+  reviewFromApi,
+  sessionFromApi,
   productQueryToApi,
   productToApi,
   userFromApi,
@@ -88,21 +93,60 @@ export const auth = {
 };
 
 export const catalog = {
-  async getProducts(filters = {}) {
-    const { data } = await http().get('/rest/products', {
+  /** { products, total } for the filters (see productQueryToApi). */
+  async listProducts(filters = {}) {
+    const { data, headers } = await http().get('/rest/products', {
       params: productQueryToApi(filters),
     });
-    return (data || []).map(productFromApi);
+    return {
+      products: (data || []).map(productFromApi),
+      total: Number(headers['x-total-count'] || 0),
+    };
   },
-  async countProducts(filters = {}) {
-    const { headers } = await http().get('/rest/products', {
-      params: { ...productQueryToApi(filters), limit: 1, page: 1 },
-    });
-    return Number(headers['x-total-count'] || 0);
+  async getProducts(filters = {}) {
+    return (await catalog.listProducts(filters)).products;
   },
   async getProduct(id) {
     const { data } = await http().get(`/rest/products/${id}`);
     return productFromApi(data);
+  },
+  async related(id) {
+    const { data } = await http().get(`/rest/products/${id}/related`);
+    return (data || []).map(productFromApi);
+  },
+  /** Brands, price range, attribute values and tags for the filter panel. */
+  async filters(categoryId) {
+    const { data } = await http().get('/rest/product_filters', {
+      params: categoryId ? { category: categoryId } : {},
+    });
+    return {
+      brands: data.brands.map(brandFromApi),
+      price: data.price,
+      attributes: data.attributes,
+      tags: data.tags,
+    };
+  },
+  async brands() {
+    const { data } = await http().get('/rest/manufacturers');
+    return (data || []).map(brandFromApi);
+  },
+  async promotions() {
+    const { data } = await http().get('/rest/promotions');
+    return (data || []).map(promotionFromApi);
+  },
+  async reviews(id, { page = 1, limit = 10 } = {}) {
+    const { data } = await http().get(`/rest/products/${id}/reviews`, {
+      params: { page, limit },
+    });
+    return { summary: data.summary, reviews: data.reviews.map(reviewFromApi) };
+  },
+  async addReview(id, { rating, title, text }) {
+    const { data } = await http().post(`/rest/products/${id}/review`, {
+      rating,
+      title,
+      text,
+    });
+    return data;
   },
   async getCategories() {
     const { data } = await http().get('/rest/categories');
@@ -115,19 +159,59 @@ export const catalog = {
 };
 
 export const adminCatalog = {
-  async createProduct(input) {
-    const { data } = await http().post('/admin/products', productToApi(input));
+  /** { products, total, counts } including drafts. */
+  async listProducts(filters = {}) {
+    const { data } = await http().get('/admin/products', {
+      params: productQueryToApi(filters),
+    });
+    return {
+      products: data.products.map(productFromApi),
+      total: data.total,
+      counts: data.counts,
+    };
+  },
+  async getProduct(id) {
+    const { data } = await http().get(`/admin/products/${id}`);
     return productFromApi(data);
   },
-  async updateProduct(id, input) {
+  async createProduct(form) {
+    const { data } = await http().post('/admin/products', productToApi(form));
+    return productFromApi(data);
+  },
+  async updateProduct(id, form) {
     const { data } = await http().put(
       `/admin/products/${id}`,
-      productToApi(input)
+      productToApi(form)
     );
+    return productFromApi(data);
+  },
+  /** Partial update with contract field names, e.g. { status: 'draft' }. */
+  async patchProduct(id, fields) {
+    const { data } = await http().put(`/admin/products/${id}`, fields);
     return productFromApi(data);
   },
   async deleteProduct(id) {
     await http().delete(`/admin/products/${id}`);
+    return true;
+  },
+  async tags() {
+    const { data } = await http().get('/admin/product_tags');
+    return data || [];
+  },
+  async brands() {
+    const { data } = await http().get('/admin/brands');
+    return (data || []).map(brandFromApi);
+  },
+  async createBrand({ name, logo = '' }) {
+    const { data } = await http().post('/admin/brands', { name, logo });
+    return brandFromApi(data);
+  },
+  async updateBrand(id, { name, logo }) {
+    const { data } = await http().put(`/admin/brands/${id}`, { name, logo });
+    return brandFromApi(data);
+  },
+  async deleteBrand(id) {
+    await http().delete(`/admin/brands/${id}`);
     return true;
   },
   async createCategory(input) {
@@ -176,6 +260,93 @@ export const account = {
       current_password: currentPassword,
       password: newPassword,
     });
+  },
+  async uploadAvatar(file) {
+    const form = new FormData();
+    form.append('file', file);
+    const { data } = await http().post('/rest/account/avatar', form);
+    return userFromApi(data);
+  },
+  async sessions() {
+    const { data } = await http().get('/rest/account/sessions');
+    return (data || []).map(sessionFromApi);
+  },
+  async endSession(id) {
+    await http().delete(`/rest/account/sessions/${id}`);
+  },
+  async endOtherSessions() {
+    const { data } = await http().delete('/rest/account/sessions');
+    return data.revoked;
+  },
+  async activity() {
+    const { data } = await http().get('/rest/account/activity');
+    return (data || []).map(activityFromApi);
+  },
+};
+
+/** Staff acting as a customer ("View as customer"). */
+export const impersonation = {
+  async start(userId) {
+    const { data } = await http().post(`/admin/users/${userId}/impersonate`);
+    return acceptSession(data);
+  },
+  /** Returns the staff user again, or null when their session had ended. */
+  async stop() {
+    const { data } = await http().post('/rest/impersonation/stop');
+    if (!data.restored) {
+      clearSession();
+      return null;
+    }
+    return acceptSession(data);
+  },
+};
+
+export const adminSecurity = {
+  async unlock(userId) {
+    await http().post(`/admin/users/${userId}/unlock`);
+  },
+  async signOutEverywhere(userId) {
+    const { data } = await http().post(`/admin/users/${userId}/signout`);
+    return data.signed_out;
+  },
+  async userActivity(userId) {
+    const { data } = await http().get(`/admin/users/${userId}/activity`);
+    return {
+      activity: data.activity.map(activityFromApi),
+      sessions: data.sessions.map(sessionFromApi),
+    };
+  },
+  async audit({ search, action, from, to, page = 1, limit = 50 } = {}) {
+    const { data } = await http().get('/admin/audit', {
+      params: {
+        search: search || undefined,
+        action: action || undefined,
+        from: from || undefined,
+        to: to || undefined,
+        page,
+        limit,
+      },
+    });
+    return {
+      total: data.total,
+      activity: data.activity.map(activityFromApi),
+      actions: data.actions,
+    };
+  },
+  async sessions() {
+    const { data } = await http().get('/admin/security/sessions');
+    return { stats: data.stats, sessions: data.sessions.map(sessionFromApi) };
+  },
+  async endSession(id) {
+    await http().delete(`/admin/security/sessions/${id}`);
+  },
+  async settings() {
+    const { data } = await http().get('/admin/security/settings');
+    return data;
+  },
+  async saveSettings(sections) {
+    const { data } = await http().put('/admin/security/settings', sections);
+    return data.settings;
   },
 };
 

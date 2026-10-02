@@ -1,0 +1,2533 @@
+{
+ "categories": [
+  {
+   "name": "Women",
+   "image": "cat-women.jpg",
+   "children": [
+    "Dresses",
+    "Tops & knitwear"
+   ]
+  },
+  {
+   "name": "Men",
+   "image": "cat-men.jpg",
+   "children": [
+    "Shirts & tees",
+    "Jackets & coats"
+   ]
+  },
+  {
+   "name": "Shoes",
+   "image": "cat-shoes.jpg",
+   "children": []
+  },
+  {
+   "name": "Beauty",
+   "image": "cat-beauty.jpg",
+   "children": []
+  },
+  {
+   "name": "Home",
+   "image": "cat-home.jpg",
+   "children": []
+  },
+  {
+   "name": "Accessories",
+   "image": "cat-accessories.jpg",
+   "children": [
+    "Bags",
+    "Watches"
+   ]
+  },
+  {
+   "name": "Electronics",
+   "image": "cat-electronics.jpg",
+   "children": []
+  }
+ ],
+ "brands": [
+  {
+   "name": "Northwind Apparel",
+   "color": "#1F4E79",
+   "logo": "brand-northwind-apparel.svg"
+  },
+  {
+   "name": "Lumen & Co",
+   "color": "#8A5A2B",
+   "logo": "brand-lumen--co.svg"
+  },
+  {
+   "name": "Aster Home",
+   "color": "#5B7F6B",
+   "logo": "brand-aster-home.svg"
+  },
+  {
+   "name": "Kairo Leather",
+   "color": "#6B3E26",
+   "logo": "brand-kairo-leather.svg"
+  },
+  {
+   "name": "Pulse Audio",
+   "color": "#C2185B",
+   "logo": "brand-pulse-audio.svg"
+  },
+  {
+   "name": "Verde Beauty",
+   "color": "#2E7D32",
+   "logo": "brand-verde-beauty.svg"
+  },
+  {
+   "name": "Stride Footwear",
+   "color": "#E65100",
+   "logo": "brand-stride-footwear.svg"
+  },
+  {
+   "name": "Tidal Tech",
+   "color": "#0277BD",
+   "logo": "brand-tidal-tech.svg"
+  }
+ ],
+ "products": [
+  {
+   "name": "Linen summer dress",
+   "category": "Dresses",
+   "brand": "Northwind Apparel",
+   "price": 49.99,
+   "sku": "NW-DRS-LIN",
+   "featured": true,
+   "tags": [
+    "summer",
+    "linen",
+    "new-season"
+   ],
+   "description": "A breezy midi dress cut from washed European linen. Relaxed through the body with a tie waist, side pockets and a soft V-neck — made for warm days and long evenings.\n\n• 100% linen, pre-washed for softness\n• Midi length, tie waist, side pockets\n• Machine wash cold, line dry",
+   "attributes": [
+    {
+     "name": "Color",
+     "values": [
+      "Floral",
+      "Blue"
+     ]
+    },
+    {
+     "name": "Size",
+     "values": [
+      "S",
+      "M",
+      "L"
+     ]
+    }
+   ],
+   "imageBy": "Color",
+   "images": {
+    "Floral": [
+     "linen-dress-white.jpg"
+    ],
+    "Blue": [
+     "linen-dress-blue.jpg"
+    ]
+   },
+   "reviews": [
+    {
+     "author": "Esther W.",
+     "rating": 5,
+     "title": "My new favourite",
+     "text": "Comfortable from the first wear. The colour is exactly like the photos and it pairs with everything in my wardrobe.",
+     "verified": true,
+     "days_ago": 87
+    },
+    {
+     "author": "Noah S.",
+     "rating": 4,
+     "title": "Runs slightly small",
+     "text": "Nice product, but I’d size up next time.",
+     "verified": true,
+     "days_ago": 12
+    },
+    {
+     "author": "Samuel D.",
+     "rating": 5,
+     "title": "Fits perfectly",
+     "text": "The fit is spot on and the fabric feels far more expensive than the price. I’ve already washed it a few times and it still looks new.",
+     "verified": true,
+     "days_ago": 84
+    }
+   ],
+   "views": 112
+  },
+  {
+   "name": "Wrap midi dress",
+   "category": "Dresses",
+   "brand": "Northwind Apparel",
+   "price": 69,
+   "sku": "NW-DRS-WRP",
+   "tags": [
+    "occasion",
+    "dresses"
+   ],
+   "description": "A flattering wrap dress in fluid crepe that moves with you. Adjustable tie, flutter sleeves and a midi hem that works from desk to dinner.\n\n• Fluid crepe, 100% recycled polyester\n• True wrap with adjustable tie\n• Hand wash recommended",
+   "attributes": [
+    {
+     "name": "Color",
+     "values": [
+      "Black",
+      "Red"
+     ]
+    },
+    {
+     "name": "Size",
+     "values": [
+      "S",
+      "M",
+      "L"
+     ]
+    }
+   ],
+   "imageBy": "Color",
+   "images": {
+    "Black": [
+     "wrap-dress-black.jpg"
+    ],
+    "Red": [
+     "wrap-dress-red.jpg"
+    ]
+   },
+   "reviews": [
+    {
+     "author": "Farid A.",
+     "rating": 5,
+     "title": "Fits perfectly",
+     "text": "The fit is spot on and the fabric feels far more expensive than the price. I’ve already washed it a few times and it still looks new.",
+     "verified": true,
+     "days_ago": 44
+    },
+    {
+     "author": "David N.",
+     "rating": 5,
+     "title": "Great quality",
+     "text": "Lovely stitching and a nice weight to the fabric. I ordered my usual size and it was perfect.",
+     "verified": true,
+     "days_ago": 13
+    },
+    {
+     "author": "Brian O.",
+     "rating": 5,
+     "title": "Great quality",
+     "text": "Lovely stitching and a nice weight to the fabric. I ordered my usual size and it was perfect.",
+     "verified": true,
+     "days_ago": 69
+    },
+    {
+     "author": "Samuel D.",
+     "rating": 4,
+     "title": "Fits perfectly",
+     "text": "The fit is spot on and the fabric feels far more expensive than the price. I’ve already washed it a few times and it still looks new.",
+     "verified": true,
+     "days_ago": 81
+    }
+   ],
+   "views": 97
+  },
+  {
+   "name": "Chunky knit sweater",
+   "category": "Tops & knitwear",
+   "brand": "Northwind Apparel",
+   "price": 58,
+   "special": 46,
+   "sku": "NW-KNT-CHK",
+   "tags": [
+    "knitwear",
+    "winter",
+    "sale"
+   ],
+   "description": "Our cosiest knit, with a relaxed drop shoulder and ribbed trims. Choose soft cotton for everyday wear or merino wool for real warmth.\n\n• Relaxed fit, drop shoulder\n• Ribbed cuffs, hem and crew neck",
+   "attributes": [
+    {
+     "name": "Color",
+     "values": [
+      "Cream",
+      "Green"
+     ]
+    },
+    {
+     "name": "Material",
+     "values": [
+      "Cotton",
+      "Merino wool"
+     ]
+    },
+    {
+     "name": "Size",
+     "values": [
+      "S",
+      "M",
+      "L"
+     ]
+    }
+   ],
+   "imageBy": "Color",
+   "priceBy": {
+    "Material=Merino wool": 72
+   },
+   "images": {
+    "Cream": [
+     "knit-sweater-cream.jpg"
+    ],
+    "Green": [
+     "knit-sweater-green.jpg"
+    ]
+   },
+   "reviews": [
+    {
+     "author": "James P.",
+     "rating": 5,
+     "title": "My new favourite",
+     "text": "Comfortable from the first wear. The colour is exactly like the photos and it pairs with everything in my wardrobe.",
+     "verified": false,
+     "days_ago": 110
+    },
+    {
+     "author": "Olivia B.",
+     "rating": 5,
+     "title": "Great quality",
+     "text": "Lovely stitching and a nice weight to the fabric. I ordered my usual size and it was perfect.",
+     "verified": true,
+     "days_ago": 47
+    },
+    {
+     "author": "Chloe M.",
+     "rating": 5,
+     "title": "Great quality",
+     "text": "Lovely stitching and a nice weight to the fabric. I ordered my usual size and it was perfect.",
+     "verified": true,
+     "days_ago": 22
+    },
+    {
+     "author": "Mercy J.",
+     "rating": 5,
+     "title": "Bought a second one",
+     "text": "Liked it so much I ordered another colour. Delivery was quick too.",
+     "verified": true,
+     "days_ago": 119
+    },
+    {
+     "author": "Brian O.",
+     "rating": 5,
+     "title": "Great quality",
+     "text": "Lovely stitching and a nice weight to the fabric. I ordered my usual size and it was perfect.",
+     "verified": true,
+     "days_ago": 5
+    },
+    {
+     "author": "Grace L.",
+     "rating": 3,
+     "title": "Good, with one niggle",
+     "text": "I like it overall, but it took a little longer to arrive than I expected. Quality is good.",
+     "verified": false,
+     "days_ago": 73
+    },
+    {
+     "author": "Peter G.",
+     "rating": 3,
+     "title": "Runs slightly small",
+     "text": "Nice product, but I’d size up next time.",
+     "verified": true,
+     "days_ago": 118
+    }
+   ],
+   "views": 122
+  },
+  {
+   "name": "Ribbed tank top",
+   "category": "Tops & knitwear",
+   "brand": "Northwind Apparel",
+   "price": 19,
+   "sku": "NW-TOP-RIB",
+   "tags": [
+    "basics",
+    "summer"
+   ],
+   "description": "A fitted, stretchy rib tank you’ll reach for every day. Soft organic cotton with a little stretch for a smooth fit.\n\n• 95% organic cotton, 5% elastane\n• Slim fit",
+   "attributes": [
+    {
+     "name": "Color",
+     "values": [
+      "White",
+      "Black"
+     ]
+    },
+    {
+     "name": "Size",
+     "values": [
+      "S",
+      "M",
+      "L"
+     ]
+    }
+   ],
+   "imageBy": "Color",
+   "images": {
+    "White": [
+     "tank-white.jpg"
+    ],
+    "Black": [
+     "tank-black.jpg"
+    ]
+   },
+   "reviews": [
+    {
+     "author": "Tanya V.",
+     "rating": 5,
+     "title": "Great quality",
+     "text": "Lovely stitching and a nice weight to the fabric. I ordered my usual size and it was perfect.",
+     "verified": true,
+     "days_ago": 75
+    },
+    {
+     "author": "Rose C.",
+     "rating": 5,
+     "title": "My new favourite",
+     "text": "Comfortable from the first wear. The colour is exactly like the photos and it pairs with everything in my wardrobe.",
+     "verified": true,
+     "days_ago": 97
+    },
+    {
+     "author": "Noah S.",
+     "rating": 5,
+     "title": "My new favourite",
+     "text": "Comfortable from the first wear. The colour is exactly like the photos and it pairs with everything in my wardrobe.",
+     "verified": true,
+     "days_ago": 50
+    },
+    {
+     "author": "Samuel D.",
+     "rating": 4,
+     "title": "Great quality",
+     "text": "Lovely stitching and a nice weight to the fabric. I ordered my usual size and it was perfect.",
+     "verified": false,
+     "days_ago": 2
+    }
+   ],
+   "views": 34
+  },
+  {
+   "name": "Cotton crew-neck shirt",
+   "category": "Shirts & tees",
+   "brand": "Northwind Apparel",
+   "price": 24.5,
+   "sku": "NW-TEE-CRW",
+   "featured": true,
+   "tags": [
+    "basics",
+    "cotton"
+   ],
+   "description": "The perfect everyday tee: heavyweight organic cotton, a structured crew neck that keeps its shape, and a clean regular fit.\n\n• 220 gsm organic cotton\n• Regular fit, ribbed crew neck\n• Machine wash 30°C",
+   "attributes": [
+    {
+     "name": "Color",
+     "values": [
+      "Black",
+      "White",
+      "Gray"
+     ]
+    },
+    {
+     "name": "Size",
+     "values": [
+      "S",
+      "M",
+      "L",
+      "XL"
+     ]
+    }
+   ],
+   "imageBy": "Color",
+   "images": {
+    "Black": [
+     "tee-black.jpg",
+     "tee-black-2.jpg"
+    ],
+    "White": [
+     "tee-white.jpg"
+    ],
+    "Gray": [
+     "tee-gray.jpg"
+    ]
+   },
+   "reviews": [
+    {
+     "author": "David N.",
+     "rating": 4,
+     "title": "Decent",
+     "text": "Does the job. Not quite as nice as I hoped from the photos, but fine for the price.",
+     "verified": true,
+     "days_ago": 21
+    },
+    {
+     "author": "Rose C.",
+     "rating": 4,
+     "title": "Great quality",
+     "text": "Lovely stitching and a nice weight to the fabric. I ordered my usual size and it was perfect.",
+     "verified": false,
+     "days_ago": 65
+    },
+    {
+     "author": "Rose C.",
+     "rating": 4,
+     "title": "Decent",
+     "text": "Does the job. Not quite as nice as I hoped from the photos, but fine for the price.",
+     "verified": true,
+     "days_ago": 20
+    },
+    {
+     "author": "Wanjiru N.",
+     "rating": 5,
+     "title": "Fits perfectly",
+     "text": "The fit is spot on and the fabric feels far more expensive than the price. I’ve already washed it a few times and it still looks new.",
+     "verified": true,
+     "days_ago": 3
+    },
+    {
+     "author": "Hassan M.",
+     "rating": 5,
+     "title": "Great quality",
+     "text": "Lovely stitching and a nice weight to the fabric. I ordered my usual size and it was perfect.",
+     "verified": true,
+     "days_ago": 113
+    },
+    {
+     "author": "Chloe M.",
+     "rating": 5,
+     "title": "Bought a second one",
+     "text": "Liked it so much I ordered another colour. Delivery was quick too.",
+     "verified": false,
+     "days_ago": 69
+    },
+    {
+     "author": "Samuel D.",
+     "rating": 3,
+     "title": "Decent",
+     "text": "Does the job. Not quite as nice as I hoped from the photos, but fine for the price.",
+     "verified": true,
+     "days_ago": 68
+    }
+   ],
+   "views": 113
+  },
+  {
+   "name": "Oxford button-down shirt",
+   "category": "Shirts & tees",
+   "brand": "Northwind Apparel",
+   "price": 45,
+   "sku": "NW-SHT-OXF",
+   "tags": [
+    "office",
+    "cotton"
+   ],
+   "description": "A wardrobe classic in soft-brushed Oxford cotton with a button-down collar and a single chest pocket. Smart enough for work, easy enough for weekends.\n\n• 100% cotton Oxford\n• Button-down collar, chest pocket",
+   "attributes": [
+    {
+     "name": "Color",
+     "values": [
+      "Blue",
+      "White"
+     ]
+    },
+    {
+     "name": "Size",
+     "values": [
+      "S",
+      "M",
+      "L",
+      "XL"
+     ]
+    }
+   ],
+   "imageBy": "Color",
+   "images": {
+    "Blue": [
+     "oxford-blue.jpg"
+    ],
+    "White": [
+     "oxford-white.jpg"
+    ]
+   },
+   "reviews": [
+    {
+     "author": "James P.",
+     "rating": 2,
+     "title": "Not for me",
+     "text": "The quality is okay but it wasn’t what I expected. Returning was easy though.",
+     "verified": true,
+     "days_ago": 86
+    },
+    {
+     "author": "David N.",
+     "rating": 5,
+     "title": "Bought a second one",
+     "text": "Liked it so much I ordered another colour. Delivery was quick too.",
+     "verified": true,
+     "days_ago": 9
+    },
+    {
+     "author": "Tanya V.",
+     "rating": 5,
+     "title": "My new favourite",
+     "text": "Comfortable from the first wear. The colour is exactly like the photos and it pairs with everything in my wardrobe.",
+     "verified": true,
+     "days_ago": 10
+    },
+    {
+     "author": "Brian O.",
+     "rating": 3,
+     "title": "Good, with one niggle",
+     "text": "I like it overall, but it took a little longer to arrive than I expected. Quality is good.",
+     "verified": false,
+     "days_ago": 10
+    }
+   ],
+   "views": 136
+  },
+  {
+   "name": "Fleece hoodie",
+   "category": "Shirts & tees",
+   "brand": "Northwind Apparel",
+   "price": 54,
+   "sku": "NW-HOD-FLC",
+   "tags": [
+    "loungewear",
+    "winter"
+   ],
+   "description": "A heavyweight hoodie with a brushed-back fleece inside, a double-layer hood and a roomy kangaroo pocket.\n\n• 80% cotton, 20% recycled polyester\n• Relaxed fit",
+   "attributes": [
+    {
+     "name": "Color",
+     "values": [
+      "Black",
+      "Stone"
+     ]
+    },
+    {
+     "name": "Material",
+     "values": [
+      "Cotton",
+      "Fleece"
+     ]
+    },
+    {
+     "name": "Size",
+     "values": [
+      "S",
+      "M",
+      "L",
+      "XL"
+     ]
+    }
+   ],
+   "imageBy": "Color",
+   "images": {
+    "Black": [
+     "hoodie-black.jpg"
+    ],
+    "Stone": [
+     "hoodie-gray.jpg"
+    ]
+   },
+   "reviews": [
+    {
+     "author": "Tanya V.",
+     "rating": 5,
+     "title": "My new favourite",
+     "text": "Comfortable from the first wear. The colour is exactly like the photos and it pairs with everything in my wardrobe.",
+     "verified": true,
+     "days_ago": 32
+    },
+    {
+     "author": "David N.",
+     "rating": 4,
+     "title": "Good, with one niggle",
+     "text": "I like it overall, but it took a little longer to arrive than I expected. Quality is good.",
+     "verified": true,
+     "days_ago": 56
+    },
+    {
+     "author": "David N.",
+     "rating": 5,
+     "title": "Fits perfectly",
+     "text": "The fit is spot on and the fabric feels far more expensive than the price. I’ve already washed it a few times and it still looks new.",
+     "verified": true,
+     "days_ago": 94
+    },
+    {
+     "author": "Grace L.",
+     "rating": 4,
+     "title": "My new favourite",
+     "text": "Comfortable from the first wear. The colour is exactly like the photos and it pairs with everything in my wardrobe.",
+     "verified": true,
+     "days_ago": 58
+    }
+   ],
+   "views": 40
+  },
+  {
+   "name": "Denim jacket",
+   "category": "Jackets & coats",
+   "brand": "Northwind Apparel",
+   "price": 79,
+   "special": 59,
+   "sku": "NW-JKT-DNM",
+   "featured": true,
+   "tags": [
+    "denim",
+    "sale"
+   ],
+   "description": "A timeless trucker jacket in rigid 12 oz denim that softens beautifully with wear. Chest flap pockets, adjustable waist tabs and copper buttons.\n\n• 100% cotton denim\n• Classic trucker fit",
+   "attributes": [
+    {
+     "name": "Size",
+     "values": [
+      "S",
+      "M",
+      "L",
+      "XL"
+     ]
+    }
+   ],
+   "images": {
+    "": [
+     "denim-jacket.jpg",
+     "denim-jacket-2.jpg"
+    ]
+   },
+   "reviews": [
+    {
+     "author": "Olivia B.",
+     "rating": 5,
+     "title": "Fits perfectly",
+     "text": "The fit is spot on and the fabric feels far more expensive than the price. I’ve already washed it a few times and it still looks new.",
+     "verified": false,
+     "days_ago": 110
+    },
+    {
+     "author": "Chloe M.",
+     "rating": 5,
+     "title": "Fits perfectly",
+     "text": "The fit is spot on and the fabric feels far more expensive than the price. I’ve already washed it a few times and it still looks new.",
+     "verified": false,
+     "days_ago": 109
+    },
+    {
+     "author": "Grace L.",
+     "rating": 5,
+     "title": "Bought a second one",
+     "text": "Liked it so much I ordered another colour. Delivery was quick too.",
+     "verified": false,
+     "days_ago": 116
+    },
+    {
+     "author": "Irene T.",
+     "rating": 5,
+     "title": "Bought a second one",
+     "text": "Liked it so much I ordered another colour. Delivery was quick too.",
+     "verified": false,
+     "days_ago": 101
+    },
+    {
+     "author": "Esther W.",
+     "rating": 5,
+     "title": "Bought a second one",
+     "text": "Liked it so much I ordered another colour. Delivery was quick too.",
+     "verified": true,
+     "days_ago": 28
+    },
+    {
+     "author": "Kemi A.",
+     "rating": 2,
+     "title": "Not for me",
+     "text": "The quality is okay but it wasn’t what I expected. Returning was easy though.",
+     "verified": true,
+     "days_ago": 75
+    }
+   ],
+   "views": 127
+  },
+  {
+   "name": "Wool overshirt",
+   "category": "Jackets & coats",
+   "brand": "Northwind Apparel",
+   "price": 95,
+   "sku": "NW-JKT-WOL",
+   "tags": [
+    "wool",
+    "winter",
+    "new-season"
+   ],
+   "description": "Part shirt, part jacket: a brushed wool-blend overshirt with two patch pockets and a soft cotton lining. Layer it over a tee or a knit.\n\n• 60% wool, 40% recycled polyester\n• Cotton-lined body",
+   "attributes": [
+    {
+     "name": "Color",
+     "values": [
+      "Camel",
+      "Olive"
+     ]
+    },
+    {
+     "name": "Size",
+     "values": [
+      "M",
+      "L",
+      "XL"
+     ]
+    }
+   ],
+   "imageBy": "Color",
+   "images": {
+    "Camel": [
+     "overshirt-camel.jpg"
+    ],
+    "Olive": [
+     "overshirt-olive.jpg"
+    ]
+   },
+   "reviews": [
+    {
+     "author": "Rose C.",
+     "rating": 4,
+     "title": "Good, with one niggle",
+     "text": "I like it overall, but it took a little longer to arrive than I expected. Quality is good.",
+     "verified": true,
+     "days_ago": 24
+    },
+    {
+     "author": "Mercy J.",
+     "rating": 5,
+     "title": "My new favourite",
+     "text": "Comfortable from the first wear. The colour is exactly like the photos and it pairs with everything in my wardrobe.",
+     "verified": true,
+     "days_ago": 114
+    },
+    {
+     "author": "Wanjiru N.",
+     "rating": 5,
+     "title": "Fits perfectly",
+     "text": "The fit is spot on and the fabric feels far more expensive than the price. I’ve already washed it a few times and it still looks new.",
+     "verified": true,
+     "days_ago": 85
+    },
+    {
+     "author": "Grace L.",
+     "rating": 5,
+     "title": "Great quality",
+     "text": "Lovely stitching and a nice weight to the fabric. I ordered my usual size and it was perfect.",
+     "verified": true,
+     "days_ago": 41
+    },
+    {
+     "author": "Olivia B.",
+     "rating": 5,
+     "title": "Great quality",
+     "text": "Lovely stitching and a nice weight to the fabric. I ordered my usual size and it was perfect.",
+     "verified": true,
+     "days_ago": 97
+    },
+    {
+     "author": "Olivia B.",
+     "rating": 2,
+     "title": "Not for me",
+     "text": "The quality is okay but it wasn’t what I expected. Returning was easy though.",
+     "verified": true,
+     "days_ago": 73
+    },
+    {
+     "author": "Samuel D.",
+     "rating": 2,
+     "title": "Not for me",
+     "text": "The quality is okay but it wasn’t what I expected. Returning was easy though.",
+     "verified": true,
+     "days_ago": 34
+    }
+   ],
+   "views": 38
+  },
+  {
+   "name": "Running sneakers",
+   "category": "Shoes",
+   "brand": "Stride Footwear",
+   "price": 110,
+   "special": 89,
+   "sku": "ST-RUN-AIR",
+   "featured": true,
+   "tags": [
+    "running",
+    "sport",
+    "sale"
+   ],
+   "description": "Lightweight daily trainers with a responsive foam midsole and a breathable engineered-mesh upper. Built for everything from 5K tempo runs to weekend miles.\n\n• Engineered mesh upper\n• 8 mm heel-to-toe drop\n• Rubber outsole with flex grooves",
+   "attributes": [
+    {
+     "name": "Color",
+     "values": [
+      "White",
+      "Black"
+     ]
+    },
+    {
+     "name": "Size",
+     "values": [
+      "40",
+      "41",
+      "42",
+      "43",
+      "44"
+     ]
+    }
+   ],
+   "imageBy": "Color",
+   "images": {
+    "White": [
+     "runner-white.jpg",
+     "runner-white-2.jpg"
+    ],
+    "Black": [
+     "runner-black.jpg"
+    ]
+   },
+   "reviews": [
+    {
+     "author": "James P.",
+     "rating": 4,
+     "title": "Decent",
+     "text": "Does the job. Not quite as nice as I hoped from the photos, but fine for the price.",
+     "verified": true,
+     "days_ago": 107
+    },
+    {
+     "author": "Rose C.",
+     "rating": 5,
+     "title": "Looks great",
+     "text": "Get compliments every time I wear them. Solid build quality.",
+     "verified": true,
+     "days_ago": 105
+    },
+    {
+     "author": "Esther W.",
+     "rating": 4,
+     "title": "Comfortable all day",
+     "text": "Wore them for a full day of walking straight out of the box with no rubbing. Very happy.",
+     "verified": true,
+     "days_ago": 114
+    },
+    {
+     "author": "James P.",
+     "rating": 5,
+     "title": "True to size",
+     "text": "I took my normal size and they fit well. The sole has great grip.",
+     "verified": true,
+     "days_ago": 92
+    },
+    {
+     "author": "Rose C.",
+     "rating": 4,
+     "title": "True to size",
+     "text": "I took my normal size and they fit well. The sole has great grip.",
+     "verified": true,
+     "days_ago": 116
+    }
+   ],
+   "views": 18
+  },
+  {
+   "name": "Leather Chelsea boots",
+   "category": "Shoes",
+   "brand": "Kairo Leather",
+   "price": 160,
+   "sku": "KL-BOT-CHL",
+   "tags": [
+    "leather",
+    "winter"
+   ],
+   "description": "Hand-finished full-grain leather Chelsea boots with elastic side panels, a pull tab and a Goodyear-welted rubber sole that can be resoled for years.\n\n• Full-grain leather upper\n• Goodyear-welted, resoleable",
+   "attributes": [
+    {
+     "name": "Color",
+     "values": [
+      "Brown",
+      "Black"
+     ]
+    },
+    {
+     "name": "Size",
+     "values": [
+      "40",
+      "41",
+      "42",
+      "43",
+      "44"
+     ]
+    }
+   ],
+   "imageBy": "Color",
+   "images": {
+    "Brown": [
+     "chelsea-brown.jpg"
+    ],
+    "Black": [
+     "chelsea-black.jpg"
+    ]
+   },
+   "reviews": [
+    {
+     "author": "Amina K.",
+     "rating": 4,
+     "title": "Comfortable all day",
+     "text": "Wore them for a full day of walking straight out of the box with no rubbing. Very happy.",
+     "verified": true,
+     "days_ago": 17
+    },
+    {
+     "author": "Olivia B.",
+     "rating": 5,
+     "title": "Looks great",
+     "text": "Get compliments every time I wear them. Solid build quality.",
+     "verified": true,
+     "days_ago": 55
+    },
+    {
+     "author": "Esther W.",
+     "rating": 5,
+     "title": "Looks great",
+     "text": "Get compliments every time I wear them. Solid build quality.",
+     "verified": true,
+     "days_ago": 107
+    }
+   ],
+   "views": 99
+  },
+  {
+   "name": "Canvas low-top sneakers",
+   "category": "Shoes",
+   "brand": "Stride Footwear",
+   "price": 55,
+   "sku": "ST-CNV-LOW",
+   "tags": [
+    "casual",
+    "summer"
+   ],
+   "description": "Everyday canvas sneakers with a vulcanised rubber sole and a cushioned insole. Easy to wear with everything.\n\n• Cotton canvas upper\n• Vulcanised rubber sole",
+   "attributes": [
+    {
+     "name": "Color",
+     "values": [
+      "White",
+      "Red"
+     ]
+    },
+    {
+     "name": "Size",
+     "values": [
+      "40",
+      "41",
+      "42",
+      "43",
+      "44"
+     ]
+    }
+   ],
+   "imageBy": "Color",
+   "images": {
+    "White": [
+     "canvas-white.jpg"
+    ],
+    "Red": [
+     "canvas-red.jpg"
+    ]
+   },
+   "reviews": [
+    {
+     "author": "James P.",
+     "rating": 5,
+     "title": "Comfortable all day",
+     "text": "Wore them for a full day of walking straight out of the box with no rubbing. Very happy.",
+     "verified": true,
+     "days_ago": 120
+    },
+    {
+     "author": "Grace L.",
+     "rating": 4,
+     "title": "Decent",
+     "text": "Does the job. Not quite as nice as I hoped from the photos, but fine for the price.",
+     "verified": true,
+     "days_ago": 86
+    },
+    {
+     "author": "Wanjiru N.",
+     "rating": 4,
+     "title": "True to size",
+     "text": "I took my normal size and they fit well. The sole has great grip.",
+     "verified": true,
+     "days_ago": 119
+    },
+    {
+     "author": "Farid A.",
+     "rating": 2,
+     "title": "Not for me",
+     "text": "The quality is okay but it wasn’t what I expected. Returning was easy though.",
+     "verified": false,
+     "days_ago": 4
+    },
+    {
+     "author": "Hassan M.",
+     "rating": 4,
+     "title": "True to size",
+     "text": "I took my normal size and they fit well. The sole has great grip.",
+     "verified": true,
+     "days_ago": 101
+    },
+    {
+     "author": "Peter G.",
+     "rating": 3,
+     "title": "Good, with one niggle",
+     "text": "I like it overall, but it took a little longer to arrive than I expected. Quality is good.",
+     "verified": true,
+     "days_ago": 105
+    },
+    {
+     "author": "Hassan M.",
+     "rating": 3,
+     "title": "Good, with one niggle",
+     "text": "I like it overall, but it took a little longer to arrive than I expected. Quality is good.",
+     "verified": true,
+     "days_ago": 25
+    }
+   ],
+   "views": 107
+  },
+  {
+   "name": "Hydrating face serum",
+   "category": "Beauty",
+   "brand": "Verde Beauty",
+   "price": 32,
+   "sku": "VB-SRM-HYD",
+   "featured": true,
+   "tags": [
+    "skincare",
+    "vegan"
+   ],
+   "description": "A lightweight serum with hyaluronic acid and niacinamide that plumps, smooths and calms. Fragrance-free and suitable for all skin types.\n\n• 2% hyaluronic acid, 5% niacinamide\n• Vegan and cruelty-free\n• Use morning and night",
+   "attributes": [
+    {
+     "name": "Size",
+     "values": [
+      "30 ml",
+      "50 ml"
+     ]
+    }
+   ],
+   "priceBy": {
+    "Size=50 ml": 48
+   },
+   "images": {
+    "": [
+     "serum.jpg",
+     "serum-2.jpg"
+    ]
+   },
+   "reviews": [
+    {
+     "author": "Liam R.",
+     "rating": 5,
+     "title": "Gentle and effective",
+     "text": "No irritation at all on my sensitive skin. I love that it’s fragrance-free.",
+     "verified": true,
+     "days_ago": 52
+    },
+    {
+     "author": "Amina K.",
+     "rating": 4,
+     "title": "Gentle and effective",
+     "text": "No irritation at all on my sensitive skin. I love that it’s fragrance-free.",
+     "verified": true,
+     "days_ago": 34
+    },
+    {
+     "author": "Brian O.",
+     "rating": 4,
+     "title": "Gentle and effective",
+     "text": "No irritation at all on my sensitive skin. I love that it’s fragrance-free.",
+     "verified": true,
+     "days_ago": 56
+    },
+    {
+     "author": "Wanjiru N.",
+     "rating": 4,
+     "title": "Gentle and effective",
+     "text": "No irritation at all on my sensitive skin. I love that it’s fragrance-free.",
+     "verified": false,
+     "days_ago": 15
+    },
+    {
+     "author": "Brian O.",
+     "rating": 5,
+     "title": "Gentle and effective",
+     "text": "No irritation at all on my sensitive skin. I love that it’s fragrance-free.",
+     "verified": true,
+     "days_ago": 1
+    }
+   ],
+   "views": 138
+  },
+  {
+   "name": "Matte lipstick",
+   "category": "Beauty",
+   "brand": "Verde Beauty",
+   "price": 19,
+   "sku": "VB-LIP-MAT",
+   "tags": [
+    "makeup",
+    "vegan"
+   ],
+   "description": "A creamy matte lipstick with rich colour payoff that stays comfortable all day, enriched with shea butter.\n\n• Long-wearing, non-drying\n• Vegan and cruelty-free",
+   "attributes": [
+    {
+     "name": "Shade",
+     "values": [
+      "Ruby",
+      "Nude",
+      "Berry"
+     ]
+    }
+   ],
+   "imageBy": "Shade",
+   "images": {
+    "Ruby": [
+     "lipstick-ruby.jpg"
+    ],
+    "Nude": [
+     "lipstick-nude.jpg"
+    ],
+    "Berry": [
+     "lipstick-berry.jpg"
+    ]
+   },
+   "reviews": [
+    {
+     "author": "Grace L.",
+     "rating": 4,
+     "title": "Runs slightly small",
+     "text": "Nice product, but I’d size up next time.",
+     "verified": true,
+     "days_ago": 9
+    },
+    {
+     "author": "Wanjiru N.",
+     "rating": 2,
+     "title": "Not for me",
+     "text": "The quality is okay but it wasn’t what I expected. Returning was easy though.",
+     "verified": true,
+     "days_ago": 109
+    },
+    {
+     "author": "James P.",
+     "rating": 4,
+     "title": "Repurchase for sure",
+     "text": "Lasts ages and the texture is lovely. Will buy again.",
+     "verified": true,
+     "days_ago": 42
+    },
+    {
+     "author": "Grace L.",
+     "rating": 5,
+     "title": "Skin feels amazing",
+     "text": "After two weeks my skin feels softer and looks brighter. A little goes a long way.",
+     "verified": true,
+     "days_ago": 49
+    },
+    {
+     "author": "Tanya V.",
+     "rating": 4,
+     "title": "Repurchase for sure",
+     "text": "Lasts ages and the texture is lovely. Will buy again.",
+     "verified": true,
+     "days_ago": 71
+    },
+    {
+     "author": "Noah S.",
+     "rating": 3,
+     "title": "Good, with one niggle",
+     "text": "I like it overall, but it took a little longer to arrive than I expected. Quality is good.",
+     "verified": false,
+     "days_ago": 78
+    },
+    {
+     "author": "Grace L.",
+     "rating": 5,
+     "title": "Gentle and effective",
+     "text": "No irritation at all on my sensitive skin. I love that it’s fragrance-free.",
+     "verified": true,
+     "days_ago": 102
+    }
+   ],
+   "views": 48
+  },
+  {
+   "name": "Nourishing body lotion",
+   "category": "Beauty",
+   "brand": "Verde Beauty",
+   "price": 22,
+   "sku": "VB-LOT-NOU",
+   "quantity": 45,
+   "tags": [
+    "skincare",
+    "body"
+   ],
+   "description": "A fast-absorbing body lotion with shea butter, oat and vitamin E for soft, comfortable skin all day.\n\n• 250 ml pump bottle\n• Dermatologically tested",
+   "attributes": [],
+   "images": {
+    "": [
+     "lotion.jpg"
+    ]
+   },
+   "reviews": [
+    {
+     "author": "Kemi A.",
+     "rating": 4,
+     "title": "Repurchase for sure",
+     "text": "Lasts ages and the texture is lovely. Will buy again.",
+     "verified": true,
+     "days_ago": 97
+    },
+    {
+     "author": "Esther W.",
+     "rating": 5,
+     "title": "Skin feels amazing",
+     "text": "After two weeks my skin feels softer and looks brighter. A little goes a long way.",
+     "verified": true,
+     "days_ago": 32
+    },
+    {
+     "author": "Olivia B.",
+     "rating": 2,
+     "title": "Not for me",
+     "text": "The quality is okay but it wasn’t what I expected. Returning was easy though.",
+     "verified": true,
+     "days_ago": 81
+    }
+   ],
+   "views": 54
+  },
+  {
+   "name": "Eau de parfum",
+   "category": "Beauty",
+   "brand": "Lumen & Co",
+   "price": 85,
+   "sku": "LC-EDP-AMB",
+   "tags": [
+    "fragrance",
+    "gift"
+   ],
+   "description": "A warm amber fragrance with notes of bergamot, cedarwood and vanilla. Long-lasting eau de parfum in a weighty glass bottle.\n\n• Top: bergamot, pink pepper\n• Heart: iris, cedarwood\n• Base: amber, vanilla",
+   "attributes": [
+    {
+     "name": "Size",
+     "values": [
+      "50 ml",
+      "100 ml"
+     ]
+    }
+   ],
+   "priceBy": {
+    "Size=100 ml": 125
+   },
+   "images": {
+    "": [
+     "perfume.jpg"
+    ]
+   },
+   "reviews": [
+    {
+     "author": "Amina K.",
+     "rating": 5,
+     "title": "Repurchase for sure",
+     "text": "Lasts ages and the texture is lovely. Will buy again.",
+     "verified": false,
+     "days_ago": 111
+    },
+    {
+     "author": "Hassan M.",
+     "rating": 3,
+     "title": "Decent",
+     "text": "Does the job. Not quite as nice as I hoped from the photos, but fine for the price.",
+     "verified": true,
+     "days_ago": 90
+    },
+    {
+     "author": "David N.",
+     "rating": 5,
+     "title": "Skin feels amazing",
+     "text": "After two weeks my skin feels softer and looks brighter. A little goes a long way.",
+     "verified": true,
+     "days_ago": 103
+    },
+    {
+     "author": "Wanjiru N.",
+     "rating": 5,
+     "title": "Repurchase for sure",
+     "text": "Lasts ages and the texture is lovely. Will buy again.",
+     "verified": true,
+     "days_ago": 97
+    },
+    {
+     "author": "Rose C.",
+     "rating": 4,
+     "title": "Runs slightly small",
+     "text": "Nice product, but I’d size up next time.",
+     "verified": true,
+     "days_ago": 117
+    },
+    {
+     "author": "Peter G.",
+     "rating": 4,
+     "title": "Repurchase for sure",
+     "text": "Lasts ages and the texture is lovely. Will buy again.",
+     "verified": true,
+     "days_ago": 97
+    }
+   ],
+   "views": 68
+  },
+  {
+   "name": "Ceramic table lamp",
+   "category": "Home",
+   "brand": "Aster Home",
+   "price": 64,
+   "sku": "AH-LMP-CER",
+   "quantity": 0,
+   "tags": [
+    "lighting",
+    "home-decor"
+   ],
+   "description": "A hand-glazed ceramic lamp base with a natural linen shade that casts a warm, diffused glow.\n\n• Height 45 cm\n• E27 bulb (not included)",
+   "attributes": [],
+   "images": {
+    "": [
+     "lamp.jpg"
+    ]
+   },
+   "reviews": [
+    {
+     "author": "Hassan M.",
+     "rating": 4,
+     "title": "Runs slightly small",
+     "text": "Nice product, but I’d size up next time.",
+     "verified": true,
+     "days_ago": 10
+    },
+    {
+     "author": "Kemi A.",
+     "rating": 3,
+     "title": "Decent",
+     "text": "Does the job. Not quite as nice as I hoped from the photos, but fine for the price.",
+     "verified": false,
+     "days_ago": 11
+    },
+    {
+     "author": "Esther W.",
+     "rating": 5,
+     "title": "Exactly as pictured",
+     "text": "Good size, well made, and it was delivered in two days.",
+     "verified": true,
+     "days_ago": 9
+    },
+    {
+     "author": "Noah S.",
+     "rating": 5,
+     "title": "Lovely gift",
+     "text": "Bought this as a housewarming gift and they loved it. Beautiful finish.",
+     "verified": true,
+     "days_ago": 107
+    },
+    {
+     "author": "Amina K.",
+     "rating": 4,
+     "title": "Exactly as pictured",
+     "text": "Good size, well made, and it was delivered in two days.",
+     "verified": false,
+     "days_ago": 98
+    }
+   ],
+   "views": 102
+  },
+  {
+   "name": "Scented soy candle",
+   "category": "Home",
+   "brand": "Aster Home",
+   "price": 18,
+   "sku": "AH-CND-SOY",
+   "featured": true,
+   "tags": [
+    "gift",
+    "home-decor"
+   ],
+   "description": "Hand-poured soy wax candle with a cotton wick and around 45 hours of clean burn time.\n\n• 100% soy wax\n• Reusable glass jar",
+   "attributes": [
+    {
+     "name": "Scent",
+     "values": [
+      "Vanilla",
+      "Lavender",
+      "Cedar"
+     ]
+    }
+   ],
+   "images": {
+    "": [
+     "candle.jpg",
+     "candle-2.jpg"
+    ]
+   },
+   "reviews": [
+    {
+     "author": "Noah S.",
+     "rating": 5,
+     "title": "Lovely gift",
+     "text": "Bought this as a housewarming gift and they loved it. Beautiful finish.",
+     "verified": true,
+     "days_ago": 95
+    },
+    {
+     "author": "Peter G.",
+     "rating": 4,
+     "title": "Makes the room",
+     "text": "Looks even better in person and the quality is excellent. It arrived well packed.",
+     "verified": true,
+     "days_ago": 56
+    },
+    {
+     "author": "Mercy J.",
+     "rating": 5,
+     "title": "Exactly as pictured",
+     "text": "Good size, well made, and it was delivered in two days.",
+     "verified": true,
+     "days_ago": 108
+    },
+    {
+     "author": "Samuel D.",
+     "rating": 5,
+     "title": "Exactly as pictured",
+     "text": "Good size, well made, and it was delivered in two days.",
+     "verified": true,
+     "days_ago": 51
+    },
+    {
+     "author": "Noah S.",
+     "rating": 4,
+     "title": "Makes the room",
+     "text": "Looks even better in person and the quality is excellent. It arrived well packed.",
+     "verified": true,
+     "days_ago": 60
+    },
+    {
+     "author": "Grace L.",
+     "rating": 5,
+     "title": "Lovely gift",
+     "text": "Bought this as a housewarming gift and they loved it. Beautiful finish.",
+     "verified": true,
+     "days_ago": 44
+    }
+   ],
+   "views": 102
+  },
+  {
+   "name": "Linen throw pillow",
+   "category": "Home",
+   "brand": "Aster Home",
+   "price": 29,
+   "sku": "AH-PLW-LIN",
+   "tags": [
+    "linen",
+    "home-decor"
+   ],
+   "description": "A stonewashed linen cushion cover with a hidden zip, sold with a feather-blend insert.\n\n• 50 × 50 cm\n• Removable, washable cover",
+   "attributes": [
+    {
+     "name": "Color",
+     "values": [
+      "Beige",
+      "Plaid"
+     ]
+    }
+   ],
+   "imageBy": "Color",
+   "images": {
+    "Beige": [
+     "pillow-beige.jpg"
+    ],
+    "Plaid": [
+     "pillow-sage.jpg"
+    ]
+   },
+   "reviews": [
+    {
+     "author": "Chloe M.",
+     "rating": 4,
+     "title": "Decent",
+     "text": "Does the job. Not quite as nice as I hoped from the photos, but fine for the price.",
+     "verified": true,
+     "days_ago": 96
+    },
+    {
+     "author": "Hassan M.",
+     "rating": 4,
+     "title": "Lovely gift",
+     "text": "Bought this as a housewarming gift and they loved it. Beautiful finish.",
+     "verified": true,
+     "days_ago": 100
+    },
+    {
+     "author": "Amina K.",
+     "rating": 2,
+     "title": "Not for me",
+     "text": "The quality is okay but it wasn’t what I expected. Returning was easy though.",
+     "verified": false,
+     "days_ago": 26
+    },
+    {
+     "author": "Esther W.",
+     "rating": 4,
+     "title": "Good, with one niggle",
+     "text": "I like it overall, but it took a little longer to arrive than I expected. Quality is good.",
+     "verified": true,
+     "days_ago": 15
+    },
+    {
+     "author": "Irene T.",
+     "rating": 5,
+     "title": "Exactly as pictured",
+     "text": "Good size, well made, and it was delivered in two days.",
+     "verified": false,
+     "days_ago": 22
+    }
+   ],
+   "views": 34
+  },
+  {
+   "name": "Stoneware mug set",
+   "category": "Home",
+   "brand": "Aster Home",
+   "price": 34,
+   "sku": "AH-MUG-SET",
+   "tags": [
+    "kitchen",
+    "gift"
+   ],
+   "description": "A set of four reactive-glaze stoneware mugs, each slightly different. Dishwasher and microwave safe.\n\n• 350 ml each\n• Set of 4",
+   "attributes": [
+    {
+     "name": "Color",
+     "values": [
+      "White",
+      "Black"
+     ]
+    }
+   ],
+   "imageBy": "Color",
+   "images": {
+    "White": [
+     "mug-white.jpg"
+    ],
+    "Black": [
+     "mug-black.jpg"
+    ]
+   },
+   "reviews": [
+    {
+     "author": "Tanya V.",
+     "rating": 2,
+     "title": "Not for me",
+     "text": "The quality is okay but it wasn’t what I expected. Returning was easy though.",
+     "verified": true,
+     "days_ago": 40
+    },
+    {
+     "author": "Mercy J.",
+     "rating": 4,
+     "title": "Lovely gift",
+     "text": "Bought this as a housewarming gift and they loved it. Beautiful finish.",
+     "verified": false,
+     "days_ago": 26
+    },
+    {
+     "author": "Hassan M.",
+     "rating": 4,
+     "title": "Exactly as pictured",
+     "text": "Good size, well made, and it was delivered in two days.",
+     "verified": true,
+     "days_ago": 99
+    },
+    {
+     "author": "Tanya V.",
+     "rating": 4,
+     "title": "Makes the room",
+     "text": "Looks even better in person and the quality is excellent. It arrived well packed.",
+     "verified": false,
+     "days_ago": 45
+    }
+   ],
+   "views": 114
+  },
+  {
+   "name": "Leather card wallet",
+   "category": "Accessories",
+   "brand": "Kairo Leather",
+   "price": 29,
+   "special": 22,
+   "sku": "KL-WLT-CRD",
+   "tags": [
+    "leather",
+    "gift",
+    "sale"
+   ],
+   "description": "A slim card holder in vegetable-tanned leather with four card slots and a centre pocket for notes.\n\n• Full-grain leather\n• Holds 6–8 cards",
+   "attributes": [
+    {
+     "name": "Color",
+     "values": [
+      "Brown",
+      "Black"
+     ]
+    }
+   ],
+   "imageBy": "Color",
+   "images": {
+    "Brown": [
+     "wallet-brown.jpg"
+    ],
+    "Black": [
+     "wallet-black.jpg"
+    ]
+   },
+   "reviews": [
+    {
+     "author": "Noah S.",
+     "rating": 4,
+     "title": "Beautifully made",
+     "text": "The leather and finishing are excellent. It already looks better with a bit of wear.",
+     "verified": false,
+     "days_ago": 14
+    },
+    {
+     "author": "Esther W.",
+     "rating": 5,
+     "title": "Use it every day",
+     "text": "Practical and stylish. Holds everything I need without feeling bulky.",
+     "verified": true,
+     "days_ago": 94
+    },
+    {
+     "author": "Samuel D.",
+     "rating": 4,
+     "title": "Worth every penny",
+     "text": "Feels premium and well thought out. Very pleased.",
+     "verified": false,
+     "days_ago": 60
+    },
+    {
+     "author": "Kemi A.",
+     "rating": 4,
+     "title": "Use it every day",
+     "text": "Practical and stylish. Holds everything I need without feeling bulky.",
+     "verified": false,
+     "days_ago": 107
+    },
+    {
+     "author": "Olivia B.",
+     "rating": 2,
+     "title": "Not for me",
+     "text": "The quality is okay but it wasn’t what I expected. Returning was easy though.",
+     "verified": true,
+     "days_ago": 60
+    }
+   ],
+   "views": 102
+  },
+  {
+   "name": "Canvas tote bag",
+   "category": "Bags",
+   "brand": "Lumen & Co",
+   "price": 15,
+   "sku": "LC-TOT-CNV",
+   "quantity": 50,
+   "tags": [
+    "bags",
+    "eco"
+   ],
+   "description": "A sturdy organic-cotton canvas tote with long handles and an inside pocket. Big enough for a laptop and the weekly shop.\n\n• 12 oz organic cotton canvas\n• 38 × 42 cm",
+   "attributes": [],
+   "images": {
+    "": [
+     "tote.jpg"
+    ]
+   },
+   "reviews": [
+    {
+     "author": "Peter G.",
+     "rating": 4,
+     "title": "Beautifully made",
+     "text": "The leather and finishing are excellent. It already looks better with a bit of wear.",
+     "verified": true,
+     "days_ago": 103
+    },
+    {
+     "author": "Irene T.",
+     "rating": 5,
+     "title": "Worth every penny",
+     "text": "Feels premium and well thought out. Very pleased.",
+     "verified": true,
+     "days_ago": 67
+    },
+    {
+     "author": "Hassan M.",
+     "rating": 2,
+     "title": "Not for me",
+     "text": "The quality is okay but it wasn’t what I expected. Returning was easy though.",
+     "verified": true,
+     "days_ago": 63
+    },
+    {
+     "author": "Peter G.",
+     "rating": 5,
+     "title": "Use it every day",
+     "text": "Practical and stylish. Holds everything I need without feeling bulky.",
+     "verified": true,
+     "days_ago": 3
+    },
+    {
+     "author": "Hassan M.",
+     "rating": 5,
+     "title": "Worth every penny",
+     "text": "Feels premium and well thought out. Very pleased.",
+     "verified": true,
+     "days_ago": 75
+    }
+   ],
+   "views": 99
+  },
+  {
+   "name": "Leather backpack",
+   "category": "Bags",
+   "brand": "Kairo Leather",
+   "price": 129,
+   "sku": "KL-BPK-LTH",
+   "featured": true,
+   "tags": [
+    "leather",
+    "bags",
+    "new-season"
+   ],
+   "description": "A minimalist backpack in water-resistant full-grain leather with a padded 15\" laptop sleeve and magnetic closure.\n\n• Full-grain leather\n• Padded laptop sleeve fits up to 15\"",
+   "attributes": [
+    {
+     "name": "Color",
+     "values": [
+      "Brown",
+      "Black"
+     ]
+    }
+   ],
+   "imageBy": "Color",
+   "images": {
+    "Brown": [
+     "backpack-brown.jpg"
+    ],
+    "Black": [
+     "backpack-black.jpg"
+    ]
+   },
+   "reviews": [
+    {
+     "author": "Samuel D.",
+     "rating": 5,
+     "title": "Worth every penny",
+     "text": "Feels premium and well thought out. Very pleased.",
+     "verified": true,
+     "days_ago": 90
+    },
+    {
+     "author": "David N.",
+     "rating": 5,
+     "title": "Beautifully made",
+     "text": "The leather and finishing are excellent. It already looks better with a bit of wear.",
+     "verified": true,
+     "days_ago": 41
+    },
+    {
+     "author": "Farid A.",
+     "rating": 5,
+     "title": "Worth every penny",
+     "text": "Feels premium and well thought out. Very pleased.",
+     "verified": true,
+     "days_ago": 95
+    },
+    {
+     "author": "Wanjiru N.",
+     "rating": 4,
+     "title": "Worth every penny",
+     "text": "Feels premium and well thought out. Very pleased.",
+     "verified": true,
+     "days_ago": 13
+    },
+    {
+     "author": "Farid A.",
+     "rating": 3,
+     "title": "Decent",
+     "text": "Does the job. Not quite as nice as I hoped from the photos, but fine for the price.",
+     "verified": true,
+     "days_ago": 91
+    },
+    {
+     "author": "Samuel D.",
+     "rating": 5,
+     "title": "Beautifully made",
+     "text": "The leather and finishing are excellent. It already looks better with a bit of wear.",
+     "verified": true,
+     "days_ago": 17
+    }
+   ],
+   "views": 130
+  },
+  {
+   "name": "Classic analog watch",
+   "category": "Watches",
+   "brand": "Lumen & Co",
+   "price": 149,
+   "sku": "LC-WCH-CLS",
+   "featured": true,
+   "tags": [
+    "watches",
+    "gift"
+   ],
+   "description": "A clean 38 mm watch with a sapphire-coated crystal, Japanese quartz movement and 5 ATM water resistance. Choose a leather or stainless-steel strap.\n\n• 38 mm brushed steel case\n• Japanese quartz movement",
+   "attributes": [
+    {
+     "name": "Strap",
+     "values": [
+      "Leather",
+      "Steel"
+     ]
+    }
+   ],
+   "imageBy": "Strap",
+   "priceBy": {
+    "Strap=Steel": 169
+   },
+   "images": {
+    "Leather": [
+     "watch-leather.jpg"
+    ],
+    "Steel": [
+     "watch-steel.jpg"
+    ]
+   },
+   "reviews": [
+    {
+     "author": "Peter G.",
+     "rating": 4,
+     "title": "Decent",
+     "text": "Does the job. Not quite as nice as I hoped from the photos, but fine for the price.",
+     "verified": true,
+     "days_ago": 24
+    },
+    {
+     "author": "Peter G.",
+     "rating": 2,
+     "title": "Not for me",
+     "text": "The quality is okay but it wasn’t what I expected. Returning was easy though.",
+     "verified": true,
+     "days_ago": 9
+    },
+    {
+     "author": "Brian O.",
+     "rating": 5,
+     "title": "Worth every penny",
+     "text": "Feels premium and well thought out. Very pleased.",
+     "verified": true,
+     "days_ago": 104
+    }
+   ],
+   "views": 82
+  },
+  {
+   "name": "Polarised sunglasses",
+   "category": "Accessories",
+   "brand": "Lumen & Co",
+   "price": 39,
+   "sku": "LC-SUN-POL",
+   "tags": [
+    "summer",
+    "eyewear"
+   ],
+   "description": "Lightweight acetate frames with polarised, UV400 lenses that cut glare on bright days.\n\n• Polarised UV400 lenses\n• Hard case included",
+   "attributes": [
+    {
+     "name": "Color",
+     "values": [
+      "Black",
+      "Tortoise"
+     ]
+    }
+   ],
+   "imageBy": "Color",
+   "images": {
+    "Black": [
+     "sunglasses-black.jpg"
+    ],
+    "Tortoise": [
+     "sunglasses-tortoise.jpg"
+    ]
+   },
+   "reviews": [
+    {
+     "author": "Samuel D.",
+     "rating": 2,
+     "title": "Not for me",
+     "text": "The quality is okay but it wasn’t what I expected. Returning was easy though.",
+     "verified": false,
+     "days_ago": 78
+    },
+    {
+     "author": "Mercy J.",
+     "rating": 4,
+     "title": "Worth every penny",
+     "text": "Feels premium and well thought out. Very pleased.",
+     "verified": true,
+     "days_ago": 57
+    },
+    {
+     "author": "James P.",
+     "rating": 5,
+     "title": "Use it every day",
+     "text": "Practical and stylish. Holds everything I need without feeling bulky.",
+     "verified": true,
+     "days_ago": 8
+    }
+   ],
+   "views": 30
+  },
+  {
+   "name": "Wireless earbuds",
+   "category": "Electronics",
+   "brand": "Pulse Audio",
+   "price": 89,
+   "sku": "PA-EAR-WLS",
+   "featured": true,
+   "tags": [
+    "audio",
+    "wireless"
+   ],
+   "description": "True wireless earbuds with active noise cancellation, 28 hours of battery with the case and IPX4 sweat resistance.\n\n• Active noise cancellation\n• Bluetooth 5.3, USB-C charging",
+   "attributes": [
+    {
+     "name": "Color",
+     "values": [
+      "Black",
+      "White"
+     ]
+    }
+   ],
+   "imageBy": "Color",
+   "images": {
+    "Black": [
+     "earbuds-black.jpg"
+    ],
+    "White": [
+     "earbuds-white.jpg"
+    ]
+   },
+   "reviews": [
+    {
+     "author": "Farid A.",
+     "rating": 5,
+     "title": "Excellent sound",
+     "text": "Clear, punchy sound and the battery easily lasts my whole week of commuting.",
+     "verified": true,
+     "days_ago": 71
+    },
+    {
+     "author": "Wanjiru N.",
+     "rating": 5,
+     "title": "Easy to set up",
+     "text": "Paired with my phone in seconds. The app is simple and the build feels solid.",
+     "verified": true,
+     "days_ago": 5
+    },
+    {
+     "author": "Olivia B.",
+     "rating": 4,
+     "title": "Great value",
+     "text": "Does everything the expensive brands do for a lot less. Very happy with it.",
+     "verified": true,
+     "days_ago": 30
+    },
+    {
+     "author": "Noah S.",
+     "rating": 2,
+     "title": "Not for me",
+     "text": "The quality is okay but it wasn’t what I expected. Returning was easy though.",
+     "verified": true,
+     "days_ago": 29
+    }
+   ],
+   "views": 43
+  },
+  {
+   "name": "Over-ear headphones",
+   "category": "Electronics",
+   "brand": "Pulse Audio",
+   "price": 199,
+   "special": 169,
+   "sku": "PA-HDP-OVR",
+   "featured": true,
+   "tags": [
+    "audio",
+    "wireless",
+    "sale"
+   ],
+   "description": "Studio-tuned wireless headphones with adaptive noise cancelling, memory-foam ear cushions and 40 hours of playback.\n\n• Adaptive noise cancelling\n• 40 h battery, fast charge",
+   "attributes": [
+    {
+     "name": "Color",
+     "values": [
+      "Black",
+      "Rose"
+     ]
+    }
+   ],
+   "imageBy": "Color",
+   "images": {
+    "Black": [
+     "headphones-black.jpg"
+    ],
+    "Rose": [
+     "headphones-silver.jpg"
+    ]
+   },
+   "reviews": [
+    {
+     "author": "James P.",
+     "rating": 3,
+     "title": "Good, with one niggle",
+     "text": "I like it overall, but it took a little longer to arrive than I expected. Quality is good.",
+     "verified": true,
+     "days_ago": 106
+    },
+    {
+     "author": "Olivia B.",
+     "rating": 5,
+     "title": "Excellent sound",
+     "text": "Clear, punchy sound and the battery easily lasts my whole week of commuting.",
+     "verified": true,
+     "days_ago": 90
+    },
+    {
+     "author": "Peter G.",
+     "rating": 5,
+     "title": "Great value",
+     "text": "Does everything the expensive brands do for a lot less. Very happy with it.",
+     "verified": true,
+     "days_ago": 77
+    },
+    {
+     "author": "Wanjiru N.",
+     "rating": 5,
+     "title": "Easy to set up",
+     "text": "Paired with my phone in seconds. The app is simple and the build feels solid.",
+     "verified": true,
+     "days_ago": 12
+    },
+    {
+     "author": "Tanya V.",
+     "rating": 4,
+     "title": "Great value",
+     "text": "Does everything the expensive brands do for a lot less. Very happy with it.",
+     "verified": false,
+     "days_ago": 98
+    }
+   ],
+   "views": 73
+  },
+  {
+   "name": "Smart fitness band",
+   "category": "Electronics",
+   "brand": "Tidal Tech",
+   "price": 59,
+   "special": 45,
+   "sku": "TT-FIT-BND",
+   "tags": [
+    "fitness",
+    "wearables",
+    "sale"
+   ],
+   "description": "Track steps, heart rate, sleep and workouts with a bright AMOLED screen and up to 10 days of battery.\n\n• Heart-rate and SpO2 sensors\n• 5 ATM water resistant",
+   "attributes": [
+    {
+     "name": "Color",
+     "values": [
+      "Black",
+      "Pink"
+     ]
+    }
+   ],
+   "imageBy": "Color",
+   "images": {
+    "Black": [
+     "band-black.jpg"
+    ],
+    "Pink": [
+     "band-pink.jpg"
+    ]
+   },
+   "reviews": [
+    {
+     "author": "Rose C.",
+     "rating": 4,
+     "title": "Easy to set up",
+     "text": "Paired with my phone in seconds. The app is simple and the build feels solid.",
+     "verified": true,
+     "days_ago": 118
+    },
+    {
+     "author": "Peter G.",
+     "rating": 4,
+     "title": "Easy to set up",
+     "text": "Paired with my phone in seconds. The app is simple and the build feels solid.",
+     "verified": false,
+     "days_ago": 61
+    },
+    {
+     "author": "David N.",
+     "rating": 5,
+     "title": "Great value",
+     "text": "Does everything the expensive brands do for a lot less. Very happy with it.",
+     "verified": false,
+     "days_ago": 43
+    },
+    {
+     "author": "Mercy J.",
+     "rating": 5,
+     "title": "Great value",
+     "text": "Does everything the expensive brands do for a lot less. Very happy with it.",
+     "verified": false,
+     "days_ago": 71
+    },
+    {
+     "author": "Kemi A.",
+     "rating": 5,
+     "title": "Easy to set up",
+     "text": "Paired with my phone in seconds. The app is simple and the build feels solid.",
+     "verified": true,
+     "days_ago": 99
+    },
+    {
+     "author": "Samuel D.",
+     "rating": 5,
+     "title": "Excellent sound",
+     "text": "Clear, punchy sound and the battery easily lasts my whole week of commuting.",
+     "verified": true,
+     "days_ago": 7
+    },
+    {
+     "author": "Olivia B.",
+     "rating": 5,
+     "title": "Easy to set up",
+     "text": "Paired with my phone in seconds. The app is simple and the build feels solid.",
+     "verified": false,
+     "days_ago": 27
+    }
+   ],
+   "views": 73
+  },
+  {
+   "name": "Portable Bluetooth speaker",
+   "category": "Electronics",
+   "brand": "Pulse Audio",
+   "price": 79,
+   "sku": "PA-SPK-PRT",
+   "tags": [
+    "audio",
+    "outdoor"
+   ],
+   "description": "A rugged, waterproof speaker with big 360° sound, 16 hours of battery and a built-in strap for adventures.\n\n• IP67 waterproof and dustproof\n• Pair two for stereo",
+   "attributes": [
+    {
+     "name": "Color",
+     "values": [
+      "White",
+      "Black"
+     ]
+    }
+   ],
+   "imageBy": "Color",
+   "images": {
+    "White": [
+     "speaker-blue.jpg"
+    ],
+    "Black": [
+     "speaker-black.jpg"
+    ]
+   },
+   "reviews": [
+    {
+     "author": "Peter G.",
+     "rating": 5,
+     "title": "Great value",
+     "text": "Does everything the expensive brands do for a lot less. Very happy with it.",
+     "verified": true,
+     "days_ago": 81
+    },
+    {
+     "author": "James P.",
+     "rating": 5,
+     "title": "Excellent sound",
+     "text": "Clear, punchy sound and the battery easily lasts my whole week of commuting.",
+     "verified": true,
+     "days_ago": 71
+    },
+    {
+     "author": "Olivia B.",
+     "rating": 5,
+     "title": "Excellent sound",
+     "text": "Clear, punchy sound and the battery easily lasts my whole week of commuting.",
+     "verified": false,
+     "days_ago": 83
+    },
+    {
+     "author": "James P.",
+     "rating": 3,
+     "title": "Runs slightly small",
+     "text": "Nice product, but I’d size up next time.",
+     "verified": true,
+     "days_ago": 35
+    },
+    {
+     "author": "Hassan M.",
+     "rating": 5,
+     "title": "Easy to set up",
+     "text": "Paired with my phone in seconds. The app is simple and the build feels solid.",
+     "verified": true,
+     "days_ago": 19
+    },
+    {
+     "author": "Esther W.",
+     "rating": 4,
+     "title": "Great value",
+     "text": "Does everything the expensive brands do for a lot less. Very happy with it.",
+     "verified": false,
+     "days_ago": 36
+    },
+    {
+     "author": "Rose C.",
+     "rating": 4,
+     "title": "Decent",
+     "text": "Does the job. Not quite as nice as I hoped from the photos, but fine for the price.",
+     "verified": true,
+     "days_ago": 1
+    }
+   ],
+   "views": 77
+  },
+  {
+   "name": "Smartwatch Series 3",
+   "category": "Electronics",
+   "brand": "Tidal Tech",
+   "price": 249,
+   "sku": "TT-SWT-S3",
+   "featured": true,
+   "tags": [
+    "wearables",
+    "new-season"
+   ],
+   "description": "A smartwatch with an always-on display, GPS, contactless payments and two-day battery life.\n\n• Built-in GPS, heart-rate and ECG\n• Swim-proof to 50 m",
+   "attributes": [
+    {
+     "name": "Color",
+     "values": [
+      "Black",
+      "Silver"
+     ]
+    },
+    {
+     "name": "Case size",
+     "values": [
+      "41 mm",
+      "45 mm"
+     ]
+    }
+   ],
+   "imageBy": "Color",
+   "priceBy": {
+    "Case size=45 mm": 279
+   },
+   "images": {
+    "Black": [
+     "smartwatch-black.jpg"
+    ],
+    "Silver": [
+     "smartwatch-silver.jpg"
+    ]
+   },
+   "reviews": [
+    {
+     "author": "Peter G.",
+     "rating": 4,
+     "title": "Runs slightly small",
+     "text": "Nice product, but I’d size up next time.",
+     "verified": false,
+     "days_ago": 58
+    },
+    {
+     "author": "Samuel D.",
+     "rating": 5,
+     "title": "Great value",
+     "text": "Does everything the expensive brands do for a lot less. Very happy with it.",
+     "verified": true,
+     "days_ago": 120
+    },
+    {
+     "author": "Hassan M.",
+     "rating": 5,
+     "title": "Great value",
+     "text": "Does everything the expensive brands do for a lot less. Very happy with it.",
+     "verified": true,
+     "days_ago": 30
+    },
+    {
+     "author": "Peter G.",
+     "rating": 3,
+     "title": "Decent",
+     "text": "Does the job. Not quite as nice as I hoped from the photos, but fine for the price.",
+     "verified": true,
+     "days_ago": 104
+    },
+    {
+     "author": "Esther W.",
+     "rating": 4,
+     "title": "Great value",
+     "text": "Does everything the expensive brands do for a lot less. Very happy with it.",
+     "verified": true,
+     "days_ago": 5
+    }
+   ],
+   "views": 37
+  },
+  {
+   "name": "Mechanical keyboard",
+   "category": "Electronics",
+   "brand": "Tidal Tech",
+   "price": 120,
+   "sku": "TT-KBD-MEC",
+   "tags": [
+    "desk-setup",
+    "gaming"
+   ],
+   "description": "A compact 75% mechanical keyboard with hot-swappable switches, PBT keycaps and a gasket-mounted aluminium case.\n\n• Hot-swappable switches\n• USB-C and Bluetooth",
+   "attributes": [
+    {
+     "name": "Switch",
+     "values": [
+      "Red (linear)",
+      "Brown (tactile)",
+      "Blue (clicky)"
+     ]
+    }
+   ],
+   "images": {
+    "": [
+     "keyboard.jpg",
+     "keyboard-2.jpg"
+    ]
+   },
+   "reviews": [
+    {
+     "author": "David N.",
+     "rating": 2,
+     "title": "Not for me",
+     "text": "The quality is okay but it wasn’t what I expected. Returning was easy though.",
+     "verified": false,
+     "days_ago": 57
+    },
+    {
+     "author": "Esther W.",
+     "rating": 4,
+     "title": "Excellent sound",
+     "text": "Clear, punchy sound and the battery easily lasts my whole week of commuting.",
+     "verified": true,
+     "days_ago": 84
+    },
+    {
+     "author": "Peter G.",
+     "rating": 2,
+     "title": "Not for me",
+     "text": "The quality is okay but it wasn’t what I expected. Returning was easy though.",
+     "verified": false,
+     "days_ago": 34
+    },
+    {
+     "author": "Chloe M.",
+     "rating": 4,
+     "title": "Great value",
+     "text": "Does everything the expensive brands do for a lot less. Very happy with it.",
+     "verified": false,
+     "days_ago": 110
+    },
+    {
+     "author": "Peter G.",
+     "rating": 5,
+     "title": "Easy to set up",
+     "text": "Paired with my phone in seconds. The app is simple and the build feels solid.",
+     "verified": false,
+     "days_ago": 5
+    },
+    {
+     "author": "James P.",
+     "rating": 5,
+     "title": "Great value",
+     "text": "Does everything the expensive brands do for a lot less. Very happy with it.",
+     "verified": false,
+     "days_ago": 96
+    },
+    {
+     "author": "David N.",
+     "rating": 4,
+     "title": "Great value",
+     "text": "Does everything the expensive brands do for a lot less. Very happy with it.",
+     "verified": true,
+     "days_ago": 89
+    }
+   ],
+   "views": 81
+  }
+ ],
+ "promotions": [
+  {
+   "title": "35% off orders over $50",
+   "subtitle": "Use code FRIDAY35 at checkout.",
+   "code": "FRIDAY35",
+   "link": "/products?on_sale=1",
+   "daily": true
+  },
+  {
+   "title": "New season has landed",
+   "subtitle": "Fresh jackets, knits and leather goods.",
+   "code": null,
+   "link": "/products?tag=new-season",
+   "days": 6
+  },
+  {
+   "title": "10% off your first order",
+   "subtitle": "Use code WELCOME10.",
+   "code": "WELCOME10",
+   "link": "/products?featured=1",
+   "days": 12
+  }
+ ]
+}

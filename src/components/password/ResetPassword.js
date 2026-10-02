@@ -51,7 +51,7 @@ const StyledPaper = styled(Paper)(({ theme }) => ({
   maxWidth: 450,
   width: '100%',
   backgroundColor: '#ffffff',
-  borderRadius: 16,
+  borderRadius: 12,
 }));
 
 const StyledButton = styled(Button)(({ theme }) => ({
@@ -320,7 +320,7 @@ const ResetPassword = () => {
                 value={passwordStrength}
                 sx={{
                   height: 8,
-                  borderRadius: 5,
+                  borderRadius: 1,
                   backgroundColor: '#e0e0e0',
                   '& .MuiLinearProgress-bar': {
                     backgroundColor:

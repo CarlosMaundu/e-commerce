@@ -10,6 +10,7 @@ import { GoogleVerifier } from '../lib/google';
 import { fail, handler, ok, parse } from '../lib/http';
 import { sendPasswordResetEmail } from '../lib/mailer';
 import { hashPassword, passwordSchema, randomToken, sha256, verifyPassword } from '../lib/security';
+import { enforcePasswordPolicy, getSettings } from '../lib/settings';
 import {
   clearRefreshCookie,
   findSessionByRefresh,
@@ -19,12 +20,13 @@ import {
   rotateSession,
   startSession,
 } from '../lib/sessions';
-import { findUserByEmail, findUserById, roleIdFor, toContractUser } from '../lib/users';
-import { requireAjaxHeader } from '../middleware/auth';
+import { findUserByEmail, findUserById, permissionsForRole, roleIdFor, toContractUser } from '../lib/users';
+import { authenticate, requireAjaxHeader } from '../middleware/auth';
 
 const WRONG_CREDENTIALS = 'The email or password is incorrect. Please try again.';
 const SUSPENDED = 'This account has been suspended. Please contact support.';
 const BAD_LINK = 'This link is invalid or has expired. Please request a new one.';
+const REGISTRATION_CLOSED = 'We’re not taking new accounts right now. Please contact us if you need help.';
 
 const email = z
   .string({ required_error: 'Please enter your email address.' })
@@ -89,9 +91,11 @@ export const authRoutes = ({ verifyGoogle }: { verifyGoogle: GoogleVerifier | nu
         }),
         req.body
       );
+      if (!(await getSettings()).accounts.allow_registration) fail(403, REGISTRATION_CLOSED);
       if (await findUserByEmail(body.email)) {
         fail(409, 'An account with this email already exists. Please sign in instead.');
       }
+      await enforcePasswordPolicy(body.password);
       const roleId = await roleIdFor('customer');
       const { rows } = await query<{ id: number }>(
         `INSERT INTO users (email, password_hash, firstname, lastname, role_id)
@@ -123,13 +127,14 @@ export const authRoutes = ({ verifyGoogle }: { verifyGoogle: GoogleVerifier | nu
       }
       if (!user || !(await verifyPassword(body.password, user.password_hash))) {
         if (user) {
+          const { lockout } = await getSettings();
           const attempts = user.failed_login_attempts + 1;
-          const lock = attempts >= config.lockout.maxAttempts;
+          const lock = attempts >= lockout.max_attempts;
           await query(
             `UPDATE users SET failed_login_attempts = $2,
                locked_until = CASE WHEN $3 THEN now() + ($4 || ' minutes')::interval ELSE NULL END
              WHERE id = $1`,
-            [user.id, lock ? 0 : attempts, lock, String(config.lockout.minutes)]
+            [user.id, lock ? 0 : attempts, lock, String(lockout.minutes)]
           );
           audit(req, lock ? 'auth.locked' : 'auth.login_failed', `user:${user.id}`, {}, user.id);
         }
@@ -174,6 +179,7 @@ export const authRoutes = ({ verifyGoogle }: { verifyGoogle: GoogleVerifier | nu
           await client.query('UPDATE users SET google_sub = $1 WHERE id = $2', [identity!.sub, byEmail.id]);
           return byEmail.id as number;
         }
+        if (!(await getSettings()).accounts.allow_registration) fail(403, REGISTRATION_CLOSED);
         const roleId = (await client.query("SELECT id FROM roles WHERE code = 'customer'")).rows[0].id;
         const created = await client.query(
           `INSERT INTO users (email, google_sub, firstname, lastname, avatar, role_id)
@@ -204,7 +210,43 @@ export const authRoutes = ({ verifyGoogle }: { verifyGoogle: GoogleVerifier | nu
         clearRefreshCookie(res);
         fail(user ? 403 : 401, user ? SUSPENDED : 'Please sign in to continue.');
       }
+      // Back-office sessions end after a period without activity.
+      if (!session.impersonator_id && (await permissionsForRole(user.role_id)).length) {
+        const { staff_sessions: limits } = await getSettings();
+        if (Date.now() - new Date(session.last_activity_at).getTime() > limits.idle_minutes * 60000) {
+          await revokeSession(session.id);
+          clearRefreshCookie(res);
+          fail(401, `You were signed out after ${limits.idle_minutes} minutes without activity. Please sign in again.`);
+        }
+      }
       ok(res, await rotateSession(res, token, user, session.id, session.expires_at));
+    })
+  );
+
+  // Ends "acting as a customer" and returns to the staff member's own session.
+  router.post(
+    '/impersonation/stop',
+    authenticate,
+    handler(async (req, res) => {
+      const { impersonatorId, parentSessionId, sessionId, userId } = req.auth!;
+      if (!impersonatorId) fail(400, 'You’re not acting as a customer.');
+      await revokeSession(sessionId);
+      audit(req, 'admin.impersonation_ended', `user:${userId}`, {}, impersonatorId);
+      const parent = parentSessionId
+        ? (
+            await query(
+              `SELECT id, expires_at FROM sessions
+               WHERE id = $1 AND user_id = $2 AND revoked_at IS NULL AND expires_at > now()`,
+              [parentSessionId, impersonatorId]
+            )
+          ).rows[0]
+        : null;
+      const staff = await findUserById(impersonatorId!);
+      if (!parent || !staff || staff.status !== 'active') {
+        clearRefreshCookie(res);
+        return ok(res, { restored: false });
+      }
+      ok(res, { restored: true, ...(await rotateSession(res, '', staff, parent.id, parent.expires_at)) });
     })
   );
 
@@ -261,6 +303,7 @@ export const authRoutes = ({ verifyGoogle }: { verifyGoogle: GoogleVerifier | nu
       );
       const row = await findValidToken(body.token);
       if (!row) fail(400, BAD_LINK);
+      await enforcePasswordPolicy(body.password);
       await query('UPDATE auth_tokens SET used_at = now() WHERE id = $1', [row.id]);
       await query(
         `UPDATE users SET password_hash = $2, failed_login_attempts = 0, locked_until = NULL, updated_at = now()

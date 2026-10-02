@@ -32,11 +32,14 @@ async function login(page, email, greeting) {
   await page.getByLabel('Email Address').fill(email);
   await page.locator('input[name="password"]').fill(PASSWORD);
   await page.getByRole('button', { name: /^sign in$/i }).click();
-  await expect(page.getByText(greeting)).toBeVisible();
+  // Customers see "Hi, Name" in the shop; staff land in the back office.
+  await expect(
+    page.getByText(greeting.replace(/^Hi, /, '')).first()
+  ).toBeVisible();
 }
 
 async function addToCart(page, title) {
-  await page.goto('/products');
+  await page.goto(`/products?search=${encodeURIComponent(title)}`);
   await page.getByRole('button', { name: `Add ${title} to cart` }).click();
   await expect(toast(page)).toHaveText(`${title} added to your cart.`);
 }
@@ -83,7 +86,7 @@ const customer = () =>
 
 test('a guest cart is kept when the shopper signs in', async ({ page }) => {
   await customer();
-  await addToCart(page, 'Denim jacket');
+  await addToCart(page, 'Nourishing body lotion');
   await page.goto('/cart');
   await expect(page.getByTestId('cart-line')).toHaveCount(1);
   await expect(
@@ -93,7 +96,9 @@ test('a guest cart is kept when the shopper signs in', async ({ page }) => {
   await login(page, 'cam@example.com', 'Hi, Cam Customer');
   await page.goto('/cart');
   await expect(page.getByTestId('cart-line')).toHaveCount(1);
-  await expect(page.getByTestId('cart-line')).toContainText('Denim jacket');
+  await expect(page.getByTestId('cart-line')).toContainText(
+    'Nourishing body lotion'
+  );
   // Signed in, the cart lives on the server, so promo codes are offered.
   await expect(page.getByLabel('Promo code')).toBeVisible();
 });
@@ -125,7 +130,7 @@ test('checkout places an order the customer can see, and emails them', async ({
 }) => {
   await customer();
   await login(page, 'cam@example.com', 'Hi, Cam Customer');
-  await addToCart(page, 'Denim jacket');
+  await addToCart(page, 'Nourishing body lotion');
   const id = await checkout(page);
 
   await expect(

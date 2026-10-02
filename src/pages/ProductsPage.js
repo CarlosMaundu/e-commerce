@@ -1,313 +1,363 @@
-// src/pages/ProductsPage.js
-
-import React, { useEffect, useState, useMemo } from 'react';
+// src/pages/ProductsPage.js — Aurora-style catalogue: compact hero,
+// breadcrumb, results bar, filter sidebar and product grid.
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { useLocation } from 'react-router-dom';
 import {
+  Alert,
   Box,
-  Typography,
-  Pagination,
-  FormControl,
-  InputLabel,
-  Select,
+  Breadcrumbs,
+  Button,
+  Chip,
+  Container,
+  Divider,
+  Drawer,
+  IconButton,
+  Link,
   MenuItem,
+  Pagination,
+  Select,
+  Skeleton,
+  Stack,
+  Typography,
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-
-import { fetchProducts } from '../redux/productsSlice';
+import { FiFilter, FiX } from 'react-icons/fi';
+import HeroSection from '../components/layout/HeroSection';
+import ProductCard from '../components/common/ProductCard';
+import ProductFilters, {
+  useProductQuery,
+} from '../components/products/ProductFilters';
+import { EmptyState } from '../components/ui';
 import { fetchCategories } from '../redux/categoriesSlice';
-import ProductGrid from '../components/common/ProductGrid';
-import ProductsFilter from '../components/layout/ProductsFilter';
-import ShopByCategorySection from '../components/layout/ShopByCategorySection';
-
-import bannerVid from '../images/productspage.mp4';
 import { catalog } from '../api';
+import { friendlyError } from '../utils/friendlyError';
+
+const PAGE_SIZE = 24;
+
+const SORTS = [
+  { value: '', label: 'Newest' },
+  { value: 'popular', label: 'Most viewed' },
+  { value: 'rating', label: 'Top rated' },
+  { value: 'price_asc', label: 'Price: low to high' },
+  { value: 'price_desc', label: 'Price: high to low' },
+  { value: 'name', label: 'Name A–Z' },
+];
+
+/** The chosen category and its parent, from the category tree. */
+const findCategory = (tree, id) => {
+  for (const c of tree) {
+    if (String(c.id) === String(id)) return { category: c, parent: null };
+    const sub = (c.subcategories || []).find(
+      (s) => String(s.id) === String(id)
+    );
+    if (sub) return { category: sub, parent: c };
+  }
+  return { category: null, parent: null };
+};
 
 const ProductsPage = () => {
   const dispatch = useDispatch();
-  const {
-    products: fetchedProducts,
-    loading,
-    error,
-  } = useSelector((state) => state.products);
-  const { categories } = useSelector((state) => state.categories);
-
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-
-  const location = useLocation();
-  const queryParams = new URLSearchParams(location.search);
-  const initialCategory = queryParams.get('category') || '';
-  const urlSearch = queryParams.get('search') || '';
-
-  // API filters
-  const [filters, setFilters] = useState({
-    search: urlSearch,
-    categoryId: initialCategory,
-    price_min: 0,
-    price_max: 1000,
+  const desktop = useMediaQuery(theme.breakpoints.up('md'));
+  const categories = useSelector((s) => s.categories.categories || []);
+  const { filters, update, clearAll } = useProductQuery();
+  const [showFilters, setShowFilters] = useState(true);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [facets, setFacets] = useState(null);
+  const [result, setResult] = useState({
+    products: null,
+    total: 0,
+    error: null,
   });
-
-  // Client filters
-  const [clientFilters, setClientFilters] = useState({
-    rating: 0,
-    availability: '',
-  });
-
-  // Sorting
-  const [sortOption, setSortOption] = useState('popularity');
-
-  // Pagination states
-  const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(5);
-  const [totalProducts, setTotalProducts] = useState(0); // For total count
-
-  const columns = isMobile ? 2 : 5;
-  const productsPerPage = rowsPerPage * columns;
 
   useEffect(() => {
     dispatch(fetchCategories());
   }, [dispatch]);
 
-  // Header search (and category links) navigate here with new query params
-  // while the page may already be mounted, so keep filters in sync.
   useEffect(() => {
-    setFilters((prev) =>
-      prev.search === urlSearch && prev.categoryId === initialCategory
-        ? prev
-        : { ...prev, search: urlSearch, categoryId: initialCategory }
-    );
-    setCurrentPage(1);
-  }, [urlSearch, initialCategory]);
-
-  // Fetch total product count for current filters (without limit/offset)
-  useEffect(() => {
-    (async () => {
-      try {
-        const total = await catalog.countProducts({
-          search: filters.search,
-          categoryId: filters.categoryId || undefined,
-          price_min: filters.price_min,
-          price_max: filters.price_max,
-        });
-        setTotalProducts(total);
-      } catch (err) {
-        console.error('Failed to fetch all products for total count:', err);
-      }
-    })();
-  }, [filters]);
-
-  useEffect(() => {
-    const limit = productsPerPage;
-    const offset = (currentPage - 1) * productsPerPage;
-
-    const apiFilters = {
-      search: filters.search,
-      categoryId: filters.categoryId,
-      price_min: filters.price_min,
-      price_max: filters.price_max,
-      limit,
-      offset,
+    let active = true;
+    catalog
+      .filters(filters.categoryId || undefined)
+      .then((f) => active && setFacets(f))
+      .catch(() => {});
+    return () => {
+      active = false;
     };
-    dispatch(fetchProducts(apiFilters));
-  }, [dispatch, filters, currentPage, productsPerPage]);
+  }, [filters.categoryId]);
 
-  const processedProducts = useMemo(() => {
-    let data = [...fetchedProducts];
+  const queryKey = JSON.stringify(filters);
+  useEffect(() => {
+    let active = true;
+    setResult((r) => ({ ...r, products: null, error: null }));
+    catalog
+      .listProducts({ ...filters, limit: PAGE_SIZE, page: filters.page })
+      .then(
+        ({ products, total }) =>
+          active && setResult({ products, total, error: null })
+      )
+      .catch(
+        (error) =>
+          active &&
+          setResult({ products: [], total: 0, error: friendlyError(error) })
+      );
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryKey]);
 
-    if (clientFilters.availability === 'inStock') {
-      data = data.filter((p) => p.inStock);
-    } else if (clientFilters.availability === 'outOfStock') {
-      data = data.filter((p) => !p.inStock);
-    }
+  const { category, parent } = findCategory(categories, filters.categoryId);
+  const brandNames = (facets?.brands || [])
+    .filter((b) => filters.brandIds.includes(String(b.id)))
+    .map((b) => b.name);
 
-    if (clientFilters.rating > 0) {
-      data = data.filter((p) => (p.rating || 0) >= clientFilters.rating);
-    }
-
-    switch (sortOption) {
-      case 'priceLowToHigh':
-        data.sort((a, b) => a.price - b.price);
-        break;
-      case 'priceHighToLow':
-        data.sort((a, b) => b.price - a.price);
-        break;
-      case 'newest':
-        data.sort((a, b) => new Date(b.creationAt) - new Date(a.creationAt));
-        break;
-      default:
-        break;
-    }
-    return data;
-  }, [fetchedProducts, clientFilters, sortOption]);
-
-  // Use totalProducts from separate fetch to calculate totalPages
-  const totalPages = Math.ceil(totalProducts / productsPerPage);
-
-  // Do not slice processedProducts further; it's already the current page's data
-  const currentProducts = processedProducts;
-
-  const handlePageChange = (_, value) => {
-    setCurrentPage(value);
-  };
-  const handleRowsPerPageChange = (e) => {
-    setRowsPerPage(Number(e.target.value));
-    setCurrentPage(1);
-  };
-
-  const handleResetFilters = () => {
-    setFilters({
-      search: '',
-      categoryId: '',
-      price_min: 0,
-      price_max: 1000,
-    });
-    setClientFilters({
-      rating: 0,
-      availability: '',
-    });
-    setSortOption('popularity');
-    setCurrentPage(1);
-  };
-
-  const chosenCategory = categories.find(
-    (cat) => String(cat.id) === filters.categoryId
-  );
-  const categoryTitle = chosenCategory ? chosenCategory.name : 'All Products';
-  const pageTitle = filters.search
+  const title = filters.search
     ? `Results for “${filters.search}”`
-    : categoryTitle;
+    : category?.name ||
+      (brandNames.length === 1
+        ? brandNames[0]
+        : filters.onSale
+          ? 'On sale'
+          : filters.tag
+            ? `#${filters.tag}`
+            : 'All products');
 
-  const handleCategorySelect = (catId) => {
-    setFilters((prev) => ({ ...prev, categoryId: String(catId) }));
-    setCurrentPage(1);
-  };
+  // Active filters as removable chips.
+  const chips = useMemo(() => {
+    const list = [];
+    if (filters.search)
+      list.push({ label: `“${filters.search}”`, clear: { search: null } });
+    if (category)
+      list.push({ label: category.name, clear: { category: null } });
+    brandNames.forEach((name) => {
+      const b = facets.brands.find((x) => x.name === name);
+      list.push({
+        label: name,
+        clear: { brand: filters.brandIds.filter((id) => id !== String(b.id)) },
+      });
+    });
+    if (filters.priceMin !== undefined || filters.priceMax !== undefined) {
+      list.push({
+        label: `$${filters.priceMin ?? 0} – ${filters.priceMax !== undefined ? `$${filters.priceMax}` : 'any'}`,
+        clear: { price_min: null, price_max: null },
+      });
+    }
+    if (filters.rating)
+      list.push({ label: `${filters.rating}★ & up`, clear: { rating: null } });
+    if (filters.inStock)
+      list.push({ label: 'In stock', clear: { in_stock: null } });
+    if (filters.onSale)
+      list.push({ label: 'On sale', clear: { on_sale: null } });
+    if (filters.featured)
+      list.push({ label: 'Featured', clear: { featured: null } });
+    if (filters.tag)
+      list.push({ label: `#${filters.tag}`, clear: { tag: null } });
+    Object.entries(filters.attrs).forEach(([name, values]) =>
+      values.forEach((v) =>
+        list.push({
+          label: `${name}: ${v}`,
+          clear: { [`attr.${name}`]: values.filter((x) => x !== v) },
+        })
+      )
+    );
+    return list;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryKey, category, facets]);
+
+  const panel = (
+    <ProductFilters
+      facets={facets}
+      categories={categories}
+      filters={filters}
+      update={update}
+      clearAll={clearAll}
+    />
+  );
+  const pages = Math.ceil(result.total / PAGE_SIZE);
 
   return (
-    <Box
-      sx={{
-        backgroundColor: theme.palette.background.default,
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        p: { xs: 2, md: 3 },
-        gap: 2,
-      }}
-    >
-      {/* MP4 banner */}
-      <Box
-        sx={{
-          width: '100%',
-          height: { xs: '150px', sm: '220px', md: '300px' },
-          overflow: 'hidden',
-          borderRadius: theme.shape.borderRadius,
-        }}
-      >
-        <video
-          src={bannerVid}
-          autoPlay
-          muted
-          loop
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-          }}
-        />
-      </Box>
+    <Container maxWidth="xl" sx={{ pb: 6 }}>
+      <HeroSection compact />
 
-      {/* Shop by Category */}
-      <ShopByCategorySection onCategorySelect={handleCategorySelect} />
-
-      {/* Title */}
-      <Typography
-        variant="h4"
-        sx={{
-          ...theme.typography.h4,
-          color: theme.palette.text.primary,
-          textAlign: 'left',
-        }}
-      >
-        {pageTitle}
-      </Typography>
-
-      {/* Filters */}
-      <ProductsFilter
-        filters={filters}
-        setFilters={setFilters}
-        clientFilters={clientFilters}
-        setClientFilters={setClientFilters}
-        sortOption={sortOption}
-        setSortOption={setSortOption}
-        onResetFilters={handleResetFilters}
-      />
-
-      {/* Products */}
-      <Box sx={{ flex: 1 }}>
-        <ProductGrid
-          products={currentProducts}
-          columns={columns}
-          loading={loading}
-        />
-
-        {error && (
-          <Typography
-            variant="h6"
-            color="error"
-            sx={{ mt: 2, textAlign: 'center' }}
-          >
-            {error}
-          </Typography>
+      <Breadcrumbs aria-label="Breadcrumb" sx={{ mt: 3 }}>
+        <Link component={RouterLink} to="/" underline="hover">
+          Home
+        </Link>
+        {category ? (
+          <Link component={RouterLink} to="/products" underline="hover">
+            Products
+          </Link>
+        ) : (
+          <Typography color="text.primary">Products</Typography>
         )}
+        {parent && (
+          <Link
+            component={RouterLink}
+            to={`/products?category=${parent.id}`}
+            underline="hover"
+          >
+            {parent.name}
+          </Link>
+        )}
+        {category && (
+          <Typography color="text.primary">{category.name}</Typography>
+        )}
+      </Breadcrumbs>
 
-        {/* Pagination & Rows Per Page */}
-        <Box
+      <Stack
+        direction="row"
+        alignItems="center"
+        spacing={2}
+        flexWrap="wrap"
+        useFlexGap
+        sx={{ py: 2.5 }}
+      >
+        <Button
+          variant="contained"
+          color="inherit"
+          startIcon={<FiFilter />}
+          onClick={() =>
+            desktop ? setShowFilters(!showFilters) : setDrawerOpen(true)
+          }
           sx={{
-            mt: 2,
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexDirection: isMobile ? 'column' : 'row',
-            gap: 2,
+            bgcolor: 'primary.light',
+            color: 'primary.main',
+            boxShadow: 'none',
+            '&:hover': { bgcolor: 'primary.light' },
           }}
         >
-          <Pagination
-            count={totalPages}
-            page={currentPage}
-            onChange={handlePageChange}
-            variant="outlined"
-            shape="rounded"
-            color="primary"
-            showFirstButton
-            showLastButton
-            size="small"
-            siblingCount={isMobile ? 1 : 2}
-          />
-          <FormControl
-            variant="outlined"
-            size="small"
-            sx={{ minWidth: 120, mt: isMobile ? 1 : 0 }}
-          >
-            <InputLabel id="rows-per-page-label">Rows per page</InputLabel>
-            <Select
-              labelId="rows-per-page-label"
-              value={rowsPerPage}
-              onChange={handleRowsPerPageChange}
-              label="Rows per page"
-              sx={{ fontSize: '0.75rem' }}
+          {desktop && showFilters ? 'Hide filters' : 'Filters'}
+        </Button>
+        <Typography variant="h4" component="h1" sx={{ flex: 1, minWidth: 200 }}>
+          {title}
+        </Typography>
+        <Typography color="text.secondary" aria-live="polite">
+          {result.products
+            ? `${result.total} result${result.total === 1 ? '' : 's'}`
+            : ''}
+        </Typography>
+        <Select
+          size="small"
+          value={filters.sort}
+          displayEmpty
+          onChange={(e) => update({ sort: e.target.value })}
+          inputProps={{ 'aria-label': 'Sort by' }}
+          sx={{ minWidth: 190, bgcolor: 'background.neutral' }}
+        >
+          {SORTS.map((s) => (
+            <MenuItem key={s.value} value={s.value}>
+              {s.label}
+            </MenuItem>
+          ))}
+        </Select>
+      </Stack>
+      <Divider />
+
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: {
+            xs: '1fr',
+            md: showFilters ? '260px 1fr' : '1fr',
+          },
+          gap: { md: 4 },
+        }}
+      >
+        {desktop && showFilters && (
+          <Box sx={{ borderRight: 1, borderColor: 'divider', pr: 3, pt: 1 }}>
+            {panel}
+          </Box>
+        )}
+        <Box sx={{ pt: 3, minWidth: 0 }}>
+          {chips.length > 0 && (
+            <Stack direction="row" flexWrap="wrap" gap={1} sx={{ mb: 2 }}>
+              {chips.map((c) => (
+                <Chip
+                  key={c.label}
+                  label={c.label}
+                  onDelete={() => update(c.clear)}
+                />
+              ))}
+              <Button size="small" onClick={clearAll}>
+                Clear all
+              </Button>
+            </Stack>
+          )}
+          {result.error && <Alert severity="error">{result.error}</Alert>}
+          {result.products && !result.products.length && !result.error ? (
+            <EmptyState
+              title="No products match"
+              action={
+                <Button variant="contained" onClick={clearAll}>
+                  Clear filters
+                </Button>
+              }
             >
-              <MenuItem value={5}>5</MenuItem>
-              <MenuItem value={10}>10</MenuItem>
-              <MenuItem value={20}>20</MenuItem>
-              <MenuItem value={30}>30</MenuItem>
-              <MenuItem value={50}>50</MenuItem>
-              <MenuItem value={100}>100</MenuItem>
-            </Select>
-          </FormControl>
+              Try fewer filters or a different search.
+            </EmptyState>
+          ) : (
+            <Box
+              data-testid="product-grid"
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: {
+                  xs: 'repeat(2, 1fr)',
+                  sm: 'repeat(3, 1fr)',
+                  lg: showFilters ? 'repeat(4, 1fr)' : 'repeat(5, 1fr)',
+                },
+                gap: { xs: 1, md: 1.5 },
+              }}
+            >
+              {(result.products || Array.from({ length: 8 })).map((p, i) =>
+                p ? (
+                  <ProductCard key={p.id} product={p} />
+                ) : (
+                  <Skeleton
+                    key={i}
+                    variant="rounded"
+                    height={380}
+                    sx={{ borderRadius: 1 }}
+                  />
+                )
+              )}
+            </Box>
+          )}
+          {pages > 1 && (
+            <Stack alignItems="center" sx={{ mt: 4 }}>
+              <Pagination
+                count={pages}
+                page={filters.page}
+                onChange={(_, page) => {
+                  update({ page }, { keepPage: true });
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                shape="rounded"
+              />
+            </Stack>
+          )}
         </Box>
       </Box>
-    </Box>
+
+      <Drawer
+        anchor="left"
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+      >
+        <Box sx={{ width: 300, p: 2 }}>
+          <Stack direction="row" justifyContent="flex-end">
+            <IconButton
+              aria-label="Close filters"
+              onClick={() => setDrawerOpen(false)}
+            >
+              <FiX />
+            </IconButton>
+          </Stack>
+          {panel}
+        </Box>
+      </Drawer>
+    </Container>
   );
 };
 

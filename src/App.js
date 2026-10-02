@@ -19,7 +19,7 @@ import { NotificationProvider } from './notification/NotificationProvider';
 import ScrollToTop from './components/ScrollToTop';
 import PrivateRoute from './components/PrivateRoute';
 import AdminRoute from './components/AdminRoute';
-import { isStaff } from './auth/permissions';
+import { canShop, isStaff } from './auth/permissions';
 
 import StorefrontLayout from './layouts/StorefrontLayout';
 import AdminLayout, { adminNav } from './layouts/AdminLayout';
@@ -55,8 +55,16 @@ import {
   AdminReturnsPage,
 } from './pages/admin/AdminOrderPages';
 import AdminRolesPage from './pages/admin/AdminRolesPage';
-import ProductsSection from './components/profile/ProductsSection';
 import UsersSection from './components/profile/users/UsersSection';
+import ProductsAdminLayout from './pages/admin/products/ProductsAdminLayout';
+import ProductListPage from './pages/admin/products/ProductListPage';
+import ProductFormPage from './pages/admin/products/ProductFormPage';
+import BrandsPage from './pages/admin/products/BrandsPage';
+import CategoriesPage from './pages/admin/products/CategoriesPage';
+import StaffProfilePage from './pages/admin/StaffProfilePage';
+import SecuritySettingsPage from './pages/admin/SecuritySettingsPage';
+import AuditLogPage from './pages/admin/AuditLogPage';
+import StaffNotice from './components/StaffNotice';
 
 const ORDERS_VIEW = ['orders.orders.view'];
 const USERS_VIEW = ['admin.users.view'];
@@ -66,11 +74,7 @@ const AdminHome = () => {
   const { user } = useContext(AuthContext);
   const first = adminNav(user)[0]?.items[0];
   if (first?.to === '/admin') return <AdminDashboardPage />;
-  return first ? (
-    <Navigate to={first.to} replace />
-  ) : (
-    <Navigate to="/" replace />
-  );
+  return <Navigate to={first ? first.to : '/admin/profile'} replace />;
 };
 
 /** Old /profile?section=… links go to their new homes. */
@@ -92,6 +96,24 @@ const LegacyProfileRedirect = () => {
 
 const Private = ({ children }) => <PrivateRoute>{children}</PrivateRoute>;
 
+/**
+ * Shopping and the customer account are for customers. Back-office users
+ * get their own profile (/admin/profile) and a note on shopping pages.
+ */
+const ShopperOnly = ({ children, account = false }) => {
+  const { user } = useContext(AuthContext);
+  if (user && !canShop(user)) {
+    return account ? <Navigate to="/admin/profile" replace /> : <StaffNotice />;
+  }
+  return children;
+};
+
+const Account = ({ children }) => (
+  <Private>
+    <ShopperOnly account>{children}</ShopperOnly>
+  </Private>
+);
+
 const App = () => (
   <ThemeProvider theme={theme}>
     <CssBaseline />
@@ -109,8 +131,22 @@ const App = () => (
                     path="/products/:id"
                     element={<ProductDetailsPage />}
                   />
-                  <Route path="/cart" element={<CartPage />} />
-                  <Route path="/wishlist" element={<WishlistPage />} />
+                  <Route
+                    path="/cart"
+                    element={
+                      <ShopperOnly>
+                        <CartPage />
+                      </ShopperOnly>
+                    }
+                  />
+                  <Route
+                    path="/wishlist"
+                    element={
+                      <ShopperOnly>
+                        <WishlistPage />
+                      </ShopperOnly>
+                    }
+                  />
                   <Route path="/login" element={<LoginPage />} />
                   <Route path="/register" element={<SignupPage />} />
                   <Route path="/reset-password" element={<ResetPassword />} />
@@ -122,7 +158,9 @@ const App = () => (
                     path="/checkout"
                     element={
                       <Private>
-                        <CheckoutPage />
+                        <ShopperOnly>
+                          <CheckoutPage />
+                        </ShopperOnly>
                       </Private>
                     }
                   />
@@ -130,57 +168,57 @@ const App = () => (
                   <Route
                     path="/account"
                     element={
-                      <Private>
+                      <Account>
                         <AccountOverviewPage />
-                      </Private>
+                      </Account>
                     }
                   />
                   <Route
                     path="/account/profile"
                     element={
-                      <Private>
+                      <Account>
                         <ProfilePage />
-                      </Private>
+                      </Account>
                     }
                   />
                   <Route
                     path="/account/security"
                     element={
-                      <Private>
+                      <Account>
                         <SecurityPage />
-                      </Private>
+                      </Account>
                     }
                   />
                   <Route
                     path="/account/addresses"
                     element={
-                      <Private>
+                      <Account>
                         <AddressesPage />
-                      </Private>
+                      </Account>
                     }
                   />
                   <Route
                     path="/account/orders"
                     element={
-                      <Private>
+                      <Account>
                         <OrdersPage />
-                      </Private>
+                      </Account>
                     }
                   />
                   <Route
                     path="/account/orders/:id"
                     element={
-                      <Private>
+                      <Account>
                         <OrderDetailPage />
-                      </Private>
+                      </Account>
                     }
                   />
                   <Route
                     path="/account/returns"
                     element={
-                      <Private>
+                      <Account>
                         <ReturnsPage />
-                      </Private>
+                      </Account>
                     }
                   />
 
@@ -226,7 +264,30 @@ const App = () => (
                     path="products"
                     element={
                       <AdminRoute prefix="catalog.">
-                        <ProductsSection />
+                        <ProductsAdminLayout />
+                      </AdminRoute>
+                    }
+                  >
+                    <Route index element={<ProductListPage />} />
+                    <Route path="new" element={<ProductFormPage />} />
+                    <Route path="categories" element={<CategoriesPage />} />
+                    <Route path="brands" element={<BrandsPage />} />
+                    <Route path=":id" element={<ProductFormPage />} />
+                  </Route>
+                  <Route path="profile" element={<StaffProfilePage />} />
+                  <Route
+                    path="security"
+                    element={
+                      <AdminRoute permissions={['admin.security.manage']}>
+                        <SecuritySettingsPage />
+                      </AdminRoute>
+                    }
+                  />
+                  <Route
+                    path="audit"
+                    element={
+                      <AdminRoute permissions={['admin.audit.view']}>
+                        <AuditLogPage />
                       </AdminRoute>
                     }
                   />

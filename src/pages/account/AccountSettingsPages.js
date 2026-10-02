@@ -358,7 +358,7 @@ export const AddressesPage = () => {
               <Box
                 sx={{
                   bgcolor: 'background.neutral',
-                  borderRadius: 4,
+                  borderRadius: 1,
                   p: 3,
                   height: '100%',
                 }}

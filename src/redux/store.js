@@ -2,7 +2,6 @@
 
 import { configureStore } from '@reduxjs/toolkit';
 import cartReducer from './cartSlice';
-import productsReducer from './productsSlice';
 import wishlistReducer from './wishlistSlice';
 import categoriesReducer from './categoriesSlice';
 import fileReducer from './fileSlice';
@@ -38,7 +37,6 @@ const persistedWishlistReducer = persistReducer(
 const store = configureStore({
   reducer: {
     cart: persistedCartReducer,
-    products: productsReducer,
     wishlist: persistedWishlistReducer,
     categories: categoriesReducer,
     files: fileReducer,

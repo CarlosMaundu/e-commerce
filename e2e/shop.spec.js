@@ -9,7 +9,8 @@ test('product list shows the catalog and search really filters it', async ({
   page,
 }) => {
   await page.goto('/products');
-  await expect(productImage(page, 'Denim jacket')).toBeVisible();
+  await expect(page.getByText('31 results')).toBeVisible();
+  await expect(page.getByTestId('product-card')).toHaveCount(24); // first page
 
   const search = page.getByRole('textbox', { name: 'Search products' });
   await search.fill('dress');
@@ -23,23 +24,13 @@ test('product list shows the catalog and search really filters it', async ({
 test('product page loads from the API, with images served by the backend', async ({
   page,
 }) => {
-  await page.goto('/products');
+  await page.goto('/products?search=denim');
   await productImage(page, 'Denim jacket').click();
   await expect(page).toHaveURL(/\/products\/\d+$/);
   await expect(page.getByText('Denim jacket').first()).toBeVisible();
   const image = page.getByRole('img', { name: 'Denim jacket' }).first();
   await expect(image).toHaveJSProperty('complete', true);
   expect(await image.evaluate((img) => img.naturalWidth)).toBeGreaterThan(0);
-});
-
-test('newsletter sign-up works and validates email', async ({ page }) => {
-  await page.goto('/');
-  await page.getByPlaceholder('Enter your email').fill('fan@example.com');
-  await page
-    .getByRole('main')
-    .getByRole('button', { name: 'Subscribe' })
-    .click();
-  await expect(toast(page)).toHaveText('You’re subscribed to our newsletter.');
 });
 
 test('the footer newsletter form works on every page', async ({ page }) => {

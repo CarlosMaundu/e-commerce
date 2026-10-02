@@ -334,7 +334,7 @@ export const AdminOrderDetailPage = () => {
                         width: 52,
                         height: 52,
                         objectFit: 'contain',
-                        borderRadius: 2,
+                        borderRadius: 1,
                         bgcolor: 'background.neutral',
                       }}
                     />

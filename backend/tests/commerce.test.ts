@@ -4,11 +4,28 @@ import { app, bearer, closePool, createUser, fakePayments, resetDatabase, sentEm
 
 jest.mock('../src/lib/mailer', () => require('./mailerMock').mailerMock());
 
-beforeEach(resetDatabase);
+// Known stock: every variant 25, Wool overshirt Camel / M only 9.
+beforeEach(async () => {
+  await resetDatabase();
+  await query('UPDATE product_variants SET quantity = 25');
+  await query(`UPDATE product_variants SET quantity = 9 FROM products p
+    WHERE p.id = product_id AND p.name = 'Wool overshirt' AND options = '{"Color":"Camel","Size":"M"}'`);
+  await query(`UPDATE products p SET quantity = s.total FROM
+    (SELECT product_id, sum(quantity)::int AS total FROM product_variants GROUP BY product_id) s WHERE s.product_id = p.id`);
+});
 afterAll(closePool);
 
 const productId = async (name: string) =>
   (await query('SELECT id FROM products WHERE name = $1', [name])).rows[0].id as number;
+
+const variantStock = async (name: string, options: Record<string, string>) =>
+  (await query(
+    'SELECT v.quantity FROM product_variants v JOIN products p ON p.id = v.product_id WHERE p.name = $1 AND v.options = $2',
+    [name, JSON.stringify(options)]
+  )).rows[0].quantity as number;
+
+const M = { Size: 'M' };
+const CAMEL_M = { Color: 'Camel', Size: 'M' };
 
 const ADDRESS = {
   firstname: 'Jane', lastname: 'Doe', address_1: '1 Market St', city: 'Nairobi',
@@ -21,9 +38,10 @@ const shopper = async (email = 'jane@example.com') => {
 };
 
 /** Adds items and completes every checkout step up to POST /confirm. */
-const prepareCheckout = async (token: string, { payment = 'cod', items = [['Denim jacket', 2]] as [string, number][] } = {}) => {
-  for (const [name, quantity] of items) {
-    await request(app).post('/api/rest/cart').set(bearer(token)).send({ product_id: await productId(name), quantity }).expect(200);
+type Item = [string, number, Record<string, string>?];
+const prepareCheckout = async (token: string, { payment = 'cod', items = [['Denim jacket', 2, M]] as Item[] } = {}) => {
+  for (const [name, quantity, option = {}] of items) {
+    await request(app).post('/api/rest/cart').set(bearer(token)).send({ product_id: await productId(name), quantity, option }).expect(200);
   }
   await request(app).post('/api/rest/shippingaddress').set(bearer(token)).send(ADDRESS).expect(201);
   await request(app).post('/api/rest/shippingmethods').set(bearer(token)).send({ shipping_method: 'standard' }).expect(200);
@@ -43,9 +61,11 @@ describe('cart', () => {
     const token = await shopper();
     const jacket = await productId('Denim jacket'); // 79, sale 59
     await request(app).post('/api/rest/cart').set(bearer(token)).send({ product_id: jacket, quantity: 1, option: { size: 'M' } });
-    const res = await request(app).post('/api/rest/cart').set(bearer(token)).send({ product_id: jacket, quantity: 2, option: { size: 'L' } });
+    const res = await request(app).post('/api/rest/cart').set(bearer(token)).send({ product_id: jacket, quantity: 2, option: { Size: 'L' } });
     expect(res.body.data.products).toHaveLength(2);
-    expect(res.body.data.products[0]).toMatchObject({ unit_price: 59, price: 79, special: 59, options: { size: 'M' } });
+    // Option names match the product's attributes whatever their case.
+    expect(res.body.data.products[0]).toMatchObject({ unit_price: 59, price: 79, special: 59, options: { Size: 'M' } });
+    expect(res.body.data.products[0].variant_id).toEqual(expect.any(Number));
     expect(res.body.data.item_count).toBe(3);
     const totals = Object.fromEntries(res.body.data.totals.map((t: any) => [t.code, t.value]));
     expect(totals).toEqual({ sub_total: 177, tax: 14.16, total: 191.16 });
@@ -58,8 +78,27 @@ describe('cart', () => {
     expect(out.status).toBe(409);
     expect(out.body.error[0]).toMatch(/out of stock/);
     const wool = await productId('Wool overshirt'); // 9 in stock
-    const tooMany = await request(app).post('/api/rest/cart').set(bearer(token)).send({ product_id: wool, quantity: 10 });
-    expect(tooMany.body.error[0]).toMatch(/Only 9/);
+    const tooMany = await request(app).post('/api/rest/cart').set(bearer(token)).send({ product_id: wool, quantity: 10, option: CAMEL_M });
+    expect(tooMany.body.error[0]).toMatch(/Only 9 of “Wool overshirt \(Camel \/ M\)” left/);
+  });
+
+  test('variants: every option must be chosen from the list, and each has its own price', async () => {
+    const token = await shopper();
+    const wool = await productId('Wool overshirt');
+    const none = await request(app).post('/api/rest/cart').set(bearer(token)).send({ product_id: wool });
+    expect(none.body.error).toEqual(['Please choose a color.']);
+    const wrong = await request(app).post('/api/rest/cart').set(bearer(token)).send({ product_id: wool, option: { Color: 'Pink', Size: 'M' } });
+    expect(wrong.body.error[0]).toMatch(/“Pink” isn’t an available color/);
+    // 50 ml has its own price (48); 30 ml uses the product's (32).
+    const serum = await productId('Hydrating face serum');
+    await request(app).post('/api/rest/cart').set(bearer(token)).send({ product_id: serum, option: { Size: '30 ml' } }).expect(200);
+    const res = await request(app).post('/api/rest/cart').set(bearer(token)).send({ product_id: serum, option: { Size: '50 ml' } });
+    expect(res.body.data.products.map((l: any) => [l.options.Size, l.unit_price])).toEqual([['30 ml', 32], ['50 ml', 48]]);
+    // An own-priced variant keeps the sale ratio: merino knit 72, sale 57.
+    const knit = await productId('Chunky knit sweater');
+    const knitRes = await request(app).post('/api/rest/cart').set(bearer(token))
+      .send({ product_id: knit, option: { Color: 'Cream', Material: 'Merino wool', Size: 'M' } });
+    expect(knitRes.body.data.products[2]).toMatchObject({ price: 72, special: 57, unit_price: 57 });
   });
 
   test('update, remove and empty', async () => {
@@ -77,7 +116,8 @@ describe('cart', () => {
     const res = await request(app).post('/api/rest/cart_bulk').set(bearer(token)).send([
       { product_id: await productId('Canvas tote bag'), quantity: 2 },
       { product_id: await productId('Ceramic table lamp'), quantity: 1 },
-      { product_id: await productId('Wool overshirt'), quantity: 50 },
+      { product_id: await productId('Wool overshirt'), quantity: 50, option: CAMEL_M },
+      { product_id: await productId('Wool overshirt'), quantity: 1 }, // no options chosen: skipped
     ]);
     expect(res.status).toBe(200);
     const byName = Object.fromEntries(res.body.data.products.map((p: any) => [p.name, p.quantity]));
@@ -154,7 +194,9 @@ describe('checkout', () => {
     const placed = await request(app).put('/api/rest/confirm').set(bearer(token));
     expect(placed.body.data).toMatchObject({ status: 'pending', payment_status: 'pending', total: 137.44 });
     expect(placed.body.data.shipping_address).toMatchObject({ city: 'Nairobi', country: 'KE' });
-    expect((await query('SELECT quantity FROM products WHERE id = $1', [jacket])).rows[0].quantity).toBe(23);
+    expect(await variantStock('Denim jacket', M)).toBe(23);
+    // The product's stock is the sum of its variants (4 sizes × 25 − 2).
+    expect((await query('SELECT quantity FROM products WHERE id = $1', [jacket])).rows[0].quantity).toBe(98);
     expect((await request(app).get('/api/rest/cart').set(bearer(token))).body.data.products).toEqual([]);
     expect(sentEmails.find((e) => e.kind === 'order')).toMatchObject({ to: 'jane@example.com' });
 
@@ -165,7 +207,7 @@ describe('checkout', () => {
 
   test('free standard delivery above the threshold, and coupons on orders', async () => {
     const token = await shopper();
-    await request(app).post('/api/rest/cart').set(bearer(token)).send({ product_id: await productId('Wool overshirt'), quantity: 2 }); // 190
+    await request(app).post('/api/rest/cart').set(bearer(token)).send({ product_id: await productId('Wool overshirt'), quantity: 2, option: CAMEL_M }); // 190
     await request(app).post('/api/rest/coupon').set(bearer(token)).send({ coupon: 'FRIDAY35' });
     const confirm = await prepareCheckout(token, { items: [] });
     expect(confirm.body.data.order.totals).toEqual({ subtotal: 190, discount: 66.5, shipping: 10, tax: 9.88, total: 143.38 });
@@ -191,8 +233,8 @@ describe('checkout', () => {
 
   test('stock is re-checked when placing the order', async () => {
     const token = await shopper();
-    await prepareCheckout(token, { items: [['Wool overshirt', 9]] });
-    await query("UPDATE products SET quantity = 3 WHERE name = 'Wool overshirt'");
+    await prepareCheckout(token, { items: [['Wool overshirt', 9, CAMEL_M]] });
+    await query(`UPDATE product_variants SET quantity = 3 WHERE options = '{"Color":"Camel","Size":"M"}'`);
     const placed = await request(app).put('/api/rest/confirm').set(bearer(token));
     expect(placed.status).toBe(409);
     expect(placed.body.error[0]).toMatch(/sold out while you were checking out/);
@@ -234,7 +276,7 @@ describe('order management and returns', () => {
     expect(mine.body.data.history.map((h: any) => h.comment)).toEqual(['Order placed.', 'Packing your order now.', '']);
 
     await request(app).put(`/api/admin/orderhistory/${order.order_id}`).set(bearer(admin)).send({ order_status: 'cancelled' }).expect(200);
-    expect((await query("SELECT quantity FROM products WHERE name = 'Denim jacket'")).rows[0].quantity).toBe(25);
+    expect(await variantStock('Denim jacket', M)).toBe(25);
   });
 
   test('cash orders become paid on delivery; card refunds go through Stripe', async () => {

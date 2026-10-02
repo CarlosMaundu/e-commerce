@@ -10,10 +10,11 @@ import { fail, handler, ok, parse } from '../lib/http';
 import { sendOrderConfirmationEmail } from '../lib/mailer';
 import { addHistory, loadOrder, orderLink } from '../lib/orders';
 import { PaymentGateway } from '../lib/payments';
+import { takeStock } from '../lib/products';
 import {
   checkStock, computeTotals, findCoupon, loadCartLines, PAYMENT_METHODS, round2, SHIPPING_METHODS,
 } from '../lib/pricing';
-import { authenticate } from '../middleware/auth';
+import { authenticate, customersOnly } from '../middleware/auth';
 
 const required = (message: string) => z.string({ required_error: message, invalid_type_error: message }).trim();
 
@@ -73,7 +74,8 @@ export const checkoutRoutes = ({ payments }: { payments: PaymentGateway | null }
   const router = Router();
   router.use(
     ['/account/address', '/shippingaddress', '/paymentaddress', '/shippingmethods', '/paymentmethods', '/confirm'],
-    authenticate
+    authenticate,
+    customersOnly
   );
 
   // ---------- address book (OpenCart: /account/address) ----------
@@ -221,9 +223,9 @@ export const checkoutRoutes = ({ payments }: { payments: PaymentGateway | null }
       const id = rows[0].id as number;
       for (const l of lines) {
         await db.query(
-          `INSERT INTO order_items (order_id, product_id, name, image, options, unit_price, quantity, total)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-          [id, l.product_id, l.name, l.image, JSON.stringify(l.options), l.unit_price, l.quantity, l.total]
+          `INSERT INTO order_items (order_id, product_id, variant_id, name, image, options, unit_price, quantity, total)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          [id, l.product_id, l.variant_id, l.name, l.image, JSON.stringify(l.options), l.unit_price, l.quantity, l.total]
         );
       }
       await db.query('UPDATE checkout_state SET pending_order_id = $2 WHERE user_id = $1', [userId, id]);
@@ -263,19 +265,18 @@ export const checkoutRoutes = ({ payments }: { payments: PaymentGateway | null }
     const placed = await transaction(async (db) => {
       const items = (await db.query('SELECT * FROM order_items WHERE order_id = $1', [pending.id])).rows;
       for (const item of items) {
-        const { rows } = await db.query('SELECT quantity, name FROM products WHERE id = $1 FOR UPDATE', [item.product_id]);
-        if (!rows[0] || rows[0].quantity < item.quantity) {
+        if (!(await takeStock(db, item))) {
           fail(409, `Sorry, “${item.name}” sold out while you were checking out. Please update your cart.`);
         }
-        await db.query('UPDATE products SET quantity = quantity - $2, updated_at = now() WHERE id = $1', [item.product_id, item.quantity]);
       }
       if (pending.coupon_code) {
         await db.query('UPDATE coupons SET uses_count = uses_count + 1 WHERE code = $1', [pending.coupon_code]);
       }
       const status = paymentStatus === 'paid' ? 'processing' : 'pending';
       await db.query(
-        `UPDATE orders SET status = $2, payment_status = $3, placed_at = now(), updated_at = now() WHERE id = $1`,
-        [pending.id, status, paymentStatus]
+        `UPDATE orders SET status = $2, payment_status = $3, placed_by = $4, placed_at = now(), updated_at = now()
+         WHERE id = $1`,
+        [pending.id, status, paymentStatus, req.auth!.impersonatorId]
       );
       await addHistory(db, pending.id, status, 'Order placed.', { notified: true, userId });
       await db.query('DELETE FROM cart_items WHERE user_id = $1', [userId]);

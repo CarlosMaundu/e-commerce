@@ -41,119 +41,18 @@ import {
 import { AuthContext } from '../../context/AuthContext';
 import { fetchCategories } from '../../redux/categoriesSlice';
 import { selectCartCount } from '../../redux/cartSlice';
-import { isStaff } from '../../auth/permissions';
+import { canShop, isStaff } from '../../auth/permissions';
+import { PromoStrip } from '../promotions/Promotions';
 import { useNotify } from '../../notification/NotificationProvider';
 import { MESSAGES } from '../../notification/messages';
 import logo from '../../images/logo.png';
 
 const LINKS = [
-  { label: 'Orders', to: '/account/orders', auth: true },
-  { label: 'Wishlist', to: '/wishlist' },
+  { label: 'Orders', to: '/account/orders', auth: true, shopper: true },
+  { label: 'Wishlist', to: '/wishlist', shopper: true },
   { label: 'New arrivals', to: '/products' },
   { label: 'Help', to: '/information/support' },
 ];
-
-const msUntilMidnight = () => {
-  const end = new Date();
-  end.setHours(24, 0, 0, 0);
-  return Math.max(0, end - Date.now());
-};
-
-const Countdown = () => {
-  const [left, setLeft] = useState(msUntilMidnight());
-  useEffect(() => {
-    const t = setInterval(() => setLeft(msUntilMidnight()), 1000);
-    return () => clearInterval(t);
-  }, []);
-  const parts = [
-    Math.floor(left / 3600000),
-    Math.floor((left % 3600000) / 60000),
-    Math.floor((left % 60000) / 1000),
-  ].map((n) => String(n).padStart(2, '0'));
-  return (
-    <Stack
-      direction="row"
-      spacing={0.5}
-      alignItems="center"
-      aria-label={`Offer ends in ${parts[0]} hours ${parts[1]} minutes`}
-    >
-      {parts.map((p, i) => (
-        <React.Fragment key={i}>
-          {i > 0 && (
-            <Typography aria-hidden sx={{ color: 'promo.text' }}>
-              :
-            </Typography>
-          )}
-          <Box
-            aria-hidden
-            sx={{
-              bgcolor: alpha('#F27A1A', 0.12),
-              color: 'promo.text',
-              borderRadius: 1,
-              px: 1,
-              py: 0.25,
-              fontVariantNumeric: 'tabular-nums',
-              fontSize: '0.9rem',
-            }}
-          >
-            {p}
-          </Box>
-        </React.Fragment>
-      ))}
-    </Stack>
-  );
-};
-
-const PromoStrip = ({ onClose }) => {
-  const navigate = useNavigate();
-  return (
-    <Box sx={{ bgcolor: 'promo.main', borderTop: 1, borderColor: 'divider' }}>
-      <Container maxWidth="xl">
-        <Stack
-          direction="row"
-          alignItems="center"
-          justifyContent="center"
-          spacing={{ xs: 1.5, md: 3 }}
-          sx={{
-            py: 1,
-            flexWrap: 'wrap',
-            rowGap: 1,
-            position: 'relative',
-            pr: 5,
-          }}
-        >
-          <Typography sx={{ color: 'promo.text' }}>
-            <Box
-              component="strong"
-              sx={{ fontSize: '1.15rem', fontWeight: 800, mr: 1 }}
-            >
-              35% off
-            </Box>
-            orders over $50 with code <strong>FRIDAY35</strong>
-          </Typography>
-          <Countdown />
-          <Button
-            size="small"
-            variant="contained"
-            color="warning"
-            onClick={() => navigate('/products')}
-            sx={{ color: '#fff' }}
-          >
-            Shop the deal
-          </Button>
-          <IconButton
-            size="small"
-            aria-label="Hide offer"
-            onClick={onClose}
-            sx={{ position: 'absolute', right: 0, color: 'promo.text' }}
-          >
-            <FiX />
-          </IconButton>
-        </Stack>
-      </Container>
-    </Box>
-  );
-};
 
 const Header = () => {
   const { user, loading, logout } = useContext(AuthContext);
@@ -225,6 +124,7 @@ const Header = () => {
   };
 
   const firstName = user?.name?.split(' ')[0] || '';
+  const shopper = canShop(user);
   const iconButtonSx = {
     bgcolor: 'background.neutralDeep',
     width: 42,
@@ -358,7 +258,7 @@ const Header = () => {
             open={Boolean(categoryAnchor)}
             onClose={() => setCategoryAnchor(null)}
             slotProps={{
-              paper: { sx: { borderRadius: 3, minWidth: 220, mt: 1 } },
+              paper: { sx: { borderRadius: 1, minWidth: 220, mt: 1 } },
             }}
           >
             {topCategories.map((c) => (
@@ -382,26 +282,30 @@ const Header = () => {
           </Box>
 
           <Stack direction="row" spacing={1.25} alignItems="center">
-            <IconButton
-              component={RouterLink}
-              to="/wishlist"
-              aria-label={`Wishlist, ${wishlistCount} items`}
-              sx={iconButtonSx}
-            >
-              <Badge badgeContent={wishlistCount} color="error" max={99}>
-                <FiHeart />
-              </Badge>
-            </IconButton>
-            <IconButton
-              component={RouterLink}
-              to="/cart"
-              aria-label={`Cart, ${cartCount} items`}
-              sx={iconButtonSx}
-            >
-              <Badge badgeContent={cartCount} color="error" max={99}>
-                <FiShoppingCart />
-              </Badge>
-            </IconButton>
+            {shopper && (
+              <IconButton
+                component={RouterLink}
+                to="/wishlist"
+                aria-label={`Wishlist, ${wishlistCount} items`}
+                sx={iconButtonSx}
+              >
+                <Badge badgeContent={wishlistCount} color="error" max={99}>
+                  <FiHeart />
+                </Badge>
+              </IconButton>
+            )}
+            {shopper && (
+              <IconButton
+                component={RouterLink}
+                to="/cart"
+                aria-label={`Cart, ${cartCount} items`}
+                sx={iconButtonSx}
+              >
+                <Badge badgeContent={cartCount} color="error" max={99}>
+                  <FiShoppingCart />
+                </Badge>
+              </IconButton>
+            )}
             {loading ? null : user ? (
               <>
                 {!isMobile && (
@@ -429,7 +333,7 @@ const Header = () => {
                   anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                   transformOrigin={{ vertical: 'top', horizontal: 'right' }}
                   slotProps={{
-                    paper: { sx: { borderRadius: 3, minWidth: 220, mt: 1 } },
+                    paper: { sx: { borderRadius: 1, minWidth: 220, mt: 1 } },
                   }}
                 >
                   <Box sx={{ px: 2, py: 1 }}>
@@ -439,24 +343,28 @@ const Header = () => {
                   <Divider />
                   <MenuItem
                     component={RouterLink}
-                    to="/account"
+                    to={shopper ? '/account' : '/admin/profile'}
                     onClick={() => setUserMenuAnchor(null)}
                   >
                     <ListItemIcon>
                       <FiUser />
                     </ListItemIcon>
-                    <ListItemText>My account</ListItemText>
+                    <ListItemText>
+                      {shopper ? 'My account' : 'My profile'}
+                    </ListItemText>
                   </MenuItem>
-                  <MenuItem
-                    component={RouterLink}
-                    to="/account/orders"
-                    onClick={() => setUserMenuAnchor(null)}
-                  >
-                    <ListItemIcon>
-                      <FiPackage />
-                    </ListItemIcon>
-                    <ListItemText>My orders</ListItemText>
-                  </MenuItem>
+                  {shopper && (
+                    <MenuItem
+                      component={RouterLink}
+                      to="/account/orders"
+                      onClick={() => setUserMenuAnchor(null)}
+                    >
+                      <ListItemIcon>
+                        <FiPackage />
+                      </ListItemIcon>
+                      <ListItemText>My orders</ListItemText>
+                    </MenuItem>
+                  )}
                   {isStaff(user) && (
                     <MenuItem
                       component={RouterLink}
@@ -515,7 +423,9 @@ const Header = () => {
                 component="nav"
                 aria-label="Shop"
               >
-                {LINKS.filter((l) => !l.auth || user).map((l) => (
+                {LINKS.filter(
+                  (l) => (!l.auth || user) && (shopper || !l.shopper)
+                ).map((l) => (
                   <Typography
                     key={l.label}
                     component={RouterLink}
@@ -560,7 +470,9 @@ const Header = () => {
           </Stack>
           {searchForm}
           <Divider />
-          {LINKS.filter((l) => !l.auth || user).map((l) => (
+          {LINKS.filter(
+            (l) => (!l.auth || user) && (shopper || !l.shopper)
+          ).map((l) => (
             <Typography
               key={l.label}
               component={RouterLink}

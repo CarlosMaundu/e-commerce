@@ -14,6 +14,7 @@ export interface UserRow {
   status: 'active' | 'suspended';
   failed_login_attempts: number;
   locked_until: Date | null;
+  last_login_at: Date | null;
   created_at: Date;
 }
 
@@ -53,6 +54,8 @@ export const toContractUser = (u: UserRow, permissions?: string[]) => ({
   avatar: u.avatar,
   status: u.status,
   has_password: Boolean(u.password_hash),
+  locked_until: u.locked_until && u.locked_until > new Date() ? u.locked_until : null,
+  last_login: u.last_login_at,
   date_added: u.created_at,
 });
 

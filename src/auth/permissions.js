@@ -28,6 +28,12 @@ export const hasPermissionPrefix = (user, prefix) => {
 /** Staff = anyone with at least one admin-area permission. */
 export const isStaff = (user) => list(user).length > 0;
 
+/**
+ * Only customers shop. Staff acting as a customer have the customer's
+ * (empty) permissions, so they can shop for them.
+ */
+export const canShop = (user) => !isStaff(user);
+
 export const PERMISSIONS = {
   productsCreate: 'catalog.products.create',
   productsUpdate: 'catalog.products.update',
@@ -37,6 +43,8 @@ export const PERMISSIONS = {
   usersCreate: 'admin.users.create',
   usersUpdate: 'admin.users.update',
   usersResetPassword: 'admin.users.reset_password',
+  usersImpersonate: 'admin.users.impersonate',
+  securityManage: 'admin.security.manage',
   ordersView: 'orders.orders.view',
   auditView: 'admin.audit.view',
 };

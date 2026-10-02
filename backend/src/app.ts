@@ -10,6 +10,7 @@ import { errorHandler, fail, handler } from './lib/http';
 import { accountRoutes } from './routes/account';
 import { adminCatalogRoutes } from './routes/adminCatalog';
 import { adminOrderRoutes } from './routes/adminOrders';
+import { adminSecurityRoutes } from './routes/adminSecurity';
 import { adminRoleRoutes } from './routes/adminRoles';
 import { adminUserRoutes } from './routes/adminUsers';
 import { authRoutes } from './routes/auth';
@@ -54,6 +55,7 @@ export const createApp = ({
   app.use('/api/admin', adminUserRoutes());
   app.use('/api/admin', adminRoleRoutes());
   app.use('/api/admin', adminOrderRoutes({ payments }));
+  app.use('/api/admin', adminSecurityRoutes());
 
   app.use(
     config.publicUploadsPath,

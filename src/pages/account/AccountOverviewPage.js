@@ -57,7 +57,7 @@ const ServiceLink = ({ item }) => (
       gap: 2,
       px: 3,
       py: 2.25,
-      borderRadius: 3,
+      borderRadius: 1,
       bgcolor: 'background.neutralDeep',
       color: 'text.primary',
       textDecoration: 'none',
@@ -137,7 +137,7 @@ const AccountOverviewPage = () => {
           >
             <Box
               sx={{
-                borderRadius: 6,
+                borderRadius: 1,
                 p: { xs: 3, md: 4 },
                 background: `linear-gradient(120deg, ${alpha(theme.palette.primary.main, 0.1)} 0%, ${alpha(
                   theme.palette.secondary.main,
@@ -281,7 +281,7 @@ const AccountOverviewPage = () => {
                 direction={{ xs: 'column', sm: 'row' }}
                 spacing={3}
                 alignItems={{ sm: 'center' }}
-                sx={{ bgcolor: 'background.neutral', borderRadius: 5, p: 3 }}
+                sx={{ bgcolor: 'background.neutral', borderRadius: 1, p: 3 }}
               >
                 <Box
                   component="img"
@@ -291,7 +291,7 @@ const AccountOverviewPage = () => {
                     width: 140,
                     height: 110,
                     objectFit: 'contain',
-                    borderRadius: 3,
+                    borderRadius: 1,
                     bgcolor: 'background.paper',
                   }}
                 />
@@ -380,7 +380,7 @@ const AccountOverviewPage = () => {
                       alignItems: 'center',
                       gap: 1.5,
                       py: 4,
-                      borderRadius: 5,
+                      borderRadius: 1,
                       bgcolor: 'background.neutral',
                       color: 'text.primary',
                       textDecoration: 'none',

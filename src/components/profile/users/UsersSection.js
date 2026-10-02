@@ -18,6 +18,8 @@ import {
   DialogTitle,
   IconButton,
   InputAdornment,
+  ListItemIcon,
+  Menu,
   MenuItem,
   Paper,
   Skeleton,
@@ -33,14 +35,28 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { FiEdit2, FiKey, FiPlus, FiRefreshCw, FiSearch } from 'react-icons/fi';
+import {
+  FiActivity,
+  FiEdit2,
+  FiEye,
+  FiKey,
+  FiLogOut,
+  FiMoreVertical,
+  FiPlus,
+  FiRefreshCw,
+  FiSearch,
+  FiUnlock,
+} from 'react-icons/fi';
+import { useNavigate } from 'react-router-dom';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import { AuthContext } from '../../../context/AuthContext';
 import { useNotify } from '../../../notification/NotificationProvider';
 import { MESSAGES } from '../../../notification/messages';
 import ConfirmationDialog from '../../common/ConfirmationDialog';
-import { adminUsers } from '../../../api';
+import { adminSecurity, adminUsers } from '../../../api';
+import UserActivityDialog from './UserActivityDialog';
+import { timeAgo } from '../../security/SecurityWidgets';
 import {
   hasPermission,
   PERMISSIONS,
@@ -214,8 +230,15 @@ const UsersSection = () => {
     adminCreateUser,
     adminSendPasswordReset,
     updateUser,
+    startImpersonation,
   } = useContext(AuthContext);
   const notify = useNotify();
+  const navigate = useNavigate();
+  const [menu, setMenu] = useState(null); // { anchor, user }
+  const [activityUser, setActivityUser] = useState(null);
+  const [actAs, setActAs] = useState(null);
+  const [signOutTarget, setSignOutTarget] = useState(null);
+  const [working, setWorking] = useState(false);
 
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState(FALLBACK_ROLES);
@@ -253,6 +276,56 @@ const UsersSection = () => {
   const canCreate = hasPermission(currentUser, PERMISSIONS.usersCreate);
   const canUpdate = hasPermission(currentUser, PERMISSIONS.usersUpdate);
   const canReset = hasPermission(currentUser, PERMISSIONS.usersResetPassword);
+  const canImpersonate = hasPermission(
+    currentUser,
+    PERMISSIONS.usersImpersonate
+  );
+  const staffRoles = new Set(
+    roles.filter((r) => r.is_staff).map((r) => r.code)
+  );
+  const isStaffRole = (code) =>
+    staffRoles.size ? staffRoles.has(code) : code !== 'customer';
+
+  const startActing = async () => {
+    setWorking(true);
+    try {
+      const customer = await startImpersonation(actAs.id);
+      notify.success(`You’re now viewing the shop as ${customer.name}.`);
+      navigate('/');
+    } catch (error) {
+      notify.error(error, 'We couldn’t start acting as that customer.');
+    } finally {
+      setWorking(false);
+      setActAs(null);
+    }
+  };
+
+  const unlock = async (u) => {
+    try {
+      await adminSecurity.unlock(u.id);
+      notify.success(`${u.email} can sign in again.`);
+      loadUsers();
+    } catch (error) {
+      notify.error(error, 'We couldn’t unlock that account.');
+    }
+  };
+
+  const signOutEverywhere = async () => {
+    setWorking(true);
+    try {
+      const n = await adminSecurity.signOutEverywhere(signOutTarget.id);
+      notify.success(
+        n
+          ? `${signOutTarget.email} was signed out of ${n} device${n === 1 ? '' : 's'}.`
+          : `${signOutTarget.email} wasn’t signed in anywhere.`
+      );
+      setSignOutTarget(null);
+    } catch (error) {
+      notify.error(error, 'We couldn’t sign that user out.');
+    } finally {
+      setWorking(false);
+    }
+  };
   // Only super admins may hand out (or see as an option) the super admin role.
   const assignableRoles = roles.filter(
     (r) => r.code !== 'super_admin' || currentUser?.role === 'super_admin'
@@ -266,12 +339,15 @@ const UsersSection = () => {
     const q = search.trim().toLowerCase();
     return users.filter(
       (u) =>
-        (roleFilter === 'all' || u.role === roleFilter) &&
+        (roleFilter === 'all' ||
+          u.role === roleFilter ||
+          (roleFilter === '__staff' && isStaffRole(u.role))) &&
         (!q ||
           (u.name || '').toLowerCase().includes(q) ||
           (u.email || '').toLowerCase().includes(q))
     );
-  }, [users, search, roleFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [users, search, roleFilter, roles]);
 
   const visible = filtered.slice(
     page * rowsPerPage,
@@ -346,7 +422,8 @@ const UsersSection = () => {
             Users
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Add people, change their role, or send them a password reset link.
+            Add people, change their role, unlock accounts, or help a customer
+            by viewing the shop as them.
           </Typography>
         </Box>
         <Stack direction="row" spacing={1}>
@@ -407,6 +484,7 @@ const UsersSection = () => {
           sx={{ minWidth: 160 }}
         >
           <MenuItem value="all">All roles</MenuItem>
+          <MenuItem value="__staff">Back office (any role)</MenuItem>
           {roles.map((role) => (
             <MenuItem key={role.code} value={role.code}>
               {role.name}
@@ -422,6 +500,7 @@ const UsersSection = () => {
               <TableRow>
                 <TableCell>User</TableCell>
                 <TableCell>Role</TableCell>
+                <TableCell>Last sign-in</TableCell>
                 <TableCell align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
@@ -429,7 +508,7 @@ const UsersSection = () => {
               {loading &&
                 Array.from({ length: 5 }).map((_, i) => (
                   <TableRow key={`s-${i}`}>
-                    <TableCell colSpan={3}>
+                    <TableCell colSpan={4}>
                       <Skeleton height={36} />
                     </TableCell>
                   </TableRow>
@@ -437,7 +516,7 @@ const UsersSection = () => {
 
               {!loading && visible.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={3} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
                     <Typography color="text.secondary">
                       {loadFailed
                         ? MESSAGES.users.loadFailed
@@ -485,15 +564,21 @@ const UsersSection = () => {
                         <Chip
                           size="small"
                           label={roleLabel(u.role)}
-                          color={u.role !== 'customer' ? 'primary' : 'default'}
-                          variant={
-                            u.role !== 'customer' ? 'filled' : 'outlined'
-                          }
+                          color={isStaffRole(u.role) ? 'primary' : 'default'}
+                          variant={isStaffRole(u.role) ? 'filled' : 'outlined'}
                         />
                         {u.status === 'suspended' && (
                           <Chip size="small" color="error" label="Suspended" />
                         )}
+                        {u.lockedUntil && (
+                          <Chip size="small" color="warning" label="Locked" />
+                        )}
                       </Stack>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" color="text.secondary">
+                        {u.lastLogin ? timeAgo(u.lastLogin) : 'Never'}
+                      </Typography>
                     </TableCell>
                     <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                       {canUpdate && (
@@ -521,6 +606,15 @@ const UsersSection = () => {
                           </IconButton>
                         </Tooltip>
                       )}
+                      <IconButton
+                        size="small"
+                        aria-label={`More actions for ${u.email}`}
+                        onClick={(e) =>
+                          setMenu({ anchor: e.currentTarget, user: u })
+                        }
+                      >
+                        <FiMoreVertical />
+                      </IconButton>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -570,6 +664,91 @@ const UsersSection = () => {
           setEditing(null);
         }}
         onSubmit={formMode === 'edit' ? handleEdit : handleCreate}
+      />
+
+      <Menu
+        anchorEl={menu?.anchor}
+        open={Boolean(menu)}
+        onClose={() => setMenu(null)}
+      >
+        {menu &&
+          canImpersonate &&
+          !isStaffRole(menu.user.role) &&
+          menu.user.status === 'active' && (
+            <MenuItem
+              onClick={() => {
+                setActAs(menu.user);
+                setMenu(null);
+              }}
+            >
+              <ListItemIcon>
+                <FiEye />
+              </ListItemIcon>
+              View as customer
+            </MenuItem>
+          )}
+        <MenuItem
+          onClick={() => {
+            setActivityUser(menu.user);
+            setMenu(null);
+          }}
+        >
+          <ListItemIcon>
+            <FiActivity />
+          </ListItemIcon>
+          Activity and sessions
+        </MenuItem>
+        {menu && canUpdate && menu.user.lockedUntil && (
+          <MenuItem
+            onClick={() => {
+              unlock(menu.user);
+              setMenu(null);
+            }}
+          >
+            <ListItemIcon>
+              <FiUnlock />
+            </ListItemIcon>
+            Unlock account
+          </MenuItem>
+        )}
+        {menu && canUpdate && menu.user.id !== currentUser?.id && (
+          <MenuItem
+            onClick={() => {
+              setSignOutTarget(menu.user);
+              setMenu(null);
+            }}
+          >
+            <ListItemIcon>
+              <FiLogOut />
+            </ListItemIcon>
+            Sign out everywhere
+          </MenuItem>
+        )}
+      </Menu>
+
+      <UserActivityDialog
+        user={activityUser}
+        onClose={() => setActivityUser(null)}
+      />
+
+      <ConfirmationDialog
+        open={Boolean(actAs)}
+        title={`View the shop as ${actAs?.name}?`}
+        content="You’ll see their cart, orders and account, and can place orders or request returns for them, for up to 30 minutes. They can’t change their password or post reviews through you. Everything you do is recorded under your name."
+        confirmText="View as customer"
+        loading={working}
+        onConfirm={startActing}
+        onCancel={() => setActAs(null)}
+      />
+
+      <ConfirmationDialog
+        open={Boolean(signOutTarget)}
+        title={`Sign ${signOutTarget?.email} out everywhere?`}
+        content="They’ll be signed out on every device straight away and will need to sign in again."
+        confirmText="Sign out"
+        loading={working}
+        onConfirm={signOutEverywhere}
+        onCancel={() => setSignOutTarget(null)}
       />
 
       <ConfirmationDialog

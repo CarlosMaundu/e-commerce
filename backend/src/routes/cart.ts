@@ -6,22 +6,15 @@ import { z } from 'zod';
 import { query } from '../db';
 import { fail, handler, ok, parse } from '../lib/http';
 import { computeTotals, couponProblem, findCoupon, loadCartLines } from '../lib/pricing';
-import { authenticate } from '../middleware/auth';
-import { PRODUCT_SELECT, ProductRow, toContractProduct } from './catalog';
+import { authenticate, customersOnly } from '../middleware/auth';
+import { hydrate, PRODUCT_SELECT, ProductRow, resolveItem } from '../lib/products';
 
+// Any of the product's attributes, e.g. { "Color": "Black", "Size": "L" };
+// checked against the product in resolveItem.
 const optionsSchema = z
-  .object({
-    size: z.string().trim().max(40).optional(),
-    color: z.string().trim().max(40).optional(),
-  })
-  .default({})
-  .transform((o) => {
-    // Normalised so the same choice always matches the same cart line.
-    const clean: Record<string, string> = {};
-    if (o.size) clean.size = o.size;
-    if (o.color) clean.color = o.color;
-    return clean;
-  });
+  .record(z.union([z.string().max(60), z.number()]))
+  .refine((o) => Object.keys(o).length <= 10, 'Too many options.')
+  .default({});
 
 const itemSchema = z.object({
   product_id: z.coerce.number().int().positive('Please choose a product.'),
@@ -49,32 +42,37 @@ export const buildCart = async (userId: number) => {
 };
 
 const addToCart = async (userId: number, item: z.infer<typeof itemSchema>, { merge = false } = {}) => {
-  const product = (await query('SELECT id, name, quantity FROM products WHERE id = $1', [item.product_id])).rows[0];
-  if (!product) fail(404, 'That product is no longer available.');
+  let resolved;
+  try {
+    resolved = await resolveItem(item.product_id, item.option);
+  } catch (error) {
+    if (merge) return; // skip guest-cart items that are gone or need a choice
+    throw error;
+  }
   const existing = (
     await query('SELECT quantity FROM cart_items WHERE user_id = $1 AND product_id = $2 AND options = $3::jsonb', [
-      userId, item.product_id, JSON.stringify(item.option),
+      userId, item.product_id, JSON.stringify(resolved.options),
     ])
   ).rows[0];
   const wanted = (existing?.quantity || 0) + item.quantity;
-  if (product.quantity <= 0) {
+  if (resolved.stock <= 0) {
     if (merge) return; // silently skip unavailable items when merging a guest cart
-    fail(409, `“${product.name}” is out of stock.`);
+    fail(409, `“${resolved.name}” is out of stock.`);
   }
-  const quantity = Math.min(wanted, product.quantity, 99);
-  if (!merge && wanted > product.quantity) {
-    fail(409, `Only ${product.quantity} of “${product.name}” left${existing ? `, and ${existing.quantity} ${existing.quantity === 1 ? 'is' : 'are'} already in your cart` : ''}.`);
+  const quantity = Math.min(wanted, resolved.stock, 99);
+  if (!merge && wanted > resolved.stock) {
+    fail(409, `Only ${resolved.stock} of “${resolved.name}” left${existing ? `, and ${existing.quantity} ${existing.quantity === 1 ? 'is' : 'are'} already in your cart` : ''}.`);
   }
   await query(
-    `INSERT INTO cart_items (user_id, product_id, quantity, options) VALUES ($1, $2, $3, $4::jsonb)
-     ON CONFLICT (user_id, product_id, options) DO UPDATE SET quantity = EXCLUDED.quantity`,
-    [userId, item.product_id, quantity, JSON.stringify(item.option)]
+    `INSERT INTO cart_items (user_id, product_id, variant_id, quantity, options) VALUES ($1, $2, $3, $4, $5::jsonb)
+     ON CONFLICT (user_id, product_id, options) DO UPDATE SET quantity = EXCLUDED.quantity, variant_id = EXCLUDED.variant_id`,
+    [userId, item.product_id, resolved.variantId, quantity, JSON.stringify(resolved.options)]
   );
 };
 
 export const cartRoutes = () => {
   const router = Router();
-  router.use(['/cart', '/cart_bulk', '/coupon', '/wishlist'], authenticate);
+  router.use(['/cart', '/cart_bulk', '/coupon', '/wishlist'], authenticate, customersOnly);
 
   router.get('/cart', handler(async (req, res) => ok(res, await buildCart(req.auth!.userId))));
 
@@ -105,15 +103,9 @@ export const cartRoutes = () => {
         }),
         req.body
       );
-      const line = (
-        await query(
-          `SELECT ci.id, p.quantity AS stock, p.name FROM cart_items ci JOIN products p ON p.id = ci.product_id
-           WHERE ci.id = $1 AND ci.user_id = $2`,
-          [b.key, req.auth!.userId]
-        )
-      ).rows[0];
+      const line = (await loadCartLines(req.auth!.userId)).find((l) => l.key === b.key);
       if (!line) fail(404, 'That item is no longer in your cart.');
-      if (b.quantity > line.stock) fail(409, `Only ${line.stock} of “${line.name}” left.`);
+      if (b.quantity > line!.stock) fail(409, `Only ${line!.stock} of “${line!.name}” left.`);
       await query('UPDATE cart_items SET quantity = $1 WHERE id = $2', [b.quantity, b.key]);
       ok(res, await buildCart(req.auth!.userId));
     })
@@ -174,7 +166,7 @@ export const cartRoutes = () => {
          WHERE w.user_id = $1 ORDER BY w.created_at DESC`,
         [req.auth!.userId]
       );
-      ok(res, rows.map(toContractProduct));
+      ok(res, await hydrate(rows));
     })
   );
 

@@ -13,7 +13,7 @@ const InformationPage = () => {
 
   return (
     <Container maxWidth="md" sx={{ py: { xs: 4, md: 8 } }}>
-      <Paper sx={{ p: { xs: 3, md: 5 }, borderRadius: 3 }}>
+      <Paper sx={{ p: { xs: 3, md: 5 }, borderRadius: 1 }}>
         <Typography variant="h4" component="h1" gutterBottom>
           {page.title}
         </Typography>

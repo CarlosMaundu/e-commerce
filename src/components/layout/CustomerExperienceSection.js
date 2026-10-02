@@ -44,7 +44,7 @@ const CustomerExperienceSection = () => {
   ];
 
   return (
-    <Box sx={{ p: 4, mb: 8 }}>
+    <Box component="section">
       <Box sx={{ maxWidth: { md: '1000px', xs: '300px' }, mx: 'auto' }}>
         {/* Top section: Heading and paragraphs */}
         <Grid container spacing={3}>

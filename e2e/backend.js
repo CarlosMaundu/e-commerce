@@ -23,6 +23,22 @@ const resetUsers = async () => {
     'TRUNCATE users, sessions, auth_tokens, audit_logs, newsletter_subscribers RESTART IDENTITY CASCADE'
   );
   await db().query('UPDATE coupons SET uses_count = 0');
+  // Catalog back to the demo seed: products added by tests (no SKU) go,
+  // and every variant has stock so option choices are predictable.
+  await db().query('DELETE FROM products WHERE sku IS NULL');
+  await db().query(
+    'DELETE FROM brands WHERE id NOT IN (SELECT brand_id FROM products WHERE brand_id IS NOT NULL)'
+  );
+  await db().query('UPDATE product_variants SET quantity = 20');
+  await db().query(
+    `UPDATE products p SET quantity = s.total FROM
+       (SELECT product_id, sum(quantity)::int AS total FROM product_variants GROUP BY product_id) s
+     WHERE s.product_id = p.id`
+  );
+  await db().query("UPDATE products SET status = 'published'");
+  await db().query(
+    "UPDATE security_settings SET settings = jsonb_set(settings, '{accounts,allow_registration}', 'true')"
+  );
   await db().query(
     "DELETE FROM roles WHERE code NOT IN ('super_admin', 'admin', 'catalog_manager', 'order_manager', 'support', 'customer')"
   );

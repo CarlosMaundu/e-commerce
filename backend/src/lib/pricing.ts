@@ -3,12 +3,14 @@
 import { config } from '../config';
 import { query } from '../db';
 import { fail } from './http';
+import { stockOf } from './products';
 
 export const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
 export interface CartLine {
   key: number;
   product_id: number;
+  variant_id: number | null;
   name: string;
   image: string;
   options: Record<string, string>;
@@ -67,28 +69,36 @@ type Db = { query: (text: string, params?: unknown[]) => Promise<{ rows: any[] }
 
 export const loadCartLines = async (userId: number, db: Db = { query: (t, p) => query(t, p) }): Promise<CartLine[]> => {
   const { rows } = await db.query(
-    `SELECT ci.id AS key, ci.product_id, ci.quantity, ci.options,
-            p.name, p.images, p.price, p.special, p.quantity AS stock
-     FROM cart_items ci JOIN products p ON p.id = ci.product_id
+    `SELECT ci.id AS key, ci.product_id, ci.variant_id, ci.quantity, ci.options,
+            p.name, p.images, p.price, p.special, p.quantity AS product_stock, p.track_inventory,
+            v.price AS v_price, v.special AS v_special, v.quantity AS v_stock, v.images AS v_images
+     FROM cart_items ci
+     JOIN products p ON p.id = ci.product_id
+     LEFT JOIN product_variants v ON v.id = ci.variant_id
      WHERE ci.user_id = $1 ORDER BY ci.id`,
     [userId]
   );
   return rows.map((r: any) => {
-    const price = Number(r.price);
-    const special = r.special === null ? null : Number(r.special);
+    // A variant with its own price uses its own sale price too.
+    const own = r.v_price !== null && r.v_price !== undefined;
+    const price = Number(own ? r.v_price : r.price);
+    const rawSpecial = own ? r.v_special : r.special;
+    const special = rawSpecial === null || rawSpecial === undefined ? null : Number(rawSpecial);
     const unit = special ?? price;
+    const stock = r.variant_id ? r.v_stock : r.product_stock;
     return {
       key: r.key,
       product_id: r.product_id,
+      variant_id: r.variant_id,
       name: r.name,
-      image: r.images[0] || '',
+      image: (r.v_images && r.v_images[0]) || r.images[0] || '',
       options: r.options,
       quantity: r.quantity,
       price,
       special,
       unit_price: unit,
       total: round2(unit * r.quantity),
-      stock: r.stock,
+      stock: stockOf(r.track_inventory, stock),
     };
   });
 };

@@ -19,9 +19,11 @@ export const formatDate = (value, options = {}) =>
 export const formatDateTime = (value) =>
   formatDate(value, { hour: 'numeric', minute: '2-digit' });
 
+/** "Color: Black · Size: M" for a cart or order line's chosen options. */
 export const optionText = (options = {}) =>
-  [options.size && `Size ${options.size}`, options.color]
-    .filter(Boolean)
+  Object.entries(options || {})
+    .filter(([, v]) => v)
+    .map(([k, v]) => `${k.charAt(0).toUpperCase()}${k.slice(1)}: ${v}`)
     .join(' · ');
 
 export const percentChange = (current, previous) => {

@@ -1,27 +1,30 @@
-// src/pages/HomePage.js
-
+// src/pages/HomePage.js — Aurora-style home: hero, brands, getting started,
+// curated categories, this week's most viewed, featured products and offers.
+// The newsletter lives in the footer.
 import React from 'react';
+import { Container, Stack } from '@mui/material';
 import HeroSection from '../components/layout/HeroSection';
-import BrandsSection from '../components/layout/BrandsSection';
 import CustomerExperienceSection from '../components/layout/CustomerExperienceSection';
-import CuratedPicksSection from '../components/layout/CuratedPicksSection';
-import FeaturedProductsSection from '../components/layout/FeaturedProductsSection';
-import PromotionalOfferSection from '../components/layout/PromotionalOfferSection';
-import NewsletterSection from '../components/layout/NewsletterSection';
-import '../styles/homePage.css';
+import {
+  BestViewed,
+  BrandsStrip,
+  CuratedPicks,
+  FeaturedGrid,
+} from '../components/home/HomeSections';
+import { PromoBanner } from '../components/promotions/Promotions';
 
-const HomePage = () => {
-  return (
-    <main>
-      <HeroSection />
-      <BrandsSection />
+const HomePage = () => (
+  <Container maxWidth="xl" sx={{ pb: { xs: 6, md: 9 } }}>
+    <HeroSection />
+    <Stack spacing={{ xs: 6, md: 9 }} sx={{ mt: { xs: 5, md: 7 } }}>
+      <BrandsStrip />
       <CustomerExperienceSection />
-      <CuratedPicksSection />
-      <FeaturedProductsSection />
-      <PromotionalOfferSection />
-      <NewsletterSection />
-    </main>
-  );
-};
+      <CuratedPicks />
+      <BestViewed />
+      <FeaturedGrid />
+      <PromoBanner />
+    </Stack>
+  </Container>
+);
 
 export default HomePage;

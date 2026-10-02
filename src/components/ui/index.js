@@ -59,7 +59,7 @@ export const SectionCard = ({
       bgcolor: tinted ? 'background.neutral' : 'background.paper',
       border: tinted ? 'none' : 1,
       borderColor: 'divider',
-      borderRadius: 4,
+      borderRadius: 1,
       p: { xs: 2.5, md: 3 },
       ...sx,
     }}
@@ -116,7 +116,7 @@ export const StatTile = ({
       onKeyDown={onClick ? (e) => e.key === 'Enter' && onClick() : undefined}
       sx={{
         bgcolor: 'background.neutral',
-        borderRadius: 4,
+        borderRadius: 1,
         p: 2.5,
         cursor: onClick ? 'pointer' : 'default',
         transition: 'background-color .15s',

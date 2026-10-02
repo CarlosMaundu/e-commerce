@@ -329,7 +329,7 @@ const ManageCategoryTab = ({
       <Grid container spacing={3}>
         {/* LEFT COLUMN: Category Form */}
         <Grid item xs={12} md={5}>
-          <Card sx={{ p: 2, boxShadow: 1, borderRadius: 2 }}>
+          <Card sx={{ p: 2, boxShadow: 1, borderRadius: 1 }}>
             <CardContent>
               <Typography variant="h5" sx={{ mb: 2 }}>
                 {isEditMode ? 'Edit Category' : 'Add Category'}
@@ -557,7 +557,7 @@ const ManageCategoryTab = ({
 
         {/* RIGHT COLUMN: Categories List */}
         <Grid item xs={12} md={7}>
-          <Card sx={{ p: 2, boxShadow: 1, borderRadius: 2 }}>
+          <Card sx={{ p: 2, boxShadow: 1, borderRadius: 1 }}>
             <Box sx={{ mb: 2 }}>
               <Box
                 sx={{

@@ -14,6 +14,9 @@ export interface AuthContext {
   sessionId: string;
   user: UserRow;
   permissions: string[];
+  /** Set when a staff member is acting as this customer. */
+  impersonatorId: number | null;
+  parentSessionId: string | null;
 }
 
 declare global {
@@ -36,7 +39,8 @@ const resolve = async (req: Request): Promise<AuthContext | null> => {
   }
   const session = (
     await query(
-      'SELECT id FROM sessions WHERE id = $1 AND revoked_at IS NULL AND expires_at > now()',
+      `SELECT id, impersonator_id, parent_session_id FROM sessions
+       WHERE id = $1 AND revoked_at IS NULL AND expires_at > now()`,
       [claims.sid]
     )
   ).rows[0];
@@ -52,6 +56,8 @@ const resolve = async (req: Request): Promise<AuthContext | null> => {
     sessionId: claims.sid,
     user,
     permissions: await permissionsForRole(user.role_id),
+    impersonatorId: session.impersonator_id ?? null,
+    parentSessionId: session.parent_session_id ?? null,
   };
 };
 
@@ -79,6 +85,36 @@ export const requirePermission =
   (permission: string) => (req: Request, _res: Response, next: NextFunction) => {
     if (!req.auth) return next(new HttpError(401, ['Please sign in to continue.']));
     if (!hasPermission(req.auth.permissions, permission)) {
+      return next(new HttpError(403, ['You don’t have permission to do that.']));
+    }
+    next();
+  };
+
+/**
+ * Shopping is for customers. Back-office accounts (any permission) are turned
+ * away unless a staff member is acting as a customer.
+ */
+export const customersOnly = (req: Request, _res: Response, next: NextFunction) => {
+  if (!req.auth) return next(new HttpError(401, ['Please sign in to continue.']));
+  if (req.auth.permissions.length && !req.auth.impersonatorId) {
+    return next(new HttpError(403, [
+      'Back-office accounts can’t shop. To help a customer, open them in Users and choose “View as customer”.',
+    ]));
+  }
+  next();
+};
+
+/** Some things only the real account holder may do. */
+export const notWhileImpersonating = (message: string) => (req: Request, _res: Response, next: NextFunction) => {
+  if (req.auth?.impersonatorId) return next(new HttpError(403, [message]));
+  next();
+};
+
+/** Passes when the user has at least one of the permissions. */
+export const requireAnyPermission =
+  (...permissions: string[]) => (req: Request, _res: Response, next: NextFunction) => {
+    if (!req.auth) return next(new HttpError(401, ['Please sign in to continue.']));
+    if (!permissions.some((p) => hasPermission(req.auth!.permissions, p))) {
       return next(new HttpError(403, ['You don’t have permission to do that.']));
     }
     next();

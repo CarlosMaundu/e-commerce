@@ -31,6 +31,24 @@ export const categoryToApi = ({ name, image, subcategories } = {}) => {
 
 // ---------- Products ----------
 
+const variantFromApi = (v, product) => {
+  const price = toNumber(v.price) ?? product.price;
+  const special = toNumber(v.special);
+  const onSale = special !== null && special < price;
+  return {
+    id: v.variant_id,
+    options: v.options || {},
+    sku: v.sku || '',
+    price,
+    specialPrice: onSale ? special : null,
+    unitPrice: onSale ? special : price,
+    ownPrice: Boolean(v.own_price),
+    quantity: toNumber(v.quantity) ?? 0,
+    inStock: v.in_stock !== false,
+    images: v.images || [],
+  };
+};
+
 export const productFromApi = (p) => {
   if (!p) return p;
   const price = toNumber(p.price) ?? 0;
@@ -41,6 +59,11 @@ export const productFromApi = (p) => {
   );
   const firstCategory = Array.isArray(p.category) ? p.category[0] : p.category;
   const quantity = toNumber(p.quantity);
+  const base = { price };
+  const variants = (p.variants || []).map((v) => variantFromApi(v, base));
+  const unitPrices = variants.length
+    ? variants.map((v) => v.unitPrice)
+    : [onSale ? special : price];
 
   return {
     id: p.product_id,
@@ -51,6 +74,9 @@ export const productFromApi = (p) => {
     discountPercentage: onSale
       ? Math.round(((price - special) / price) * 100)
       : 0,
+    // Lowest and highest price a shopper can pay (variants may differ).
+    minPrice: Math.min(...unitPrices),
+    maxPrice: Math.max(...unitPrices),
     images,
     category: firstCategory
       ? {
@@ -59,58 +85,153 @@ export const productFromApi = (p) => {
           image: firstCategory.image || '',
         }
       : null,
+    brand: p.brand
+      ? { id: p.brand.brand_id, name: p.brand.name, logo: p.brand.logo || '' }
+      : null,
+    sku: p.sku || '',
+    status: p.status || 'published',
+    featured: Boolean(p.featured),
+    tags: p.tags || [],
+    attributes: p.attributes || [],
+    variants,
+    hasOptions: (p.attributes || []).length > 0,
     quantity,
-    inStock: quantity === null ? true : quantity > 0,
+    trackInventory: p.track_inventory !== false,
+    lowStockThreshold: toNumber(p.low_stock_threshold) ?? 5,
+    inStock: p.in_stock !== undefined ? p.in_stock : (quantity ?? 1) > 0,
+    lowStock: Boolean(p.low_stock),
     rating: toNumber(p.rating) ?? 0,
     reviewCount: toNumber(p.reviews) ?? 0,
-    brand: p.manufacturer || '',
-    sizes: p.options?.sizes || [],
-    colors: p.options?.colors || [],
     creationAt: p.date_added,
     updatedAt: p.date_modified,
   };
 };
 
+const money = (v) =>
+  v === '' || v === null || v === undefined ? null : Number(v);
+
+/** Admin product form → contract (every field is sent; the form is complete). */
+export const productToApi = (f) => ({
+  name: f.title.trim(),
+  description: f.description || '',
+  price: Number(f.price),
+  special: money(f.specialPrice),
+  quantity: Number(f.quantity) || 0,
+  category_id: f.categoryId || null,
+  brand_id: f.brandId || null,
+  images: f.images || [],
+  sku: f.sku?.trim() || null,
+  status: f.status || 'published',
+  featured: Boolean(f.featured),
+  tags: f.tags || [],
+  attributes: (f.attributes || [])
+    .filter((a) => a.name.trim() && a.values.length)
+    .map((a) => ({ name: a.name.trim(), values: a.values })),
+  variants: (f.variants || []).map((v) => ({
+    options: v.options,
+    sku: v.sku?.trim() || null,
+    price: money(v.price),
+    special: money(v.specialPrice),
+    quantity: Number(v.quantity) || 0,
+    images: v.images || [],
+  })),
+  track_inventory: f.trackInventory !== false,
+  low_stock_threshold: Number(f.lowStockThreshold) || 0,
+});
+
 /**
- * Admin product form → contract. Accepts the ManageProductTab form shape
- * ({ title, price, stock, discount, categoryId, images, sizes, colors, ... }).
+ * Domain list filters → query string. Filters:
+ * { search, categoryId, brandIds[], priceMin, priceMax, rating, inStock,
+ *   onSale, featured, tag, attrs: { Color: ['Black'] }, sort, page, limit,
+ *   status, stock } (status/stock are admin-only).
  */
-export const productToApi = (input = {}) => {
-  const body = {};
-  if (input.title !== undefined) body.name = input.title.trim();
-  if (input.description !== undefined) body.description = input.description;
-  if (input.price !== undefined) body.price = Number(input.price);
-  if (input.stock !== undefined) body.quantity = Number(input.stock);
-  if (input.categoryId !== undefined) {
-    body.category_id = input.categoryId === '' ? null : input.categoryId;
+export const productQueryToApi = (f = {}) => {
+  const q = {};
+  if (f.search) q.search = f.search;
+  if (f.categoryId) q.category = f.categoryId;
+  if (f.brandIds?.length) q.brand = f.brandIds.join(',');
+  if (f.priceMin !== undefined && f.priceMin !== '') q.price_min = f.priceMin;
+  if (f.priceMax !== undefined && f.priceMax !== '') q.price_max = f.priceMax;
+  if (f.rating) q.rating = f.rating;
+  if (f.inStock) q.in_stock = 1;
+  if (f.onSale) q.on_sale = 1;
+  if (f.featured) q.featured = 1;
+  if (f.tag) q.tag = f.tag;
+  Object.entries(f.attrs || {}).forEach(([name, values]) => {
+    if (values?.length) q[`attr[${name}]`] = values.join(',');
+  });
+  if (f.sort) q.sort = f.sort;
+  if (f.status) q.status = f.status;
+  if (f.stock) q.stock = f.stock;
+  if (f.limit) {
+    q.limit = f.limit;
+    q.page = f.page || 1;
   }
-  if (input.images !== undefined) body.images = input.images;
-  if (input.discount !== undefined && body.price !== undefined) {
-    const discount = Number(input.discount) || 0;
-    body.special =
-      discount > 0
-        ? Math.round(body.price * (1 - discount / 100) * 100) / 100
-        : null;
-  }
-  if (input.sizes !== undefined || input.colors !== undefined) {
-    body.options = { sizes: input.sizes || [], colors: input.colors || [] };
-  }
-  return body;
+  return q;
 };
 
-/** Domain list filters → OpenCart list query (page is 1-based). */
-export const productQueryToApi = (filters = {}) => {
-  const query = {};
-  if (filters.search) query.search = filters.search;
-  if (filters.categoryId) query.category = filters.categoryId;
-  if (filters.price_min) query.price_min = filters.price_min;
-  if (filters.price_max) query.price_max = filters.price_max;
-  if (filters.limit !== undefined) {
-    query.limit = filters.limit;
-    query.page = Math.floor((filters.offset || 0) / filters.limit) + 1;
-  }
-  return query;
-};
+export const brandFromApi = (b) => ({
+  id: b.brand_id ?? b.manufacturer_id,
+  name: b.name,
+  logo: b.logo ?? b.image ?? '',
+  productCount: b.product_count ?? b.count ?? 0,
+});
+
+export const reviewFromApi = (r) => ({
+  id: r.review_id,
+  author: r.author,
+  rating: r.rating,
+  title: r.title || '',
+  text: r.text,
+  verified: Boolean(r.verified),
+  createdAt: r.date_added,
+});
+
+export const promotionFromApi = (p) => ({
+  id: p.promotion_id,
+  title: p.title,
+  subtitle: p.subtitle || '',
+  code: p.code || null,
+  link: p.link || '/products',
+  endsAt: p.ends_at,
+  daily: Boolean(p.daily),
+});
+
+export const sessionFromApi = (s) => ({
+  id: s.session_id,
+  device: s.device,
+  browser: s.browser,
+  os: s.os || '',
+  ip: s.ip_address,
+  createdAt: s.created_at,
+  lastActive: s.last_active,
+  expiresAt: s.expires_at,
+  current: Boolean(s.current),
+  impersonatedBy: s.impersonated_by || null,
+  staff: s.staff,
+  user: s.user
+    ? {
+        id: s.user.customer_id,
+        name: s.user.name,
+        email: s.user.email,
+        role: s.user.role,
+      }
+    : null,
+});
+
+export const activityFromApi = (a) => ({
+  id: a.activity_id,
+  action: a.action,
+  description: a.description,
+  target: a.target,
+  details: a.details || {},
+  ip: a.ip_address,
+  createdAt: a.date_added,
+  user: a.user
+    ? { id: a.user.customer_id, name: a.user.name, email: a.user.email }
+    : null,
+  impersonatedBy: a.impersonated_by || null,
+});
 
 // ---------- Users / account ----------
 
@@ -129,6 +250,15 @@ export const userFromApi = (u) =>
     avatar: u.avatar || '',
     status: u.status || 'active',
     hasPassword: u.has_password !== false,
+    lockedUntil: u.locked_until || null,
+    lastLogin: u.last_login || null,
+    impersonator: u.impersonator
+      ? {
+          id: u.impersonator.customer_id,
+          name: u.impersonator.name,
+          email: u.impersonator.email,
+        }
+      : null,
     creationAt: u.date_added,
   };
 
@@ -169,10 +299,7 @@ export const cartFromApi = (c) => ({
 export const cartItemToApi = ({ productId, quantity, options = {} }) => ({
   product_id: productId,
   quantity,
-  option: {
-    ...(options.size ? { size: options.size } : {}),
-    ...(options.color ? { color: options.color } : {}),
-  },
+  option: options,
 });
 
 // ---------- Addresses ----------

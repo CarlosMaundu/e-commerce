@@ -57,7 +57,7 @@ const Choice = ({ selected, onSelect, title, description, aside, testId }) => {
         alignItems: 'flex-start',
         gap: 1.5,
         p: 2,
-        borderRadius: 3,
+        borderRadius: 1,
         cursor: 'pointer',
         border: 1.5,
         borderColor: selected ? 'primary.main' : 'divider',
@@ -434,7 +434,7 @@ const CheckoutPage = () => {
                           width: 56,
                           height: 56,
                           objectFit: 'contain',
-                          borderRadius: 2,
+                          borderRadius: 1,
                           bgcolor: 'background.neutral',
                         }}
                       />

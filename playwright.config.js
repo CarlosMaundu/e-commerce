@@ -30,7 +30,9 @@ module.exports = defineConfig({
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: [
     {
-      command: 'npx tsx src/server.ts',
+      // Fresh demo catalog every run, so stock and products are predictable.
+      command:
+        'npx tsx src/migrate.ts && npx tsx src/demoCatalog.ts --replace && npx tsx src/server.ts',
       cwd: './backend',
       url: `http://localhost:${API_PORT}/api/health`,
       reuseExistingServer: false,
