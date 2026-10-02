@@ -57,7 +57,6 @@ const tableCellStyle = {
 };
 
 const uploadLabelStyle = {
-  fontFamily: 'Roboto, Arial, sans-serif',
   fontSize: '0.875rem',
   color: '#6c757d',
   backgroundColor: '#fff',

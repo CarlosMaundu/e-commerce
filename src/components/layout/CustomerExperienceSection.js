@@ -44,7 +44,7 @@ const CustomerExperienceSection = () => {
   ];
 
   return (
-    <Box sx={{ fontFamily: 'sans-serif', p: 4, mb: 8 }}>
+    <Box sx={{ p: 4, mb: 8 }}>
       <Box sx={{ maxWidth: { md: '1000px', xs: '300px' }, mx: 'auto' }}>
         {/* Top section: Heading and paragraphs */}
         <Grid container spacing={3}>

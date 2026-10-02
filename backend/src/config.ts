@@ -39,6 +39,17 @@ export const config = {
   },
   resetTokenMinutes: Number(env('RESET_TOKEN_MINUTES', '30')),
   setupTokenHours: Number(env('SETUP_TOKEN_HOURS', '72')),
+  shop: {
+    currency: env('CURRENCY', 'USD'),
+    taxRate: Number(env('TAX_RATE', '0.08')),
+    freeShippingOver: Number(env('FREE_SHIPPING_OVER', '150')),
+    standardShipping: Number(env('STANDARD_SHIPPING', '10')),
+    expressShipping: Number(env('EXPRESS_SHIPPING', '25')),
+  },
+  stripe: {
+    secretKey: process.env.STRIPE_SECRET_KEY || '',
+    publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || '',
+  },
   seed: {
     adminEmail: process.env.ADMIN_EMAIL || '',
     adminPassword: process.env.ADMIN_PASSWORD || '',

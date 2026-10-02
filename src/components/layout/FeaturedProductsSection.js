@@ -48,7 +48,6 @@ const FeaturedProductsSection = () => {
         px: 2,
         mt: 4,
         mb: 8, // Added margin-bottom for space between sections
-        fontFamily: 'Arial, sans-serif',
         textAlign: 'center',
       }}
     >

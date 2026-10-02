@@ -5,3 +5,6 @@ process.env.JWT_SECRET = 'test-secret-not-for-production';
 process.env.UPLOADS_DIR = require('path').join(__dirname, '..', 'uploads-test');
 process.env.SEED_SAMPLE_CATALOG = 'true';
 process.env.FRONTEND_URL = 'http://shop.test';
+// Offers card payments; the gateway itself is a fake (tests/helpers.ts).
+process.env.STRIPE_SECRET_KEY = 'sk_test_fake';
+process.env.STRIPE_PUBLISHABLE_KEY = 'pk_test_fake';

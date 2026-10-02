@@ -26,3 +26,24 @@ export const sendAccountSetupEmail = (to: string, name: string, link: string) =>
     'Your Carlos Shop account is ready',
     `Hi ${name || 'there'},\n\nAn account was created for you at Carlos Shop. Choose your password here (the link expires in ${config.setupTokenHours} hours):\n${link}`
   );
+
+const orderLines = (items: { name: string; quantity: number; total: number }[]) =>
+  items.map((i) => `- ${i.quantity} × ${i.name}: ${i.total.toFixed(2)}`).join('\n');
+
+export const sendOrderConfirmationEmail = (
+  to: string,
+  order: { id: number; total: number; currency: string; items: { name: string; quantity: number; total: number }[] },
+  link: string
+) =>
+  send(
+    to,
+    `Your Carlos Shop order #${order.id}`,
+    `Thank you for your order.\n\n${orderLines(order.items)}\n\nTotal: ${order.total.toFixed(2)} ${order.currency}\n\nTrack it here: ${link}`
+  );
+
+export const sendOrderStatusEmail = (to: string, orderId: number, statusLabel: string, comment: string, link: string) =>
+  send(
+    to,
+    `Order #${orderId} is now ${statusLabel.toLowerCase()}`,
+    `Your order #${orderId} is now ${statusLabel.toLowerCase()}.${comment ? `\n\n${comment}` : ''}\n\nDetails: ${link}`
+  );

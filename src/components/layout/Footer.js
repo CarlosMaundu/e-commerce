@@ -98,7 +98,6 @@ const Footer = () => {
         pt: '24px',
         pb: '24px',
         px: '24px',
-        fontFamily: 'sans-serif',
         overflow: 'hidden',
       }}
     >

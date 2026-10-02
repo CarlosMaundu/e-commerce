@@ -9,23 +9,44 @@ import { runSeed } from '../src/seed';
 export const sentEmails: { to: string; link: string; kind: string }[] = [];
 
 export const googleIdentities: Record<string, GoogleIdentity> = {};
+
+// Fake Stripe: tests set the status a PaymentIntent will report.
+export const fakePayments = {
+  intents: new Map<string, { status: string; amountCents: number; orderId: number }>(),
+  refunds: [] as string[],
+  async createIntent({ amountCents, orderId }: { amountCents: number; orderId: number }) {
+    const id = `pi_${orderId}_${amountCents}`;
+    fakePayments.intents.set(id, { status: 'requires_payment_method', amountCents, orderId });
+    return { id, clientSecret: `${id}_secret` };
+  },
+  async getStatus(id: string) {
+    return fakePayments.intents.get(id)?.status || 'failed';
+  },
+  async refund(id: string) {
+    fakePayments.refunds.push(id);
+  },
+};
 export const app = createApp({
   verifyGoogle: async (idToken) => {
     const identity = googleIdentities[idToken];
     if (!identity) throw new Error('bad token');
     return identity;
   },
+  payments: fakePayments,
 });
 
 export const PASSWORD = 'Str0ng!Pass1';
 
 export const resetDatabase = async () => {
   await query(
-    `TRUNCATE audit_logs, auth_tokens, sessions, users, products, categories,
+    `TRUNCATE audit_logs, auth_tokens, sessions, users, products, categories, coupons, orders,
+       order_items, order_history, returns, cart_items, checkout_state, wishlist_items, addresses,
        newsletter_subscribers, role_permissions, roles, permissions RESTART IDENTITY CASCADE`
   );
   await runSeed();
   sentEmails.length = 0;
+  fakePayments.intents.clear();
+  fakePayments.refunds.length = 0;
 };
 
 export const createUser = async (email: string, role = 'customer', password: string | null = PASSWORD) => {

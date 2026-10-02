@@ -92,7 +92,6 @@ const ProductDetailsPage = () => {
           width: '70vw',
           ml: 0,
           overflowX: 'hidden',
-          fontFamily: 'sans-serif',
           p: { xs: 1, md: 4 },
         }}
       >
@@ -291,7 +290,6 @@ const ProductDetailsPage = () => {
         width: '70vw',
         ml: 0,
         overflowX: 'hidden',
-        fontFamily: 'sans-serif',
         p: { xs: 1, md: 2 },
       }}
     >

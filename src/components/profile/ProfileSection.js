@@ -157,7 +157,6 @@ function MuiPhone({ value, onChange, label }) {
 
 //Styling for Upload UI
 const uploadBlockStyle = {
-  fontFamily: 'Roboto, Arial, sans-serif',
   fontSize: '0.8rem',
   color: '#6c757d',
   backgroundColor: '#fff',

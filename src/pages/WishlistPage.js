@@ -29,7 +29,6 @@ const WishlistPage = () => {
   return (
     <Box
       sx={{
-        fontFamily: 'Roboto, sans-serif',
         backgroundColor: '#f9fafb', // Tailwind's bg-gray-50 equivalent
         px: 4,
         py: 8,

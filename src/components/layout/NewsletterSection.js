@@ -37,7 +37,6 @@ const NewsletterSection = () => {
     <Box
       component="section"
       sx={{
-        fontFamily: 'sans-serif',
         px: { xs: 2, md: 6 },
         py: { xs: 8, md: 16 },
         background: 'linear-gradient(to top, #e5e7eb, #f9fafb, #f9fafb)',

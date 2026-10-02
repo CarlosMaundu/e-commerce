@@ -140,8 +140,22 @@ const seedSampleCatalog = async () => {
   console.log('Seeded sample catalog');
 };
 
+// Sample promo codes, only when sample data is on and no coupons exist yet.
+const seedSampleCoupons = async () => {
+  if (!config.seed.sampleCatalog) return;
+  if ((await query('SELECT 1 FROM coupons LIMIT 1')).rows[0]) return;
+  await query(
+    `INSERT INTO coupons (code, description, type, value, min_total) VALUES
+       ('WELCOME10', '10% off your order', 'percent', 10, 0),
+       ('FRIDAY35', '35% off orders over $50', 'percent', 35, 50),
+       ('SAVE5', '$5 off any order', 'fixed', 5, 0)`
+  );
+  console.log('Seeded sample promo codes');
+};
+
 export const runSeed = async () => {
   await seedRoles();
   await seedSuperAdmin();
   await seedSampleCatalog();
+  await seedSampleCoupons();
 };

@@ -37,8 +37,13 @@ export const parse = <S extends ZodTypeAny>(schema: S, input: unknown): z.output
       const messages: string[] = [];
       for (const issue of error.issues) {
         const field = issue.path.join('.');
-        if (!fieldErrors[field]) fieldErrors[field] = issue.message;
-        if (!messages.includes(issue.message)) messages.push(issue.message);
+        // zod's default "Required" isn't a sentence a shopper can act on.
+        const message =
+          issue.message === 'Required'
+            ? `Please fill in the ${String(issue.path[issue.path.length - 1] || 'form').replace(/_/g, ' ')}.`
+            : issue.message;
+        if (!fieldErrors[field]) fieldErrors[field] = message;
+        if (!messages.includes(message)) messages.push(message);
       }
       throw new HttpError(400, messages, fieldErrors);
     }

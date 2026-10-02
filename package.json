@@ -5,7 +5,7 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
-    "test": "react-scripts test --watchAll=false --no-deprecation",
+    "test": "react-scripts test --watchAll=false --no-deprecation --no-watchman",
     "eject": "react-scripts eject",
     "prepare": "husky install",
     "test:e2e": "playwright test",

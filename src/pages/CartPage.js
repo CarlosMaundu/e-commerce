@@ -80,7 +80,6 @@ const CartPage = () => {
   return (
     <Box
       sx={{
-        fontFamily: 'sans-serif',
         p: { xs: 2, lg: 4 },
         backgroundColor: '#f5f5f5',
       }}

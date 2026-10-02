@@ -1,0 +1,186 @@
+// src/routes/adminOrders.ts — order management, returns and dashboard figures.
+import { Router } from 'express';
+import { z } from 'zod';
+import { query, transaction } from '../db';
+import { audit } from '../lib/audit';
+import { fail, handler, ok, parse } from '../lib/http';
+import { sendOrderStatusEmail } from '../lib/mailer';
+import { addHistory, loadOrder, NEXT_STATUSES, orderLink, restock, statusName, toContractOrder } from '../lib/orders';
+import { PaymentGateway } from '../lib/payments';
+import { round2 } from '../lib/pricing';
+import { authenticate, requirePermission } from '../middleware/auth';
+import { RETURN_SELECT, toContractReturn } from './orders';
+
+export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null }) => {
+  const router = Router();
+  router.use(['/orders', '/orderhistory', '/returns', '/dashboard'], authenticate);
+
+  router.get('/orders', requirePermission('orders.orders.view'), handler(async (req, res) => {
+    const q = parse(
+      z.object({
+        status: z.string().optional(),
+        search: z.string().trim().max(100).optional(),
+        limit: z.coerce.number().int().min(1).max(100).default(20),
+        page: z.coerce.number().int().min(1).default(1),
+      }),
+      req.query
+    );
+    const params: unknown[] = [];
+    const where = ['o.placed_at IS NOT NULL'];
+    if (q.status) {
+      params.push(q.status.split(','));
+      where.push(`o.status = ANY($${params.length}::text[])`);
+    }
+    if (q.search) {
+      params.push(`%${q.search}%`);
+      where.push(`(o.email ILIKE $${params.length} OR o.id::text = $${params.length + 1}
+        OR (u.firstname || ' ' || u.lastname) ILIKE $${params.length})`);
+      params.push(q.search.replace(/^#/, ''));
+    }
+    const whereSql = `WHERE ${where.join(' AND ')}`;
+    const base = 'FROM orders o LEFT JOIN users u ON u.id = o.user_id';
+    const total = (await query(`SELECT count(*)::int AS n ${base} ${whereSql}`, params)).rows[0].n;
+    params.push(q.limit, (q.page - 1) * q.limit);
+    const { rows } = await query(
+      `SELECT o.*, TRIM(COALESCE(u.firstname, '') || ' ' || COALESCE(u.lastname, '')) AS customer_name,
+         (SELECT COALESCE(sum(quantity), 0)::int FROM order_items WHERE order_id = o.id) AS item_count
+       ${base} ${whereSql} ORDER BY o.placed_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
+      params
+    );
+    res.set('X-Total-Count', String(total));
+    ok(res, rows.map((o) => toContractOrder(o, [], [], { admin: true })));
+  }));
+
+  router.get('/orders/:id', requirePermission('orders.orders.view'), handler(async (req, res) => {
+    const loaded = await loadOrder(Number(req.params.id), { admin: true });
+    if (!loaded || !loaded.order.placed_at) fail(404, 'Order not found.');
+    ok(res, loaded!.contract);
+  }));
+
+  // OpenCart: PUT /orderhistory/{id} { order_status, notify, comment }
+  router.put('/orderhistory/:id', requirePermission('orders.orders.update'), handler(async (req, res) => {
+    const b = parse(
+      z.object({
+        order_status: z.string().min(1, 'Please choose a status.'),
+        notify: z.coerce.boolean().default(false),
+        comment: z.string().trim().max(2000).default(''),
+      }),
+      req.body
+    );
+    const loaded = await loadOrder(Number(req.params.id), { admin: true });
+    if (!loaded || !loaded.order.placed_at) fail(404, 'Order not found.');
+    const order = loaded!.order;
+    if (b.order_status !== order.status && !(NEXT_STATUSES[order.status] || []).includes(b.order_status)) {
+      fail(400, `An order that is ${statusName(order.status).toLowerCase()} can’t be moved to ${statusName(b.order_status).toLowerCase()}.`);
+    }
+    const changing = b.order_status !== order.status;
+    if (!changing && !b.comment) fail(400, 'Choose a new status or add a comment.');
+
+    if (changing && b.order_status === 'refunded' && order.payment_status === 'paid' && order.payment_method === 'stripe') {
+      if (!payments) fail(503, 'Card refunds aren’t available right now.');
+      await payments!.refund(order.payment_reference);
+    }
+
+    await transaction(async (db) => {
+      if (changing) {
+        const paymentStatus =
+          b.order_status === 'refunded' ? 'refunded'
+            : b.order_status === 'delivered' && order.payment_method === 'cod' ? 'paid'
+              : order.payment_status;
+        await db.query('UPDATE orders SET status = $2, payment_status = $3, updated_at = now() WHERE id = $1', [
+          order.id, b.order_status, paymentStatus,
+        ]);
+        if (b.order_status === 'cancelled') await restock(db, order.id);
+      }
+      await addHistory(db, order.id, b.order_status, b.comment, { notified: b.notify, userId: req.auth!.userId });
+    });
+
+    if (b.notify) {
+      sendOrderStatusEmail(order.email, order.id, statusName(b.order_status), b.comment, orderLink(order.id))
+        .catch((error) => console.error('Status email failed:', error));
+    }
+    audit(req, 'order.status_changed', `order:${order.id}`, { from: order.status, to: b.order_status });
+    ok(res, (await loadOrder(order.id, { admin: true }))!.contract);
+  }));
+
+  router.get('/returns', requirePermission('orders.orders.view'), handler(async (req, res) => {
+    const status = typeof req.query.status === 'string' ? req.query.status : '';
+    const { rows } = await query(
+      `SELECT r.*, oi.name AS product_name, oi.image, u.email AS customer_email,
+         TRIM(COALESCE(u.firstname, '') || ' ' || COALESCE(u.lastname, '')) AS customer_name
+       FROM returns r JOIN order_items oi ON oi.id = r.order_item_id LEFT JOIN users u ON u.id = r.user_id
+       ${status ? 'WHERE r.status = $1' : ''} ORDER BY r.created_at DESC LIMIT 200`,
+      status ? [status] : []
+    );
+    ok(res, rows.map(toContractReturn));
+  }));
+
+  router.put('/returns/:id', requirePermission('orders.returns.update'), handler(async (req, res) => {
+    const { status } = parse(
+      z.object({ status: z.enum(['approved', 'rejected', 'refunded'], { errorMap: () => ({ message: 'Please choose a valid status.' }) }) }),
+      req.body
+    );
+    const row = (await query(`${RETURN_SELECT} WHERE r.id = $1`, [Number(req.params.id)])).rows[0];
+    if (!row) fail(404, 'Return not found.');
+    const allowed: Record<string, string[]> = { requested: ['approved', 'rejected'], approved: ['refunded'] };
+    if (!(allowed[row.status] || []).includes(status)) fail(400, `A ${row.status} return can’t be marked ${status}.`);
+    await query('UPDATE returns SET status = $2, updated_at = now() WHERE id = $1', [row.id, status]);
+    audit(req, 'order.return_updated', `return:${row.id}`, { status });
+    ok(res, toContractReturn((await query(`${RETURN_SELECT} WHERE r.id = $1`, [row.id])).rows[0]));
+  }));
+
+  // Figures for the admin dashboard, computed from real orders.
+  router.get('/dashboard', requirePermission('orders.orders.view'), handler(async (_req, res) => {
+    const revenueBetween = async (from: string, to: string) => {
+      const r = (await query(
+        `SELECT COALESCE(sum(total), 0) AS revenue, count(*)::int AS orders FROM orders
+         WHERE placed_at >= ${from} AND placed_at < ${to} AND status NOT IN ('cancelled', 'refunded')`
+      )).rows[0];
+      return { revenue: round2(Number(r.revenue)), orders: r.orders };
+    };
+    const today = await revenueBetween(`date_trunc('day', now())`, `now() + interval '1 second'`);
+    const yesterday = await revenueBetween(`date_trunc('day', now()) - interval '1 day'`, `date_trunc('day', now())`);
+    const month = await revenueBetween(`date_trunc('month', now())`, `now() + interval '1 second'`);
+    const lastMonth = await revenueBetween(
+      `date_trunc('month', now()) - interval '1 month'`,
+      `date_trunc('month', now()) - interval '1 month' + (now() - date_trunc('month', now()))`
+    );
+    const newCustomers = (await query(
+      `SELECT count(*)::int AS n FROM users u JOIN roles r ON r.id = u.role_id
+       WHERE r.code = 'customer' AND u.created_at >= date_trunc('day', now()) - interval '1 day'
+         AND u.created_at < date_trunc('day', now())`
+    )).rows[0].n;
+    const series = (await query(
+      `WITH days AS (SELECT generate_series(date_trunc('day', now()) - interval '29 days', date_trunc('day', now()), interval '1 day') AS d)
+       SELECT to_char(d, 'YYYY-MM-DD') AS date,
+         COALESCE((SELECT sum(total) FROM orders WHERE placed_at >= d AND placed_at < d + interval '1 day' AND status NOT IN ('cancelled','refunded')), 0) AS revenue,
+         COALESCE((SELECT sum(total) FROM orders WHERE placed_at >= d - interval '30 days' AND placed_at < d - interval '29 days' AND status NOT IN ('cancelled','refunded')), 0) AS previous
+       FROM days ORDER BY d`
+    )).rows.map((r) => ({ date: r.date, revenue: round2(Number(r.revenue)), previous: round2(Number(r.previous)) }));
+    const topProducts = (await query(
+      `SELECT p.id, p.name, p.images->>0 AS image, p.quantity AS stock, sum(oi.quantity)::int AS sold, sum(oi.total) AS revenue
+       FROM order_items oi JOIN orders o ON o.id = oi.order_id JOIN products p ON p.id = oi.product_id
+       WHERE o.placed_at IS NOT NULL AND o.status NOT IN ('cancelled','refunded')
+       GROUP BY p.id ORDER BY sold DESC LIMIT 6`
+    )).rows.map((r) => ({ product_id: r.id, name: r.name, image: r.image || '', stock: r.stock, sold: r.sold, revenue: round2(Number(r.revenue)) }));
+    const recentOrders = (await query(
+      `SELECT o.*, TRIM(COALESCE(u.firstname,'') || ' ' || COALESCE(u.lastname,'')) AS customer_name,
+         (SELECT COALESCE(sum(quantity),0)::int FROM order_items WHERE order_id = o.id) AS item_count
+       FROM orders o LEFT JOIN users u ON u.id = o.user_id WHERE o.placed_at IS NOT NULL
+       ORDER BY o.placed_at DESC LIMIT 6`
+    )).rows.map((o) => toContractOrder(o, [], [], { admin: true }));
+    const counts = (await query(
+      `SELECT
+         (SELECT count(*)::int FROM orders WHERE status IN ('pending','processing')) AS to_fulfil,
+         (SELECT count(*)::int FROM products WHERE quantity <= 5) AS low_stock,
+         (SELECT count(*)::int FROM returns WHERE status = 'requested') AS open_returns,
+         (SELECT count(*)::int FROM users u JOIN roles r ON r.id = u.role_id WHERE r.code = 'customer') AS customers`
+    )).rows[0];
+    ok(res, {
+      today, yesterday: { ...yesterday, new_customers: newCustomers }, month, last_month_to_date: lastMonth,
+      revenue_series: series, top_products: topProducts, recent_orders: recentOrders, counts,
+    });
+  }));
+
+  return router;
+};
