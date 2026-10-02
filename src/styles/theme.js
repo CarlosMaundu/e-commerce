@@ -14,8 +14,18 @@ const neutralDeep = '#EBF0F5';
 const theme = createTheme({
   palette: {
     mode: 'light',
-    primary: { main: '#2F7CF6', dark: '#1D5FCC', light: '#E7F0FE', contrastText: '#fff' },
-    secondary: { main: '#13A26B', dark: '#0C7C51', light: '#E3F6EE', contrastText: '#fff' },
+    primary: {
+      main: '#2F7CF6',
+      dark: '#1D5FCC',
+      light: '#E7F0FE',
+      contrastText: '#fff',
+    },
+    secondary: {
+      main: '#13A26B',
+      dark: '#0C7C51',
+      light: '#E3F6EE',
+      contrastText: '#fff',
+    },
     success: { main: '#12A150', light: '#E3F6EA' },
     warning: { main: '#F27A1A', light: '#FEF0E3' },
     error: { main: '#E5484D', light: '#FDECEC' },
@@ -45,7 +55,11 @@ const theme = createTheme({
   components: {
     MuiCssBaseline: {
       styleOverrides: {
-        body: { backgroundColor: '#FFFFFF', color: ink, fontVariantNumeric: 'tabular-nums' },
+        body: {
+          backgroundColor: '#FFFFFF',
+          color: ink,
+          fontVariantNumeric: 'tabular-nums',
+        },
       },
     },
     MuiButton: {
@@ -55,6 +69,10 @@ const theme = createTheme({
         sizeLarge: { paddingBlock: 10, fontSize: '0.95rem' },
         outlined: { borderColor: line },
       },
+    },
+    // Gap-based spacing, so a Grid inside a Stack keeps its negative margins.
+    MuiStack: {
+      defaultProps: { useFlexGap: true },
     },
     MuiIconButton: {
       styleOverrides: { root: { borderRadius: 999 } },
@@ -88,23 +106,34 @@ const theme = createTheme({
     MuiTableCell: {
       styleOverrides: {
         root: { borderColor: line },
-        head: { backgroundColor: neutral, color: muted, fontWeight: 600, fontSize: '0.8rem' },
+        head: {
+          backgroundColor: neutral,
+          color: muted,
+          fontWeight: 600,
+          fontSize: '0.8rem',
+        },
       },
     },
     MuiDialog: {
       styleOverrides: { paper: { borderRadius: 20 } },
     },
     MuiTooltip: {
-      styleOverrides: { tooltip: { backgroundColor: ink, fontSize: '0.75rem', borderRadius: 6 } },
+      styleOverrides: {
+        tooltip: { backgroundColor: ink, fontSize: '0.75rem', borderRadius: 6 },
+      },
     },
     MuiTab: {
-      styleOverrides: { root: { textTransform: 'none', fontWeight: 600, minHeight: 44 } },
+      styleOverrides: {
+        root: { textTransform: 'none', fontWeight: 600, minHeight: 44 },
+      },
     },
     MuiAlert: {
       styleOverrides: { root: { borderRadius: 10 } },
     },
     MuiLinearProgress: {
-      styleOverrides: { root: { borderRadius: 99, backgroundColor: alpha(ink, 0.08) } },
+      styleOverrides: {
+        root: { borderRadius: 99, backgroundColor: alpha(ink, 0.08) },
+      },
     },
   },
 });

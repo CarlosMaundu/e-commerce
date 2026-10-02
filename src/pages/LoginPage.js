@@ -11,7 +11,7 @@ import {
   Paper,
   Fade,
 } from '@mui/material';
-import { styled } from '@mui/system';
+import { styled } from '@mui/material/styles';
 import { MdEmail, MdLock } from 'react-icons/md';
 import { AiOutlineEye, AiOutlineEyeInvisible } from 'react-icons/ai';
 import { AuthContext } from '../context/AuthContext';
@@ -39,8 +39,9 @@ const StyledPaper = styled(Paper)(({ theme }) => ({
   alignItems: 'center',
   maxWidth: 450,
   width: '100%',
-  backgroundColor: '#ffffff',
-  borderRadius: 16,
+  backgroundColor: theme.palette.background.paper,
+  border: `1px solid ${theme.palette.divider}`,
+  borderRadius: 24,
 }));
 
 const StyledButton = styled(Button)(({ theme }) => ({
@@ -124,7 +125,7 @@ const LoginPage = () => {
   return (
     <StyledContainer>
       <Fade in={true} timeout={1000}>
-        <StyledPaper elevation={3}>
+        <StyledPaper>
           <Typography variant="h4" gutterBottom>
             Welcome Back
           </Typography>

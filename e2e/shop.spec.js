@@ -35,6 +35,19 @@ test('product page loads from the API, with images served by the backend', async
 test('newsletter sign-up works and validates email', async ({ page }) => {
   await page.goto('/');
   await page.getByPlaceholder('Enter your email').fill('fan@example.com');
-  await page.getByRole('button', { name: 'Subscribe' }).click();
+  await page
+    .getByRole('main')
+    .getByRole('button', { name: 'Subscribe' })
+    .click();
+  await expect(toast(page)).toHaveText('You’re subscribed to our newsletter.');
+});
+
+test('the footer newsletter form works on every page', async ({ page }) => {
+  await page.goto('/products');
+  const footer = page.getByRole('contentinfo');
+  await footer
+    .getByLabel('Your email for the newsletter')
+    .fill('footer-fan@example.com');
+  await footer.getByRole('button', { name: 'Subscribe' }).click();
   await expect(toast(page)).toHaveText('You’re subscribed to our newsletter.');
 });

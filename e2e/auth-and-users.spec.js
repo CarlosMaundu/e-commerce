@@ -153,13 +153,13 @@ test('profile password change signs out other devices', async ({
 
   await login(page, 'pat@example.com');
   await expect(page.getByText('Hi, Pat Change')).toBeVisible();
-  await page.goto('/profile');
+  await page.goto('/account/security');
   await page.locator('input[name="currentPassword"]').fill(PASSWORD);
   await page.locator('input[name="newPassword"]').fill('An0ther!Pass');
   await page.locator('input[name="confirmNewPassword"]').fill('An0ther!Pass');
-  await page.getByRole('button', { name: /save changes/i }).click();
+  await page.getByRole('button', { name: 'Change password' }).click();
   await expect(toast(page)).toHaveText(
-    'Your profile has been updated. Your password has been changed.'
+    'Your password has been changed. Other devices have been signed out.'
   );
 
   // The other device's session was revoked.
@@ -179,11 +179,11 @@ test('wrong current password is explained', async ({ page }) => {
   });
   await login(page, 'lee@example.com');
   await expect(page.getByText('Hi, Lee Wrong')).toBeVisible();
-  await page.goto('/profile');
+  await page.goto('/account/security');
   await page.locator('input[name="currentPassword"]').fill('incorrect');
   await page.locator('input[name="newPassword"]').fill('An0ther!Pass');
   await page.locator('input[name="confirmNewPassword"]').fill('An0ther!Pass');
-  await page.getByRole('button', { name: /save changes/i }).click();
+  await page.getByRole('button', { name: 'Change password' }).click();
   await expect(toast(page)).toContainText('current password is incorrect');
 });
 
@@ -197,7 +197,7 @@ test.describe('admin user management', () => {
     });
     await login(page, 'boss@example.com');
     await expect(page.getByText('Hi, Ada Admin')).toBeVisible();
-    await page.goto('/profile?section=users');
+    await page.goto('/admin/users');
     await expect(page.getByRole('table', { name: 'Users' })).toBeVisible();
   };
 
@@ -315,9 +315,15 @@ test.describe('admin user management', () => {
     await expect(page.getByText('Hi, Cus Tomer')).toBeVisible();
     await page.goto('/admin/users');
     await expect(page).toHaveURL(/\/$/);
+    // The old profile link redirects to /admin/users, which is guarded too.
     await page.goto('/profile?section=users');
+    await expect(page).toHaveURL(/\/$/);
+    await page.goto('/admin');
+    await expect(page).toHaveURL(/\/$/);
+    await page.getByRole('button', { name: 'User account' }).click();
     await expect(
-      page.getByText('You don’t have permission to manage users.')
+      page.getByRole('menuitem', { name: 'My orders' })
     ).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'Admin' })).toHaveCount(0);
   });
 });

@@ -140,3 +140,140 @@ export const userToApi = ({ name, email, role, avatar } = {}) => {
   if (avatar !== undefined) body.avatar = avatar;
   return body;
 };
+
+// ---------- Cart ----------
+
+export const cartFromApi = (c) => ({
+  items: (c?.products || []).map((p) => ({
+    key: p.key,
+    productId: p.product_id,
+    title: p.name,
+    image: p.image,
+    options: p.options || {},
+    quantity: p.quantity,
+    price: Number(p.price),
+    specialPrice: p.special === null ? null : Number(p.special),
+    unitPrice: Number(p.unit_price),
+    total: Number(p.total),
+    stock: p.stock,
+    inStock: p.in_stock,
+  })),
+  itemCount: c?.item_count || 0,
+  coupon: c?.coupon || null,
+  couponProblem: c?.coupon_problem || null,
+  shippingMethod: c?.shipping_method || null,
+  totals: (c?.totals || []).map((t) => ({ ...t, value: Number(t.value) })),
+  total: Number(c?.total || 0),
+});
+
+export const cartItemToApi = ({ productId, quantity, options = {} }) => ({
+  product_id: productId,
+  quantity,
+  option: {
+    ...(options.size ? { size: options.size } : {}),
+    ...(options.color ? { color: options.color } : {}),
+  },
+});
+
+// ---------- Addresses ----------
+
+export const addressFromApi = (a) =>
+  a && {
+    id: a.address_id,
+    firstName: a.firstname,
+    lastName: a.lastname,
+    company: a.company || '',
+    line1: a.address_1,
+    line2: a.address_2 || '',
+    city: a.city,
+    postcode: a.postcode || '',
+    country: a.country,
+    region: a.zone || '',
+    phone: a.telephone || '',
+    isDefault: Boolean(a.default),
+  };
+
+export const addressToApi = (a) => ({
+  firstname: a.firstName,
+  lastname: a.lastName,
+  company: a.company || '',
+  address_1: a.line1,
+  address_2: a.line2 || '',
+  city: a.city,
+  postcode: a.postcode || '',
+  country: a.country,
+  zone: a.region || '',
+  telephone: a.phone || '',
+  ...(a.isDefault !== undefined ? { default: a.isDefault } : {}),
+});
+
+/** One line for lists and order summaries. */
+export const formatAddress = (a) =>
+  a
+    ? [a.line1, a.line2, a.city, a.region, a.postcode, a.country]
+        .filter(Boolean)
+        .join(', ')
+    : '';
+
+// ---------- Orders ----------
+
+export const orderFromApi = (o) =>
+  o && {
+    id: o.order_id,
+    status: o.status,
+    statusName: o.status_name,
+    email: o.email,
+    customer: o.customer || null,
+    paymentMethod: o.payment_method,
+    paymentStatus: o.payment_status,
+    shippingMethod: o.shipping_method,
+    shippingAddress: addressFromApi(o.shipping_address),
+    paymentAddress: addressFromApi(o.payment_address),
+    coupon: o.coupon,
+    totals: o.totals,
+    total: Number(o.total),
+    currency: o.currency,
+    comment: o.comment,
+    itemCount: o.item_count,
+    preview: o.preview || [],
+    items: (o.products || []).map((p) => ({
+      id: p.order_product_id,
+      productId: p.product_id,
+      title: p.name,
+      image: p.image,
+      options: p.options || {},
+      quantity: p.quantity,
+      price: Number(p.price),
+      total: Number(p.total),
+    })),
+    nextStatuses: o.next_statuses || [],
+    history: (o.history || []).map((h) => ({
+      status: h.status,
+      statusName: h.status_name,
+      comment: h.comment,
+      date: h.date_added,
+      notified: h.notified,
+    })),
+    returns: (o.returns || []).map(returnFromApi),
+    placedAt: o.date_added,
+  };
+
+export function returnFromApi(r) {
+  return (
+    r && {
+      id: r.return_id,
+      orderId: r.order_id,
+      orderItemId: r.order_product_id,
+      product: r.product,
+      image: r.image,
+      quantity: r.quantity,
+      reason: r.reason,
+      reasonName: r.reason_name,
+      opened: r.opened,
+      comment: r.comment,
+      status: r.status,
+      date: r.date_added,
+      customer: r.customer || null,
+    }
+  );
+}

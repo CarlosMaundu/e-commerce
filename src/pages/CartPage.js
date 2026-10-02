@@ -1,577 +1,392 @@
 // src/pages/CartPage.js
 import React, { useContext, useState } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import {
-  removeItem,
-  incrementQuantity,
-  decrementQuantity,
+  Alert,
+  Box,
+  Button,
+  Chip,
+  Container,
+  Divider,
+  Grid,
+  IconButton,
+  InputBase,
+  Stack,
+  Tooltip,
+  Typography,
+} from '@mui/material';
+import {
+  FiHeart,
+  FiMinus,
+  FiPlus,
+  FiShoppingCart,
+  FiTrash2,
+  FiX,
+} from 'react-icons/fi';
+import { AuthContext } from '../context/AuthContext';
+import {
+  applyCoupon,
+  removeCoupon,
+  removeFromCart,
+  selectCart,
+  setCartQuantity,
 } from '../redux/cartSlice';
 import { addToWishlist } from '../redux/wishlistSlice';
-import { Link, useNavigate } from 'react-router-dom';
-import {
-  Box,
-  Typography,
-  Button,
-  Grid,
-  Skeleton,
-  TextField,
-  IconButton,
-  Divider,
-} from '@mui/material';
-import { AuthContext } from '../context/AuthContext';
-import DeleteIcon from '@mui/icons-material/Delete';
-import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
-import AddIcon from '@mui/icons-material/Add';
-import RemoveIcon from '@mui/icons-material/Remove';
-import CloseIcon from '@mui/icons-material/Close';
-import UserTypeModal from '../components/common/UserTypeModal';
 import { useNotify } from '../notification/NotificationProvider';
-import { MESSAGES } from '../notification/messages';
+import { EmptyState, SectionCard } from '../components/ui';
+import { formatMoney, optionText } from '../utils/format';
 
 const CartPage = () => {
+  const { user } = useContext(AuthContext);
+  const cart = useSelector(selectCart);
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { user } = useContext(AuthContext);
-
-  // Retrieve cart items and loading state from Redux
-  const {
-    items: cartItems,
-    loading,
-    error,
-  } = useSelector((state) => state.cart);
-
-  // Calculate totals
-  const subtotal = cartItems.reduce(
-    (acc, item) => acc + item.price * item.quantity,
-    0
-  );
-  const shipping = 10; // Flat shipping fee
-  const taxRate = 0.08; // 8% tax
-  const tax = subtotal * taxRate;
-  const total = subtotal + shipping + tax;
-
   const notify = useNotify();
-  const [showAuthPrompt, setShowAuthPrompt] = useState(false);
-  const [promoCode, setPromoCode] = useState('');
-  const [appliedPromo, setAppliedPromo] = useState(null);
+  const [code, setCode] = useState('');
+  const busy = cart.status === 'loading';
 
-  const handleCheckout = () => {
-    if (!user) {
-      // User not authenticated, show prompt
-      setShowAuthPrompt(true);
-    } else {
-      // User is authenticated, proceed to checkout
-      navigate('/checkout');
+  const act = async (thunk, success) => {
+    try {
+      await dispatch(thunk).unwrap();
+      if (success) notify.success(success);
+      return true;
+    } catch (message) {
+      notify.error(message);
+      return false;
     }
   };
 
-  const handleApplyPromo = () => {
-    // Placeholder logic for applying promo code
-    if (promoCode.trim().toUpperCase() === 'FRIDAY35') {
-      setAppliedPromo({ code: promoCode.toUpperCase(), discount: 0.35 });
-      notify.success(MESSAGES.cart.promoApplied);
-      // Optionally, adjust totals based on promo
-      // For simplicity, we're just storing the applied promo
-    } else {
-      notify.error(MESSAGES.cart.invalidPromo);
-    }
+  const moveToWishlist = async (item) => {
+    const ok = await act(
+      addToWishlist({
+        id: item.productId,
+        title: item.title,
+        images: [item.image],
+        price: item.unitPrice,
+      })
+    );
+    if (ok) await act(removeFromCart(item.key), 'Moved to your wishlist.');
   };
+
+  const submitCoupon = async (e) => {
+    e.preventDefault();
+    if (!code.trim()) return;
+    if (await act(applyCoupon(code), 'Promo code applied.')) setCode('');
+  };
+
+  const checkout = () => {
+    if (!user) navigate('/login', { state: { from: '/checkout' } });
+    else navigate('/checkout');
+  };
+
+  if (!cart.items.length) {
+    return (
+      <Container maxWidth="md" sx={{ py: 8 }}>
+        <EmptyState
+          icon={<FiShoppingCart />}
+          title="Your cart is empty"
+          action={
+            <Button component={RouterLink} to="/products" variant="contained">
+              Browse products
+            </Button>
+          }
+        >
+          Items you add will appear here.
+        </EmptyState>
+      </Container>
+    );
+  }
+
+  const hasStockProblem = cart.items.some((i) => i.inStock === false);
 
   return (
-    <Box
-      sx={{
-        p: { xs: 2, lg: 4 },
-        backgroundColor: '#f5f5f5',
-      }}
-    >
-      <Grid container spacing={3}>
-        {/* Left Column - Cart Items */}
-        <Grid item lg={8} xs={12}>
-          <Box
-            sx={{
-              backgroundColor: 'white',
-              p: { xs: 2, lg: 4 },
-              borderRadius: '8px',
-              boxShadow: 1,
-              position: 'relative',
-            }}
-          >
-            {/* Cart Items */}
-            {loading ? (
-              // Show Skeleton placeholders
-              <>
-                {Array.from({ length: 3 }).map((_, index) => (
-                  <Box key={index} sx={{ mb: 4 }}>
-                    <Grid container spacing={2}>
-                      <Grid item xs={12} sm={4}>
-                        <Skeleton
-                          variant="rectangular"
-                          width="100%"
-                          height={100}
-                          sx={{ borderRadius: '8px' }}
-                        />
-                      </Grid>
-                      <Grid item xs={12} sm={8}>
-                        <Skeleton
-                          variant="text"
-                          width="60%"
-                          height={30}
-                          sx={{ mb: 1 }}
-                        />
-                        <Skeleton
-                          variant="text"
-                          width="40%"
-                          height={20}
-                          sx={{ mb: 1 }}
-                        />
-                        <Skeleton
-                          variant="text"
-                          width="30%"
-                          height={20}
-                          sx={{ mb: 1 }}
-                        />
-                        <Skeleton
-                          variant="text"
-                          width="50%"
-                          height={20}
-                          sx={{ mb: 2 }}
-                        />
-                        <Skeleton
-                          variant="rectangular"
-                          width="100%"
-                          height={40}
-                          sx={{ borderRadius: '4px' }}
-                        />
-                      </Grid>
-                    </Grid>
-                  </Box>
-                ))}
-              </>
-            ) : error ? (
-              <Typography
-                variant="body1"
-                sx={{
-                  color: 'red',
-                  fontSize: '1.2rem',
-                  mt: 2,
-                  textAlign: 'center',
-                }}
-              >
-                Error loading products. Please try again later.
-              </Typography>
-            ) : cartItems.length > 0 ? (
-              <>
-                {cartItems.map((item) => (
-                  <Box
-                    key={`${item.id}-${item.size}`}
-                    sx={{
-                      display: 'flex',
-                      flexDirection: { xs: 'column', sm: 'row' },
-                      gap: 2,
-                      py: 2,
-                      borderBottom: '1px solid #ddd',
-                      alignItems: { sm: 'center' },
-                    }}
-                  >
-                    {/* Product Image */}
-                    <Box
-                      sx={{
-                        width: '100px',
-                        height: '100px',
-                        flexShrink: 0,
-                        overflow: 'hidden',
-                        borderRadius: '8px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        mb: { xs: 2, sm: 0 },
-                      }}
-                    >
-                      <Link to={`/products/${item.id}`}>
-                        <Box
-                          component="img"
-                          src={item.images[0]}
-                          alt={item.title}
-                          sx={{
-                            width: '100%',
-                            height: '100%',
-                            objectFit: 'contain',
-                          }}
-                        />
-                      </Link>
-                    </Box>
-
-                    {/* Product Details */}
-                    <Box sx={{ flex: 1 }}>
-                      <Typography
-                        variant="subtitle1"
-                        sx={{
-                          fontWeight: 'bold',
-                          color: '#333',
-                          fontSize: { xs: '0.95rem', sm: '1rem' },
-                          mb: 0.5,
-                        }}
-                      >
-                        <Link
-                          to={`/products/${item.id}`}
-                          style={{ textDecoration: 'none', color: 'inherit' }}
-                        >
-                          {item.title}
-                        </Link>
-                      </Typography>
-                      <Typography
-                        variant="body2"
-                        sx={{ color: '#555', fontSize: '0.75rem' }}
-                      >
-                        Size: <strong>{item.size || 'N/A'}</strong>
-                      </Typography>
-                      <Typography
-                        variant="body2"
-                        sx={{ color: '#555', fontSize: '0.75rem' }}
-                      >
-                        Color: <strong>{item.color || 'N/A'}</strong>
-                      </Typography>
-
-                      {/* Action Buttons */}
-                      <Box
-                        sx={{
-                          mt: 2,
-                          display: 'flex',
-                          flexWrap: 'wrap',
-                          gap: 1,
-                        }}
-                      >
-                        <Button
-                          variant="text"
-                          sx={{
-                            color: 'red',
-                            fontSize: '0.75rem',
-                            textTransform: 'none',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 0.5,
-                            fontWeight: 'bold',
-                          }}
-                          onClick={() =>
-                            dispatch(
-                              removeItem({ id: item.id, size: item.size })
-                            )
-                          }
-                          startIcon={<DeleteIcon sx={{ fontSize: '16px' }} />}
-                        >
-                          Remove
-                        </Button>
-                        <Button
-                          variant="text"
-                          sx={{
-                            color: '#C71585',
-                            fontSize: '0.75rem',
-                            textTransform: 'none',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 0.5,
-                            fontWeight: 'bold',
-                            whiteSpace: { xs: 'nowrap', sm: 'normal' },
-                          }}
-                          onClick={() => {
-                            dispatch(addToWishlist(item));
-                            dispatch(
-                              removeItem({ id: item.id, size: item.size })
-                            );
-                          }}
-                          startIcon={
-                            <FavoriteBorderIcon sx={{ fontSize: '16px' }} />
-                          }
-                        >
-                          Move to wish list
-                        </Button>
-                      </Box>
-                    </Box>
-
-                    {/* Quantity and Price */}
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: { sm: 'flex-end' },
-                        mt: { xs: 2, sm: 0 },
-                        textAlign: { xs: 'left', sm: 'right' },
-                      }}
-                    >
-                      {/* Quantity Adjusters */}
-                      <Box
-                        sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
-                      >
-                        <IconButton
-                          size="small"
-                          onClick={() =>
-                            dispatch(
-                              decrementQuantity({
-                                id: item.id,
-                                size: item.size,
-                              })
-                            )
-                          }
-                          disabled={item.quantity <= 1}
-                          sx={{
-                            backgroundColor: '#007bff',
-                            '&:hover': { backgroundColor: '#0056b3' },
-                            borderRadius: '50%',
-                            padding: '6px',
-                          }}
-                        >
-                          <RemoveIcon
-                            sx={{ fontSize: '14px', color: 'white' }}
-                          />
-                        </IconButton>
-                        <Typography
-                          variant="body2"
-                          sx={{ fontWeight: 'bold', fontSize: '0.875rem' }}
-                        >
-                          {item.quantity}
-                        </Typography>
-                        <IconButton
-                          size="small"
-                          onClick={() =>
-                            dispatch(
-                              incrementQuantity({
-                                id: item.id,
-                                size: item.size,
-                              })
-                            )
-                          }
-                          sx={{
-                            backgroundColor: '#007bff',
-                            '&:hover': { backgroundColor: '#0056b3' },
-                            borderRadius: '50%',
-                            padding: '6px',
-                          }}
-                        >
-                          <AddIcon sx={{ fontSize: '14px', color: 'white' }} />
-                        </IconButton>
-                      </Box>
-
-                      {/* Price */}
-                      <Typography
-                        variant="body1"
-                        sx={{
-                          mt: 2,
-                          color: '#333',
-                          fontWeight: 'bold',
-                          fontSize: '0.95rem',
-                        }}
-                      >
-                        ${item.price.toFixed(2)}
-                      </Typography>
-                    </Box>
-                  </Box>
-                ))}
-              </>
-            ) : (
-              <Typography
-                variant="body1"
-                sx={{ color: 'gray.600', textAlign: 'center', mt: 4 }}
-              >
-                Your cart is empty.
-              </Typography>
+    <Container maxWidth="xl" sx={{ py: { xs: 3, md: 5 } }}>
+      <Typography variant="h3" component="h1" sx={{ mb: 3 }}>
+        Cart{' '}
+        <Typography component="span" variant="h5" color="text.secondary">
+          ({cart.itemCount} item{cart.itemCount === 1 ? '' : 's'})
+        </Typography>
+      </Typography>
+      <Grid container spacing={4}>
+        <Grid item xs={12} md={8}>
+          <Stack spacing={2}>
+            {hasStockProblem && (
+              <Alert severity="warning">
+                Some items have less stock than you asked for. Lower the
+                quantity to continue.
+              </Alert>
             )}
-          </Box>
-        </Grid>
-
-        {/* Right Column - Order Summary */}
-        <Grid item lg={4} xs={12}>
-          <Box
-            sx={{
-              backgroundColor: 'white',
-              p: 3,
-              borderRadius: '8px',
-              boxShadow: 1,
-              position: { lg: 'sticky' },
-              top: { lg: '80px' },
-            }}
-          >
-            {/* Order Summary Title */}
-            <Typography
-              variant="h6"
-              sx={{
-                fontWeight: 'bold',
-                borderBottom: '1px solid #ddd',
-                pb: 1,
-                fontSize: '1rem',
-              }}
-            >
-              Order Summary
-            </Typography>
-
-            {/* Order Summary Details */}
-            <Box sx={{ mt: 2 }}>
-              <Box
-                sx={{ display: 'flex', justifyContent: 'space-between', py: 1 }}
+            {cart.items.map((item) => (
+              <Stack
+                key={item.key}
+                direction={{ xs: 'column', sm: 'row' }}
+                spacing={2.5}
+                alignItems={{ sm: 'center' }}
+                data-testid="cart-line"
+                sx={{ bgcolor: 'background.neutral', borderRadius: 4, p: 2.5 }}
               >
-                <Typography variant="body2">Subtotal</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                  ${subtotal.toFixed(2)}
-                </Typography>
-              </Box>
-              <Box
-                sx={{ display: 'flex', justifyContent: 'space-between', py: 1 }}
-              >
-                <Typography variant="body2">Shipping</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                  ${shipping.toFixed(2)}
-                </Typography>
-              </Box>
-              <Box
-                sx={{ display: 'flex', justifyContent: 'space-between', py: 1 }}
-              >
-                <Typography variant="body2">Tax</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                  ${tax.toFixed(2)}
-                </Typography>
-              </Box>
-              <Divider sx={{ my: 1 }} />
-              <Box
-                sx={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  fontWeight: 'bold',
-                  fontSize: '1rem',
-                }}
-              >
-                <Typography variant="body1">Total</Typography>
-                <Typography variant="body1">${total.toFixed(2)}</Typography>
-              </Box>
-
-              {/* Checkout Button */}
-              <Button
-                variant="contained"
-                onClick={handleCheckout}
-                sx={{
-                  mt: 3,
-                  width: '100%',
-                  backgroundColor: '#007bff',
-                  '&:hover': { backgroundColor: '#0056b3' },
-                  textTransform: 'none',
-                  fontSize: '0.875rem',
-                  py: 1.5,
-                  borderRadius: '4px',
-                }}
-              >
-                Proceed to Checkout
-              </Button>
-
-              {/* Continue Shopping Button */}
-              <Button
-                variant="outlined"
-                onClick={() => navigate('/products')}
-                sx={{
-                  mt: 2,
-                  width: '100%',
-                  borderColor: '#007bff',
-                  color: '#007bff',
-                  '&:hover': {
-                    backgroundColor: '#e0e0e0',
-                    borderColor: '#0056b3',
-                  },
-                  textTransform: 'none',
-                  fontSize: '0.875rem',
-                  py: 1.5,
-                  borderRadius: '4px',
-                }}
-              >
-                Continue Shopping
-              </Button>
-            </Box>
-
-            {/* Promo Code Section */}
-            <Box sx={{ mt: 4 }}>
-              <Typography
-                variant="subtitle1"
-                sx={{ fontWeight: 'bold', mb: 1, fontSize: '0.95rem' }}
-              >
-                Apply promo code
-              </Typography>
-              <Box
-                sx={{
-                  display: 'flex',
-                  border: '1px solid #007bff',
-                  borderRadius: '8px',
-                  overflow: 'hidden',
-                }}
-              >
-                <TextField
-                  variant="outlined"
-                  placeholder="Promo code"
-                  size="small"
-                  value={promoCode}
-                  onChange={(e) => setPromoCode(e.target.value)}
-                  sx={{
-                    flex: 1,
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: '8px 0 0 8px',
-                      padding: 0.5,
-                    },
-                    '& .MuiOutlinedInput-input': {
-                      padding: '8px',
-                      fontSize: '0.75rem',
-                    },
-                  }}
-                />
-                <Button
-                  variant="contained"
-                  onClick={handleApplyPromo}
-                  sx={{
-                    backgroundColor: '#007bff',
-                    '&:hover': { backgroundColor: '#0056b3' },
-                    fontSize: '0.75rem',
-                    padding: '8px 12px',
-                    borderRadius: '0 8px 8px 0',
-                    textTransform: 'none',
-                  }}
-                >
-                  Apply
-                </Button>
-              </Box>
-
-              {/* Applied Promo Code */}
-              {appliedPromo && (
                 <Box
+                  component={RouterLink}
+                  to={`/products/${item.productId}`}
                   sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1,
-                    mt: 2,
-                    backgroundColor: '#d4edda',
-                    color: '#155724',
-                    padding: 1,
-                    borderRadius: '4px',
+                    width: 96,
+                    height: 96,
+                    flexShrink: 0,
+                    borderRadius: 3,
+                    bgcolor: 'background.paper',
+                    display: 'grid',
+                    placeItems: 'center',
+                    overflow: 'hidden',
                   }}
                 >
-                  <Typography variant="body2">
-                    Promo code <strong>{appliedPromo.code}</strong> applied!
+                  <Box
+                    component="img"
+                    src={item.image}
+                    alt={item.title}
+                    sx={{
+                      maxWidth: '100%',
+                      maxHeight: '100%',
+                      objectFit: 'contain',
+                    }}
+                  />
+                </Box>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography
+                    variant="subtitle1"
+                    component={RouterLink}
+                    to={`/products/${item.productId}`}
+                    sx={{ color: 'text.primary', textDecoration: 'none' }}
+                  >
+                    {item.title}
+                  </Typography>
+                  {optionText(item.options) && (
+                    <Typography variant="body2" color="text.secondary">
+                      {optionText(item.options)}
+                    </Typography>
+                  )}
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    alignItems="center"
+                    sx={{ mt: 0.5 }}
+                  >
+                    <Typography variant="subtitle2">
+                      {formatMoney(item.unitPrice)}
+                    </Typography>
+                    {item.specialPrice !== null &&
+                      item.specialPrice !== undefined &&
+                      item.specialPrice < item.price && (
+                        <>
+                          <Typography
+                            variant="body2"
+                            color="text.disabled"
+                            sx={{ textDecoration: 'line-through' }}
+                          >
+                            {formatMoney(item.price)}
+                          </Typography>
+                          <Chip size="small" color="success" label="Sale" />
+                        </>
+                      )}
+                  </Stack>
+                  {item.inStock === false && (
+                    <Typography variant="body2" color="error.main">
+                      Only {item.stock} left
+                    </Typography>
+                  )}
+                </Box>
+                <Stack
+                  direction="row"
+                  alignItems="center"
+                  sx={{
+                    bgcolor: 'background.paper',
+                    borderRadius: 999,
+                    border: 1,
+                    borderColor: 'divider',
+                  }}
+                >
+                  <IconButton
+                    size="small"
+                    aria-label={`Decrease quantity of ${item.title}`}
+                    disabled={busy || item.quantity <= 1}
+                    onClick={() =>
+                      act(
+                        setCartQuantity({
+                          key: item.key,
+                          quantity: item.quantity - 1,
+                        })
+                      )
+                    }
+                  >
+                    <FiMinus />
+                  </IconButton>
+                  <Typography
+                    sx={{ minWidth: 32, textAlign: 'center', fontWeight: 600 }}
+                    aria-label="Quantity"
+                  >
+                    {item.quantity}
                   </Typography>
                   <IconButton
                     size="small"
-                    onClick={() => setAppliedPromo(null)}
-                    sx={{ color: '#155724' }}
+                    aria-label={`Increase quantity of ${item.title}`}
+                    disabled={busy || item.quantity >= 99}
+                    onClick={() =>
+                      act(
+                        setCartQuantity({
+                          key: item.key,
+                          quantity: item.quantity + 1,
+                        })
+                      )
+                    }
                   >
-                    <CloseIcon fontSize="small" />
+                    <FiPlus />
                   </IconButton>
+                </Stack>
+                <Typography
+                  variant="subtitle1"
+                  sx={{ minWidth: 90, textAlign: { sm: 'right' } }}
+                >
+                  {formatMoney(item.total)}
+                </Typography>
+                <Stack direction="row">
+                  <Tooltip title="Move to wishlist">
+                    <IconButton
+                      aria-label={`Move ${item.title} to wishlist`}
+                      onClick={() => moveToWishlist(item)}
+                      disabled={busy}
+                    >
+                      <FiHeart />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="Remove">
+                    <IconButton
+                      aria-label={`Remove ${item.title}`}
+                      onClick={() =>
+                        act(removeFromCart(item.key), 'Removed from your cart.')
+                      }
+                      disabled={busy}
+                    >
+                      <FiTrash2 />
+                    </IconButton>
+                  </Tooltip>
+                </Stack>
+              </Stack>
+            ))}
+          </Stack>
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <SectionCard
+            title="Order summary"
+            sx={{ position: { md: 'sticky' }, top: { md: 140 } }}
+          >
+            {cart.mode === 'server' ? (
+              cart.coupon ? (
+                <Stack
+                  direction="row"
+                  justifyContent="space-between"
+                  alignItems="center"
+                  sx={{ mb: 2 }}
+                >
+                  <Chip color="success" label={`${cart.coupon.code} applied`} />
+                  <Button
+                    size="small"
+                    startIcon={<FiX />}
+                    onClick={() => act(removeCoupon(), 'Promo code removed.')}
+                  >
+                    Remove
+                  </Button>
+                </Stack>
+              ) : (
+                <Box
+                  component="form"
+                  onSubmit={submitCoupon}
+                  sx={{ display: 'flex', gap: 1, mb: 2 }}
+                >
+                  <InputBase
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    placeholder="Promo code"
+                    inputProps={{ 'aria-label': 'Promo code' }}
+                    sx={{
+                      flex: 1,
+                      bgcolor: 'background.neutral',
+                      borderRadius: 2,
+                      px: 1.5,
+                      height: 40,
+                    }}
+                  />
+                  <Button
+                    type="submit"
+                    variant="outlined"
+                    disabled={busy || !code.trim()}
+                  >
+                    Apply
+                  </Button>
                 </Box>
-              )}
-            </Box>
-          </Box>
+              )
+            ) : (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Sign in at checkout to use a promo code.
+              </Typography>
+            )}
+            {cart.couponProblem && (
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                {cart.couponProblem}
+              </Alert>
+            )}
+            <Stack spacing={1}>
+              {cart.totals
+                .filter((t) => t.code !== 'total')
+                .map((t) => (
+                  <Stack
+                    key={t.code}
+                    direction="row"
+                    justifyContent="space-between"
+                  >
+                    <Typography color="text.secondary">{t.title}</Typography>
+                    <Typography
+                      color={t.value < 0 ? 'success.main' : 'text.primary'}
+                    >
+                      {formatMoney(t.value)}
+                    </Typography>
+                  </Stack>
+                ))}
+              <Divider />
+              <Stack direction="row" justifyContent="space-between">
+                <Typography variant="subtitle1">
+                  {cart.mode === 'server' ? 'Total' : 'Subtotal'}
+                </Typography>
+                <Typography variant="subtitle1" data-testid="cart-total">
+                  {formatMoney(cart.total)}
+                </Typography>
+              </Stack>
+              <Typography variant="caption">
+                Delivery {cart.mode === 'server' ? 'is' : 'and tax are'}{' '}
+                calculated at checkout.
+              </Typography>
+            </Stack>
+            <Button
+              fullWidth
+              size="large"
+              variant="contained"
+              sx={{ mt: 3 }}
+              onClick={checkout}
+              disabled={busy || hasStockProblem}
+            >
+              {user ? 'Checkout' : 'Sign in to check out'}
+            </Button>
+            <Button
+              fullWidth
+              component={RouterLink}
+              to="/products"
+              sx={{ mt: 1 }}
+            >
+              Continue shopping
+            </Button>
+          </SectionCard>
         </Grid>
       </Grid>
-
-      {/* Auth Prompt Overlay */}
-      {showAuthPrompt && !user && (
-        <UserTypeModal
-          open={showAuthPrompt}
-          onClose={() => setShowAuthPrompt(false)}
-        />
-      )}
-    </Box>
+    </Container>
   );
 };
 

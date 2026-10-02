@@ -16,7 +16,7 @@ import {
   Fade,
   Link,
 } from '@mui/material';
-import { styled } from '@mui/system';
+import { styled } from '@mui/material/styles';
 import { MdEmail, MdPerson, MdLock } from 'react-icons/md';
 import { AiOutlineEye, AiOutlineEyeInvisible } from 'react-icons/ai';
 import * as Yup from 'yup';
@@ -44,8 +44,9 @@ const StyledPaper = styled(Paper)(({ theme }) => ({
   alignItems: 'center',
   maxWidth: 450,
   width: '100%',
-  backgroundColor: '#ffffff',
-  borderRadius: 16,
+  backgroundColor: theme.palette.background.paper,
+  border: `1px solid ${theme.palette.divider}`,
+  borderRadius: 24,
 }));
 
 const StyledButton = styled(Button)(({ theme }) => ({
@@ -157,7 +158,7 @@ const SignupPage = () => {
   return (
     <StyledContainer>
       <Fade in={true} timeout={1000}>
-        <StyledPaper elevation={3}>
+        <StyledPaper>
           <Typography variant="h4" gutterBottom>
             Create Account
           </Typography>

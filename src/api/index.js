@@ -5,6 +5,12 @@
 import { http } from './http';
 import { setAccessToken, clearSession } from './session';
 import {
+  addressFromApi,
+  addressToApi,
+  cartFromApi,
+  cartItemToApi,
+  orderFromApi,
+  returnFromApi,
   categoryFromApi,
   categoryToApi,
   productFromApi,
@@ -207,5 +213,266 @@ export const newsletter = {
       email: email.trim().toLowerCase(),
     });
     return true;
+  },
+};
+
+export const cart = {
+  async get() {
+    const { data } = await http().get('/rest/cart');
+    return cartFromApi(data);
+  },
+  async add(item) {
+    const { data } = await http().post('/rest/cart', cartItemToApi(item));
+    return cartFromApi(data);
+  },
+  /** Merges a signed-out shopper's cart into their account cart. */
+  async addMany(items) {
+    const { data } = await http().post(
+      '/rest/cart_bulk',
+      items.map(cartItemToApi)
+    );
+    return cartFromApi(data);
+  },
+  async update(key, quantity) {
+    const { data } = await http().put('/rest/cart', { key, quantity });
+    return cartFromApi(data);
+  },
+  async remove(key) {
+    const { data } = await http().delete(`/rest/cart/${key}`);
+    return cartFromApi(data);
+  },
+  async empty() {
+    const { data } = await http().delete('/rest/cart/empty');
+    return cartFromApi(data);
+  },
+  async applyCoupon(code) {
+    const { data } = await http().post('/rest/coupon', { coupon: code.trim() });
+    return cartFromApi(data);
+  },
+  async removeCoupon() {
+    const { data } = await http().delete('/rest/coupon');
+    return cartFromApi(data);
+  },
+};
+
+export const wishlist = {
+  async list() {
+    const { data } = await http().get('/rest/wishlist');
+    return (data || []).map(productFromApi);
+  },
+  async add(productId) {
+    await http().post(`/rest/wishlist/${productId}`);
+  },
+  async remove(productId) {
+    await http().delete(`/rest/wishlist/${productId}`);
+  },
+};
+
+export const addresses = {
+  async list() {
+    const { data } = await http().get('/rest/account/address');
+    return (data || []).map(addressFromApi);
+  },
+  async create(address) {
+    const { data } = await http().post(
+      '/rest/account/address',
+      addressToApi(address)
+    );
+    return addressFromApi(data);
+  },
+  async update(id, address) {
+    const { data } = await http().put(
+      `/rest/account/address/${id}`,
+      addressToApi(address)
+    );
+    return addressFromApi(data);
+  },
+  async remove(id) {
+    await http().delete(`/rest/account/address/${id}`);
+  },
+};
+
+export const checkout = {
+  async getShippingAddress() {
+    const { data } = await http().get('/rest/shippingaddress');
+    return {
+      addresses: data.addresses.map(addressFromApi),
+      selectedId: data.address_id,
+    };
+  },
+  async useShippingAddress(addressId) {
+    await http().post('/rest/shippingaddress/existing', {
+      address_id: addressId,
+    });
+  },
+  async addShippingAddress(address) {
+    const { data } = await http().post(
+      '/rest/shippingaddress',
+      addressToApi(address)
+    );
+    return addressFromApi(data.address);
+  },
+  async usePaymentAddress(addressId) {
+    await http().post('/rest/paymentaddress/existing', {
+      address_id: addressId,
+    });
+  },
+  async getShippingMethods() {
+    const { data } = await http().get('/rest/shippingmethods');
+    return { methods: data.shipping_methods, selected: data.shipping_method };
+  },
+  async setShippingMethod(code, comment) {
+    await http().post('/rest/shippingmethods', {
+      shipping_method: code,
+      ...(comment !== undefined ? { comment } : {}),
+    });
+  },
+  async getPaymentMethods() {
+    const { data } = await http().get('/rest/paymentmethods');
+    return { methods: data.payment_methods, selected: data.payment_method };
+  },
+  async setPaymentMethod(code, agree) {
+    await http().post('/rest/paymentmethods', { payment_method: code, agree });
+  },
+  /** Order overview; for cards also { clientSecret, publishableKey }. */
+  async review() {
+    const { data } = await http().post('/rest/confirm');
+    return {
+      order: orderFromApi(data.order),
+      payment: {
+        method: data.payment.method,
+        clientSecret: data.payment.client_secret,
+        publishableKey: data.payment.publishable_key,
+      },
+    };
+  },
+  async placeOrder() {
+    const { data } = await http().put('/rest/confirm');
+    return orderFromApi(data);
+  },
+};
+
+export const orders = {
+  async list({ page = 1, limit = 10, status } = {}) {
+    const { data, headers } = await http().get('/rest/customerorders', {
+      params: { page, limit, ...(status ? { status } : {}) },
+    });
+    return {
+      orders: data.map(orderFromApi),
+      total: Number(headers['x-total-count'] || 0),
+    };
+  },
+  async get(id) {
+    const { data } = await http().get(`/rest/customerorders/${id}`);
+    return orderFromApi(data);
+  },
+  async reorder(id) {
+    const { data } = await http().post(`/rest/customerorders/${id}/reorder`);
+    return {
+      added: data.added,
+      skipped: data.skipped,
+      cart: cartFromApi(data.cart),
+    };
+  },
+  async statuses() {
+    const { data } = await http().get('/rest/order_statuses');
+    return data;
+  },
+  async returnReasons() {
+    const { data } = await http().get('/rest/return_reasons');
+    return data;
+  },
+  async requestReturn({
+    orderId,
+    orderItemId,
+    quantity,
+    reason,
+    opened,
+    comment,
+  }) {
+    const { data } = await http().post('/rest/returns', {
+      order_id: orderId,
+      order_product_id: orderItemId,
+      quantity,
+      reason,
+      opened,
+      comment,
+    });
+    return returnFromApi(data);
+  },
+  async listReturns() {
+    const { data } = await http().get('/rest/returns');
+    return data.map(returnFromApi);
+  },
+};
+
+export const adminOrders = {
+  async list({ page = 1, limit = 20, status, search } = {}) {
+    const { data, headers } = await http().get('/admin/orders', {
+      params: {
+        page,
+        limit,
+        ...(status ? { status } : {}),
+        ...(search ? { search } : {}),
+      },
+    });
+    return {
+      orders: data.map(orderFromApi),
+      total: Number(headers['x-total-count'] || 0),
+    };
+  },
+  async get(id) {
+    const { data } = await http().get(`/admin/orders/${id}`);
+    return orderFromApi(data);
+  },
+  async updateStatus(id, { status, comment = '', notify = false }) {
+    const { data } = await http().put(`/admin/orderhistory/${id}`, {
+      order_status: status,
+      comment,
+      notify,
+    });
+    return orderFromApi(data);
+  },
+  async listReturns(status) {
+    const { data } = await http().get('/admin/returns', {
+      params: status ? { status } : {},
+    });
+    return data.map(returnFromApi);
+  },
+  async updateReturn(id, status) {
+    const { data } = await http().put(`/admin/returns/${id}`, { status });
+    return returnFromApi(data);
+  },
+  async dashboard() {
+    const { data } = await http().get('/admin/dashboard');
+    return data;
+  },
+};
+
+export const adminRoles = {
+  async permissions() {
+    const { data } = await http().get('/admin/permissions');
+    return data;
+  },
+  async get(code) {
+    const { data } = await http().get(`/admin/roles/${code}`);
+    return data;
+  },
+  async create(role) {
+    const { data } = await http().post('/admin/roles', role);
+    return data;
+  },
+  async update(code, role) {
+    const { data } = await http().put(`/admin/roles/${code}`, role);
+    return data;
+  },
+  async duplicate(code, name) {
+    const { data } = await http().post(`/admin/roles/${code}/duplicate`, {
+      name,
+    });
+    return data;
+  },
+  async remove(code) {
+    await http().delete(`/admin/roles/${code}`);
   },
 };

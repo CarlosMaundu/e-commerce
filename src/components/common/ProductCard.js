@@ -1,154 +1,210 @@
-// src/components/common/ProductCard.js
+// src/components/common/ProductCard.js — Aurora-style product tile.
 import React from 'react';
 import PropTypes from 'prop-types';
-import { useDispatch } from 'react-redux';
-import { addItem } from '../../redux/cartSlice';
-import { addToWishlist } from '../../redux/wishlistSlice';
-import { Link } from 'react-router-dom';
-import { FavoriteBorder, AddShoppingCart } from '@mui/icons-material';
-import { Box, Typography, IconButton } from '@mui/material';
+import { Link as RouterLink } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  Box,
+  Button,
+  Chip,
+  IconButton,
+  Rating,
+  Stack,
+  Typography,
+} from '@mui/material';
+import { FiHeart, FiShoppingCart } from 'react-icons/fi';
+import { addToCart } from '../../redux/cartSlice';
+import {
+  addToWishlist,
+  isInWishlist,
+  removeFromWishlist,
+} from '../../redux/wishlistSlice';
+import { useNotify } from '../../notification/NotificationProvider';
+import { formatMoney } from '../../utils/format';
 
 const ProductCard = ({ product }) => {
   const dispatch = useDispatch();
+  const notify = useNotify();
+  const saved = useSelector((s) => isInWishlist(s, product.id));
+  const onSale =
+    product.specialPrice !== null &&
+    product.specialPrice !== undefined &&
+    product.specialPrice < product.price;
+  const price = onSale ? product.specialPrice : product.price;
+  const needsOptions =
+    (product.sizes?.length || 0) > 0 || (product.colors?.length || 0) > 0;
+  const lowStock =
+    product.quantity !== null &&
+    product.quantity !== undefined &&
+    product.quantity > 0 &&
+    product.quantity <= 5;
 
-  const handleAddToCart = (e) => {
+  const add = async (e) => {
     e.preventDefault();
-    dispatch(addItem(product));
+    try {
+      await dispatch(addToCart({ product, quantity: 1 })).unwrap();
+      notify.success(`${product.title} added to your cart.`);
+    } catch (message) {
+      notify.error(message);
+    }
   };
 
-  const handleAddToWishlist = (e) => {
+  const toggleWishlist = async (e) => {
     e.preventDefault();
-    dispatch(addToWishlist(product));
+    try {
+      if (saved) await dispatch(removeFromWishlist(product.id)).unwrap();
+      else await dispatch(addToWishlist(product)).unwrap();
+    } catch (message) {
+      notify.error(message);
+    }
   };
-
-  const discount = product.discount || 0;
-  const discountedPrice = discount
-    ? product.price - (product.price * discount) / 100
-    : product.price;
 
   return (
     <Box
+      component={RouterLink}
+      to={`/products/${product.id}`}
+      data-testid="product-card"
       sx={{
-        position: 'relative',
-        backgroundColor: '#fff',
-        border: '1px solid #ddd',
-        borderRadius: '8px',
-        overflow: 'hidden',
-        transition: 'box-shadow 0.3s ease, transform 0.3s ease',
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
-        textAlign: 'left',
-        '&:hover': {
-          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-          transform: 'translateY(-5px)',
-        },
+        textDecoration: 'none',
+        color: 'text.primary',
+        borderRadius: 4,
+        p: 1.5,
+        transition: 'background-color .15s',
+        '&:hover': { bgcolor: 'background.neutral' },
       }}
     >
-      <Link
-        to={`/products/${product.id}`}
-        style={{ textDecoration: 'none', color: 'inherit', flexGrow: 1 }}
+      <Box
+        sx={{
+          position: 'relative',
+          aspectRatio: '1 / 1',
+          borderRadius: 3,
+          bgcolor: 'background.neutral',
+          overflow: 'hidden',
+          display: 'grid',
+          placeItems: 'center',
+        }}
       >
         <Box
+          component="img"
+          src={product.images?.[0]}
+          alt={product.title}
+          loading="lazy"
+          sx={{ width: '80%', height: '80%', objectFit: 'contain' }}
+        />
+        <Stack
+          direction="row"
+          spacing={0.5}
+          sx={{ position: 'absolute', top: 10, left: 10 }}
+        >
+          {product.inStock === false && (
+            <Chip
+              size="small"
+              label="Out of stock"
+              sx={{ bgcolor: 'background.paper' }}
+            />
+          )}
+          {lowStock && <Chip size="small" color="error" label="Low stock" />}
+        </Stack>
+        <IconButton
+          aria-label={
+            saved
+              ? `Remove ${product.title} from wishlist`
+              : `Add ${product.title} to wishlist`
+          }
+          onClick={toggleWishlist}
           sx={{
-            position: 'relative',
-            width: '100%',
-            aspectRatio: '1 / 1',
-            overflow: 'hidden',
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            bgcolor: 'background.paper',
+            color: saved ? 'error.main' : 'text.secondary',
+            '&:hover': { bgcolor: 'background.paper' },
           }}
         >
-          <IconButton
-            sx={{
-              position: 'absolute',
-              top: 10,
-              right: 10,
-              zIndex: 2,
-              color: 'rgba(0,0,0,0.6)',
-              '&:hover': {
-                color: 'red',
-              },
-            }}
-            aria-label="Add to Wishlist"
-            onClick={handleAddToWishlist}
-          >
-            <FavoriteBorder />
-          </IconButton>
-          <Box
-            component="img"
-            src={product.images[0]}
-            alt={product.title}
-            sx={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              transition: 'transform 0.3s ease',
-              '&:hover': { transform: 'scale(1.05)' },
-            }}
-          />
-        </Box>
-      </Link>
-      <Box sx={{ p: '10px 15px', display: 'flex', flexDirection: 'column' }}>
-        <Typography
-          sx={{
-            fontSize: '0.85rem',
-            fontWeight: 'bold',
-            margin: '5px 0 10px 0',
-            color: '#333',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-        >
+          <FiHeart fill={saved ? 'currentColor' : 'none'} />
+        </IconButton>
+      </Box>
+      <Stack
+        spacing={0.75}
+        sx={{ pt: 1.5, flex: 1, textAlign: 'center', alignItems: 'center' }}
+      >
+        <Typography variant="subtitle2" sx={{ lineHeight: 1.35 }}>
           {product.title}
         </Typography>
-        <Box
-          sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}
-        >
-          <Box>
-            <Typography
-              component="span"
-              sx={{ fontSize: '0.95rem', fontWeight: 'bold', color: '#000' }}
-            >
-              ${discountedPrice.toFixed(2)}
-            </Typography>
-            {discount > 0 && (
-              <Typography
-                component="span"
-                sx={{
-                  fontSize: '0.8rem',
-                  color: '#6c757d',
-                  textDecoration: 'line-through',
-                  ml: '5px',
-                }}
-              >
-                ${product.price.toFixed(2)}
-              </Typography>
+        {product.category?.name && (
+          <Chip
+            size="small"
+            label={product.category.name}
+            sx={{ bgcolor: 'background.neutralDeep', fontWeight: 500 }}
+          />
+        )}
+        {product.rating > 0 && (
+          <Stack direction="row" spacing={0.5} alignItems="center">
+            <Rating
+              value={Number(product.rating)}
+              precision={0.5}
+              size="small"
+              readOnly
+            />
+            {product.reviewCount > 0 && (
+              <Typography variant="caption">({product.reviewCount})</Typography>
             )}
-          </Box>
-          <IconButton
-            sx={{ color: '#007bff', '&:hover': { color: '#0056b3' }, p: 0 }}
-            aria-label="Add to Cart"
-            onClick={handleAddToCart}
+          </Stack>
+        )}
+        <Typography variant="h5" component="p">
+          {formatMoney(price)}
+        </Typography>
+        {onSale && (
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Typography
+              variant="body2"
+              color="text.disabled"
+              sx={{ textDecoration: 'line-through' }}
+            >
+              {formatMoney(product.price)}
+            </Typography>
+            <Chip
+              size="small"
+              color="success"
+              label={`Save ${product.discountPercentage}%`}
+              sx={{ color: '#fff' }}
+            />
+          </Stack>
+        )}
+        <Box sx={{ flex: 1 }} />
+        {needsOptions ? (
+          <Button size="small" variant="outlined" fullWidth sx={{ mt: 1 }}>
+            Choose options
+          </Button>
+        ) : (
+          <Button
+            size="small"
+            variant="contained"
+            fullWidth
+            startIcon={<FiShoppingCart />}
+            onClick={add}
+            disabled={product.inStock === false}
+            aria-label={`Add ${product.title} to cart`}
+            sx={{ mt: 1 }}
           >
-            <AddShoppingCart />
-          </IconButton>
-        </Box>
-      </Box>
+            Add to cart
+          </Button>
+        )}
+      </Stack>
     </Box>
   );
 };
 
 ProductCard.propTypes = {
   product: PropTypes.shape({
-    id: PropTypes.number.isRequired,
-    title: PropTypes.string.isRequired,
-    price: PropTypes.number.isRequired,
-    discount: PropTypes.number,
-    images: PropTypes.arrayOf(PropTypes.string).isRequired,
+    id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+    title: PropTypes.string,
+    price: PropTypes.number,
+    specialPrice: PropTypes.number,
+    images: PropTypes.array,
   }).isRequired,
 };
 

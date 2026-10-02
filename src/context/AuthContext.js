@@ -3,11 +3,23 @@
 // Sessions come from our backend (backend/src/routes/auth.ts): email and
 // password, or Google via Google Identity Services. The access token is kept
 // in memory by src/api; a reload restores it from the httpOnly refresh cookie.
-import React, { createContext, useCallback, useEffect, useState } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
+import { useDispatch } from 'react-redux';
 import PropTypes from 'prop-types';
 import { account, adminUsers, auth, onSessionExpired } from '../api';
 import { useNotify } from '../notification/NotificationProvider';
 import { MESSAGES } from '../notification/messages';
+import { resetToGuest, syncCartAfterSignIn } from '../redux/cartSlice';
+import {
+  resetWishlistToGuest,
+  syncWishlistAfterSignIn,
+} from '../redux/wishlistSlice';
 
 export const AuthContext = createContext();
 
@@ -15,6 +27,25 @@ export const AuthProvider = ({ children }) => {
   const notify = useNotify();
   const [user, setUser] = useState(null); // profile incl. role + permissions
   const [loading, setLoading] = useState(true); // initial session restore
+  const dispatch = useDispatch();
+  const syncedFor = useRef(null);
+
+  // Cart and wishlist follow the session: merge the guest copies into the
+  // account on sign-in, and start a fresh guest cart after sign-out.
+  useEffect(() => {
+    if (loading) return;
+    const id = user?.id ?? null;
+    if (id === syncedFor.current) return;
+    const wasSignedIn = syncedFor.current !== null;
+    syncedFor.current = id;
+    if (id !== null) {
+      dispatch(syncCartAfterSignIn());
+      dispatch(syncWishlistAfterSignIn());
+    } else if (wasSignedIn) {
+      dispatch(resetToGuest());
+      dispatch(resetWishlistToGuest());
+    }
+  }, [user?.id, loading, dispatch]);
 
   useEffect(() => {
     let active = true;

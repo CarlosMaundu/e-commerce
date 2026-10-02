@@ -3,7 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { catalog } from '../api';
-import { addItem } from '../redux/cartSlice';
+import { addToCart } from '../redux/cartSlice';
+import { useNotify } from '../notification/NotificationProvider';
 import Breadcrumb from '../components/common/Breadcrumb';
 
 import {
@@ -48,35 +49,48 @@ const ProductDetailsPage = () => {
   const handleSizeSelect = (size) => setSelectedSize(size);
   const handleColorSelect = (color) => setSelectedColor(color);
 
-  const handleAddToCart = () => {
-    if (product) {
-      dispatch(
-        addItem({
-          ...product,
-          size: selectedSize || null,
-          color: selectedColor || null,
+  const notify = useNotify();
+  const sizes = product?.sizes || [];
+  const colors = product?.colors || [];
+
+  const addSelected = async () => {
+    if (!product) return false;
+    if (sizes.length && !selectedSize) {
+      notify.warning('Please choose a size.');
+      return false;
+    }
+    if (colors.length && !selectedColor) {
+      notify.warning('Please choose a colour.');
+      return false;
+    }
+    try {
+      await dispatch(
+        addToCart({
+          product,
+          quantity: 1,
+          options: {
+            size: selectedSize || undefined,
+            color: selectedColor || undefined,
+          },
         })
-      );
+      ).unwrap();
+      return true;
+    } catch (message) {
+      notify.error(message);
+      return false;
     }
   };
 
-  const handleBuyNow = () => {
-    if (product) {
-      dispatch(
-        addItem({
-          ...product,
-          size: selectedSize || null,
-          color: selectedColor || null,
-        })
-      );
-      navigate('/checkout');
-    }
+  const handleAddToCart = async () => {
+    if (await addSelected())
+      notify.success(`${product.title} added to your cart.`);
+  };
+
+  const handleBuyNow = async () => {
+    if (await addSelected()) navigate('/cart');
   };
 
   const handleContinueShopping = () => navigate('/products');
-
-  const sizes = ['SM', 'MD', 'LG', 'XL'];
-  const colors = ['#000000', '#9CA3AF', '#FB923C', '#F87171'];
 
   const breadcrumbItems = [
     { label: 'Home', href: '/' },
@@ -515,66 +529,64 @@ const ProductDetailsPage = () => {
             <Divider sx={{ my: 2 }} />
 
             {/* Size Selection */}
-            <Box>
-              <Typography
-                sx={{ fontWeight: 'bold', color: '#333', fontSize: '0.9rem' }}
-              >
-                Choose a Size
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
-                {sizes.map((size) => (
-                  <Button
-                    key={size}
-                    variant={selectedSize === size ? 'contained' : 'outlined'}
-                    onClick={() => handleSizeSelect(size)}
-                    sx={{
-                      width: '36px',
-                      height: '36px',
-                      minWidth: '36px',
-                      p: 0,
-                      textTransform: 'none',
-                      fontSize: '0.7rem',
-                      borderRadius: '4px',
-                    }}
-                  >
-                    {size}
-                  </Button>
-                ))}
+            {sizes.length > 0 && (
+              <Box>
+                <Typography
+                  sx={{ fontWeight: 'bold', color: '#333', fontSize: '0.9rem' }}
+                >
+                  Choose a Size
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
+                  {sizes.map((size) => (
+                    <Button
+                      key={size}
+                      variant={selectedSize === size ? 'contained' : 'outlined'}
+                      onClick={() => handleSizeSelect(size)}
+                      sx={{
+                        width: '36px',
+                        height: '36px',
+                        minWidth: '36px',
+                        p: 0,
+                        textTransform: 'none',
+                        fontSize: '0.7rem',
+                        borderRadius: '4px',
+                      }}
+                    >
+                      {size}
+                    </Button>
+                  ))}
+                </Box>
               </Box>
-            </Box>
+            )}
 
-            <Divider sx={{ my: 2 }} />
+            {sizes.length > 0 && <Divider sx={{ my: 2 }} />}
 
             {/* Color Selection */}
-            <Box>
-              <Typography
-                sx={{ fontWeight: 'bold', color: '#333', fontSize: '0.9rem' }}
-              >
-                Choose a Color
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
-                {colors.map((color) => (
-                  <Box
-                    key={color}
-                    onClick={() => handleColorSelect(color)}
-                    sx={{
-                      width: '36px',
-                      height: '36px',
-                      border:
-                        selectedColor === color
-                          ? '2px solid #000'
-                          : '2px solid #fff',
-                      backgroundColor: color,
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      '&:hover': { borderColor: '#333' },
-                    }}
-                  />
-                ))}
+            {colors.length > 0 && (
+              <Box>
+                <Typography
+                  sx={{ fontWeight: 'bold', color: '#333', fontSize: '0.9rem' }}
+                >
+                  Choose a Color
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
+                  {colors.map((color) => (
+                    <Button
+                      key={color}
+                      size="small"
+                      variant={
+                        selectedColor === color ? 'contained' : 'outlined'
+                      }
+                      onClick={() => handleColorSelect(color)}
+                    >
+                      {color}
+                    </Button>
+                  ))}
+                </Box>
               </Box>
-            </Box>
+            )}
 
-            <Divider sx={{ my: 2 }} />
+            {colors.length > 0 && <Divider sx={{ my: 2 }} />}
 
             <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
               <Button

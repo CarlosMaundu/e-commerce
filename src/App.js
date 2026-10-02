@@ -1,89 +1,108 @@
-import React from 'react';
+// src/App.js
+import React, { useContext } from 'react';
 import {
   BrowserRouter as Router,
-  Routes,
+  Navigate,
   Route,
+  Routes,
   useLocation,
 } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { Provider } from 'react-redux';
+import { PersistGate } from 'redux-persist/integration/react';
+import { ThemeProvider } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+
+import theme from './styles/theme';
+import store, { persistor } from './redux/store';
+import { AuthContext, AuthProvider } from './context/AuthContext';
 import { NotificationProvider } from './notification/NotificationProvider';
 import ScrollToTop from './components/ScrollToTop';
-import Header from './components/layout/Header';
-import LoginPage from './pages/LoginPage';
+import PrivateRoute from './components/PrivateRoute';
+import AdminRoute from './components/AdminRoute';
+import { isStaff } from './auth/permissions';
+
+import StorefrontLayout from './layouts/StorefrontLayout';
+import AdminLayout, { adminNav } from './layouts/AdminLayout';
+
 import HomePage from './pages/HomePage';
 import ProductsPage from './pages/ProductsPage';
 import ProductDetailsPage from './pages/ProductDetailsPage';
 import CartPage from './pages/CartPage';
 import WishlistPage from './pages/WishlistPage';
-import ProfilePage from './pages/ProfilePage';
-import PrivateRoute from './components/PrivateRoute';
-import Footer from './components/layout/Footer';
 import CheckoutPage from './pages/CheckoutPage';
-import AdminRoute from './components/AdminRoute';
+import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
-import AdminDashboardSection from './components/profile/AdminDashboardSection';
-import ReportsSection from './components/profile/reports/ReportsSection';
-import ProductsSection from './components/profile/ProductsSection';
-import UsersSection from './components/profile/users/UsersSection';
 import ResetPassword from './components/password/ResetPassword';
 import InformationPage from './pages/InformationPage';
 import NotFoundPage from './pages/NotFoundPage';
 
-import { Provider } from 'react-redux';
-import store, { persistor } from './redux/store';
-import { PersistGate } from 'redux-persist/integration/react';
+import AccountOverviewPage from './pages/account/AccountOverviewPage';
+import {
+  AddressesPage,
+  ProfilePage,
+  SecurityPage,
+} from './pages/account/AccountSettingsPages';
+import {
+  OrderDetailPage,
+  OrdersPage,
+  ReturnsPage,
+} from './pages/account/OrderPages';
 
-import { ThemeProvider } from '@mui/material/styles';
-import CssBaseline from '@mui/material/CssBaseline';
-import theme from './styles/theme';
+import AdminDashboardPage from './pages/admin/AdminDashboardPage';
+import {
+  AdminOrderDetailPage,
+  AdminOrdersPage,
+  AdminReturnsPage,
+} from './pages/admin/AdminOrderPages';
+import AdminRolesPage from './pages/admin/AdminRolesPage';
+import ProductsSection from './components/profile/ProductsSection';
+import UsersSection from './components/profile/users/UsersSection';
 
-// 1. Define a small wrapper to conditionally render the Header
-const ConditionalHeader = () => {
-  const location = useLocation();
-  // list or logic to hide on specific paths
-  const hideOnPaths = ['/profile', '/dashboard'];
+const ORDERS_VIEW = ['orders.orders.view'];
+const USERS_VIEW = ['admin.users.view'];
 
-  // check if the current path starts with or matches any of these
-  const shouldHideHeader = hideOnPaths.some((path) =>
-    location.pathname.startsWith(path)
+/** /admin lands on the dashboard, or the first screen the user may open. */
+const AdminHome = () => {
+  const { user } = useContext(AuthContext);
+  const first = adminNav(user)[0]?.items[0];
+  if (first?.to === '/admin') return <AdminDashboardPage />;
+  return first ? (
+    <Navigate to={first.to} replace />
+  ) : (
+    <Navigate to="/" replace />
   );
-
-  if (shouldHideHeader) {
-    return null;
-  }
-  return <Header />;
 };
 
-// 2. (Optional) Hide the footer on certain paths too
-const HideFooterOnPaths = () => {
-  const location = useLocation();
-  const hideOnPaths = ['/profile', '/dashboard'];
-  const shouldHideFooter = hideOnPaths.some((path) =>
-    location.pathname.startsWith(path)
-  );
-
-  if (shouldHideFooter) {
-    return null; // do not render Footer
-  }
-  return <Footer />;
+/** Old /profile?section=… links go to their new homes. */
+const LegacyProfileRedirect = () => {
+  const { user } = useContext(AuthContext);
+  const section = new URLSearchParams(useLocation().search).get('section');
+  const map = {
+    users: '/admin/users',
+    products: '/admin/products',
+    reports: '/admin',
+    orders: '/account/orders',
+    profile: '/account/profile',
+  };
+  const target =
+    map[section] ||
+    (section === 'dashboard' && isStaff(user) ? '/admin' : '/account');
+  return <Navigate to={target} replace />;
 };
 
-const App = () => {
-  return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <NotificationProvider>
-        <AuthProvider>
-          <Provider store={store}>
-            <PersistGate loading={null} persistor={persistor}>
-              <Router>
-                <ScrollToTop />
+const Private = ({ children }) => <PrivateRoute>{children}</PrivateRoute>;
 
-                {/* Conditionally hide the header */}
-                <ConditionalHeader />
-
-                <Routes>
-                  {/* Public (non-protected) Routes */}
+const App = () => (
+  <ThemeProvider theme={theme}>
+    <CssBaseline />
+    <Provider store={store}>
+      <PersistGate loading={null} persistor={persistor}>
+        <NotificationProvider>
+          <AuthProvider>
+            <Router>
+              <ScrollToTop />
+              <Routes>
+                <Route element={<StorefrontLayout />}>
                   <Route path="/" element={<HomePage />} />
                   <Route path="/products" element={<ProductsPage />} />
                   <Route
@@ -95,84 +114,168 @@ const App = () => {
                   <Route path="/login" element={<LoginPage />} />
                   <Route path="/register" element={<SignupPage />} />
                   <Route path="/reset-password" element={<ResetPassword />} />
-
-                  {/* Protected (Must be logged in, either customer or admin) */}
-                  <Route
-                    path="/profile"
-                    element={
-                      <PrivateRoute>
-                        <ProfilePage />
-                      </PrivateRoute>
-                    }
-                  />
-                  <Route
-                    path="/checkout"
-                    element={
-                      <PrivateRoute>
-                        <CheckoutPage />
-                      </PrivateRoute>
-                    }
-                  />
-
-                  {/* Admin-Only Routes (NESTED under PrivateRoute) */}
-                  <Route
-                    path="/admin/dashboard"
-                    element={
-                      <PrivateRoute>
-                        <AdminRoute>
-                          <AdminDashboardSection />
-                        </AdminRoute>
-                      </PrivateRoute>
-                    }
-                  />
-                  <Route
-                    path="/admin/reports"
-                    element={
-                      <PrivateRoute>
-                        <AdminRoute permissions={['orders.orders.view']}>
-                          <ReportsSection />
-                        </AdminRoute>
-                      </PrivateRoute>
-                    }
-                  />
-                  <Route
-                    path="/admin/products"
-                    element={
-                      <PrivateRoute>
-                        <AdminRoute prefix="catalog.">
-                          <ProductsSection />
-                        </AdminRoute>
-                      </PrivateRoute>
-                    }
-                  />
-                  <Route
-                    path="/admin/users"
-                    element={
-                      <PrivateRoute>
-                        <AdminRoute permissions={['admin.users.view']}>
-                          <UsersSection />
-                        </AdminRoute>
-                      </PrivateRoute>
-                    }
-                  />
-
-                  {/* Fallback for non-existing routes */}
                   <Route
                     path="/information/:slug"
                     element={<InformationPage />}
                   />
-                  <Route path="*" element={<NotFoundPage />} />
-                </Routes>
+                  <Route
+                    path="/checkout"
+                    element={
+                      <Private>
+                        <CheckoutPage />
+                      </Private>
+                    }
+                  />
 
-                {/* Optionally hide the footer */}
-                <HideFooterOnPaths />
-              </Router>
-            </PersistGate>
-          </Provider>
-        </AuthProvider>
-      </NotificationProvider>
-    </ThemeProvider>
-  );
-};
+                  <Route
+                    path="/account"
+                    element={
+                      <Private>
+                        <AccountOverviewPage />
+                      </Private>
+                    }
+                  />
+                  <Route
+                    path="/account/profile"
+                    element={
+                      <Private>
+                        <ProfilePage />
+                      </Private>
+                    }
+                  />
+                  <Route
+                    path="/account/security"
+                    element={
+                      <Private>
+                        <SecurityPage />
+                      </Private>
+                    }
+                  />
+                  <Route
+                    path="/account/addresses"
+                    element={
+                      <Private>
+                        <AddressesPage />
+                      </Private>
+                    }
+                  />
+                  <Route
+                    path="/account/orders"
+                    element={
+                      <Private>
+                        <OrdersPage />
+                      </Private>
+                    }
+                  />
+                  <Route
+                    path="/account/orders/:id"
+                    element={
+                      <Private>
+                        <OrderDetailPage />
+                      </Private>
+                    }
+                  />
+                  <Route
+                    path="/account/returns"
+                    element={
+                      <Private>
+                        <ReturnsPage />
+                      </Private>
+                    }
+                  />
+
+                  <Route path="*" element={<NotFoundPage />} />
+                </Route>
+
+                <Route
+                  path="/admin"
+                  element={
+                    <Private>
+                      <AdminRoute>
+                        <AdminLayout />
+                      </AdminRoute>
+                    </Private>
+                  }
+                >
+                  <Route index element={<AdminHome />} />
+                  <Route
+                    path="orders"
+                    element={
+                      <AdminRoute permissions={ORDERS_VIEW}>
+                        <AdminOrdersPage />
+                      </AdminRoute>
+                    }
+                  />
+                  <Route
+                    path="orders/:id"
+                    element={
+                      <AdminRoute permissions={ORDERS_VIEW}>
+                        <AdminOrderDetailPage />
+                      </AdminRoute>
+                    }
+                  />
+                  <Route
+                    path="returns"
+                    element={
+                      <AdminRoute permissions={ORDERS_VIEW}>
+                        <AdminReturnsPage />
+                      </AdminRoute>
+                    }
+                  />
+                  <Route
+                    path="products"
+                    element={
+                      <AdminRoute prefix="catalog.">
+                        <ProductsSection />
+                      </AdminRoute>
+                    }
+                  />
+                  <Route
+                    path="users"
+                    element={
+                      <AdminRoute permissions={USERS_VIEW}>
+                        <UsersSection />
+                      </AdminRoute>
+                    }
+                  />
+                  <Route
+                    path="roles"
+                    element={
+                      <AdminRoute permissions={USERS_VIEW}>
+                        <AdminRolesPage />
+                      </AdminRoute>
+                    }
+                  />
+                  <Route
+                    path="dashboard"
+                    element={<Navigate to="/admin" replace />}
+                  />
+                  <Route path="*" element={<Navigate to="/admin" replace />} />
+                </Route>
+
+                <Route
+                  path="/profile"
+                  element={
+                    <Private>
+                      <LegacyProfileRedirect />
+                    </Private>
+                  }
+                />
+                <Route
+                  path="/dashboard"
+                  element={
+                    <Private>
+                      <LegacyProfileRedirect />
+                    </Private>
+                  }
+                />
+              </Routes>
+            </Router>
+          </AuthProvider>
+        </NotificationProvider>
+      </PersistGate>
+    </Provider>
+  </ThemeProvider>
+);
 
 export default App;

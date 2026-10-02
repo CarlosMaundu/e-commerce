@@ -1,142 +1,54 @@
 // src/pages/WishlistPage.js
-
-import React, { useState, useEffect } from 'react';
-import { Box, Typography, Grid, IconButton, Skeleton } from '@mui/material';
-import { useSelector, useDispatch } from 'react-redux';
-import { removeFromWishlist } from '../redux/wishlistSlice';
-import CloseIcon from '@mui/icons-material/Close';
-import ProductCard from '../components/common/ProductCard'; // Ensure correct path
+import React, { useContext } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
+import { useSelector } from 'react-redux';
+import { Alert, Button, Container, Grid, Typography } from '@mui/material';
+import { FiHeart } from 'react-icons/fi';
+import { AuthContext } from '../context/AuthContext';
+import ProductCard from '../components/common/ProductCard';
+import { EmptyState } from '../components/ui';
 
 const WishlistPage = () => {
-  const dispatch = useDispatch();
-
-  // Retrieve wishlist items from Redux
-  const wishlistItems = useSelector((state) => state.wishlist.items);
-
-  // Simulate loading state (replace with actual loading state if available)
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // Simulate data fetching delay
-    const timer = setTimeout(() => setLoading(false), 1500);
-    return () => clearTimeout(timer);
-  }, []);
-
-  const handleRemoveFromWishlist = (id) => {
-    dispatch(removeFromWishlist(id));
-  };
+  const { user } = useContext(AuthContext);
+  const items = useSelector((s) => s.wishlist.items);
 
   return (
-    <Box
-      sx={{
-        backgroundColor: '#f9fafb', // Tailwind's bg-gray-50 equivalent
-        px: 4,
-        py: 8,
-        mx: 'auto',
-        maxWidth: { lg: '1024px', md: '768px', sm: '600px' },
-      }}
-    >
-      {/* Page Title */}
-      <Typography
-        variant="h4"
-        sx={{
-          textAlign: 'center',
-          fontWeight: 'extrabold',
-          color: '#1f2937', // Tailwind's text-gray-800
-          mb: 12,
-        }}
-      >
-        My Wishlist
+    <Container maxWidth="xl" sx={{ py: { xs: 3, md: 5 } }}>
+      <Typography variant="h3" component="h1" sx={{ mb: 1 }}>
+        Wishlist
       </Typography>
-
-      {/* Wishlist Grid */}
-      <Grid
-        container
-        spacing={6}
-        sx={{
-          gridTemplateColumns: {
-            xs: 'repeat(1, 1fr)',
-            sm: 'repeat(2, 1fr)',
-            md: 'repeat(3, 1fr)',
-            lg: 'repeat(4, 1fr)',
-          },
-          display: 'grid',
-          gap: '24px',
-        }}
-      >
-        {loading ? (
-          // Render Skeletons while loading
-          Array.from({ length: 8 }).map((_, index) => (
-            <Box
-              key={index}
-              sx={{
-                backgroundColor: '#fff',
-                p: 3,
-                cursor: 'pointer',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                borderRadius: '8px',
-                transition: 'transform 0.3s',
-                '&:hover': {
-                  transform: 'scale(1.03)',
-                },
-              }}
-            >
-              {/* Image Skeleton */}
-              <Skeleton
-                variant="rectangular"
-                width="100%"
-                height={130}
-                sx={{
-                  bgcolor: '#e0e0e0',
-                  borderRadius: '8px',
-                }}
-              />
-              {/* Product Name Skeleton */}
-              <Skeleton variant="text" width="80%" height={24} sx={{ mt: 2 }} />
-              {/* Price Skeleton */}
-              <Skeleton variant="text" width="60%" height={28} sx={{ mt: 1 }} />
-            </Box>
-          ))
-        ) : // Render Wishlist Items
-        wishlistItems.length > 0 ? (
-          wishlistItems.map((item) => (
-            <Box key={item.id}>
-              <ProductCard product={item} />
-              {/* Overlay Remove Button if needed */}
-              <IconButton
-                onClick={() => handleRemoveFromWishlist(item.id)}
-                sx={{
-                  position: 'absolute',
-                  top: 16,
-                  right: 16,
-                  color: '#ff1744',
-                  backgroundColor: 'rgba(255, 23, 68, 0.1)',
-                  '&:hover': {
-                    backgroundColor: 'rgba(255, 23, 68, 0.2)',
-                  },
-                }}
-                aria-label={`Remove ${item.title} from wishlist`}
-              >
-                <CloseIcon />
-              </IconButton>
-            </Box>
-          ))
-        ) : (
-          // Message when Wishlist is empty
-          <Typography
-            variant="h6"
-            sx={{
-              color: '#888',
-              textAlign: 'center',
-              gridColumn: '1 / -1',
-              mt: 4,
-            }}
-          >
-            Your wishlist is empty.
-          </Typography>
-        )}
-      </Grid>
-    </Box>
+      <Typography color="text.secondary" sx={{ mb: 3 }}>
+        {items.length} saved item{items.length === 1 ? '' : 's'}
+      </Typography>
+      {!user && items.length > 0 && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          Your wishlist is saved in this browser.{' '}
+          <RouterLink to="/login">Sign in</RouterLink> to keep it in your
+          account.
+        </Alert>
+      )}
+      {!items.length ? (
+        <EmptyState
+          icon={<FiHeart />}
+          title="Nothing saved yet"
+          action={
+            <Button component={RouterLink} to="/products" variant="contained">
+              Browse products
+            </Button>
+          }
+        >
+          Tap the heart on any product to save it here.
+        </EmptyState>
+      ) : (
+        <Grid container spacing={2}>
+          {items.map((p) => (
+            <Grid item xs={6} sm={4} md={3} lg={2.4} key={p.id}>
+              <ProductCard product={p} />
+            </Grid>
+          ))}
+        </Grid>
+      )}
+    </Container>
   );
 };
 

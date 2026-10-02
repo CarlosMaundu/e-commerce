@@ -19,7 +19,7 @@ test('header search opens the product list for that term', async ({ page }) => {
 
 test('footer company links open information pages', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('link', { name: 'About' }).click();
+  await page.getByRole('link', { name: 'About us', exact: true }).click();
   await expect(page).toHaveURL(/\/information\/about$/);
   await expect(
     page.getByRole('heading', { name: 'About us', level: 1 })

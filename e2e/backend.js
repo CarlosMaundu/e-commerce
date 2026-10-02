@@ -14,10 +14,17 @@ const db = () => {
   return pool;
 };
 
-/** Removes all people and sessions; keeps roles and the sample catalog. */
+/**
+ * Removes all people, sessions and orders (CASCADE reaches carts, addresses,
+ * orders and returns); keeps roles and the sample catalog.
+ */
 const resetUsers = async () => {
   await db().query(
     'TRUNCATE users, sessions, auth_tokens, audit_logs, newsletter_subscribers RESTART IDENTITY CASCADE'
+  );
+  await db().query('UPDATE coupons SET uses_count = 0');
+  await db().query(
+    "DELETE FROM roles WHERE code NOT IN ('super_admin', 'admin', 'catalog_manager', 'order_manager', 'support', 'customer')"
   );
   await fetch(`${MAILPIT_URL}/api/v1/messages`, { method: 'DELETE' });
 };
