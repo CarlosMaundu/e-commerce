@@ -12,6 +12,7 @@ import { pool, query, transaction } from './db';
 import { delivery, loadDelivery } from './lib/delivery';
 import { finance, loadFinance } from './lib/finance';
 import { applyTax, round2 } from './lib/pricing';
+import { backfillAccounting } from './lib/accounting';
 
 const DEMO_EMAIL = 'demo.buyer%@example.com';
 
@@ -36,6 +37,11 @@ const rng = (seed: number) => () => {
 };
 
 export const removeDemoOrders = async () => {
+  // Their money trail goes too, so the ledger stays balanced.
+  const ids = `(SELECT id FROM orders WHERE email LIKE $1)`;
+  await query(`DELETE FROM ledger_entries WHERE order_id IN ${ids}`, [DEMO_EMAIL]);
+  await query(`DELETE FROM payments WHERE order_id IN ${ids}`, [DEMO_EMAIL]);
+  await query(`DELETE FROM refunds WHERE order_id IN ${ids}`, [DEMO_EMAIL]);
   await query('DELETE FROM orders WHERE email LIKE $1', [DEMO_EMAIL]);
   const { rowCount } = await query('DELETE FROM users WHERE email LIKE $1', [DEMO_EMAIL]);
   return rowCount || 0;
@@ -158,7 +164,8 @@ export const seedDemoOrders = async () => {
       }
     }
   });
-  console.log(`Seeded ${count} demo orders from ${buyers.length} demo shoppers`);
+  await backfillAccounting();
+  console.log(`Seeded ${count} demo orders from ${buyers.length} demo shoppers, with invoices and ledger entries`);
 };
 
 if (require.main === module) {

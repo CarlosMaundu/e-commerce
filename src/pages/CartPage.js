@@ -7,6 +7,7 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
   Chip,
   Container,
   Divider,
@@ -14,10 +15,11 @@ import {
   IconButton,
   InputBase,
   Stack,
-  Tooltip,
   Typography,
 } from '@mui/material';
 import {
+  FiChevronLeft,
+  FiEdit2,
   FiHeart,
   FiMinus,
   FiPlus,
@@ -25,7 +27,10 @@ import {
   FiTrash2,
   FiX,
 } from 'react-icons/fi';
+import { alpha } from '@mui/material/styles';
 import { AuthContext } from '../context/AuthContext';
+import { canShop } from '../auth/permissions';
+import OptionRows from '../components/common/OptionRows';
 import {
   applyCoupon,
   removeCoupon,
@@ -36,7 +41,15 @@ import {
 import { addToWishlist } from '../redux/wishlistSlice';
 import { useNotify } from '../notification/NotificationProvider';
 import { EmptyState, SectionCard } from '../components/ui';
-import { formatMoney, optionText } from '../utils/format';
+import { formatMoney } from '../utils/format';
+
+const qtyButtonSx = {
+  width: 44,
+  height: 44,
+  borderRadius: '8px',
+  bgcolor: 'background.neutralDeep',
+  '&:hover': { bgcolor: 'divider' },
+};
 
 const CartPage = () => {
   const { user } = useContext(AuthContext);
@@ -68,6 +81,23 @@ const CartPage = () => {
       })
     );
     if (ok) await act(removeFromCart(item.key), 'Moved to your wishlist.');
+  };
+
+  const [selected, setSelected] = useState([]);
+  const shopper = canShop(user);
+  const moveAllToWishlist = async () => {
+    for (const item of cart.items) {
+      // eslint-disable-next-line no-await-in-loop
+      await moveToWishlist(item);
+    }
+  };
+  const removeSelected = async () => {
+    for (const key of selected) {
+      // eslint-disable-next-line no-await-in-loop
+      await act(removeFromCart(key));
+    }
+    setSelected([]);
+    notify.success('Removed the selected items.');
   };
 
   const submitCoupon = async (e) => {
@@ -113,168 +143,342 @@ const CartPage = () => {
       </Typography>
       <Grid container spacing={4}>
         <Grid item xs={12} md={8}>
-          <Stack spacing={2}>
+          <Stack spacing={2.5}>
+            <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
+              <Button
+                component={RouterLink}
+                to="/products"
+                startIcon={<FiChevronLeft />}
+                sx={{ bgcolor: (t) => alpha(t.palette.primary.main, 0.1) }}
+              >
+                Continue shopping
+              </Button>
+              {shopper && (
+                <Button
+                  startIcon={<FiHeart />}
+                  onClick={moveAllToWishlist}
+                  disabled={busy}
+                  sx={{ bgcolor: 'background.neutral', color: 'text.primary' }}
+                >
+                  Move all items into wishlist
+                </Button>
+              )}
+              {selected.length > 0 && (
+                <Button
+                  color="error"
+                  startIcon={<FiTrash2 />}
+                  onClick={removeSelected}
+                  disabled={busy}
+                >
+                  Remove selected ({selected.length})
+                </Button>
+              )}
+            </Stack>
             {hasStockProblem && (
               <Alert severity="warning">
                 Some items have less stock than you asked for. Lower the
                 quantity to continue.
               </Alert>
             )}
-            {cart.items.map((item) => (
-              <Stack
-                key={item.key}
-                direction={{ xs: 'column', sm: 'row' }}
-                spacing={2.5}
-                alignItems={{ sm: 'center' }}
-                data-testid="cart-line"
-                sx={{ bgcolor: 'background.neutral', borderRadius: 1, p: 2.5 }}
-              >
+            {cart.items.map((item) => {
+              const onSale =
+                item.specialPrice !== null &&
+                item.specialPrice !== undefined &&
+                item.specialPrice < item.price;
+              const save = onSale
+                ? Math.round(
+                    ((item.price - item.specialPrice) / item.price) * 100
+                  )
+                : 0;
+              const editLink = `/products/${item.productId}${
+                Object.keys(item.options || {}).length
+                  ? `?${new URLSearchParams(item.options)}`
+                  : ''
+              }`;
+              return (
                 <Box
-                  component={RouterLink}
-                  to={`/products/${item.productId}`}
+                  key={item.key}
+                  data-testid="cart-line"
                   sx={{
-                    width: 96,
-                    height: 96,
-                    flexShrink: 0,
+                    bgcolor: 'background.neutral',
                     borderRadius: 1,
-                    bgcolor: 'background.paper',
-                    display: 'grid',
-                    placeItems: 'center',
-                    overflow: 'hidden',
+                    p: { xs: 2, md: 3 },
                   }}
                 >
-                  <Box
-                    component="img"
-                    src={item.image}
-                    alt={item.title}
-                    sx={{
-                      maxWidth: '100%',
-                      maxHeight: '100%',
-                      objectFit: 'contain',
-                    }}
-                  />
-                </Box>
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography
-                    variant="subtitle1"
-                    component={RouterLink}
-                    to={`/products/${item.productId}`}
-                    sx={{ color: 'text.primary', textDecoration: 'none' }}
-                  >
-                    {item.title}
-                  </Typography>
-                  {optionText(item.options) && (
-                    <Typography variant="body2" color="text.secondary">
-                      {optionText(item.options)}
-                    </Typography>
-                  )}
                   <Stack
-                    direction="row"
+                    direction={{ xs: 'column', sm: 'row' }}
+                    justifyContent="space-between"
                     spacing={1}
-                    alignItems="center"
-                    sx={{ mt: 0.5 }}
+                    alignItems={{ sm: 'center' }}
                   >
-                    <Typography variant="subtitle2">
-                      {formatMoney(item.unitPrice)}
-                    </Typography>
-                    {item.specialPrice !== null &&
-                      item.specialPrice !== undefined &&
-                      item.specialPrice < item.price && (
-                        <>
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      alignItems="center"
+                      sx={{ minWidth: 0 }}
+                    >
+                      <Checkbox
+                        checked={selected.includes(item.key)}
+                        onChange={(e) =>
+                          setSelected((s) =>
+                            e.target.checked
+                              ? [...s, item.key]
+                              : s.filter((k) => k !== item.key)
+                          )
+                        }
+                        inputProps={{ 'aria-label': `Select ${item.title}` }}
+                        sx={{ ml: -1 }}
+                      />
+                      <Typography
+                        component={RouterLink}
+                        to={editLink}
+                        sx={{
+                          fontWeight: 700,
+                          fontSize: { xs: '1rem', md: '1.1rem' },
+                          color: 'text.primary',
+                          textDecoration: 'none',
+                          '&:hover': { textDecoration: 'underline' },
+                        }}
+                      >
+                        {item.title}
+                      </Typography>
+                    </Stack>
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      alignItems="center"
+                      sx={{ flexShrink: 0 }}
+                    >
+                      <Typography color="text.secondary">Each</Typography>
+                      <Typography sx={{ fontWeight: 700 }}>
+                        {formatMoney(item.unitPrice)}
+                      </Typography>
+                      {save > 0 && (
+                        <Chip
+                          size="small"
+                          label={`Save ${save}%`}
+                          sx={{
+                            height: 22,
+                            color: 'success.main',
+                            bgcolor: 'success.light',
+                            fontWeight: 600,
+                          }}
+                        />
+                      )}
+                    </Stack>
+                  </Stack>
+
+                  <Box
+                    sx={{
+                      mt: 2,
+                      display: 'grid',
+                      gap: { xs: 2, sm: 3 },
+                      alignItems: 'center',
+                      gridTemplateColumns: {
+                        xs: '96px minmax(0, 1fr)',
+                        sm: '140px minmax(0, 1fr) auto',
+                      },
+                    }}
+                  >
+                    <Box
+                      component={RouterLink}
+                      to={editLink}
+                      sx={{
+                        aspectRatio: '1 / 1',
+                        borderRadius: '8px',
+                        bgcolor: 'background.paper',
+                        overflow: 'hidden',
+                        display: 'block',
+                      }}
+                    >
+                      <Box
+                        component="img"
+                        src={item.image}
+                        alt={item.title}
+                        sx={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'contain',
+                        }}
+                      />
+                    </Box>
+                    <Stack spacing={1.25} alignItems="flex-start">
+                      {item.inStock === false ? (
+                        <Chip
+                          size="small"
+                          label={`Only ${item.stock} left`}
+                          sx={{
+                            height: 24,
+                            color: 'error.main',
+                            bgcolor: 'error.light',
+                            fontWeight: 600,
+                          }}
+                        />
+                      ) : (
+                        item.stock !== undefined &&
+                        item.stock <= 5 && (
+                          <Chip
+                            size="small"
+                            label={`${item.stock} remaining`}
+                            sx={{
+                              height: 24,
+                              color: 'warning.main',
+                              bgcolor: 'warning.light',
+                              fontWeight: 600,
+                            }}
+                          />
+                        )
+                      )}
+                      <OptionRows options={item.options} />
+                    </Stack>
+                    <Stack
+                      spacing={1.5}
+                      alignItems={{ xs: 'flex-start', sm: 'flex-end' }}
+                      sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}
+                    >
+                      <Stack
+                        direction="row"
+                        spacing={1.5}
+                        alignItems="baseline"
+                      >
+                        {onSale && (
                           <Typography
-                            variant="body2"
                             color="text.disabled"
                             sx={{ textDecoration: 'line-through' }}
                           >
-                            {formatMoney(item.price)}
+                            {formatMoney(item.price * item.quantity)}
                           </Typography>
-                          <Chip size="small" color="success" label="Sale" />
-                        </>
-                      )}
-                  </Stack>
-                  {item.inStock === false && (
-                    <Typography variant="body2" color="error.main">
-                      Only {item.stock} left
-                    </Typography>
-                  )}
-                </Box>
-                <Stack
-                  direction="row"
-                  alignItems="center"
-                  sx={{
-                    bgcolor: 'background.paper',
-                    borderRadius: 999,
-                    border: 1,
-                    borderColor: 'divider',
-                  }}
-                >
-                  <IconButton
-                    size="small"
-                    aria-label={`Decrease quantity of ${item.title}`}
-                    disabled={busy || item.quantity <= 1}
-                    onClick={() =>
-                      act(
-                        setCartQuantity({
-                          key: item.key,
-                          quantity: item.quantity - 1,
-                        })
-                      )
-                    }
+                        )}
+                        <Typography
+                          sx={{
+                            fontWeight: 800,
+                            fontSize: { xs: '1.25rem', md: '1.5rem' },
+                          }}
+                        >
+                          {formatMoney(item.total)}
+                        </Typography>
+                      </Stack>
+                      <Typography color="text.secondary">Quantity:</Typography>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <IconButton
+                          aria-label={`Decrease quantity of ${item.title}`}
+                          disabled={busy || item.quantity <= 1}
+                          onClick={() =>
+                            act(
+                              setCartQuantity({
+                                key: item.key,
+                                quantity: item.quantity - 1,
+                              })
+                            )
+                          }
+                          sx={qtyButtonSx}
+                        >
+                          <FiMinus />
+                        </IconButton>
+                        <Box
+                          aria-label="Quantity"
+                          sx={{
+                            width: 64,
+                            height: 44,
+                            borderRadius: '8px',
+                            bgcolor: 'background.neutralDeep',
+                            display: 'grid',
+                            placeItems: 'center',
+                            fontWeight: 600,
+                          }}
+                        >
+                          {item.quantity}
+                        </Box>
+                        <IconButton
+                          aria-label={`Increase quantity of ${item.title}`}
+                          disabled={busy || item.quantity >= 99}
+                          onClick={() =>
+                            act(
+                              setCartQuantity({
+                                key: item.key,
+                                quantity: item.quantity + 1,
+                              })
+                            )
+                          }
+                          sx={qtyButtonSx}
+                        >
+                          <FiPlus />
+                        </IconButton>
+                      </Stack>
+                    </Stack>
+                  </Box>
+
+                  <Stack
+                    direction="row"
+                    alignItems="center"
+                    justifyContent="space-between"
+                    sx={{ mt: 2 }}
                   >
-                    <FiMinus />
-                  </IconButton>
-                  <Typography
-                    sx={{ minWidth: 32, textAlign: 'center', fontWeight: 600 }}
-                    aria-label="Quantity"
-                  >
-                    {item.quantity}
-                  </Typography>
-                  <IconButton
-                    size="small"
-                    aria-label={`Increase quantity of ${item.title}`}
-                    disabled={busy || item.quantity >= 99}
-                    onClick={() =>
-                      act(
-                        setCartQuantity({
-                          key: item.key,
-                          quantity: item.quantity + 1,
-                        })
-                      )
-                    }
-                  >
-                    <FiPlus />
-                  </IconButton>
-                </Stack>
-                <Typography
-                  variant="subtitle1"
-                  sx={{ minWidth: 90, textAlign: { sm: 'right' } }}
-                >
-                  {formatMoney(item.total)}
-                </Typography>
-                <Stack direction="row">
-                  <Tooltip title="Move to wishlist">
-                    <IconButton
-                      aria-label={`Move ${item.title} to wishlist`}
-                      onClick={() => moveToWishlist(item)}
-                      disabled={busy}
+                    <Stack
+                      direction="row"
+                      alignItems="center"
+                      divider={
+                        <Box
+                          sx={{ width: '1px', height: 24, bgcolor: 'divider' }}
+                        />
+                      }
+                      spacing={1}
                     >
-                      <FiHeart />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Remove">
-                    <IconButton
+                      <Button
+                        component={RouterLink}
+                        to={editLink}
+                        color="inherit"
+                        startIcon={<FiEdit2 />}
+                      >
+                        Edit
+                      </Button>
+                      {shopper && (
+                        <Button
+                          color="inherit"
+                          startIcon={<FiHeart />}
+                          aria-label={`Move ${item.title} to wishlist`}
+                          onClick={() => moveToWishlist(item)}
+                          disabled={busy}
+                        >
+                          Move to wishlist
+                        </Button>
+                      )}
+                    </Stack>
+                    <Button
+                      color="error"
                       aria-label={`Remove ${item.title}`}
                       onClick={() =>
                         act(removeFromCart(item.key), 'Removed from your cart.')
                       }
                       disabled={busy}
                     >
-                      <FiTrash2 />
-                    </IconButton>
-                  </Tooltip>
-                </Stack>
+                      Remove
+                    </Button>
+                  </Stack>
+                </Box>
+              );
+            })}
+            <Stack
+              direction="row"
+              justifyContent="space-between"
+              alignItems="center"
+              sx={{
+                borderTop: 1,
+                borderColor: 'divider',
+                pt: 2.5,
+                px: { xs: 1, md: 3 },
+              }}
+            >
+              <Typography sx={{ fontWeight: 600 }}>
+                {cart.itemCount} item{cart.itemCount === 1 ? '' : 's'}
+              </Typography>
+              <Stack direction="row" spacing={2} alignItems="baseline">
+                <Typography color="text.secondary">total</Typography>
+                <Typography sx={{ fontWeight: 800, fontSize: '1.5rem' }}>
+                  {formatMoney(cart.items.reduce((sum, i) => sum + i.total, 0))}
+                </Typography>
               </Stack>
-            ))}
+            </Stack>
           </Stack>
         </Grid>
         <Grid item xs={12} md={4}>

@@ -3,6 +3,8 @@
 // addresses, recent orders, sessions and activity. Viewing is not acting:
 // nothing here signs in as the customer (that is "View as customer").
 import React, { useContext, useEffect, useState } from 'react';
+import PropTypes from 'prop-types';
+import { alpha, useTheme } from '@mui/material/styles';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import {
   Alert,
@@ -35,13 +37,14 @@ import {
   FiShoppingCart,
   FiStar,
   FiUnlock,
+  FiArrowUpRight,
 } from 'react-icons/fi';
 import { AuthContext } from '../../context/AuthContext';
 import { adminSecurity, adminUsers } from '../../api';
 import { formatAddress } from '../../api/mappers';
 import { hasPermission, PERMISSIONS, roleLabel } from '../../auth/permissions';
 import { useNotify } from '../../notification/NotificationProvider';
-import { SectionCard, StatTile, StatusChip } from '../../components/ui';
+import { SectionCard, StatusChip } from '../../components/ui';
 import { PageHeader, EmptyRow } from '../../components/admin/DataTable';
 import {
   ActivityList,
@@ -50,6 +53,92 @@ import {
 } from '../../components/security/SecurityWidgets';
 import ConfirmationDialog from '../../components/common/ConfirmationDialog';
 import { formatDate, formatDateTime, formatMoney } from '../../utils/format';
+
+/** White stat card: icon square, small caps label, big value; a link when it has details. */
+const CustomerStat = ({ label, value, icon, color, to }) => {
+  const theme = useTheme();
+  const main = theme.palette[color].main;
+  return (
+    <Box
+      component={to ? RouterLink : 'div'}
+      to={to || undefined}
+      aria-label={to ? `${label}: ${value}. View details` : undefined}
+      data-testid={`customer-stat-${label.toLowerCase().replace(/\s+/g, '-')}`}
+      sx={{
+        display: 'block',
+        p: 3,
+        borderRadius: 1,
+        border: 1,
+        borderColor: 'divider',
+        bgcolor: 'background.paper',
+        color: 'text.primary',
+        textDecoration: 'none',
+        transition: 'border-color .15s, box-shadow .15s',
+        ...(to && {
+          '&:hover': {
+            borderColor: alpha(main, 0.5),
+            boxShadow: `0 8px 24px ${alpha(main, 0.12)}`,
+          },
+        }),
+      }}
+    >
+      <Stack
+        direction="row"
+        justifyContent="space-between"
+        alignItems="flex-start"
+      >
+        <Box
+          sx={{
+            width: 44,
+            height: 44,
+            borderRadius: '8px',
+            display: 'grid',
+            placeItems: 'center',
+            fontSize: 20,
+            color: main,
+            bgcolor: alpha(main, 0.12),
+          }}
+        >
+          {icon}
+        </Box>
+        {to && (
+          <Box sx={{ color: 'text.disabled', fontSize: 18 }}>
+            <FiArrowUpRight />
+          </Box>
+        )}
+      </Stack>
+      <Typography
+        sx={{
+          mt: 2.5,
+          fontSize: '0.72rem',
+          fontWeight: 700,
+          letterSpacing: '0.12em',
+          textTransform: 'uppercase',
+          color: 'text.secondary',
+        }}
+      >
+        {label}
+      </Typography>
+      <Typography
+        sx={{
+          mt: 0.5,
+          fontWeight: 800,
+          fontSize: '1.6rem',
+          letterSpacing: '-0.02em',
+        }}
+      >
+        {value}
+      </Typography>
+    </Box>
+  );
+};
+CustomerStat.propTypes = {
+  label: PropTypes.string.isRequired,
+  value: PropTypes.node,
+  icon: PropTypes.node.isRequired,
+  color: PropTypes.string.isRequired,
+  to: PropTypes.string,
+};
 
 const UserAccountPage = () => {
   const { id } = useParams();
@@ -119,20 +208,48 @@ const UserAccountPage = () => {
     }
   };
 
+  // Each card opens its details (filtered to this customer); the cart is
+  // only shown. Pages not built yet open a "coming soon" page.
+  const who = `customer=${user.id}&customerName=${encodeURIComponent(user.name)}`;
   const tiles = staff
     ? []
     : [
-        ['Orders', stats.orders, <FiPackage key="o" />, 'primary'],
+        [
+          'Orders',
+          stats.orders,
+          <FiPackage key="o" />,
+          'primary',
+          `/admin/orders?${who}`,
+        ],
         [
           'Total spent',
           formatMoney(stats.spent),
           <FiDollarSign key="s" />,
           'success',
+          `/admin/soon/customer-revenue?${who}&name=${encodeURIComponent(user.name)}`,
         ],
-        ['In cart', stats.cart, <FiShoppingCart key="c" />, 'info'],
-        ['Wishlist', stats.wishlist, <FiHeart key="w" />, 'error'],
-        ['Returns', stats.returns, <FiRotateCcw key="r" />, 'warning'],
-        ['Reviews', stats.reviews, <FiStar key="v" />, 'warning'],
+        ['In cart', stats.cart, <FiShoppingCart key="c" />, 'info', null],
+        [
+          'Wishlist',
+          stats.wishlist,
+          <FiHeart key="w" />,
+          'error',
+          `/admin/soon/customer-wishlist?name=${encodeURIComponent(user.name)}`,
+        ],
+        [
+          'Returns',
+          stats.returns,
+          <FiRotateCcw key="r" />,
+          'warning',
+          `/admin/returns?${who}`,
+        ],
+        [
+          'Reviews',
+          stats.reviews,
+          <FiStar key="v" />,
+          'warning',
+          `/admin/soon/reviews?name=${encodeURIComponent(user.name)}`,
+        ],
       ];
 
   return (
@@ -205,20 +322,20 @@ const UserAccountPage = () => {
 
       <Grid container spacing={3}>
         <Grid item xs={12} lg={4}>
-          <SectionCard tinted>
+          <SectionCard sx={{ height: '100%' }}>
             <Stack
               direction="row"
               spacing={2}
               alignItems="center"
-              sx={{ mb: 2.5 }}
+              sx={{ pb: 2.5, mb: 2.5, borderBottom: 1, borderColor: 'divider' }}
             >
               <Avatar
                 src={user.avatar || undefined}
                 alt=""
                 sx={{
-                  width: 64,
-                  height: 64,
-                  fontSize: '1.6rem',
+                  width: 72,
+                  height: 72,
+                  fontSize: '1.8rem',
                   bgcolor: 'primary.main',
                 }}
               >
@@ -244,7 +361,7 @@ const UserAccountPage = () => {
                 </Stack>
               </Box>
             </Stack>
-            <Stack spacing={1.5}>
+            <Stack spacing={2.25}>
               {[
                 ['Email', user.email],
                 ['Joined', formatDate(user.creationAt)],
@@ -275,12 +392,20 @@ const UserAccountPage = () => {
                     ]),
               ].map(([label, value]) => (
                 <Box key={label}>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography
+                    component="div"
+                    sx={{
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      letterSpacing: '0.12em',
+                      textTransform: 'uppercase',
+                      color: 'text.secondary',
+                    }}
+                  >
                     {label}
                   </Typography>
                   <Typography
-                    variant="body2"
-                    sx={{ fontWeight: 500, overflowWrap: 'anywhere' }}
+                    sx={{ fontWeight: 500, mt: 0.5, overflowWrap: 'anywhere' }}
                   >
                     {value}
                   </Typography>
@@ -309,18 +434,27 @@ const UserAccountPage = () => {
               )}
             </SectionCard>
           ) : (
-            <Grid container spacing={2}>
-              {tiles.map(([label, value, icon, color]) => (
-                <Grid item xs={6} md={4} key={label}>
-                  <StatTile
-                    label={label}
-                    value={value}
-                    icon={icon}
-                    color={color}
-                  />
-                </Grid>
+            <Box
+              sx={{
+                display: 'grid',
+                gap: 2,
+                gridTemplateColumns: {
+                  xs: 'repeat(2, minmax(0, 1fr))',
+                  md: 'repeat(3, minmax(0, 1fr))',
+                },
+              }}
+            >
+              {tiles.map(([label, value, icon, color, to]) => (
+                <CustomerStat
+                  key={label}
+                  label={label}
+                  value={value}
+                  icon={icon}
+                  color={color}
+                  to={to}
+                />
               ))}
-            </Grid>
+            </Box>
           )}
         </Grid>
       </Grid>

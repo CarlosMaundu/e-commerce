@@ -384,3 +384,44 @@ test('the help card closes to an icon and opens again', async ({ page }) => {
   await page.getByRole('button', { name: 'Open help' }).click();
   await expect(page.getByText('Need some help?')).toBeVisible();
 });
+
+test('staff create an order for a customer, invoice it, take an M-Pesa payment and the ledger balances', async ({
+  page,
+}) => {
+  await createUser({
+    email: 'jane@example.com',
+    firstname: 'Jane',
+    lastname: 'Doe',
+  });
+  await signInAdmin(page);
+  await page.goto('/admin/orders/new');
+  await page.getByLabel('Customer').fill('Jane');
+  await page.getByRole('option', { name: /Jane Doe/ }).click();
+  await page.getByLabel('Find a product').fill('Canvas tote');
+  await page.getByRole('option', { name: /Canvas tote bag/ }).click();
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await page.getByLabel('Street address').fill('1 Market St');
+  await page.getByLabel('City or town').fill('Nairobi');
+  await page.getByRole('button', { name: 'Create order and invoice' }).click();
+  await expect(toast(page)).toContainText('created and invoiced');
+  await expect(page).toHaveURL(/\/admin\/orders\/\d+$/);
+  await expect(page.getByTestId('order-customer-link')).toHaveText('Jane Doe');
+
+  await page.getByRole('link', { name: 'Invoice', exact: true }).click();
+  await expect(page.getByTestId('invoice-document')).toContainText(
+    'Canvas tote bag'
+  );
+  await page.getByRole('button', { name: 'Record payment' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('M-Pesa code').fill('QFT1234XYZ');
+  await dialog.getByRole('button', { name: 'Record payment' }).click();
+  await expect(toast(page)).toHaveText('Payment recorded.');
+  await expect(page.getByTestId('invoice-balance')).toContainText('0.00');
+
+  await page.goto('/admin/payments?search=QFT1234XYZ');
+  await expect(page.locator('[data-testid^="payment-"]')).toHaveCount(1);
+  await page.goto('/admin/ledger');
+  await expect(page.getByTestId('ledger-balanced')).toHaveText(
+    'Debits equal credits'
+  );
+});

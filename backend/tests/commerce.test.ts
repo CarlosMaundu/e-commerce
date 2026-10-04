@@ -448,3 +448,154 @@ describe('custom roles', () => {
     expect(clash.status).toBe(409);
   });
 });
+
+describe('invoices, payments, refunds and the ledger', () => {
+  const ledgerBalanced = async () => {
+    const r = (await query('SELECT COALESCE(sum(debit),0) AS d, COALESCE(sum(credit),0) AS c FROM ledger_entries')).rows[0];
+    expect(Number(r.d)).toBeCloseTo(Number(r.c), 2);
+  };
+  const balance = async (account: string) => {
+    const r = (await query('SELECT COALESCE(sum(debit - credit),0) AS b FROM ledger_entries WHERE account = $1', [account])).rows[0];
+    return Math.round(Number(r.b) * 100) / 100;
+  };
+  const staffUser = async (role: string, email: string) => {
+    await createUser(email, role);
+    return (await signIn(email)).token;
+  };
+
+  test('a card order is invoiced and paid; cash on delivery is paid when delivered', async () => {
+    const token = await shopper();
+    const admin = await staffUser('admin', 'boss@example.com');
+    const confirm = await prepareCheckout(token, { payment: 'stripe' });
+    const intentId = confirm.body.data.payment.client_secret.replace(/_secret$/, '');
+    fakePayments.intents.get(intentId)!.status = 'succeeded';
+    const card = (await request(app).put('/api/rest/confirm').set(bearer(token))).body.data;
+    const money = (await request(app).get(`/api/admin/orders/${card.order_id}/finance`).set(bearer(admin))).body.data;
+    expect(money.invoice).toMatchObject({ number: `INV-${String(card.order_id).padStart(6, '0')}`, status: 'paid', total: 137.44, balance: 0 });
+    expect(money.payments).toMatchObject([{ kind: 'payment', method: 'stripe', amount: 137.44, reference: intentId }]);
+    expect(await balance('card_clearing')).toBe(137.44);
+    expect(await balance('receivables')).toBe(0);
+
+    const cod = await placeOrder(token);
+    expect((await request(app).get(`/api/admin/orders/${cod.order_id}/finance`).set(bearer(admin))).body.data.invoice.status).toBe('issued');
+    expect(await balance('receivables')).toBe(Number(cod.total));
+    for (const s of ['processing', 'shipped', 'delivered']) {
+      await request(app).put(`/api/admin/orderhistory/${cod.order_id}`).set(bearer(admin)).send({ order_status: s }).expect(200);
+    }
+    expect(await balance('receivables')).toBe(0);
+    expect(await balance('cash')).toBe(Number(cod.total));
+    await ledgerBalanced();
+
+    const payments = (await request(app).get('/api/admin/payments').set(bearer(admin))).body.data;
+    expect(payments.summary.received).toBeCloseTo(137.44 + Number(cod.total), 2);
+    const invoices = (await request(app).get('/api/admin/invoices?status=paid').set(bearer(admin))).body.data;
+    expect(invoices.total).toBe(2);
+  });
+
+  test('staff create an order for a customer, invoice it and record M-Pesa payments', async () => {
+    const customerId = await createUser('jane@example.com');
+    const manager = await staffUser('order_manager', 'orders@example.com');
+    const bad = await request(app).post('/api/admin/orders').set(bearer(manager)).send({ customer_id: customerId, items: [], shipping_method: 'standard', payment_method: 'invoice' });
+    expect(bad.status).toBe(400);
+    const created = await request(app).post('/api/admin/orders').set(bearer(manager)).send({
+      customer_id: customerId,
+      items: [{ product_id: await productId('Canvas tote bag'), quantity: 2 }],
+      address: { firstname: 'Jane', lastname: 'Doe', address_1: '1 Market St', city: 'Nairobi', country: 'ke' },
+      shipping_method: 'standard',
+      payment_method: 'invoice',
+      due_days: 14,
+    });
+    expect(created.status).toBe(201);
+    const order = created.body.data;
+    const money = (await request(app).get(`/api/admin/orders/${order.order_id}/finance`).set(bearer(manager))).body.data;
+    expect(money.invoice).toMatchObject({ status: 'issued', total: order.total });
+
+    const noRef = await request(app).post(`/api/admin/invoices/${money.invoice.invoice_id}/payments`).set(bearer(manager)).send({ method: 'mpesa', amount: 10 });
+    expect(noRef.body.error).toEqual(['Please enter the transaction reference.']);
+    await request(app).post(`/api/admin/invoices/${money.invoice.invoice_id}/payments`).set(bearer(manager))
+      .send({ method: 'mpesa', amount: 10, reference: 'QFT1234XYZ' }).expect(201);
+    let inv = (await request(app).get(`/api/admin/invoices/${money.invoice.invoice_id}`).set(bearer(manager))).body.data.invoice;
+    expect(inv).toMatchObject({ status: 'partially_paid', amount_paid: 10 });
+    const tooMuch = await request(app).post(`/api/admin/invoices/${money.invoice.invoice_id}/payments`).set(bearer(manager))
+      .send({ method: 'cash', amount: order.total });
+    expect(tooMuch.status).toBe(400);
+    await request(app).post(`/api/admin/invoices/${money.invoice.invoice_id}/payments`).set(bearer(manager))
+      .send({ method: 'cash', amount: Math.round((order.total - 10) * 100) / 100 }).expect(201);
+    inv = (await request(app).get(`/api/admin/invoices/${money.invoice.invoice_id}`).set(bearer(manager))).body.data.invoice;
+    expect(inv).toMatchObject({ status: 'paid', balance: 0 });
+    expect(await balance('mobile_money')).toBe(10);
+    await ledgerBalanced();
+  });
+
+  test('editing an unpaid order reprices it and reissues the invoice', async () => {
+    const token = await shopper();
+    const admin = await staffUser('admin', 'boss@example.com');
+    const order = await placeOrder(token);
+    const edited = await request(app).put(`/api/admin/orders/${order.order_id}`).set(bearer(admin)).send({
+      items: [{ product_id: await productId('Canvas tote bag'), quantity: 1 }],
+      comment: 'Customer swapped items by phone',
+    });
+    expect(edited.status).toBe(200);
+    expect(edited.body.data.products).toHaveLength(1);
+    expect(edited.body.data.total).toBeLessThan(order.total);
+    const inv = (await request(app).get(`/api/admin/orders/${order.order_id}/finance`).set(bearer(admin))).body.data.invoice;
+    expect(inv.total).toBe(edited.body.data.total);
+    expect(await balance('receivables')).toBe(edited.body.data.total);
+    await ledgerBalanced();
+  });
+
+  test('refunds follow the settings: restocking fee, delivery and approval above a limit', async () => {
+    const token = await shopper();
+    const admin = await staffUser('admin', 'boss@example.com');
+    await request(app).put('/api/admin/refund-settings').set(bearer(admin))
+      .send({ restocking_fee_percent: 10, approval_threshold: 20, refund_delivery: false }).expect(200);
+    const confirm = await prepareCheckout(token, { payment: 'stripe' });
+    const intentId = confirm.body.data.payment.client_secret.replace(/_secret$/, '');
+    fakePayments.intents.get(intentId)!.status = 'succeeded';
+    const order = (await request(app).put('/api/rest/confirm').set(bearer(token))).body.data;
+
+    // Small refund by an order manager: paid straight back through Stripe, less 10%.
+    const manager = await staffUser('order_manager', 'orders@example.com');
+    const small = await request(app).post(`/api/admin/orders/${order.order_id}/refunds`).set(bearer(manager))
+      .send({ items_amount: 20, reason: 'Scuffed item' });
+    expect(small.status).toBe(201);
+    expect(small.body.data).toMatchObject({ status: 'processed', items_amount: 20, restocking_fee: 2, amount: 18 });
+    expect(fakePayments.partialRefunds).toEqual([{ id: intentId, amountCents: 1800 }]);
+
+    // Large refund waits for someone allowed to approve it.
+    const big = await request(app).post(`/api/admin/orders/${order.order_id}/refunds`).set(bearer(manager))
+      .send({ items_amount: 50, reason: 'Wrong size', apply_fee: false });
+    expect(big.body.data).toMatchObject({ status: 'pending_approval', amount: 50 });
+    expect((await request(app).put(`/api/admin/refunds/${big.body.data.refund_id}`).set(bearer(manager)).send({ action: 'approve' })).status).toBe(403);
+    const approved = await request(app).put(`/api/admin/refunds/${big.body.data.refund_id}`).set(bearer(admin)).send({ action: 'approve' });
+    expect(approved.body.data.status).toBe('processed');
+
+    const money = (await request(app).get(`/api/admin/orders/${order.order_id}/finance`).set(bearer(admin))).body.data;
+    expect(money.invoice.status).toBe('partially_refunded');
+    expect(money.refundable.amount).toBeCloseTo(137.44 - 20 - 50, 2);
+    const over = await request(app).post(`/api/admin/orders/${order.order_id}/refunds`).set(bearer(admin))
+      .send({ items_amount: 500, reason: 'Too much', include_delivery: true });
+    expect(over.status).toBe(400);
+    expect(await balance('card_clearing')).toBeCloseTo(137.44 - 18 - 50, 2);
+    expect(-(await balance('restocking_income'))).toBe(2);
+    await ledgerBalanced();
+
+    const ledger = (await request(app).get('/api/admin/ledger').set(bearer(admin))).body.data;
+    expect(ledger.totals.balanced).toBe(true);
+    expect(ledger.accounts.find((a: any) => a.account === 'sales_returns').balance).toBeGreaterThan(0);
+  });
+
+  test('returns are only accepted inside the return window', async () => {
+    const token = await shopper();
+    const admin = await staffUser('admin', 'boss@example.com');
+    const order = await placeOrder(token);
+    for (const s of ['processing', 'shipped', 'delivered']) {
+      await request(app).put(`/api/admin/orderhistory/${order.order_id}`).set(bearer(admin)).send({ order_status: s }).expect(200);
+    }
+    await query(`UPDATE order_history SET created_at = now() - interval '20 days' WHERE order_id = $1 AND status = 'delivered'`, [order.order_id]);
+    const late = await request(app).post('/api/rest/returns').set(bearer(token)).send({
+      order_id: order.order_id, order_product_id: order.products[0].order_product_id, quantity: 1, reason: 'damaged',
+    });
+    expect(late.body.error).toEqual(['Returns are accepted within 14 days of delivery.']);
+  });
+});

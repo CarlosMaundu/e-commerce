@@ -16,6 +16,7 @@ export const googleIdentities: Record<string, GoogleIdentity> = {};
 export const fakePayments = {
   intents: new Map<string, { status: string; amountCents: number; orderId: number }>(),
   refunds: [] as string[],
+  partialRefunds: [] as { id: string; amountCents?: number }[],
   async createIntent({ amountCents, orderId }: { amountCents: number; orderId: number }) {
     const id = `pi_${orderId}_${amountCents}`;
     fakePayments.intents.set(id, { status: 'requires_payment_method', amountCents, orderId });
@@ -24,8 +25,10 @@ export const fakePayments = {
   async getStatus(id: string) {
     return fakePayments.intents.get(id)?.status || 'failed';
   },
-  async refund(id: string) {
+  async refund(id: string, amountCents?: number) {
     fakePayments.refunds.push(id);
+    fakePayments.partialRefunds.push({ id, amountCents });
+    return `re_${id}_${amountCents ?? 'all'}`;
   },
 };
 export const app = createApp({
@@ -51,6 +54,7 @@ export const resetDatabase = async () => {
   sentEmails.length = 0;
   fakePayments.intents.clear();
   fakePayments.refunds.length = 0;
+  fakePayments.partialRefunds.length = 0;
 };
 
 export const createUser = async (email: string, role = 'customer', password: string | null = PASSWORD) => {

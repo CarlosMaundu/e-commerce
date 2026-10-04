@@ -4,18 +4,14 @@ import React, { useCallback, useContext, useEffect, useState } from 'react';
 import {
   Link as RouterLink,
   useNavigate,
-  useParams,
   useSearchParams,
 } from 'react-router-dom';
 import {
   Box,
   Button,
   Checkbox,
-  Divider,
-  FormControlLabel,
-  Grid,
+  Chip,
   MenuItem,
-  Skeleton,
   Stack,
   Table,
   TableBody,
@@ -28,13 +24,12 @@ import {
   Avatar,
   Link,
 } from '@mui/material';
-import { FiChevronLeft, FiDownload, FiEye, FiUser } from 'react-icons/fi';
+import { FiDownload, FiEye, FiPlus, FiUser } from 'react-icons/fi';
 import { AuthContext } from '../../context/AuthContext';
 import { adminOrders } from '../../api';
-import { formatAddress } from '../../api/mappers';
 import { hasPermission } from '../../auth/permissions';
 import { useNotify } from '../../notification/NotificationProvider';
-import { SectionCard, StatusChip } from '../../components/ui';
+import { StatusChip } from '../../components/ui';
 import {
   EmptyRow,
   FilterMenu,
@@ -50,17 +45,7 @@ import {
   TablePanel,
   usePaging,
 } from '../../components/admin/DataTable';
-import { formatDateTime, formatMoney, optionText } from '../../utils/format';
-
-const STATUS_NAMES = {
-  awaiting_payment: 'Awaiting payment',
-  pending: 'Pending',
-  processing: 'Processing',
-  shipped: 'Shipped',
-  delivered: 'Delivered',
-  cancelled: 'Cancelled',
-  refunded: 'Refunded',
-};
+import { formatDateTime, formatMoney } from '../../utils/format';
 
 const PAYMENT = {
   paid: ['Paid', 'success'],
@@ -123,6 +108,7 @@ const ordersCsv = (rows) => {
 };
 
 export const AdminOrdersPage = () => {
+  const { user } = useContext(AuthContext);
   const notify = useNotify();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -155,6 +141,7 @@ export const AdminOrdersPage = () => {
         shippingMethod: get('shipping') || undefined,
         paymentMethod: get('method') || undefined,
         days: get('days') || undefined,
+        customer: get('customer') || undefined,
       })
       .then((d) => active && setData(d))
       .catch(
@@ -194,14 +181,26 @@ export const AdminOrdersPage = () => {
         ]}
         title="Order list"
         actions={
-          <Button
-            startIcon={<FiDownload />}
-            onClick={exportCsv}
-            disabled={!rows.length}
-            sx={{ bgcolor: 'background.neutral' }}
-          >
-            {selected.length ? `Export ${selected.length}` : 'Export'}
-          </Button>
+          <Stack direction="row" spacing={1}>
+            <Button
+              startIcon={<FiDownload />}
+              onClick={exportCsv}
+              disabled={!rows.length}
+              sx={{ bgcolor: 'background.paper' }}
+            >
+              {selected.length ? `Export ${selected.length}` : 'Export'}
+            </Button>
+            {hasPermission(user, 'orders.orders.create') && (
+              <Button
+                variant="contained"
+                startIcon={<FiPlus />}
+                component={RouterLink}
+                to={`/admin/orders/new${get('customer') ? `?customer=${get('customer')}` : ''}`}
+              >
+                Create order
+              </Button>
+            )}
+          </Stack>
         }
       />
       <TablePanel>
@@ -286,9 +285,28 @@ export const AdminOrdersPage = () => {
               { value: 'cod', label: 'Cash on delivery' },
             ]}
           />
-          {['payment', 'status', 'shipping', 'method', 'days', 'search'].some(
-            (k) => get(k)
-          ) && (
+          {get('customer') && (
+            <Chip
+              label={`Customer: ${get('customerName') || `#${get('customer')}`}`}
+              onDelete={() => {
+                const next = new URLSearchParams(params);
+                next.delete('customer');
+                next.delete('customerName');
+                setParams(next, { replace: true });
+              }}
+              color="primary"
+              variant="outlined"
+            />
+          )}
+          {[
+            'payment',
+            'status',
+            'shipping',
+            'method',
+            'days',
+            'search',
+            'customer',
+          ].some((k) => get(k)) && (
             <Button
               size="small"
               onClick={() => {
@@ -464,291 +482,30 @@ export const AdminOrdersPage = () => {
   );
 };
 
-export const AdminOrderDetailPage = () => {
-  const { id } = useParams();
-  const { user } = useContext(AuthContext);
-  const notify = useNotify();
-  const canUpdate = hasPermission(user, 'orders.orders.update');
-  const [order, setOrder] = useState(null);
-  const [form, setForm] = useState({ status: '', comment: '', notify: true });
-  const [saving, setSaving] = useState(false);
-
-  const load = useCallback(async () => {
-    try {
-      const o = await adminOrders.get(id);
-      setOrder(o);
-      setForm({ status: o.status, comment: '', notify: true });
-    } catch (error) {
-      notify.error(error, 'We couldn’t load this order.');
-    }
-  }, [id, notify]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  const save = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      const updated = await adminOrders.updateStatus(id, form);
-      setOrder(updated);
-      setForm({ status: updated.status, comment: '', notify: true });
-      notify.success(
-        form.notify
-          ? 'Order updated and the customer was emailed.'
-          : 'Order updated.'
-      );
-    } catch (error) {
-      notify.error(error, 'We couldn’t update the order.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (!order) return <Skeleton variant="rounded" height={420} />;
-
-  return (
-    <Stack spacing={3}>
-      <Box>
-        <Typography
-          component={RouterLink}
-          to="/admin/orders"
-          variant="body2"
-          sx={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 0.5,
-            color: 'text.secondary',
-            textDecoration: 'none',
-          }}
-        >
-          <FiChevronLeft /> Orders
-        </Typography>
-        <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 1 }}>
-          <Typography variant="h3" component="h1">
-            Order #{order.id}
-          </Typography>
-          <StatusChip status={order.status} label={order.statusName} />
-        </Stack>
-        <Typography color="text.secondary">
-          Placed {formatDateTime(order.placedAt)} by{' '}
-          {order.customer?.name || order.email} ({order.email})
-        </Typography>
-      </Box>
-      <Grid container spacing={3}>
-        <Grid item xs={12} lg={8}>
-          <Stack spacing={3}>
-            <SectionCard title="Items">
-              <Stack divider={<Divider />} spacing={1.5}>
-                {order.items.map((item) => (
-                  <Stack
-                    key={item.id}
-                    direction="row"
-                    spacing={2}
-                    alignItems="center"
-                  >
-                    <Box
-                      component="img"
-                      src={item.image}
-                      alt=""
-                      sx={{
-                        width: 52,
-                        height: 52,
-                        objectFit: 'contain',
-                        borderRadius: 1,
-                        bgcolor: 'background.neutral',
-                      }}
-                    />
-                    <Box sx={{ flex: 1 }}>
-                      <Typography variant="subtitle2">{item.title}</Typography>
-                      <Typography variant="caption">
-                        {[
-                          optionText(item.options),
-                          `${item.quantity} × ${formatMoney(item.price)}`,
-                        ]
-                          .filter(Boolean)
-                          .join(' · ')}
-                      </Typography>
-                    </Box>
-                    <Typography variant="subtitle2">
-                      {formatMoney(item.total)}
-                    </Typography>
-                  </Stack>
-                ))}
-              </Stack>
-              <Divider sx={{ my: 2 }} />
-              <Stack spacing={0.75} sx={{ maxWidth: 320, ml: 'auto' }}>
-                {[
-                  ['Subtotal', order.totals.subtotal],
-                  order.totals.discount
-                    ? [`Promo ${order.coupon || ''}`, -order.totals.discount]
-                    : null,
-                  ['Delivery', order.totals.shipping],
-                  ['Tax', order.totals.tax],
-                ]
-                  .filter(Boolean)
-                  .map(([l, v]) => (
-                    <Stack
-                      key={l}
-                      direction="row"
-                      justifyContent="space-between"
-                    >
-                      <Typography color="text.secondary">{l}</Typography>
-                      <Typography>{formatMoney(v)}</Typography>
-                    </Stack>
-                  ))}
-                <Stack direction="row" justifyContent="space-between">
-                  <Typography variant="subtitle1">Total</Typography>
-                  <Typography variant="subtitle1">
-                    {formatMoney(order.total, order.currency)}
-                  </Typography>
-                </Stack>
-              </Stack>
-            </SectionCard>
-            <SectionCard title="History">
-              <Stack spacing={2}>
-                {[...order.history].reverse().map((h, i) => (
-                  <Stack key={i} direction="row" spacing={2}>
-                    <StatusChip status={h.status} label={h.statusName} />
-                    <Box sx={{ flex: 1 }}>
-                      <Typography variant="caption">
-                        {formatDateTime(h.date)}
-                        {h.notified ? ' · customer emailed' : ''}
-                      </Typography>
-                      {h.comment && (
-                        <Typography variant="body2">{h.comment}</Typography>
-                      )}
-                    </Box>
-                  </Stack>
-                ))}
-              </Stack>
-            </SectionCard>
-          </Stack>
-        </Grid>
-        <Grid item xs={12} lg={4}>
-          <Stack spacing={3}>
-            {canUpdate && (
-              <SectionCard title="Update order">
-                <Stack component="form" spacing={2} onSubmit={save}>
-                  <TextField
-                    select
-                    size="small"
-                    label="Status"
-                    value={form.status}
-                    onChange={(e) =>
-                      setForm({ ...form, status: e.target.value })
-                    }
-                    helperText={
-                      order.nextStatuses.length
-                        ? 'Only valid next steps are offered.'
-                        : 'This order is final.'
-                    }
-                  >
-                    <MenuItem value={order.status}>
-                      {STATUS_NAMES[order.status]} (current)
-                    </MenuItem>
-                    {order.nextStatuses.map((s) => (
-                      <MenuItem key={s} value={s}>
-                        {STATUS_NAMES[s]}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                  <TextField
-                    size="small"
-                    label="Comment"
-                    multiline
-                    minRows={2}
-                    value={form.comment}
-                    onChange={(e) =>
-                      setForm({ ...form, comment: e.target.value })
-                    }
-                  />
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={form.notify}
-                        onChange={(e) =>
-                          setForm({ ...form, notify: e.target.checked })
-                        }
-                      />
-                    }
-                    label="Email the customer"
-                  />
-                  <Button
-                    type="submit"
-                    variant="contained"
-                    disabled={
-                      saving ||
-                      (form.status === order.status && !form.comment.trim())
-                    }
-                  >
-                    {saving ? 'Saving…' : 'Save'}
-                  </Button>
-                </Stack>
-              </SectionCard>
-            )}
-            <SectionCard title="Delivery" tinted>
-              <Typography variant="subtitle2">
-                {order.shippingAddress.firstName}{' '}
-                {order.shippingAddress.lastName}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {formatAddress(order.shippingAddress)}
-              </Typography>
-              {order.shippingAddress.phone && (
-                <Typography variant="body2">
-                  {order.shippingAddress.phone}
-                </Typography>
-              )}
-              <Typography variant="body2" sx={{ mt: 1 }}>
-                {order.shippingMethod === 'express' ? 'Express' : 'Standard'}{' '}
-                delivery
-              </Typography>
-              {order.comment && (
-                <Typography variant="body2" sx={{ mt: 1 }}>
-                  Note: {order.comment}
-                </Typography>
-              )}
-            </SectionCard>
-            <SectionCard title="Payment" tinted>
-              <Typography variant="body2">
-                {order.paymentMethod === 'stripe'
-                  ? 'Card (Stripe)'
-                  : 'Cash on delivery'}
-              </Typography>
-              <Box sx={{ mt: 1 }}>
-                <StatusChip
-                  status={order.paymentStatus}
-                  label={order.paymentStatus}
-                />
-              </Box>
-            </SectionCard>
-          </Stack>
-        </Grid>
-      </Grid>
-    </Stack>
-  );
-};
+// The order page lives in ./orders/AdminOrderDetail.
+export { default as AdminOrderDetailPage } from './orders/AdminOrderDetail';
 
 export const AdminReturnsPage = () => {
   const { user } = useContext(AuthContext);
   const notify = useNotify();
+  const [params, setParams] = useSearchParams();
+  const customer = params.get('customer') || '';
   const canUpdate = hasPermission(user, 'orders.returns.update');
-  const [status, setStatus] = useState('requested');
+  // A customer's returns: show all of them, not only open requests.
+  const [status, setStatus] = useState(customer ? '' : 'requested');
   const [list, setList] = useState(null);
   const paging = usePaging();
 
   const load = useCallback(() => {
     setList(null);
     adminOrders
-      .listReturns(status || undefined)
+      .listReturns(status || undefined, customer || undefined)
       .then(setList)
       .catch((error) => {
         notify.error(error, 'We couldn’t load returns.');
         setList([]);
       });
-  }, [status, notify]);
+  }, [status, customer, notify]);
 
   useEffect(() => {
     load();
@@ -779,6 +536,17 @@ export const AdminReturnsPage = () => {
           { label: 'Returns', to: '/admin/returns' },
         ]}
         title="Returns"
+        subtitle={
+          customer ? (
+            <Chip
+              size="small"
+              label={`Customer: ${params.get('customerName') || `#${customer}`}`}
+              onDelete={() => setParams({}, { replace: true })}
+              color="primary"
+              variant="outlined"
+            />
+          ) : undefined
+        }
       />
       <TablePanel>
         <PanelTabs

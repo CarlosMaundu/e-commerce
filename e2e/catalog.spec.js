@@ -91,7 +91,8 @@ test('each variant has its own price, and a guest can buy the one they pick', as
   );
   await page.goto('/cart');
   const line = page.getByTestId('cart-line');
-  await expect(line).toContainText('Size: 50 ml');
+  await expect(line.locator('dt', { hasText: 'Size' })).toBeVisible();
+  await expect(line.locator('dd', { hasText: '50 ml' })).toBeVisible();
   await expect(line).toContainText('$48.00');
 });
 

@@ -1,6 +1,7 @@
 // src/routes/orders.ts — the customer's orders and returns (OpenCart:
 // /customerorders, /returns, /order_statuses).
 import { Router } from 'express';
+import { getRefundSettings } from '../lib/refunds';
 import { z } from 'zod';
 import { query } from '../db';
 import { audit } from '../lib/audit';
@@ -44,6 +45,8 @@ export const orderRoutes = () => {
         limit: z.coerce.number().int().min(1).max(50).default(10),
         page: z.coerce.number().int().min(1).default(1),
         status: z.string().optional(),
+        // Orders placed in the last N days.
+        days: z.coerce.number().int().min(1).max(3660).optional(),
       }),
       req.query
     );
@@ -53,18 +56,24 @@ export const orderRoutes = () => {
       params.push(q.status.split(','));
       filter += ` AND o.status = ANY($${params.length}::text[])`;
     }
+    if (q.days) {
+      params.push(q.days);
+      filter += ` AND o.placed_at >= now() - make_interval(days => $${params.length})`;
+    }
     const total = (await query(`SELECT count(*)::int AS n FROM orders o WHERE ${filter}`, params)).rows[0].n;
     params.push(q.limit, (q.page - 1) * q.limit);
     const { rows } = await query(
       `SELECT o.*,
          (SELECT COALESCE(sum(quantity), 0)::int FROM order_items WHERE order_id = o.id) AS item_count,
-         (SELECT json_agg(json_build_object('name', name, 'image', image) ORDER BY id) FROM order_items WHERE order_id = o.id) AS preview
+         (SELECT json_agg(json_build_object('name', name, 'image', image, 'options', options, 'quantity', quantity,
+            'price', unit_price, 'total', total, 'product_id', product_id) ORDER BY id)
+          FROM order_items WHERE order_id = o.id) AS preview
        FROM orders o WHERE ${filter}
        ORDER BY o.placed_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
       params
     );
     res.set('X-Total-Count', String(total));
-    ok(res, rows.map((o) => ({ ...toContractOrder(o), preview: (o.preview || []).slice(0, 4) })));
+    ok(res, rows.map((o) => ({ ...toContractOrder(o), preview: (o.preview || []).slice(0, 10) })));
   }));
 
   router.get('/customerorders/:id', handler(async (req, res) => {
@@ -124,6 +133,12 @@ export const orderRoutes = () => {
     const loaded = await loadOrder(b.order_id, { userId: req.auth!.userId });
     if (!loaded) fail(404, 'Order not found.');
     if (loaded!.order.status !== 'delivered') fail(400, 'You can return items once your order has been delivered.');
+    const { return_window_days: windowDays } = await getRefundSettings();
+    if (windowDays > 0) {
+      const delivered = loaded!.history.filter((h: any) => h.status === 'delivered').pop();
+      const since = delivered ? (Date.now() - new Date(delivered.created_at).getTime()) / 86400000 : 0;
+      if (since > windowDays) fail(400, `Returns are accepted within ${windowDays} days of delivery.`);
+    }
     const item = loaded!.items.find((i: any) => i.id === b.order_product_id);
     if (!item) fail(400, 'That item isn’t part of this order.');
     const already = Number(

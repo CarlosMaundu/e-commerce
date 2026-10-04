@@ -90,6 +90,31 @@ export const adminNav = (user) =>
       ],
     },
     {
+      heading: 'Money',
+      items: [
+        {
+          label: 'Invoices',
+          to: '/admin/invoices',
+          show: hasPermission(user, PERMISSIONS.invoicesView),
+        },
+        {
+          label: 'Payments',
+          to: '/admin/payments',
+          show: hasPermission(user, PERMISSIONS.invoicesView),
+        },
+        {
+          label: 'Refunds',
+          to: '/admin/refunds',
+          show: hasPermission(user, PERMISSIONS.invoicesView),
+        },
+        {
+          label: 'Ledger',
+          to: '/admin/ledger',
+          show: hasPermission(user, PERMISSIONS.ledgerView),
+        },
+      ],
+    },
+    {
       heading: 'Catalog',
       items: [
         {
@@ -137,6 +162,11 @@ export const adminNav = (user) =>
           label: 'Delivery options',
           to: '/admin/delivery',
           show: hasPermission(user, PERMISSIONS.deliveryManage),
+        },
+        {
+          label: 'Refund settings',
+          to: '/admin/refund-settings',
+          show: hasPermission(user, PERMISSIONS.refundsManage),
         },
         {
           label: 'Financial settings',

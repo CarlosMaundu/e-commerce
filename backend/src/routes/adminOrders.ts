@@ -9,6 +9,8 @@ import { addHistory, loadOrder, NEXT_STATUSES, orderLink, restock, statusName, t
 import { PaymentGateway } from '../lib/payments';
 import { attentionCounts, OVERVIEW_PERIODS, storeOverview } from '../lib/overview';
 import { round2 } from '../lib/pricing';
+import { issueInvoice, recordPayment, refundable, voidInvoice } from '../lib/accounting';
+import { createRefund } from '../lib/refunds';
 import { hasPermission } from '../lib/users';
 import { authenticate, requirePermission } from '../middleware/auth';
 import { RETURN_SELECT, toContractReturn } from './orders';
@@ -26,6 +28,7 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
         shipping_method: z.string().optional(),
         payment_method: z.string().optional(),
         days: z.coerce.number().int().min(1).max(3650).optional(),
+        customer: z.coerce.number().int().positive().optional(),
         limit: z.coerce.number().int().min(1).max(100).default(20),
         page: z.coerce.number().int().min(1).default(1),
       }),
@@ -33,6 +36,10 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
     );
     const params: unknown[] = [];
     const where = ['o.placed_at IS NOT NULL'];
+    if (q.customer) {
+      params.push(q.customer);
+      where.push(`o.user_id = $${params.length}`);
+    }
     if (q.status) {
       params.push(q.status.split(','));
       where.push(`o.status = ANY($${params.length}::text[])`);
@@ -96,21 +103,37 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
       fail(403, 'You don’t have permission to refund orders.');
     }
 
-    if (changing && b.order_status === 'refunded' && order.payment_status === 'paid' && order.payment_method === 'stripe') {
-      if (!payments) fail(503, 'Card refunds aren’t available right now.');
-      await payments!.refund(order.payment_reference);
-    }
-
     await transaction(async (db) => {
       if (changing) {
-        const paymentStatus =
-          b.order_status === 'refunded' ? 'refunded'
-            : b.order_status === 'delivered' && order.payment_method === 'cod' ? 'paid'
-              : order.payment_status;
-        await db.query('UPDATE orders SET status = $2, payment_status = $3, updated_at = now() WHERE id = $1', [
-          order.id, b.order_status, paymentStatus,
-        ]);
+        await db.query('UPDATE orders SET status = $2, updated_at = now() WHERE id = $1', [order.id, b.order_status]);
         if (b.order_status === 'cancelled') await restock(db, order.id);
+        // Money and the ledger follow the status.
+        const invoice = (await db.query('SELECT * FROM invoices WHERE order_id = $1', [order.id])).rows[0]
+          || (await issueInvoice(db, order, { by: req.auth!.userId }));
+        const outstanding = Number(invoice.total) - Number(invoice.amount_paid);
+        if (b.order_status === 'delivered' && order.payment_method === 'cod' && outstanding > 0.009) {
+          await recordPayment(db, {
+            invoice, method: 'cod', amount: outstanding, reference: `COD-${order.id}`,
+            note: 'Cash collected on delivery', by: req.auth!.userId,
+          });
+        }
+        if (['cancelled', 'refunded'].includes(b.order_status) && Number(invoice.amount_paid) === 0) {
+          await voidInvoice(db, invoice, { by: req.auth!.userId });
+        } else if (b.order_status === 'refunded') {
+          const left = await refundable(db, invoice);
+          if (left.amount > 0.009) {
+            await createRefund(db, {
+              order: { ...order, status: b.order_status },
+              itemsAmount: Number(invoice.total) - Number(invoice.shipping),
+              includeDelivery: true,
+              applyFee: false,
+              reason: b.comment || 'Order refunded',
+              by: req.auth!.userId,
+              canApprove: true,
+              gateway: payments,
+            });
+          }
+        }
       }
       await addHistory(db, order.id, b.order_status, b.comment, { notified: b.notify, userId: req.auth!.userId });
     });
@@ -125,12 +148,23 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
 
   router.get('/returns', requirePermission('orders.returns.view'), handler(async (req, res) => {
     const status = typeof req.query.status === 'string' ? req.query.status : '';
+    const customer = Number(req.query.customer) || 0;
+    const params: unknown[] = [];
+    const where: string[] = [];
+    if (status) {
+      params.push(status);
+      where.push(`r.status = $${params.length}`);
+    }
+    if (customer) {
+      params.push(customer);
+      where.push(`r.user_id = $${params.length}`);
+    }
     const { rows } = await query(
       `SELECT r.*, oi.name AS product_name, oi.image, u.email AS customer_email,
          TRIM(COALESCE(u.firstname, '') || ' ' || COALESCE(u.lastname, '')) AS customer_name
        FROM returns r JOIN order_items oi ON oi.id = r.order_item_id LEFT JOIN users u ON u.id = r.user_id
-       ${status ? 'WHERE r.status = $1' : ''} ORDER BY r.created_at DESC LIMIT 200`,
-      status ? [status] : []
+       ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY r.created_at DESC LIMIT 200`,
+      params
     );
     ok(res, rows.map(toContractReturn));
   }));
@@ -144,7 +178,29 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
     if (!row) fail(404, 'Return not found.');
     const allowed: Record<string, string[]> = { requested: ['approved', 'rejected'], approved: ['refunded'] };
     if (!(allowed[row.status] || []).includes(status)) fail(400, `A ${row.status} return can’t be marked ${status}.`);
-    await query('UPDATE returns SET status = $2, updated_at = now() WHERE id = $1', [row.id, status]);
+    if (status === 'refunded') {
+      // Pay back the returned items (less any restocking fee) and post it.
+      if (!hasPermission(req.auth!.permissions, 'orders.orders.refund')) {
+        fail(403, 'You don’t have permission to refund orders.');
+      }
+      await transaction(async (db) => {
+        const item = (await db.query('SELECT * FROM order_items WHERE id = $1', [row.order_item_id])).rows[0];
+        const order = (await db.query('SELECT * FROM orders WHERE id = $1', [row.order_id])).rows[0];
+        await createRefund(db, {
+          order,
+          itemsAmount: round2(Number(item.unit_price) * Number(row.quantity)),
+          includeDelivery: false,
+          reason: `Return #${row.id}: ${row.reason}`,
+          returnId: row.id,
+          by: req.auth!.userId,
+          canApprove: hasPermission(req.auth!.permissions, 'admin.refunds.approve'),
+          gateway: payments,
+        });
+        await db.query('UPDATE returns SET status = $2, updated_at = now() WHERE id = $1', [row.id, status]);
+      });
+    } else {
+      await query('UPDATE returns SET status = $2, updated_at = now() WHERE id = $1', [row.id, status]);
+    }
     audit(req, 'order.return_updated', `return:${row.id}`, { status });
     ok(res, toContractReturn((await query(`${RETURN_SELECT} WHERE r.id = $1`, [row.id])).rows[0]));
   }));

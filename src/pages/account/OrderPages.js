@@ -1,5 +1,6 @@
 // src/pages/account/OrderPages.js — order history, order detail, returns.
 import React, { useCallback, useEffect, useState } from 'react';
+import PropTypes from 'prop-types';
 import {
   Link as RouterLink,
   useNavigate,
@@ -26,15 +27,22 @@ import {
   Tab,
   Tabs,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from '@mui/material';
 import {
   FiFileText,
+  FiGrid,
+  FiInfo,
+  FiList,
   FiPackage,
   FiRefreshCw,
   FiRotateCcw,
+  FiTruck,
 } from 'react-icons/fi';
 import OrderTracker from '../../components/account/OrderTracker';
+import OptionRows from '../../components/common/OptionRows';
 import { useStore } from '../../context/StoreContext';
 import { orders as ordersApi } from '../../api';
 import { StandardPagination } from '../../components/admin/DataTable';
@@ -54,46 +62,293 @@ const FILTERS = [
   { label: 'All', value: '' },
   { label: 'To pay', value: 'awaiting_payment' },
   { label: 'To ship', value: 'pending,processing' },
-  { label: 'On the way', value: 'shipped' },
+  { label: 'To receive', value: 'shipped' },
   { label: 'Delivered', value: 'delivered' },
   { label: 'Cancelled', value: 'cancelled,refunded' },
 ];
+const PERIODS = [
+  { label: 'Last 30 days', value: '30' },
+  { label: 'Last 6 months', value: '182' },
+  { label: 'Last 12 months', value: '365' },
+  { label: 'All time', value: '' },
+];
 const PAGE_SIZE = 10;
+const VIEW_KEY = 'orders-view';
 
-const Thumbs = ({ items }) => (
-  <Stack direction="row" spacing={1}>
-    {items.slice(0, 4).map((p, i) => (
-      <Box
-        key={i}
-        component="img"
-        src={p.image}
-        alt={p.name || p.title || ''}
-        sx={{
-          width: 56,
-          height: 56,
-          objectFit: 'contain',
-          borderRadius: 1,
-          bgcolor: 'background.paper',
-          border: 1,
-          borderColor: 'divider',
-        }}
-      />
-    ))}
-  </Stack>
-);
+export { OptionRows };
+
+const DAYS = { standard: [3, 5], express: [1, 2], pickup: [0, 1] };
+
+/** "Estimated delivery 8–10 Oct", or what happened instead. */
+export const deliveryNote = (o) => {
+  if (o.status === 'delivered') return ['Delivered', ''];
+  if (['cancelled', 'refunded'].includes(o.status)) return ['', ''];
+  const [a, b] = DAYS[o.shippingMethod] || DAYS.standard;
+  const from = new Date(o.placedAt);
+  const day = (n) => {
+    const d = new Date(from);
+    d.setDate(d.getDate() + n);
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  };
+  return o.shippingMethod === 'pickup'
+    ? ['Ready for pick-up', `from ${day(b)}`]
+    : ['Estimated delivery', `${day(a)} – ${day(b)}`];
+};
+
+const productLinkOf = (item) =>
+  item.productId
+    ? `/products/${item.productId}${
+        Object.keys(item.options || {}).length
+          ? `?${new URLSearchParams(item.options)}`
+          : ''
+      }`
+    : null;
+
+const OrderCard = ({ order: o, detailed, onReorder, reordering }) => {
+  const [expanded, setExpanded] = useState(false);
+  const items = o.preview || [];
+  const shown = detailed ? (expanded ? items : items.slice(0, 2)) : [];
+  const [noteLabel, noteValue] = deliveryNote(o);
+  const actionSx = {
+    bgcolor: 'background.paper',
+    '&:hover': { bgcolor: 'background.neutralDeep' },
+  };
+
+  return (
+    <Box
+      component="article"
+      data-testid={`order-${o.id}`}
+      sx={{
+        bgcolor: 'background.neutral',
+        borderRadius: 1,
+        p: { xs: 2, md: 3 },
+      }}
+    >
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        justifyContent="space-between"
+        spacing={1.5}
+        sx={{ pb: 2, borderBottom: 1, borderColor: 'divider' }}
+      >
+        <Box>
+          <Stack direction="row" spacing={1.5} alignItems="center">
+            <Link
+              component={RouterLink}
+              to={`/account/orders/${o.id}`}
+              underline="hover"
+              color="text.primary"
+              variant="subtitle1"
+            >
+              Order #{o.id}
+            </Link>
+            <StatusChip status={o.status} label={o.statusName} />
+          </Stack>
+          <Typography variant="body2" color="text.secondary">
+            Placed {formatDate(o.placedAt)} · {o.itemCount} item
+            {o.itemCount === 1 ? '' : 's'}
+          </Typography>
+        </Box>
+        {noteLabel && (
+          <Box sx={{ textAlign: { sm: 'right' } }}>
+            <Typography
+              variant="caption"
+              component="div"
+              sx={{ fontWeight: 600 }}
+            >
+              {noteLabel}
+            </Typography>
+            <Typography variant="body2">{noteValue}</Typography>
+          </Box>
+        )}
+      </Stack>
+
+      {detailed ? (
+        <Stack divider={<Divider />} sx={{ py: 1 }}>
+          {shown.map((item, i) => {
+            const link = productLinkOf(item);
+            return (
+              <Stack
+                key={`${item.name}-${i}`}
+                direction="row"
+                spacing={2}
+                sx={{ py: 1.5 }}
+              >
+                <Box
+                  component={link ? RouterLink : 'div'}
+                  to={link || undefined}
+                  sx={{
+                    width: { xs: 72, sm: 96 },
+                    height: { xs: 72, sm: 96 },
+                    flexShrink: 0,
+                    borderRadius: '8px',
+                    bgcolor: 'background.paper',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <Box
+                    component="img"
+                    src={item.image}
+                    alt={item.name}
+                    sx={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                  />
+                </Box>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  {link ? (
+                    <Link
+                      component={RouterLink}
+                      to={link}
+                      underline="hover"
+                      color="text.primary"
+                      sx={{ fontWeight: 600 }}
+                    >
+                      {item.name}
+                    </Link>
+                  ) : (
+                    <Typography sx={{ fontWeight: 600 }}>
+                      {item.name}
+                    </Typography>
+                  )}
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mb: 0.75 }}
+                  >
+                    {item.quantity} × {formatMoney(item.price, o.currency)}
+                  </Typography>
+                  <OptionRows options={item.options} dense />
+                </Box>
+                <Typography sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
+                  {formatMoney(item.total, o.currency)}
+                </Typography>
+              </Stack>
+            );
+          })}
+          {items.length > 2 && (
+            <Button
+              size="small"
+              onClick={() => setExpanded((v) => !v)}
+              sx={{ alignSelf: 'flex-start', mt: 1 }}
+            >
+              {expanded ? 'Show fewer items' : `Show all ${items.length} items`}
+            </Button>
+          )}
+        </Stack>
+      ) : (
+        <Stack direction="row" spacing={1} sx={{ py: 2, overflowX: 'auto' }}>
+          {items.slice(0, 6).map((item, i) => (
+            <Box
+              key={i}
+              component="img"
+              src={item.image}
+              alt={item.name}
+              title={`${item.name}${Object.keys(item.options || {}).length ? ` — ${optionText(item.options)}` : ''}`}
+              sx={{
+                width: 56,
+                height: 56,
+                flexShrink: 0,
+                objectFit: 'contain',
+                borderRadius: '8px',
+                bgcolor: 'background.paper',
+              }}
+            />
+          ))}
+        </Stack>
+      )}
+
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={1.5}
+        alignItems={{ sm: 'center' }}
+        justifyContent="space-between"
+        sx={{ pt: 2, borderTop: 1, borderColor: 'divider' }}
+      >
+        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+          <Button
+            size="small"
+            startIcon={<FiInfo />}
+            component={RouterLink}
+            to={`/account/orders/${o.id}`}
+            sx={actionSx}
+          >
+            Details
+          </Button>
+          {!['cancelled', 'refunded'].includes(o.status) && (
+            <Button
+              size="small"
+              startIcon={<FiTruck />}
+              component={RouterLink}
+              to={`/account/track?order=${o.id}`}
+              sx={actionSx}
+            >
+              Track
+            </Button>
+          )}
+          <Button
+            size="small"
+            startIcon={<FiFileText />}
+            component={RouterLink}
+            to={`/account/invoices/${o.id}`}
+            sx={actionSx}
+          >
+            Invoice
+          </Button>
+          <Button
+            size="small"
+            startIcon={<FiRefreshCw />}
+            onClick={() => onReorder(o.id)}
+            disabled={reordering}
+            sx={actionSx}
+          >
+            Buy again
+          </Button>
+        </Stack>
+        <Typography variant="subtitle1">
+          Total {formatMoney(o.total, o.currency)}
+        </Typography>
+      </Stack>
+    </Box>
+  );
+};
+OrderCard.propTypes = {
+  order: PropTypes.object.isRequired,
+  detailed: PropTypes.bool,
+  onReorder: PropTypes.func.isRequired,
+  reordering: PropTypes.bool,
+};
 
 export const OrdersPage = () => {
   const notify = useNotify();
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
   const [params, setParams] = useSearchParams();
   const status = params.get('status') || '';
+  const days = params.get('days') ?? '';
   const page = Number(params.get('page') || 1);
   const [data, setData] = useState(null);
+  const [reordering, setReordering] = useState(false);
+  const [view, setView] = useState(() => {
+    try {
+      return localStorage.getItem(VIEW_KEY) || 'detailed';
+    } catch {
+      return 'detailed';
+    }
+  });
+
+  const setFilters = (next) => {
+    const merged = { status, days, ...next };
+    setParams(Object.fromEntries(Object.entries(merged).filter(([, v]) => v)));
+  };
 
   useEffect(() => {
     let active = true;
     setData(null);
     ordersApi
-      .list({ page, limit: PAGE_SIZE, status: status || undefined })
+      .list({
+        page,
+        limit: PAGE_SIZE,
+        status: status || undefined,
+        days: days || undefined,
+      })
       .then((d) => active && setData(d))
       .catch((error) => {
         if (!active) return;
@@ -106,86 +361,123 @@ export const OrdersPage = () => {
     return () => {
       active = false;
     };
-  }, [page, status, notify]);
+  }, [page, status, days, notify]);
+
+  const reorder = async (id) => {
+    setReordering(true);
+    try {
+      const { skipped, cart } = await ordersApi.reorder(id);
+      dispatch(cartReplaced(cart));
+      notify.success(
+        skipped
+          ? 'Added the available items to your cart. Some are no longer in stock.'
+          : 'Added to your cart.'
+      );
+      navigate('/cart');
+    } catch (error) {
+      notify.error(error, 'We couldn’t add these items to your cart.');
+    } finally {
+      setReordering(false);
+    }
+  };
+
+  const changeView = (v) => {
+    if (!v) return;
+    setView(v);
+    try {
+      localStorage.setItem(VIEW_KEY, v);
+    } catch {
+      // storage unavailable
+    }
+  };
 
   return (
     <AccountPage title="My orders" subtitle="Track, return or buy again.">
-      <Tabs
-        value={FILTERS.some((f) => f.value === status) ? status : ''}
-        onChange={(_, v) => setParams(v ? { status: v } : {})}
-        variant="scrollable"
-        sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}
+      <Stack
+        direction={{ xs: 'column', md: 'row' }}
+        alignItems={{ md: 'center' }}
+        justifyContent="space-between"
+        spacing={2}
+        sx={{ mb: 3 }}
       >
-        {FILTERS.map((f) => (
-          <Tab key={f.label} label={f.label} value={f.value} />
-        ))}
-      </Tabs>
+        <Tabs
+          value={FILTERS.some((f) => f.value === status) ? status : ''}
+          onChange={(_, v) => setFilters({ status: v, page: '' })}
+          variant="scrollable"
+          sx={{ minHeight: 40, '& .MuiTab-root': { minHeight: 40, px: 1.5 } }}
+        >
+          {FILTERS.map((f) => (
+            <Tab key={f.label} label={f.label} value={f.value} />
+          ))}
+        </Tabs>
+        <Stack direction="row" spacing={1.5} alignItems="center">
+          <ToggleButtonGroup
+            size="small"
+            exclusive
+            value={view}
+            onChange={(_, v) => changeView(v)}
+            aria-label="Order view"
+          >
+            <ToggleButton value="detailed" aria-label="Detailed view">
+              <FiList style={{ marginRight: 6 }} /> Detailed
+            </ToggleButton>
+            <ToggleButton value="summary" aria-label="Summary view">
+              <FiGrid style={{ marginRight: 6 }} /> Summary
+            </ToggleButton>
+          </ToggleButtonGroup>
+          <TextField
+            select
+            size="small"
+            value={days}
+            onChange={(e) => setFilters({ days: e.target.value, page: '' })}
+            inputProps={{ 'aria-label': 'Period' }}
+            sx={{ minWidth: 160 }}
+            SelectProps={{ displayEmpty: true }}
+          >
+            {PERIODS.map((p) => (
+              <MenuItem key={p.label} value={p.value}>
+                {p.label}
+              </MenuItem>
+            ))}
+          </TextField>
+        </Stack>
+      </Stack>
       {!data ? (
         <Stack spacing={2}>
           {[0, 1, 2].map((i) => (
-            <Skeleton key={i} variant="rounded" height={120} />
+            <Skeleton
+              key={i}
+              variant="rounded"
+              height={view === 'detailed' ? 260 : 150}
+            />
           ))}
         </Stack>
       ) : !data.orders.length ? (
         <SectionCard>
           <EmptyState
             icon={<FiPackage />}
-            title={status ? 'No orders here' : 'No orders yet'}
+            title={status || days ? 'No orders here' : 'No orders yet'}
             action={
               <Button component={RouterLink} to="/products" variant="contained">
                 Start shopping
               </Button>
             }
           >
-            {status
-              ? 'Try another filter.'
+            {status || days
+              ? 'Try another filter or period.'
               : 'When you place an order, it will appear here.'}
           </EmptyState>
         </SectionCard>
       ) : (
         <Stack spacing={2}>
           {data.orders.map((o) => (
-            <Box
+            <OrderCard
               key={o.id}
-              component={RouterLink}
-              to={`/account/orders/${o.id}`}
-              data-testid={`order-${o.id}`}
-              sx={{
-                display: 'block',
-                bgcolor: 'background.neutral',
-                borderRadius: 1,
-                p: 3,
-                color: 'text.primary',
-                textDecoration: 'none',
-                '&:hover': { bgcolor: 'background.neutralDeep' },
-              }}
-            >
-              <Stack
-                direction={{ xs: 'column', md: 'row' }}
-                spacing={2}
-                justifyContent="space-between"
-                alignItems={{ md: 'center' }}
-              >
-                <Box>
-                  <Stack direction="row" spacing={1.5} alignItems="center">
-                    <Typography variant="subtitle1">Order #{o.id}</Typography>
-                    <StatusChip status={o.status} label={o.statusName} />
-                  </Stack>
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{ mt: 0.5 }}
-                  >
-                    Placed {formatDate(o.placedAt)} · {o.itemCount} item
-                    {o.itemCount === 1 ? '' : 's'}
-                  </Typography>
-                </Box>
-                <Thumbs items={o.preview} />
-                <Typography variant="h6">
-                  {formatMoney(o.total, o.currency)}
-                </Typography>
-              </Stack>
-            </Box>
+              order={o}
+              detailed={view === 'detailed'}
+              onReorder={reorder}
+              reordering={reordering}
+            />
           ))}
           {data.total > PAGE_SIZE && (
             <Box
@@ -203,12 +495,7 @@ export const OrdersPage = () => {
                 label="orders"
                 maxShowAll={0}
                 onRowsPerPageChange={() => {}}
-                onPageChange={(_, p) =>
-                  setParams({
-                    ...(status ? { status } : {}),
-                    page: String(p + 1),
-                  })
-                }
+                onPageChange={(_, p) => setFilters({ page: String(p + 1) })}
               />
             </Box>
           )}
@@ -469,8 +756,8 @@ export const OrderDetailPage = () => {
                         src={item.image}
                         alt=""
                         sx={{
-                          width: 72,
-                          height: 72,
+                          width: 96,
+                          height: 96,
                           objectFit: 'contain',
                           borderRadius: 1,
                           bgcolor: 'background.neutral',
@@ -495,19 +782,32 @@ export const OrderDetailPage = () => {
                           {item.title}
                         </Typography>
                       )}
-                      <Typography variant="body2" color="text.secondary">
-                        {[
-                          optionText(item.options),
-                          `Qty ${item.quantity}`,
-                          formatMoney(item.price),
-                        ]
-                          .filter(Boolean)
-                          .join(' · ')}
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{ mb: 1 }}
+                      >
+                        {item.quantity} ×{' '}
+                        {formatMoney(item.price, order.currency)}
+                        {item.sku ? ` · SKU ${item.sku}` : ''}
                       </Typography>
+                      <Box
+                        sx={{
+                          display: Object.keys(item.options || {}).length
+                            ? 'inline-block'
+                            : 'none',
+                          bgcolor: 'background.neutral',
+                          borderRadius: '8px',
+                          px: 1.5,
+                          py: 1,
+                        }}
+                      >
+                        <OptionRows options={item.options} />
+                      </Box>
                     </Box>
                     <Stack alignItems="flex-end" spacing={1}>
                       <Typography variant="subtitle1">
-                        {formatMoney(item.total)}
+                        {formatMoney(item.total, order.currency)}
                       </Typography>
                       {canReturn && (
                         <Button

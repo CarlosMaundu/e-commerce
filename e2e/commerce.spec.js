@@ -259,7 +259,7 @@ test('a super admin creates, then deletes, a custom role', async ({ page }) => {
   await expect(toast(page)).toHaveText('Role created.');
   const row = page.getByTestId('role-row-stock_clerk');
   await expect(row).toContainText('Keeps stock up');
-  await expect(row).toContainText('2 of 33');
+  await expect(row).toContainText('2 of 39');
 
   // The Permissions tab lists who holds each permission.
   await page.getByRole('tab', { name: /Permissions/ }).click();

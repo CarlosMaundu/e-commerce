@@ -73,6 +73,16 @@ import AuditLogPage from './pages/admin/AuditLogPage';
 import StoreSettingsPage from './pages/admin/StoreSettingsPage';
 import FinanceSettingsPage from './pages/admin/FinanceSettingsPage';
 import DeliverySettingsPage from './pages/admin/DeliverySettingsPage';
+import ComingSoonPage from './pages/admin/ComingSoonPage';
+import CreateOrderPage from './pages/admin/orders/CreateOrderPage';
+import {
+  InvoiceDetailPage,
+  InvoicesPage as AdminInvoicesPage,
+  LedgerPage,
+  PaymentsPage,
+  RefundSettingsPage,
+  RefundsPage,
+} from './pages/admin/finance/FinancePages';
 import { StoreProvider } from './context/StoreContext';
 import UserAccountPage from './pages/admin/UserAccountPage';
 import StaffNotice from './components/StaffNotice';
@@ -293,6 +303,63 @@ const App = () => (
                       element={
                         <AdminRoute permissions={['admin.security.view']}>
                           <SecuritySettingsPage />
+                        </AdminRoute>
+                      }
+                    />
+                    <Route path="soon/:feature" element={<ComingSoonPage />} />
+                    <Route
+                      path="orders/new"
+                      element={
+                        <AdminRoute permissions={['orders.orders.create']}>
+                          <CreateOrderPage />
+                        </AdminRoute>
+                      }
+                    />
+                    <Route
+                      path="invoices"
+                      element={
+                        <AdminRoute permissions={['orders.invoices.view']}>
+                          <AdminInvoicesPage />
+                        </AdminRoute>
+                      }
+                    />
+                    <Route
+                      path="invoices/:id"
+                      element={
+                        <AdminRoute permissions={['orders.invoices.view']}>
+                          <InvoiceDetailPage />
+                        </AdminRoute>
+                      }
+                    />
+                    <Route
+                      path="payments"
+                      element={
+                        <AdminRoute permissions={['orders.invoices.view']}>
+                          <PaymentsPage />
+                        </AdminRoute>
+                      }
+                    />
+                    <Route
+                      path="refunds"
+                      element={
+                        <AdminRoute permissions={['orders.invoices.view']}>
+                          <RefundsPage />
+                        </AdminRoute>
+                      }
+                    />
+                    <Route
+                      path="refund-settings"
+                      element={
+                        <AdminRoute permissions={['admin.refunds.manage']}>
+                          <RefundSettingsPage />
+                        </AdminRoute>
+                      }
+                    />
+                    <Route
+                      path="ledger"
+                      element={
+                        <AdminRoute permissions={['admin.ledger.view']}>
+                          <LedgerPage />
                         </AdminRoute>
                       }
                     />

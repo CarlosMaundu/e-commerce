@@ -9,7 +9,8 @@ export interface PaymentGateway {
     clientSecret: string;
   }>;
   getStatus(intentId: string): Promise<'succeeded' | 'processing' | 'requires_action' | 'failed' | string>;
-  refund(intentId: string): Promise<void>;
+  /** Refunds all of the payment, or `amountCents` of it; returns the refund id. */
+  refund(intentId: string, amountCents?: number): Promise<string | void>;
 }
 
 export const stripeGateway = (): PaymentGateway | null => {
@@ -35,8 +36,12 @@ export const stripeGateway = (): PaymentGateway | null => {
       const intent = await stripe.paymentIntents.retrieve(intentId);
       return intent.status === 'requires_payment_method' ? 'failed' : intent.status;
     },
-    async refund(intentId) {
-      await stripe.refunds.create({ payment_intent: intentId });
+    async refund(intentId, amountCents) {
+      const r = await stripe.refunds.create({
+        payment_intent: intentId,
+        ...(amountCents ? { amount: amountCents } : {}),
+      });
+      return r.id;
     },
   };
 };

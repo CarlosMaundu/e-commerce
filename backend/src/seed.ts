@@ -47,6 +47,12 @@ export const PERMISSION_CATALOG: { code: string; description: string; implied?: 
   { code: 'admin.audit.view', description: 'View the audit log' },
   { code: 'admin.settings.manage', description: 'Change the shop’s name, logo, favicon and contact details', implied: ['admin.security.manage'] },
   { code: 'admin.finance.manage', description: 'Change the currency and tax', implied: ['admin.settings.manage'] },
+  { code: 'orders.orders.create', description: 'Create orders for customers', implied: ['orders.orders.update'] },
+  { code: 'orders.invoices.view', description: 'See invoices, payments and refunds', implied: ['orders.orders.view'] },
+  { code: 'orders.payments.record', description: 'Record payments against invoices', implied: ['orders.orders.update'] },
+  { code: 'admin.refunds.approve', description: 'Approve refunds above the approval limit', implied: ['admin.finance.manage'] },
+  { code: 'admin.refunds.manage', description: 'Change refund rules', implied: ['admin.finance.manage'] },
+  { code: 'admin.ledger.view', description: 'See the ledger and account balances', implied: ['admin.finance.manage'] },
   { code: 'admin.delivery.manage', description: 'Change delivery options, prices and the pick-up point', implied: ['admin.finance.manage'] },
 ];
 

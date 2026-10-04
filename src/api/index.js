@@ -661,9 +661,14 @@ export const checkout = {
 };
 
 export const orders = {
-  async list({ page = 1, limit = 10, status } = {}) {
+  async list({ page = 1, limit = 10, status, days } = {}) {
     const { data, headers } = await http().get('/rest/customerorders', {
-      params: { page, limit, ...(status ? { status } : {}) },
+      params: {
+        page,
+        limit,
+        ...(status ? { status } : {}),
+        ...(days ? { days } : {}),
+      },
     });
     return {
       orders: data.map(orderFromApi),
@@ -725,6 +730,7 @@ export const adminOrders = {
     shippingMethod,
     paymentMethod,
     days,
+    customer,
   } = {}) {
     const { data, headers } = await http().get('/admin/orders', {
       params: {
@@ -736,6 +742,7 @@ export const adminOrders = {
         ...(shippingMethod ? { shipping_method: shippingMethod } : {}),
         ...(paymentMethod ? { payment_method: paymentMethod } : {}),
         ...(days ? { days } : {}),
+        ...(customer ? { customer } : {}),
       },
     });
     return {
@@ -755,9 +762,12 @@ export const adminOrders = {
     });
     return orderFromApi(data);
   },
-  async listReturns(status) {
+  async listReturns(status, customer) {
     const { data } = await http().get('/admin/returns', {
-      params: status ? { status } : {},
+      params: {
+        ...(status ? { status } : {}),
+        ...(customer ? { customer } : {}),
+      },
     });
     return data.map(returnFromApi);
   },
@@ -775,6 +785,74 @@ export const adminOrders = {
   /** Attention counts for the bell; null where you lack the permission. */
   async notifications() {
     const { data } = await http().get('/admin/notifications');
+    return data;
+  },
+};
+
+/** Invoices, payments, refunds, the ledger and staff-made orders (raw API shapes). */
+export const adminFinance = {
+  async deliveryOptions() {
+    const { data } = await http().get('/admin/delivery-options');
+    return data;
+  },
+  async createOrder(body) {
+    const { data } = await http().post('/admin/orders', body);
+    return orderFromApi(data);
+  },
+  async editOrder(id, body) {
+    const { data } = await http().put(`/admin/orders/${id}`, body);
+    return orderFromApi(data);
+  },
+  async orderMoney(id) {
+    const { data } = await http().get(`/admin/orders/${id}/finance`);
+    return data;
+  },
+  async invoices(params = {}) {
+    const { data } = await http().get('/admin/invoices', { params });
+    return data;
+  },
+  async invoice(id) {
+    const { data } = await http().get(`/admin/invoices/${id}`);
+    return { ...data, order: orderFromApi(data.order) };
+  },
+  async recordPayment(invoiceId, body) {
+    const { data } = await http().post(
+      `/admin/invoices/${invoiceId}/payments`,
+      body
+    );
+    return data;
+  },
+  async payments(params = {}) {
+    const { data } = await http().get('/admin/payments', { params });
+    return data;
+  },
+  async refunds(status) {
+    const { data } = await http().get('/admin/refunds', {
+      params: status ? { status } : {},
+    });
+    return data;
+  },
+  async refund(orderId, body) {
+    const { data } = await http().post(
+      `/admin/orders/${orderId}/refunds`,
+      body
+    );
+    return data;
+  },
+  async decideRefund(id, action) {
+    const { data } = await http().put(`/admin/refunds/${id}`, { action });
+    return data;
+  },
+  async refundSettings() {
+    const { data } = await http().get('/admin/refund-settings');
+    return data.settings;
+  },
+  async saveRefundSettings(settings) {
+    const { data } = await http().put('/admin/refund-settings', settings);
+    return data.settings;
+  },
+  async ledger(params = {}) {
+    const { data } = await http().get('/admin/ledger', { params });
     return data;
   },
 };

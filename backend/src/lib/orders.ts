@@ -79,9 +79,11 @@ export const toContractOrder = (o: any, items: any[] = [], history: any[] = [], 
   products: items.map((i) => ({
     order_product_id: i.id,
     product_id: i.product_id,
+    variant_id: i.variant_id ?? null,
     name: i.name,
     image: i.image,
     options: i.options,
+    sku: i.sku || null,
     quantity: i.quantity,
     price: n(i.unit_price),
     total: n(i.total),
@@ -115,7 +117,16 @@ export const loadOrder = async (id: number, { userId, admin = false }: { userId?
     )
   ).rows[0];
   if (!order) return null;
-  const items = (await query('SELECT * FROM order_items WHERE order_id = $1 ORDER BY id', [id])).rows;
+  // With the SKU of what was bought (the variant's, else the product's).
+  const items = (
+    await query(
+      `SELECT oi.*, COALESCE(v.sku, p.sku) AS sku FROM order_items oi
+       LEFT JOIN product_variants v ON v.id = oi.variant_id
+       LEFT JOIN products p ON p.id = oi.product_id
+       WHERE oi.order_id = $1 ORDER BY oi.id`,
+      [id]
+    )
+  ).rows;
   const history = (
     await query('SELECT * FROM order_history WHERE order_id = $1 ORDER BY created_at, id', [id])
   ).rows;

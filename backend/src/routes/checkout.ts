@@ -5,6 +5,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { config } from '../config';
 import { finance } from '../lib/finance';
+import { issueInvoice, recordPayment } from '../lib/accounting';
 import { query, transaction } from '../db';
 import { audit } from '../lib/audit';
 import { fail, handler, ok, parse } from '../lib/http';
@@ -283,6 +284,14 @@ export const checkoutRoutes = ({ payments }: { payments: PaymentGateway | null }
         [pending.id, status, paymentStatus, req.auth!.impersonatorId]
       );
       await addHistory(db, pending.id, status, 'Order placed.', { notified: true, userId });
+      // The invoice, and the card payment when there is one.
+      const placedRow = (await db.query('SELECT * FROM orders WHERE id = $1', [pending.id])).rows[0];
+      const invoice = await issueInvoice(db, placedRow, { by: userId });
+      if (paymentStatus === 'paid') {
+        await recordPayment(db, {
+          invoice, method: 'stripe', amount: Number(invoice.total), reference: pending.payment_reference, by: userId,
+        });
+      }
       await db.query('DELETE FROM cart_items WHERE user_id = $1', [userId]);
       await db.query(
         `UPDATE checkout_state SET coupon_code = NULL, pending_order_id = NULL, comment = '' WHERE user_id = $1`,

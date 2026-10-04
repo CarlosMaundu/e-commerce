@@ -5,12 +5,16 @@ import { runMigrations } from './migrate';
 import { runSeed } from './seed';
 import { loadFinance } from './lib/finance';
 import { loadDelivery } from './lib/delivery';
+import { backfillAccounting } from './lib/accounting';
 
 const main = async () => {
   await runMigrations();
   await loadFinance(); // seeding prices demo data in the shop's currency
   await loadDelivery();
   await runSeed();
+  // Invoices and ledger entries for orders placed before accounting existed.
+  const backfilled = await backfillAccounting();
+  if (backfilled) console.log(`Posted accounts for ${backfilled} earlier orders`);
   createApp().listen(config.port, () => {
     console.log(`Carlos Shop API listening on :${config.port}`);
   });
