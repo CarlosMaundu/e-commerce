@@ -107,7 +107,6 @@ const Choice = ({ selected, onSelect, title, description, aside, testId }) => {
 
 const TOTAL_LABELS = {
   sub_total: 'Subtotal',
-  tax: 'Estimated tax',
   shipping: 'Estimated shipping & handling',
 };
 

@@ -3,6 +3,7 @@
 // bar (page title, global search with ⌘K, storefront link, notifications and
 // the account menu). Items are shown by permission.
 import React, {
+  createContext,
   useCallback,
   useContext,
   useEffect,
@@ -31,6 +32,7 @@ import {
   MenuItem,
   Popover,
   Stack,
+  Tooltip,
   Typography,
   useMediaQuery,
 } from '@mui/material';
@@ -40,11 +42,13 @@ import {
   FiBell,
   FiBox,
   FiChevronDown,
+  FiHelpCircle,
   FiMenu,
   FiPackage,
   FiRotateCcw,
   FiSearch,
   FiUser,
+  FiX,
 } from 'react-icons/fi';
 import { AuthContext } from '../context/AuthContext';
 import {
@@ -128,6 +132,11 @@ export const adminNav = (user) =>
           label: 'Store settings',
           to: '/admin/settings',
           show: hasPermission(user, PERMISSIONS.settingsManage),
+        },
+        {
+          label: 'Financial settings',
+          to: '/admin/finance',
+          show: hasPermission(user, PERMISSIONS.financeManage),
         },
         {
           label: 'Security',
@@ -281,43 +290,127 @@ const Rail = ({ onNavigate, counts }) => {
           </Box>
         ))}
       </Box>
-      <Box
-        sx={{
-          mt: 2,
-          p: 2.5,
-          borderRadius: 1,
-          bgcolor: 'ink.main',
-          color: 'common.white',
-        }}
-      >
-        <Typography sx={{ fontWeight: 700 }}>Need some help?</Typography>
-        <Typography
-          variant="body2"
-          sx={{ mt: 0.75, color: alpha('#fff', 0.7) }}
-        >
-          Visit the admin guide or contact support.
-        </Typography>
-        <Typography
-          component={RouterLink}
-          to="/information/support"
-          target="_blank"
-          sx={{
-            display: 'inline-block',
-            mt: 1.5,
-            fontWeight: 700,
-            fontSize: '0.9rem',
-            color: 'highlight.main',
-            textDecoration: 'none',
-            '&:hover': { textDecoration: 'underline' },
-          }}
-        >
-          Open help center
-        </Typography>
-      </Box>
     </Stack>
   );
 };
 Rail.propTypes = { onNavigate: PropTypes.func, counts: PropTypes.object };
+
+/**
+ * "Need some help?" card, floating bottom right. Closing it leaves a round
+ * help button; the choice is remembered on this device.
+ */
+const HELP_KEY = 'admin-help-closed';
+
+// Pages with a bottom action bar (Save / Cancel) hide the help card while
+// that bar is showing, so it never covers the buttons.
+const HelpSpaceContext = createContext(() => {});
+export const useHideHelpWhile = (hidden) => {
+  const setHidden = useContext(HelpSpaceContext);
+  useEffect(() => {
+    setHidden(hidden);
+    return () => setHidden(false);
+  }, [hidden, setHidden]);
+};
+
+const HelpCard = ({ hidden }) => {
+  const [closed, setClosed] = useState(() => {
+    try {
+      return localStorage.getItem(HELP_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const toggle = (next) => {
+    setClosed(next);
+    try {
+      localStorage.setItem(HELP_KEY, next ? '1' : '0');
+    } catch {
+      // storage unavailable: this visit only
+    }
+  };
+  const theme = useTheme();
+  if (hidden) return null;
+  if (closed) {
+    return (
+      <Tooltip title="Need some help?" placement="left">
+        <IconButton
+          aria-label="Open help"
+          onClick={() => toggle(false)}
+          sx={{
+            position: 'fixed',
+            right: 24,
+            bottom: 24,
+            zIndex: theme.zIndex.speedDial,
+            width: 52,
+            height: 52,
+            bgcolor: 'ink.main',
+            color: 'highlight.main',
+            boxShadow: '0 12px 28px rgba(27,33,36,0.28)',
+            '&:hover': { bgcolor: 'ink.light' },
+          }}
+        >
+          <FiHelpCircle size={24} />
+        </IconButton>
+      </Tooltip>
+    );
+  }
+  return (
+    <Box
+      role="complementary"
+      aria-label="Help"
+      sx={{
+        position: 'fixed',
+        right: 24,
+        bottom: 24,
+        zIndex: theme.zIndex.speedDial,
+        width: 290,
+        maxWidth: 'calc(100vw - 48px)',
+        p: 2.5,
+        pr: 5,
+        borderRadius: 1,
+        bgcolor: 'ink.main',
+        color: 'common.white',
+        boxShadow: '0 18px 40px rgba(27,33,36,0.3)',
+      }}
+    >
+      <IconButton
+        aria-label="Close help"
+        size="small"
+        onClick={() => toggle(true)}
+        sx={{
+          position: 'absolute',
+          top: 8,
+          right: 8,
+          color: alpha('#fff', 0.7),
+        }}
+      >
+        <FiX />
+      </IconButton>
+      <Typography sx={{ fontWeight: 700 }}>Need some help?</Typography>
+      <Typography variant="body2" sx={{ mt: 0.75, color: alpha('#fff', 0.7) }}>
+        Visit the admin guide or contact support.
+      </Typography>
+      <Typography
+        component={RouterLink}
+        to="/information/support"
+        target="_blank"
+        sx={{
+          display: 'inline-block',
+          mt: 1.5,
+          fontWeight: 700,
+          fontSize: '0.9rem',
+          color: 'highlight.main',
+          textDecoration: 'none',
+          '&:hover': { textDecoration: 'underline' },
+        }}
+      >
+        Open help center
+      </Typography>
+    </Box>
+  );
+};
+
+HelpCard.propTypes = { hidden: PropTypes.bool };
 
 /** Search orders, products and people from anywhere (⌘K / Ctrl+K). */
 const GlobalSearch = ({ compact }) => {
@@ -687,209 +780,221 @@ const AdminLayout = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState(null);
   const counts = useAttention(pathname);
+  const [helpHidden, setHelpHidden] = useState(false);
 
   const closeMenu = () => setMenuAnchor(null);
 
   return (
-    <Box
-      sx={{
-        display: 'flex',
-        minHeight: '100vh',
-        bgcolor: 'background.neutral',
-      }}
-    >
-      {isMobile ? (
-        <Drawer
-          open={drawerOpen}
-          onClose={() => setDrawerOpen(false)}
-          PaperProps={{ sx: { width: RAIL_WIDTH } }}
-        >
-          <Rail onNavigate={() => setDrawerOpen(false)} counts={counts} />
-        </Drawer>
-      ) : (
-        <Box
-          component="aside"
-          sx={{
-            width: RAIL_WIDTH,
-            flexShrink: 0,
-            borderRight: 1,
-            borderColor: 'divider',
-            bgcolor: 'background.paper',
-            position: 'sticky',
-            top: 0,
-            height: '100vh',
-          }}
-        >
-          <Rail counts={counts} />
-        </Box>
-      )}
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Stack
-          direction="row"
-          alignItems="center"
-          spacing={{ xs: 1, md: 1.5 }}
-          sx={{
-            height: 84,
-            px: { xs: 2, md: 4 },
-            borderBottom: 1,
-            borderColor: 'divider',
-            position: 'sticky',
-            top: 0,
-            bgcolor: 'background.paper',
-            zIndex: 3,
-          }}
-        >
-          {isMobile && (
-            <IconButton
-              aria-label="Open admin menu"
-              onClick={() => setDrawerOpen(true)}
-            >
-              <FiMenu />
-            </IconButton>
-          )}
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography
-              sx={{
-                fontSize: '0.72rem',
-                fontWeight: 700,
-                letterSpacing: '0.16em',
-                textTransform: 'uppercase',
-                color: 'text.secondary',
-              }}
-            >
-              Back office
-            </Typography>
-            <Typography
-              variant="subtitle1"
-              noWrap
-              sx={{ fontWeight: 700, fontSize: '1.05rem' }}
-              data-testid="admin-page-title"
-            >
-              {pageTitle(user, pathname)}
-            </Typography>
-          </Box>
-          <Box sx={{ display: { xs: 'none', md: 'block' } }}>
-            <GlobalSearch />
-          </Box>
-          <Button
-            component={RouterLink}
-            to="/"
-            variant="outlined"
+    <HelpSpaceContext.Provider value={setHelpHidden}>
+      <Box
+        sx={{
+          display: 'flex',
+          minHeight: '100vh',
+          bgcolor: 'background.neutral',
+        }}
+      >
+        {isMobile ? (
+          <Drawer
+            open={drawerOpen}
+            onClose={() => setDrawerOpen(false)}
+            PaperProps={{ sx: { width: RAIL_WIDTH } }}
+          >
+            <Rail onNavigate={() => setDrawerOpen(false)} counts={counts} />
+          </Drawer>
+        ) : (
+          <Box
+            component="aside"
             sx={{
-              height: 48,
-              px: 2.5,
-              color: 'text.primary',
+              width: RAIL_WIDTH,
+              flexShrink: 0,
+              borderRight: 1,
               borderColor: 'divider',
-              fontWeight: 700,
-              display: { xs: 'none', sm: 'inline-flex' },
+              bgcolor: 'background.paper',
+              position: 'sticky',
+              top: 0,
+              height: '100vh',
             }}
           >
-            View storefront
-          </Button>
-          <Notifications counts={counts} />
-          <Button
-            aria-label="Account menu"
-            onClick={(e) => setMenuAnchor(e.currentTarget)}
-            endIcon={
-              <Box
-                component={FiChevronDown}
-                sx={{ display: { xs: 'none', md: 'block' } }}
-              />
-            }
+            <Rail counts={counts} />
+          </Box>
+        )}
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Stack
+            direction="row"
+            alignItems="center"
+            spacing={{ xs: 1, md: 1.5 }}
             sx={{
-              height: 48,
-              pl: 0.5,
-              pr: { xs: 0.5, md: 1.5 },
-              color: 'text.primary',
-              textAlign: 'left',
-              gap: 1.25,
+              height: 84,
+              px: { xs: 2, md: 4 },
+              borderBottom: 1,
+              borderColor: 'divider',
+              position: 'sticky',
+              top: 0,
+              bgcolor: 'background.paper',
+              zIndex: 3,
             }}
           >
-            <Avatar
-              src={user?.avatar || undefined}
-              alt=""
-              sx={{
-                width: 44,
-                height: 44,
-                fontSize: 14,
-                fontWeight: 700,
-                color: 'warning.main',
-                bgcolor: alpha(theme.palette.warning.main, 0.14),
-              }}
-            >
-              {initialsOf(user?.name)}
-            </Avatar>
-            <Box sx={{ display: { xs: 'none', md: 'block' }, lineHeight: 1.2 }}>
-              <Typography sx={{ fontWeight: 700, fontSize: '0.9rem' }}>
-                {user?.name}
+            {isMobile && (
+              <IconButton
+                aria-label="Open admin menu"
+                onClick={() => setDrawerOpen(true)}
+              >
+                <FiMenu />
+              </IconButton>
+            )}
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography
+                sx={{
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  letterSpacing: '0.16em',
+                  textTransform: 'uppercase',
+                  color: 'text.secondary',
+                }}
+              >
+                Back office
               </Typography>
-              <Typography variant="caption" component="div">
-                {roleLabel(user?.role)}
+              <Typography
+                variant="subtitle1"
+                noWrap
+                sx={{ fontWeight: 700, fontSize: '1.05rem' }}
+                data-testid="admin-page-title"
+              >
+                {pageTitle(user, pathname)}
               </Typography>
             </Box>
-          </Button>
-          <Menu
-            anchorEl={menuAnchor}
-            open={Boolean(menuAnchor)}
-            onClose={closeMenu}
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-            slotProps={{
-              paper: {
-                sx: {
-                  mt: 1,
-                  minWidth: 240,
-                  borderRadius: 1,
-                  border: 1,
-                  borderColor: 'divider',
-                  boxShadow: '0 24px 48px rgba(27,33,36,0.12)',
-                },
-              },
-            }}
-          >
-            <MenuItem
+            <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+              <GlobalSearch />
+            </Box>
+            <Button
               component={RouterLink}
-              to="/admin/profile"
-              onClick={closeMenu}
-              sx={{ px: 2.5, py: 1.25 }}
+              to="/"
+              variant="outlined"
+              sx={{
+                height: 48,
+                px: 2.5,
+                color: 'text.primary',
+                borderColor: 'divider',
+                fontWeight: 700,
+                display: { xs: 'none', sm: 'inline-flex' },
+              }}
             >
-              Profile settings
-            </MenuItem>
-            {hasPermission(user, PERMISSIONS.rolesView) && (
+              View storefront
+            </Button>
+            <Notifications counts={counts} />
+            <Button
+              aria-label="Account menu"
+              onClick={(e) => setMenuAnchor(e.currentTarget)}
+              endIcon={
+                <Box
+                  component={FiChevronDown}
+                  sx={{ display: { xs: 'none', md: 'block' } }}
+                />
+              }
+              sx={{
+                height: 48,
+                pl: 0.5,
+                pr: { xs: 0.5, md: 1.5 },
+                color: 'text.primary',
+                textAlign: 'left',
+                gap: 1.25,
+              }}
+            >
+              <Avatar
+                src={user?.avatar || undefined}
+                alt=""
+                sx={{
+                  width: 44,
+                  height: 44,
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: 'warning.main',
+                  bgcolor: alpha(theme.palette.warning.main, 0.14),
+                }}
+              >
+                {initialsOf(user?.name)}
+              </Avatar>
+              <Box
+                sx={{ display: { xs: 'none', md: 'block' }, lineHeight: 1.2 }}
+              >
+                <Typography sx={{ fontWeight: 700, fontSize: '0.9rem' }}>
+                  {user?.name}
+                </Typography>
+                <Typography variant="caption" component="div">
+                  {roleLabel(user?.role)}
+                </Typography>
+              </Box>
+            </Button>
+            <Menu
+              anchorEl={menuAnchor}
+              open={Boolean(menuAnchor)}
+              onClose={closeMenu}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+              slotProps={{
+                paper: {
+                  sx: {
+                    mt: 1,
+                    minWidth: 240,
+                    borderRadius: 1,
+                    border: 1,
+                    borderColor: 'divider',
+                    boxShadow: '0 24px 48px rgba(27,33,36,0.12)',
+                  },
+                },
+              }}
+            >
               <MenuItem
                 component={RouterLink}
-                to="/admin/roles"
+                to="/admin/profile"
                 onClick={closeMenu}
                 sx={{ px: 2.5, py: 1.25 }}
               >
-                Team & permissions
+                Profile settings
               </MenuItem>
-            )}
-            <MenuItem
-              onClick={async () => {
-                closeMenu();
-                await logout();
-                navigate('/login');
-              }}
-              sx={{ px: 2.5, py: 1.25, color: 'error.main' }}
-            >
-              Sign out
-            </MenuItem>
-          </Menu>
-        </Stack>
-        {isMobile && (
-          <Box sx={{ px: 2, pt: 2, display: { md: 'none' } }}>
-            <GlobalSearch compact />
+              {hasPermission(user, PERMISSIONS.rolesView) && (
+                <MenuItem
+                  component={RouterLink}
+                  to="/admin/roles"
+                  onClick={closeMenu}
+                  sx={{ px: 2.5, py: 1.25 }}
+                >
+                  Team & permissions
+                </MenuItem>
+              )}
+              <MenuItem
+                onClick={async () => {
+                  closeMenu();
+                  await logout();
+                  navigate('/login');
+                }}
+                sx={{ px: 2.5, py: 1.25, color: 'error.main' }}
+              >
+                Sign out
+              </MenuItem>
+            </Menu>
+          </Stack>
+          {isMobile && (
+            <Box sx={{ px: 2, pt: 2, display: { md: 'none' } }}>
+              <GlobalSearch compact />
+            </Box>
+          )}
+          <Box
+            component="main"
+            // Bottom room so the floating help never covers the last row.
+            sx={{
+              p: { xs: 2, md: 4, xl: 5 },
+              pb: { xs: 12, md: 12, xl: 12 },
+              maxWidth: 1680,
+              mx: 'auto',
+            }}
+          >
+            <Outlet />
           </Box>
-        )}
-        <Box
-          component="main"
-          sx={{ p: { xs: 2, md: 4, xl: 5 }, maxWidth: 1680, mx: 'auto' }}
-        >
-          <Outlet />
+          <HelpCard hidden={helpHidden} />
         </Box>
       </Box>
-    </Box>
+    </HelpSpaceContext.Provider>
   );
 };
 

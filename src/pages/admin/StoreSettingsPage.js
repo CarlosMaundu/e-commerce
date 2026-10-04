@@ -25,6 +25,7 @@ import { useNotify } from '../../notification/NotificationProvider';
 import { useStore } from '../../context/StoreContext';
 import { SectionCard } from '../../components/ui';
 import { PageHeader } from '../../components/admin/DataTable';
+import { useHideHelpWhile } from '../../layouts/AdminLayout';
 import ImageField from '../../components/admin/ImageField';
 import { formatDateTime } from '../../utils/format';
 
@@ -64,6 +65,7 @@ const StoreSettingsPage = () => {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [editing, setEditing] = useState(false);
+  useHideHelpWhile(editing);
   const [saved, setSaved] = useState(null); // last saved copy, for Cancel
 
   useEffect(() => {

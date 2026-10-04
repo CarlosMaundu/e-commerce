@@ -39,12 +39,16 @@ export const config = {
   },
   resetTokenMinutes: Number(env('RESET_TOKEN_MINUTES', '30')),
   setupTokenHours: Number(env('SETUP_TOKEN_HOURS', '72')),
+  // Defaults for Back office → Financial settings (Kenyan shillings, VAT 16%
+  // included in prices). Once saved there, the saved values win.
   shop: {
-    currency: env('CURRENCY', 'USD'),
-    taxRate: Number(env('TAX_RATE', '0.08')),
-    freeShippingOver: Number(env('FREE_SHIPPING_OVER', '150')),
-    standardShipping: Number(env('STANDARD_SHIPPING', '10')),
-    expressShipping: Number(env('EXPRESS_SHIPPING', '25')),
+    currency: env('CURRENCY', 'KES'),
+    taxLabel: env('TAX_LABEL', 'VAT'),
+    taxRate: Number(env('TAX_RATE', '0.16')),
+    pricesIncludeTax: env('PRICES_INCLUDE_TAX', 'true') === 'true',
+    freeShippingOver: Number(env('FREE_SHIPPING_OVER', '10000')),
+    standardShipping: Number(env('STANDARD_SHIPPING', '300')),
+    expressShipping: Number(env('EXPRESS_SHIPPING', '650')),
   },
   stripe: {
     secretKey: process.env.STRIPE_SECRET_KEY || '',

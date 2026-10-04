@@ -2,6 +2,7 @@
 // the server. The browser only displays these numbers.
 import { config } from '../config';
 import { query } from '../db';
+import { finance } from './finance';
 import { fail } from './http';
 import { stockOf } from './products';
 
@@ -39,14 +40,16 @@ export const SHIPPING_METHODS = () => [
   {
     code: 'standard',
     title: 'Standard delivery',
-    description: `3–5 business days. Free on orders over ${money(config.shop.freeShippingOver)}.`,
-    cost: config.shop.standardShipping,
+    description: finance().free_shipping_over
+      ? `3–5 business days. Free on orders over ${money(finance().free_shipping_over)}.`
+      : '3–5 business days.',
+    cost: finance().standard_shipping,
   },
   {
     code: 'express',
     title: 'Express delivery',
     description: '1–2 business days.',
-    cost: config.shop.expressShipping,
+    cost: finance().express_shipping,
   },
 ];
 
@@ -63,7 +66,23 @@ export const PAYMENT_METHODS = () => [
 ];
 
 export const money = (n: number) =>
-  new Intl.NumberFormat('en-US', { style: 'currency', currency: config.shop.currency }).format(n);
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: finance().currency }).format(n);
+
+/**
+ * Tax on goods worth `goods`, and the order total. When prices include tax
+ * (the Kenyan norm) the tax is the part already inside the price and the
+ * total doesn't grow; otherwise tax is added on top.
+ */
+export const applyTax = (goods: number, shipping: number) => {
+  const { tax_rate: rate, prices_include_tax: included } = finance();
+  const tax = included ? round2(goods - goods / (1 + rate / 100)) : round2((goods * rate) / 100);
+  return { tax, total: round2(goods + shipping + (included ? 0 : tax)) };
+};
+
+export const taxTitle = () => {
+  const f = finance();
+  return f.prices_include_tax ? `Includes ${f.tax_label} (${f.tax_rate}%)` : `${f.tax_label} (${f.tax_rate}%)`;
+};
 
 type Db = { query: (text: string, params?: unknown[]) => Promise<{ rows: any[] }> };
 
@@ -150,15 +169,15 @@ export const computeTotals = (
   const goods = round2(subtotal - discount);
   const method = SHIPPING_METHODS().find((m) => m.code === shippingMethod);
   let shipping = method ? method.cost : 0;
-  if (method?.code === 'standard' && goods >= config.shop.freeShippingOver) shipping = 0;
+  const freeOver = finance().free_shipping_over;
+  if (method?.code === 'standard' && freeOver > 0 && goods >= freeOver) shipping = 0;
   if (!lines.length) shipping = 0;
-  const tax = round2(goods * config.shop.taxRate);
-  const total = round2(goods + shipping + tax);
+  const { tax, total } = applyTax(goods, shipping);
 
   const out: Totals['lines'] = [{ code: 'sub_total', title: 'Subtotal', value: subtotal }];
   if (discount) out.push({ code: 'coupon', title: `Promo code (${usable!.code})`, value: -discount });
   if (method) out.push({ code: 'shipping', title: method.title, value: shipping });
-  out.push({ code: 'tax', title: `Tax (${round2(config.shop.taxRate * 100)}%)`, value: tax });
+  out.push({ code: 'tax', title: taxTitle(), value: tax });
   out.push({ code: 'total', title: 'Total', value: total });
 
   return {

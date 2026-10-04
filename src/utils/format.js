@@ -1,5 +1,32 @@
-// src/utils/format.js — consistent money and date formatting.
-const currency = 'USD';
+// src/utils/format.js — consistent money and date formatting. The currency
+// comes from Back office → Financial settings (via StoreContext); the last
+// one seen is remembered so prices render right on the next visit.
+const CURRENCY_KEY = 'shop-currency';
+let currency = (() => {
+  try {
+    return localStorage.getItem(CURRENCY_KEY) || 'KES';
+  } catch {
+    return 'KES';
+  }
+})();
+
+export const getCurrency = () => currency;
+/** True when a currency from an earlier visit is known. */
+export const hasRememberedCurrency = () => {
+  try {
+    return Boolean(localStorage.getItem(CURRENCY_KEY));
+  } catch {
+    return false;
+  }
+};
+export const setCurrency = (code) => {
+  currency = code;
+  try {
+    localStorage.setItem(CURRENCY_KEY, code);
+  } catch {
+    // storage unavailable: this visit only
+  }
+};
 
 export const formatMoney = (value, code = currency) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: code }).format(

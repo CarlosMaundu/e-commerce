@@ -44,6 +44,8 @@ import { useNotify } from '../notification/NotificationProvider';
 import ProductCard from '../components/common/ProductCard';
 import PageBreadcrumbs from '../components/common/PageBreadcrumbs';
 import { EmptyState } from '../components/ui';
+import RichText from '../components/common/RichText';
+import Specifications from '../components/product/Specifications';
 import { formatDate, formatMoney } from '../utils/format';
 import { isColorAttribute, swatchFor } from '../utils/colors';
 import { friendlyError } from '../utils/friendlyError';
@@ -878,15 +880,23 @@ const ProductDetailsPage = () => {
           sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}
         >
           <Tab value="description" label="Description" />
+          <Tab value="specifications" label="Specifications" />
           <Tab value="reviews" label={`Reviews (${product.reviewCount})`} />
         </Tabs>
-        {tab === 'description' ? (
-          <Typography sx={{ whiteSpace: 'pre-line', maxWidth: 820 }}>
-            {product.description || 'No description yet.'}
-          </Typography>
-        ) : (
-          <Reviews product={product} onAdded={load} />
+        {tab === 'description' &&
+          (product.description ? (
+            <RichText
+              html={product.description}
+              sx={{ maxWidth: 820 }}
+              data-testid="product-description"
+            />
+          ) : (
+            <Typography color="text.secondary">No description yet.</Typography>
+          ))}
+        {tab === 'specifications' && (
+          <Specifications product={product} variant={variant} />
         )}
+        {tab === 'reviews' && <Reviews product={product} onAdded={load} />}
       </Box>
 
       {related.length > 0 && (

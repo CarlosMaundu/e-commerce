@@ -45,12 +45,14 @@ import { hasPermission, PERMISSIONS } from '../../../auth/permissions';
 import { adminCatalog, catalog } from '../../../api';
 import { useNotify } from '../../../notification/NotificationProvider';
 import ConfirmationDialog from '../../../components/common/ConfirmationDialog';
-import { formatMoney } from '../../../utils/format';
+import { formatMoney, getCurrency } from '../../../utils/format';
 import BrandDialog from './BrandDialog';
 import PageBreadcrumbs from '../../../components/common/PageBreadcrumbs';
 import VariationsEditor, { LinkImagesDialog } from './VariationsEditor';
 import { Pill } from '../../../components/admin/DataTable';
 import { PRODUCT_STATUSES, statusInfo } from '../../../utils/productStatus';
+import RichTextEditor from '../../../components/admin/RichTextEditor';
+import ProductInformation, { infoSummary } from './ProductInformation';
 
 const MAX_IMAGES = 10;
 const NEW_BRAND = '__new__';
@@ -74,7 +76,21 @@ const EMPTY = {
   featured: false,
   status: 'published',
   imageLinks: {},
+  // Vital info and product information.
+  manufacturer: '',
+  barcodeType: '',
+  barcode: '',
+  mfrPartNumber: '',
+  length: '',
+  width: '',
+  height: '',
+  dimensionUnit: 'cm',
+  weight: '',
+  weightUnit: 'kg',
+  specs: [],
 };
+
+export const BARCODE_TYPES = ['UPC', 'EAN', 'GTIN', 'ISBN'];
 
 /** Photos linked to each option value, recovered from the variants. */
 const linksFrom = (attributes, variants) => {
@@ -141,6 +157,17 @@ const baseFromProduct = (p) => ({
   featured: p.featured,
   status: p.status,
   imageLinks: linksFrom(p.attributes, p.variants),
+  manufacturer: p.manufacturer === p.brand?.name ? '' : p.manufacturer || '',
+  barcodeType: p.barcode?.type || '',
+  barcode: p.barcode?.value || '',
+  mfrPartNumber: p.mfrPartNumber || '',
+  length: p.dimensions?.length ?? '',
+  width: p.dimensions?.width ?? '',
+  height: p.dimensions?.height ?? '',
+  dimensionUnit: p.dimensions?.unit || 'cm',
+  weight: p.weight?.value ?? '',
+  weightUnit: p.weight?.unit || 'kg',
+  specs: (p.specs || []).map((x) => ({ ...x })),
 });
 
 const sameList = (a, b) =>
@@ -200,6 +227,16 @@ const num = (v) =>
 const validate = (f) => {
   const errors = {};
   if (!f.title.trim()) errors.title = 'Please enter a product name.';
+  if (
+    ['length', 'width', 'height', 'weight'].some(
+      (k) => num(f[k]) !== null && !(num(f[k]) > 0)
+    )
+  )
+    errors.info = 'Sizes and weight must be greater than zero.';
+  else if (f.specs.some((x) => !x.label.trim() !== !x.value.trim()))
+    errors.info = 'Each extra detail needs both a name and a value.';
+  if (f.barcode.trim() && !f.barcodeType)
+    errors.barcode = 'Please choose the product ID type (UPC, EAN…).';
   if (!(num(f.price) > 0))
     errors.price = 'Please enter a price greater than zero.';
   if (num(f.specialPrice) !== null && num(f.specialPrice) >= num(f.price)) {
@@ -546,13 +583,17 @@ const ProductFormPage = () => {
     setErrors(found);
     if (Object.keys(found).length) {
       setOpen(
-        found.title
+        found.barcode
           ? 1
-          : found.attributes
-            ? 4
-            : found.price || found.specialPrice || found.variants
-              ? 5
-              : open
+          : found.title
+            ? 2
+            : found.info
+              ? 3
+              : found.attributes
+                ? 5
+                : found.price || found.specialPrice || found.variants
+                  ? 6
+                  : open
       );
       notify.error(Object.values(found)[0]);
       return;
@@ -620,7 +661,7 @@ const ProductFormPage = () => {
   const nav = (n) => (
     <StepNav
       onPrev={n > 1 ? () => setOpen(n - 1) : undefined}
-      onNext={n < 7 ? () => setOpen(n + 1) : undefined}
+      onNext={n < 8 ? () => setOpen(n + 1) : undefined}
     />
   );
   const categoryOptions = categories.flatMap((c) => [
@@ -638,6 +679,9 @@ const ProductFormPage = () => {
     0
   );
   const readOnly = !canEdit;
+  const categoryName = categoryOptions.find(
+    (c) => String(c.id) === String(form.categoryId)
+  )?.name;
 
   return (
     <Box component="form" onSubmit={(e) => e.preventDefault()} noValidate>
@@ -729,19 +773,46 @@ const ProductFormPage = () => {
           <Step
             {...step(1)}
             title="Vital info"
-            error={Boolean(errors.title)}
-            done={form.title}
+            error={Boolean(errors.barcode)}
+            done={
+              [
+                categoryName,
+                brand?.name,
+                form.barcode && `${form.barcodeType} ${form.barcode}`,
+              ]
+                .filter(Boolean)
+                .join(' · ') || null
+            }
           >
             <Stack spacing={2}>
-              <TextField
-                label="Product name"
-                value={form.title}
-                onChange={(e) => set({ title: e.target.value })}
-                error={Boolean(errors.title)}
-                helperText={errors.title}
-                required
-                fullWidth
-              />
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <TextField
+                  select
+                  label="Product ID type"
+                  value={form.barcodeType}
+                  onChange={(e) => set({ barcodeType: e.target.value })}
+                  error={Boolean(errors.barcode)}
+                  sx={{ minWidth: { sm: 200 } }}
+                >
+                  <MenuItem value="">None</MenuItem>
+                  {BARCODE_TYPES.map((t) => (
+                    <MenuItem key={t} value={t}>
+                      {t}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  label="Product ID"
+                  value={form.barcode}
+                  onChange={(e) => set({ barcode: e.target.value })}
+                  error={Boolean(errors.barcode)}
+                  helperText={
+                    errors.barcode ||
+                    'The barcode number, e.g. a UPC or EAN. Optional.'
+                  }
+                  fullWidth
+                />
+              </Stack>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                 <TextField
                   select
@@ -845,29 +916,64 @@ const ProductFormPage = () => {
                   fullWidth
                 />
               )}
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <TextField
+                  label="Manufacturer"
+                  value={form.manufacturer}
+                  onChange={(e) => set({ manufacturer: e.target.value })}
+                  helperText="Leave empty when it’s the brand."
+                  fullWidth
+                />
+                <TextField
+                  label="Manufacturer part number"
+                  value={form.mfrPartNumber}
+                  onChange={(e) => set({ mfrPartNumber: e.target.value })}
+                  fullWidth
+                />
+              </Stack>
             </Stack>
             {nav(1)}
           </Step>
 
           <Step
             {...step(2)}
-            title="Product information"
-            done={form.description ? `${form.description.slice(0, 60)}…` : null}
+            title="Name and description"
+            error={Boolean(errors.title)}
+            done={form.title || null}
           >
-            <TextField
-              label="Description"
-              value={form.description}
-              onChange={(e) => set({ description: e.target.value })}
-              multiline
-              minRows={6}
-              fullWidth
-              helperText="Shown on the product page. Start lines with • for a bullet list."
-            />
+            <Stack spacing={2.5}>
+              <TextField
+                label="Product name"
+                value={form.title}
+                onChange={(e) => set({ title: e.target.value })}
+                error={Boolean(errors.title)}
+                helperText={errors.title}
+                required
+                fullWidth
+              />
+              <RichTextEditor
+                label="Description"
+                value={form.description}
+                onChange={(description) => set({ description })}
+                placeholder="Write a description…"
+                disabled={readOnly || saving}
+              />
+            </Stack>
             {nav(2)}
           </Step>
 
           <Step
             {...step(3)}
+            title="Product information"
+            error={Boolean(errors.info)}
+            done={infoSummary(form)}
+          >
+            <ProductInformation form={form} set={set} error={errors.info} />
+            {nav(3)}
+          </Step>
+
+          <Step
+            {...step(4)}
             title="Images"
             done={
               form.images.length
@@ -1004,11 +1110,11 @@ const ProductFormPage = () => {
               Up to {MAX_IMAGES} photos, 5 MB each. The cover appears in lists.
               Square photos look best.
             </Typography>
-            {nav(3)}
+            {nav(4)}
           </Step>
 
           <Step
-            {...step(4)}
+            {...step(5)}
             title="Variations"
             error={Boolean(errors.attributes)}
             done={
@@ -1070,11 +1176,11 @@ const ProductFormPage = () => {
                 )}
               </Stack>
             )}
-            {nav(4)}
+            {nav(5)}
           </Step>
 
           <Step
-            {...step(5)}
+            {...step(6)}
             title="Pricing and quantity"
             error={Boolean(
               errors.price || errors.specialPrice || errors.variants
@@ -1104,7 +1210,9 @@ const ProductFormPage = () => {
                 }
                 InputProps={{
                   startAdornment: (
-                    <InputAdornment position="start">$</InputAdornment>
+                    <InputAdornment position="start">
+                      {getCurrency()}
+                    </InputAdornment>
                   ),
                 }}
                 inputProps={{ min: 0, step: '0.01' }}
@@ -1122,7 +1230,9 @@ const ProductFormPage = () => {
                 }
                 InputProps={{
                   startAdornment: (
-                    <InputAdornment position="start">$</InputAdornment>
+                    <InputAdornment position="start">
+                      {getCurrency()}
+                    </InputAdornment>
                   ),
                 }}
                 inputProps={{ min: 0, step: '0.01' }}
@@ -1330,11 +1440,11 @@ const ProductFormPage = () => {
                 </Typography>
               </Box>
             )}
-            {nav(5)}
+            {nav(6)}
           </Step>
 
           <Step
-            {...step(6)}
+            {...step(7)}
             title="Inventory"
             done={
               form.trackInventory
@@ -1403,11 +1513,11 @@ const ProductFormPage = () => {
                 </Table>
               </TableContainer>
             )}
-            {nav(6)}
+            {nav(7)}
           </Step>
 
           <Step
-            {...step(7)}
+            {...step(8)}
             title="Tags and visibility"
             done={
               form.tags.length ? form.tags.map((t) => `#${t}`).join(' ') : null
@@ -1476,7 +1586,7 @@ const ProductFormPage = () => {
                 ))}
               </RadioGroup>
             </Stack>
-            {nav(7)}
+            {nav(8)}
           </Step>
 
           {canDelete && (

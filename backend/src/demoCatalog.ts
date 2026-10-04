@@ -11,6 +11,8 @@ import type { PoolClient } from 'pg';
 import { config } from './config';
 import { pool, query, transaction } from './db';
 import { refreshRating, syncProductQuantity } from './lib/products';
+import { demoMoney, demoPrice } from './lib/demoMoney';
+import { loadFinance } from './lib/finance';
 
 interface Spec {
   categories: { name: string; image: string; children: string[] }[];
@@ -30,6 +32,18 @@ interface Spec {
     imageBy?: string;
     priceBy?: Record<string, number>;
     priceAdd?: Record<string, number>;
+    // Product information (Specifications tab).
+    info?: {
+      manufacturer?: string;
+      mfr_part_number?: string;
+      length?: number;
+      width?: number;
+      height?: number;
+      dimension_unit?: string;
+      weight?: number;
+      weight_unit?: string;
+      specs?: { label: string; value: string }[];
+    };
     /** Photos per combination, keyed "Model=X|Color=Y" (all pairs must match). */
     variantImages?: Record<string, string[]>;
     /** Only these combinations exist (partial matches), e.g. per-model colours. */
@@ -121,14 +135,19 @@ export const seedDemoCatalog = async ({ replace = false } = {}) => {
         });
       const { rows } = await db.query(
         `INSERT INTO products (name, description, price, special, quantity, category_id, brand_id, images, sku,
-           status, featured, tags, attributes, track_inventory, low_stock_threshold, created_at, published_at)
+           status, featured, tags, attributes, track_inventory, low_stock_threshold, created_at, published_at,
+           manufacturer, mfr_part_number, length, width, height, dimension_unit, weight, weight_unit, specs)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'published', $10, $11, $12, true, 5,
-                 now() - make_interval(days => $13), now() - make_interval(days => $13))
+                 now() - make_interval(days => $13), now() - make_interval(days => $13),
+                 $14, $15, $16, $17, $18, $19, $20, $21, $22)
          RETURNING id`,
         [
-          p.name, p.description, p.price, p.special ?? null, p.quantity ?? 0, categoryIds[p.category],
+          p.name, p.description, demoPrice(p.price), p.special ? demoPrice(p.special) : null, p.quantity ?? 0, categoryIds[p.category],
           brandIds[p.brand], JSON.stringify(gallery), p.sku, Boolean(p.featured), p.tags,
           JSON.stringify(p.attributes), spec.products.length - index,
+          p.info?.manufacturer ?? '', p.info?.mfr_part_number ?? '', p.info?.length ?? null, p.info?.width ?? null,
+          p.info?.height ?? null, p.info?.dimension_unit ?? 'cm', p.info?.weight ?? null, p.info?.weight_unit ?? 'kg',
+          JSON.stringify(p.info?.specs ?? []),
         ]
       );
       const productId = rows[0].id;
@@ -143,9 +162,10 @@ export const seedDemoCatalog = async ({ replace = false } = {}) => {
           .filter((n): n is number => n !== undefined);
         const extra = Object.entries(options).reduce((sum, [k, v]) => sum + (p.priceAdd?.[`${k}=${v}`] || 0), 0);
         const base = overrides.length ? Math.max(...overrides) : null;
-        const price = base !== null || extra ? (base ?? p.price) + extra : null;
+        const usd = base !== null || extra ? (base ?? p.price) + extra : null;
+        const price = usd === null ? null : demoPrice(usd);
         // A variant with its own price keeps the product's sale ratio.
-        const special = price !== null && p.special ? Math.round(price * (p.special / p.price)) : null;
+        const special = usd !== null && p.special ? demoPrice(Math.round(usd * (p.special / p.price))) : null;
         const roll = rand();
         const quantity = roll < 0.1 ? 0 : roll < 0.2 ? 1 + Math.floor(rand() * 4) : 6 + Math.floor(rand() * 20);
         const ownKey = Object.keys(p.variantImages || {}).find((key) => matches(options, key));
@@ -190,7 +210,7 @@ export const seedDemoCatalog = async ({ replace = false } = {}) => {
       await db.query(
         `INSERT INTO promotions (title, subtitle, code, link, ends_at, position, image)
          VALUES ($1, $2, $3, $4, CASE WHEN $5::int IS NULL THEN NULL ELSE now() + make_interval(days => $5::int) END, $6, $7)`,
-        [promo.title, promo.subtitle, codeExists ? promo.code : null, promo.link, promo.daily ? null : promo.days ?? 7, position,
+        [promo.title.replace(/\$(\d+)/g, (_, n) => demoMoney(Number(n))), promo.subtitle, codeExists ? promo.code : null, promo.link, promo.daily ? null : promo.days ?? 7, position,
           promo.image ? copy('catalog', promo.image) : '']
       );
     }
@@ -200,6 +220,7 @@ export const seedDemoCatalog = async ({ replace = false } = {}) => {
 
 if (require.main === module) {
   query('SELECT 1')
+    .then(() => loadFinance())
     .then(() => seedDemoCatalog({ replace: process.argv.includes('--replace') }))
     .then(() => pool.end())
     .catch((error) => {

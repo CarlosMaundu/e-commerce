@@ -90,6 +90,14 @@ export const productFromApi = (p) => {
       ? { id: p.brand.brand_id, name: p.brand.name, logo: p.brand.logo || '' }
       : null,
     sku: p.sku || '',
+    manufacturer: p.manufacturer || '',
+    barcode: p.barcode
+      ? { type: p.barcode.type || '', value: p.barcode.value || '' }
+      : null,
+    mfrPartNumber: p.mfr_part_number || '',
+    dimensions: p.dimensions || null,
+    weight: p.weight || null,
+    specs: p.specs || [],
     status: p.status || 'published',
     publishedAt: p.published_at || null,
     featured: Boolean(p.featured),
@@ -138,6 +146,19 @@ export const productToApi = (f) => ({
     images: v.images || [],
   })),
   track_inventory: f.trackInventory !== false,
+  manufacturer: f.manufacturer?.trim() || '',
+  barcode_type: f.barcode?.trim() ? f.barcodeType || '' : '',
+  barcode: f.barcode?.trim() || '',
+  mfr_part_number: f.mfrPartNumber?.trim() || '',
+  length: money(f.length),
+  width: money(f.width),
+  height: money(f.height),
+  dimension_unit: f.dimensionUnit || 'cm',
+  weight: money(f.weight),
+  weight_unit: f.weightUnit || 'kg',
+  specs: (f.specs || [])
+    .map((x) => ({ label: x.label.trim(), value: x.value.trim() }))
+    .filter((x) => x.label && x.value),
   low_stock_threshold: Number(f.lowStockThreshold) || 0,
 });
 

@@ -395,7 +395,35 @@
      "days_ago": 60
     }
    ],
-   "views": 160
+   "views": 160,
+   "info": {
+    "manufacturer": "Apple Inc.",
+    "mfr_part_number": "A2882",
+    "length": 14.67,
+    "width": 7.15,
+    "height": 0.78,
+    "dimension_unit": "cm",
+    "weight": 172,
+    "weight_unit": "g",
+    "specs": [
+     {
+      "label": "Display",
+      "value": "6.1-inch Super Retina XDR (6.7-inch on Pro Max)"
+     },
+     {
+      "label": "Chip",
+      "value": "A15 Bionic (A16 Bionic on Pro models)"
+     },
+     {
+      "label": "Connector",
+      "value": "Lightning"
+     },
+     {
+      "label": "In the box",
+      "value": "Phone, USB-C to Lightning cable"
+     }
+    ]
+   }
   },
   {
    "name": "Samsung Galaxy S23",
@@ -490,7 +518,31 @@
      "days_ago": 70
     }
    ],
-   "views": 120
+   "views": 120,
+   "info": {
+    "manufacturer": "Samsung Electronics",
+    "mfr_part_number": "SM-S911B",
+    "length": 14.63,
+    "width": 7.09,
+    "height": 0.76,
+    "dimension_unit": "cm",
+    "weight": 168,
+    "weight_unit": "g",
+    "specs": [
+     {
+      "label": "Display",
+      "value": "6.1-inch Dynamic AMOLED 2X, 120 Hz"
+     },
+     {
+      "label": "Battery",
+      "value": "3,900 mAh"
+     },
+     {
+      "label": "Water resistance",
+      "value": "IP68"
+     }
+    ]
+   }
   },
   {
    "name": "Linen summer dress",
@@ -2557,7 +2609,29 @@
      "days_ago": 98
     }
    ],
-   "views": 73
+   "views": 73,
+   "info": {
+    "length": 19,
+    "width": 16,
+    "height": 8,
+    "dimension_unit": "cm",
+    "weight": 250,
+    "weight_unit": "g",
+    "specs": [
+     {
+      "label": "Battery life",
+      "value": "Up to 30 hours"
+     },
+     {
+      "label": "Connectivity",
+      "value": "Bluetooth 5.3, 3.5 mm jack"
+     },
+     {
+      "label": "Noise cancelling",
+      "value": "Active (ANC)"
+     }
+    ]
+   }
   },
   {
    "name": "Smart fitness band",

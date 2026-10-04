@@ -4,7 +4,7 @@
 import { query } from '../db';
 import { round2 } from './pricing';
 
-export const OVERVIEW_PERIODS = [7, 30, 90] as const;
+export const OVERVIEW_PERIODS = [7, 30, 90, 180, 365] as const;
 
 // Orders that count as sales: placed, and neither cancelled nor refunded.
 const VALID = `placed_at IS NOT NULL AND status NOT IN ('cancelled', 'refunded')`;
@@ -66,27 +66,40 @@ export const storeOverview = async (days: number) => {
   const conversion = views.cur ? round2((totals.orders / views.cur) * 100) : 0;
   const prevConversion = views.prev ? round2((totals.prev_orders / views.prev) * 100) : 0;
 
+  // Chart buckets: days up to 90 days, weeks for 6 months, months for a year.
+  // Each bucket is compared with the same dates a year earlier.
+  const unit = days <= 90 ? 'day' : days <= 180 ? 'week' : 'month';
+  const buckets = unit === 'day' ? days : unit === 'week' ? 26 : 12;
+  const step = `interval '1 ${unit}'`;
   const series = (
     await query(
-      `WITH days AS (
-         SELECT generate_series(date_trunc('day', now()) - make_interval(days => $1 - 1), date_trunc('day', now()), interval '1 day') AS d)
+      `WITH buckets AS (
+         SELECT generate_series(date_trunc('${unit}', now()) - ${step} * ($1 - 1), date_trunc('${unit}', now()), ${step}) AS d)
        SELECT to_char(d, 'YYYY-MM-DD') AS date,
-         COALESCE((SELECT sum(total) FROM orders WHERE ${VALID} AND placed_at >= d AND placed_at < d + interval '1 day'), 0) AS revenue,
-         (SELECT count(*) FROM orders WHERE ${VALID} AND placed_at >= d AND placed_at < d + interval '1 day')::int AS orders,
+         COALESCE((SELECT sum(total) FROM orders WHERE ${VALID} AND placed_at >= d AND placed_at < d + ${step}), 0) AS revenue,
+         (SELECT count(*) FROM orders WHERE ${VALID} AND placed_at >= d AND placed_at < d + ${step})::int AS orders,
          COALESCE((SELECT sum(total) FROM orders WHERE ${VALID}
-           AND placed_at >= d - make_interval(days => $1) AND placed_at < d - make_interval(days => $1) + interval '1 day'), 0) AS prev_revenue,
+           AND placed_at >= d - interval '1 year' AND placed_at < d - interval '1 year' + ${step}), 0) AS last_year_revenue,
          (SELECT count(*) FROM orders WHERE ${VALID}
-           AND placed_at >= d - make_interval(days => $1) AND placed_at < d - make_interval(days => $1) + interval '1 day')::int AS prev_orders
-       FROM days ORDER BY d`,
-      p
+           AND placed_at >= d - interval '1 year' AND placed_at < d - interval '1 year' + ${step})::int AS last_year_orders
+       FROM buckets ORDER BY d`,
+      [buckets]
     )
   ).rows.map((r) => ({
     date: r.date,
     revenue: round2(Number(r.revenue)),
     orders: r.orders,
-    prev_revenue: round2(Number(r.prev_revenue)),
-    prev_orders: r.prev_orders,
+    last_year_revenue: round2(Number(r.last_year_revenue)),
+    last_year_orders: r.last_year_orders,
   }));
+  const lastYear = (
+    await query(
+      `SELECT COALESCE(sum(total), 0) AS revenue, count(*)::int AS orders FROM orders
+       WHERE ${VALID} AND placed_at >= now() - make_interval(days => $1) - interval '1 year'
+         AND placed_at < now() - interval '1 year'`,
+      p
+    )
+  ).rows[0];
 
   // Top-level category of each sold item (subcategories roll up).
   const ROOT = `LEFT JOIN categories c ON c.id = pr.category_id
@@ -190,6 +203,14 @@ export const storeOverview = async (days: number) => {
       average_order: { value: aov, change: change(aov, prevAov) },
     },
     series,
+    series_unit: unit,
+    // The same dates a year earlier, for the sales chart.
+    last_year: {
+      revenue: round2(Number(lastYear.revenue)),
+      orders: lastYear.orders,
+      revenue_change: change(revenue, round2(Number(lastYear.revenue))),
+      orders_change: change(totals.valid_orders, lastYear.orders),
+    },
     categories: categories.map((c) => ({
       category_id: c.id,
       name: c.name,

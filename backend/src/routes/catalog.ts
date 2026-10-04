@@ -15,6 +15,7 @@ import {
   SORTS,
 } from '../lib/products';
 import { getStore } from '../lib/store';
+import { publicFinance } from '../lib/finance';
 import { authenticate, customersOnly, notWhileImpersonating, optionalAuth } from '../middleware/auth';
 
 interface CategoryRow {
@@ -368,7 +369,7 @@ export const catalogRoutes = () => {
     '/store',
     handler(async (_req, res) => {
       res.set('Cache-Control', 'no-cache');
-      ok(res, await getStore());
+      ok(res, { ...(await getStore()), finance: publicFinance() });
     })
   );
 

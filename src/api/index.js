@@ -409,6 +409,13 @@ const storeFromApi = (d) => ({
   footerText: d.footer_text || '',
   announcement: d.announcement || '',
   social: d.social || {},
+  finance: d.finance && {
+    currency: d.finance.currency,
+    taxLabel: d.finance.tax_label,
+    taxRate: Number(d.finance.tax_rate),
+    pricesIncludeTax: Boolean(d.finance.prices_include_tax),
+    freeShippingOver: Number(d.finance.free_shipping_over || 0),
+  },
   hero: d.hero && {
     main: { ...d.hero.main, ctaLabel: d.hero.main?.cta_label ?? '' },
     side: { ...d.hero.side },
@@ -435,6 +442,40 @@ const storeToApi = (s) => ({
     member: s.hero.member,
   },
 });
+
+const financeFromApi = (f) => ({
+  currency: f.currency,
+  taxLabel: f.tax_label,
+  taxRate: Number(f.tax_rate),
+  pricesIncludeTax: Boolean(f.prices_include_tax),
+  standardShipping: Number(f.standard_shipping),
+  expressShipping: Number(f.express_shipping),
+  freeShippingOver: Number(f.free_shipping_over),
+});
+
+/** Currency, tax and delivery prices (Back office → Financial settings). */
+export const finance = {
+  async adminGet() {
+    const { data } = await http().get('/admin/finance-settings');
+    return {
+      settings: financeFromApi(data.settings),
+      updatedAt: data.updated_at,
+      updatedBy: data.updated_by,
+    };
+  },
+  async save(f) {
+    const { data } = await http().put('/admin/finance-settings', {
+      currency: f.currency,
+      tax_label: f.taxLabel,
+      tax_rate: f.taxRate,
+      prices_include_tax: f.pricesIncludeTax,
+      standard_shipping: f.standardShipping,
+      express_shipping: f.expressShipping,
+      free_shipping_over: f.freeShippingOver,
+    });
+    return financeFromApi(data.settings);
+  },
+};
 
 /** The shop's name, logo, favicon and contact details. */
 export const store = {

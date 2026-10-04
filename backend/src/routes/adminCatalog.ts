@@ -5,6 +5,7 @@ import { config } from '../config';
 import { query, transaction } from '../db';
 import { audit } from '../lib/audit';
 import { fail, handler, ok, parse } from '../lib/http';
+import { cleanRichText } from '../lib/richText';
 import { singleImage, uploadedUrl } from '../lib/uploads';
 import { authenticate, requireAnyPermission, requirePermission } from '../middleware/auth';
 import {
@@ -54,9 +55,15 @@ const variantSchema = z.object({
   images: z.array(imageUrl).max(6, 'You can add up to 6 images per variant.').default([]),
 });
 
+// A positive size or weight; blank means not given.
+const measure = z.preprocess(
+  (v) => (v === '' || v === undefined ? null : v),
+  z.coerce.number({ invalid_type_error: 'Please enter a number.' }).positive('Sizes and weights must be greater than zero.').nullable()
+);
+
 const productBody = z.object({
   name: z.string().trim().min(1, 'Please enter a product name.').max(255),
-  description: z.string().max(20000).default(''),
+  description: z.string().max(40000).default('').transform(cleanRichText),
   price: z.coerce.number({ invalid_type_error: 'Please enter a price greater than zero.' }).positive('Please enter a price greater than zero.'),
   special: z.coerce.number().positive().nullable().optional(),
   quantity: z.coerce.number().int().min(0, 'Stock can’t be negative.').default(0),
@@ -75,6 +82,21 @@ const productBody = z.object({
   variants: z.array(variantSchema).max(200, 'You can add up to 200 variants.').optional(),
   track_inventory: z.boolean().default(true),
   low_stock_threshold: z.coerce.number().int().min(0).default(5),
+  // Vital info and product information.
+  manufacturer: z.string().trim().max(120).default(''),
+  barcode_type: z.enum(['', 'UPC', 'EAN', 'GTIN', 'ISBN']).default(''),
+  barcode: z.string().trim().max(32).regex(/^[0-9A-Za-z-]*$/, 'Product IDs use digits, letters and dashes only.').default(''),
+  mfr_part_number: z.string().trim().max(64).default(''),
+  length: measure.nullable().optional(),
+  width: measure.nullable().optional(),
+  height: measure.nullable().optional(),
+  dimension_unit: z.enum(['mm', 'cm', 'm', 'in', 'ft']).default('cm'),
+  weight: measure.nullable().optional(),
+  weight_unit: z.enum(['g', 'kg', 'oz', 'lb']).default('kg'),
+  specs: z
+    .array(z.object({ label: z.string().trim().min(1, 'Each detail needs a name.').max(60), value: z.string().trim().min(1, 'Each detail needs a value.').max(200) }))
+    .max(30, 'You can add up to 30 details.')
+    .default([]),
 });
 
 type ProductInput = z.output<typeof productBody>;
@@ -141,13 +163,19 @@ const saveProduct = async (b: ProductInput, id: number | null) => {
         b.name, b.description, b.price, b.special ?? null, b.quantity, b.category_id ?? null, b.brand_id ?? null,
         JSON.stringify(b.images), b.sku, b.status, b.featured, b.tags, JSON.stringify(b.attributes),
         b.track_inventory, b.low_stock_threshold,
+        b.manufacturer, b.barcode ? b.barcode_type : '', b.barcode, b.mfr_part_number,
+        b.length ?? null, b.width ?? null, b.height ?? null, b.dimension_unit,
+        b.weight ?? null, b.weight_unit, JSON.stringify(b.specs),
       ];
       let productId = id;
       if (productId === null) {
         const { rows } = await db.query(
           `INSERT INTO products (name, description, price, special, quantity, category_id, brand_id, images, sku,
-             status, featured, tags, attributes, track_inventory, low_stock_threshold, published_at)
+             status, featured, tags, attributes, track_inventory, low_stock_threshold,
+             manufacturer, barcode_type, barcode, mfr_part_number, length, width, height, dimension_unit,
+             weight, weight_unit, specs, published_at)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::text, $11, $12, $13, $14, $15,
+             $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26,
              CASE WHEN $10::text = 'published' THEN now() END) RETURNING id`,
           values
         );
@@ -156,8 +184,10 @@ const saveProduct = async (b: ProductInput, id: number | null) => {
         await db.query(
           `UPDATE products SET name=$1, description=$2, price=$3, special=$4, quantity=$5, category_id=$6, brand_id=$7,
              images=$8, sku=$9, status=$10::text, featured=$11, tags=$12, attributes=$13, track_inventory=$14,
-             low_stock_threshold=$15, updated_at=now(),
-             published_at = COALESCE(published_at, CASE WHEN $10::text = 'published' THEN now() END) WHERE id=$16`,
+             low_stock_threshold=$15, manufacturer=$16, barcode_type=$17, barcode=$18, mfr_part_number=$19,
+             length=$20, width=$21, height=$22, dimension_unit=$23, weight=$24, weight_unit=$25, specs=$26,
+             updated_at=now(),
+             published_at = COALESCE(published_at, CASE WHEN $10::text = 'published' THEN now() END) WHERE id=$27`,
           [...values, productId]
         );
       }
@@ -281,11 +311,23 @@ export const adminCatalogRoutes = () => {
       const existing = await loadProduct(Number(req.params.id));
       if (!existing) fail(404, 'Product not found.');
       const current = existing!;
+      // The contract's manufacturer falls back to the brand; keep our own.
+      const existingRow = (await query('SELECT manufacturer FROM products WHERE id = $1', [current.product_id])).rows[0];
       // Partial updates: anything not sent keeps its current value.
       const b = parse(productBody, {
         ...current,
         category_id: current.category[0]?.category_id ?? null,
         brand_id: current.brand?.brand_id ?? null,
+        // Contract shapes back to the flat input fields.
+        manufacturer: existingRow.manufacturer,
+        barcode_type: current.barcode?.type ?? '',
+        barcode: current.barcode?.value ?? '',
+        length: current.dimensions?.length ?? null,
+        width: current.dimensions?.width ?? null,
+        height: current.dimensions?.height ?? null,
+        dimension_unit: current.dimensions?.unit ?? 'cm',
+        weight: current.weight?.value ?? null,
+        weight_unit: current.weight?.unit ?? 'kg',
         variants: undefined,
         ...req.body,
       });

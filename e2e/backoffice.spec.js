@@ -37,7 +37,6 @@ test('admin adds a product with variants and a new brand; the shop sells those o
   await page.getByRole('link', { name: 'Add product' }).click();
 
   // 1. Vital info, with a brand added on the spot.
-  await page.getByLabel('Product name').fill('Trail runner');
   await page.getByLabel('Brand', { exact: true }).click();
   await page.getByRole('option', { name: 'Add a new brand…' }).click();
   const dialog = page.getByRole('dialog');
@@ -47,6 +46,27 @@ test('admin adds a product with variants and a new brand; the shop sells those o
   await expect(page.getByLabel('Brand', { exact: true })).toHaveValue(
     'Summit Gear'
   );
+  await page.getByLabel('Manufacturer part number').fill('SG-TR-01');
+
+  // 2. Name and a formatted description.
+  await page.getByRole('button', { name: /Name and description/ }).click();
+  await page.getByLabel('Product name').fill('Trail runner');
+  const editor = page.locator('.tiptap');
+  await editor.click();
+  await page.getByRole('button', { name: 'Bold' }).click();
+  await page.keyboard.type('Grippy');
+  await page.getByRole('button', { name: 'Bold' }).click();
+  await page.keyboard.type(' soles for wet trails.');
+
+  // 3. Product information.
+  await page.getByRole('button', { name: /Product information/ }).click();
+  await page.getByLabel('Length value').fill('32');
+  await page.getByLabel('Width value').fill('12');
+  await page.getByLabel('Height value').fill('11');
+  await page.getByLabel('Weight value').fill('0.6');
+  await page.getByRole('button', { name: 'Add detail' }).click();
+  await page.getByLabel('Detail 1 name').fill('Upper');
+  await page.getByLabel('Detail 1 value').fill('Recycled mesh');
 
   // 4. Variations: Color × Size.
   await page.getByRole('button', { name: /Variations/ }).click();
@@ -94,6 +114,16 @@ test('admin adds a product with variants and a new brand; the shop sells those o
   await expect(
     page.getByRole('radio', { name: 'Size 42 (out of stock)' })
   ).toBeVisible();
+  // Formatted description and the Specifications tab.
+  await expect(
+    page.getByTestId('product-description').locator('strong')
+  ).toHaveText('Grippy');
+  await page.getByRole('tab', { name: 'Specifications' }).click();
+  const specs = page.getByTestId('specifications');
+  await expect(specs).toContainText('32 × 12 × 11 cm');
+  await expect(specs).toContainText('0.6 kg');
+  await expect(specs).toContainText('Recycled mesh');
+  await expect(specs).toContainText('SG-TR-01');
   // Staff browse the shop but can't buy.
   await expect(
     page.getByText('You’re signed in to the back office, so you can’t shop.')
@@ -315,8 +345,42 @@ test('the store overview loads its figures and the header search finds products'
   await page.getByLabel('Period').click();
   await page.getByRole('option', { name: '7 days' }).click();
   await expect(page.getByText('Share of net sales in 7 days')).toBeVisible();
+  await page.getByLabel('Period').click();
+  await page.getByRole('option', { name: '12 months' }).click();
+  await expect(page.getByText('Share of net sales in 365 days')).toBeVisible();
+  const year = new Date().getFullYear();
+  await expect(page.getByText(`This year (${year})`)).toBeVisible();
+  await expect(page.getByText(`Last year (${year - 1})`)).toBeVisible();
+  await expect(page.getByTestId('recent-orders')).toContainText(
+    'No orders here yet.'
+  );
 
   await page.getByLabel('Search the back office').fill('iPhone');
   await page.getByRole('menuitem', { name: /Apple iPhone 14/ }).click();
   await expect(page).toHaveURL(/\/admin\/products\/\d+$/);
+});
+
+test('financial settings open read-only and show what a shopper pays', async ({
+  page,
+}) => {
+  await signInAdmin(page);
+  await page.goto('/admin/finance');
+  await expect(page.getByLabel('Tax rate')).toBeDisabled();
+  await page.getByRole('button', { name: 'Edit settings' }).click();
+  await page.getByLabel('Tax rate').fill('10');
+  // The e2e shop adds tax at checkout: $100 + $10 delivery + 10% tax.
+  await expect(page.getByTestId('finance-example-total')).toHaveText('$120.00');
+  await page.getByRole('radio', { name: /Prices include Tax/ }).check();
+  await expect(page.getByTestId('finance-example-total')).toHaveText('$110.00');
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await expect(page.getByLabel('Tax rate')).toHaveValue('8');
+});
+
+test('the help card closes to an icon and opens again', async ({ page }) => {
+  await signInAdmin(page);
+  await page.getByRole('button', { name: 'Close help' }).click();
+  await expect(page.getByText('Need some help?')).toHaveCount(0);
+  await page.reload();
+  await page.getByRole('button', { name: 'Open help' }).click();
+  await expect(page.getByText('Need some help?')).toBeVisible();
 });

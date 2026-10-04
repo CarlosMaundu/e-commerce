@@ -10,6 +10,7 @@ import { fail, handler, ok, parse } from '../lib/http';
 import { IMPERSONATION_MINUTES, revokeAllSessions, revokeSession, startImpersonation } from '../lib/sessions';
 import { getSettings, saveSettings, settingsSchema } from '../lib/settings';
 import { getStore, mergeHero, saveStore, storeSchema } from '../lib/store';
+import { finance, financeSchema, saveFinance } from '../lib/finance';
 import { findUserById, permissionsForRole, UserRow } from '../lib/users';
 import { authenticate, notWhileImpersonating, requirePermission } from '../middleware/auth';
 
@@ -68,6 +69,7 @@ const ACTION_NAMES: Record<string, string> = {
   'admin.impersonation_ended': 'Stopped acting as a customer',
   'admin.security_settings_updated': 'Changed security settings',
   'admin.store_settings_updated': 'Changed store settings',
+  'admin.finance_settings_updated': 'Changed financial settings',
   'admin.session_revoked': 'Ended a sign-in session',
   'admin.role_created': 'Created a role',
   'admin.role_updated': 'Changed a role',
@@ -346,6 +348,41 @@ export const adminSecurityRoutes = () => {
       });
       await saveStore(merged, req.auth!.userId);
       audit(req, 'admin.store_settings_updated', 'store_settings', { fields: Object.keys(body) });
+      ok(res, { settings: merged });
+    })
+  );
+
+  // ---------- financial settings ----------
+  router.get(
+    '/finance-settings',
+    authenticate,
+    requirePermission('admin.finance.manage'),
+    handler(async (_req, res) => {
+      const row = (
+        await query(
+          `SELECT s.updated_at, u.firstname, u.lastname FROM finance_settings s
+           LEFT JOIN users u ON u.id = s.updated_by WHERE s.id = 1`
+        )
+      ).rows[0];
+      ok(res, {
+        settings: finance(),
+        updated_at: row?.updated_at ?? null,
+        updated_by: row?.firstname ? `${row.firstname} ${row.lastname}`.trim() : null,
+      });
+    })
+  );
+
+  router.put(
+    '/finance-settings',
+    authenticate,
+    requirePermission('admin.finance.manage'),
+    handler(async (req, res) => {
+      const merged = parse(financeSchema, { ...finance(), ...(req.body || {}) });
+      const before = finance();
+      await saveFinance(merged, req.auth!.userId);
+      audit(req, 'admin.finance_settings_updated', 'finance_settings', {
+        changed: Object.keys(merged).filter((k) => (merged as any)[k] !== (before as any)[k]),
+      });
       ok(res, { settings: merged });
     })
   );

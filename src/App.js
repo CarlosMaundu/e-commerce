@@ -64,6 +64,7 @@ import StaffProfilePage from './pages/admin/StaffProfilePage';
 import SecuritySettingsPage from './pages/admin/SecuritySettingsPage';
 import AuditLogPage from './pages/admin/AuditLogPage';
 import StoreSettingsPage from './pages/admin/StoreSettingsPage';
+import FinanceSettingsPage from './pages/admin/FinanceSettingsPage';
 import { StoreProvider } from './context/StoreContext';
 import UserAccountPage from './pages/admin/UserAccountPage';
 import StaffNotice from './components/StaffNotice';
@@ -317,6 +318,14 @@ const App = () => (
                       element={
                         <AdminRoute permissions={['admin.security.view']}>
                           <SecuritySettingsPage />
+                        </AdminRoute>
+                      }
+                    />
+                    <Route
+                      path="finance"
+                      element={
+                        <AdminRoute permissions={['admin.finance.manage']}>
+                          <FinanceSettingsPage />
                         </AdminRoute>
                       }
                     />

@@ -7,6 +7,7 @@
 //  - unwraps the { success, error[], data } envelope, turning error[] into a
 //    UserFacingError so screens can pass it straight to notify.error().
 import axios from 'axios';
+import { getCurrency } from '../utils/format';
 import { API_BASE_URL } from './config';
 import {
   getAccessToken,
@@ -74,7 +75,7 @@ export const createHttpClient = ({ baseURL = API_BASE_URL, adapter } = {}) => {
   client.interceptors.request.use((config) => {
     const token = getAccessToken();
     if (token) config.headers.Authorization = `Bearer ${token}`;
-    config.headers['X-Oc-Currency'] = readPreference('currency', 'USD');
+    config.headers['X-Oc-Currency'] = readPreference('currency', getCurrency());
     config.headers['X-Oc-Merchant-Language'] = readPreference(
       'language',
       'en-gb'

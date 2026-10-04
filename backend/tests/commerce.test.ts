@@ -56,6 +56,39 @@ const placeOrder = async (token: string, options?: Parameters<typeof prepareChec
   return placed.body.data;
 };
 
+describe('financial settings', () => {
+  test('VAT included in prices, new delivery prices and currency take effect at once', async () => {
+    const pub = await request(app).get('/api/rest/store');
+    expect(pub.body.data.finance).toMatchObject({ currency: 'USD', tax_rate: 8, prices_include_tax: false });
+
+    const token = await shopper();
+    const manager = await (async () => { await createUser('cat@example.com', 'catalog_manager'); return (await signIn('cat@example.com')).token; })();
+    expect((await request(app).put('/api/admin/finance-settings').set(bearer(manager)).send({ tax_rate: 1 })).status).toBe(403);
+
+    await createUser('boss@example.com', 'admin');
+    const admin = (await signIn('boss@example.com')).token;
+    const bad = await request(app).put('/api/admin/finance-settings').set(bearer(admin)).send({ currency: 'shillings', tax_rate: 120 });
+    expect(bad.status).toBe(400);
+    expect(Object.keys(bad.body.field_errors)).toEqual(expect.arrayContaining(['currency', 'tax_rate']));
+
+    const saved = await request(app).put('/api/admin/finance-settings').set(bearer(admin))
+      .send({ currency: 'kes', tax_label: 'VAT', tax_rate: 16, prices_include_tax: true, standard_shipping: 300, free_shipping_over: 0 });
+    expect(saved.body.data.settings).toMatchObject({ currency: 'KES', tax_rate: 16, prices_include_tax: true });
+
+    await request(app).post('/api/rest/cart').set(bearer(token)).send({ product_id: await productId('Denim jacket'), quantity: 2, option: M });
+    await request(app).post('/api/rest/shippingaddress').set(bearer(token)).send(ADDRESS).expect(201);
+    const methods = await request(app).get('/api/rest/shippingmethods').set(bearer(token));
+    expect(methods.body.data.shipping_methods.find((m: any) => m.code === 'standard')).toMatchObject({ cost: 300, description: '3–5 business days.' });
+    await request(app).post('/api/rest/shippingmethods').set(bearer(token)).send({ shipping_method: 'standard' }).expect(200);
+    const cart = await request(app).get('/api/rest/cart').set(bearer(token));
+    const lines = Object.fromEntries(cart.body.data.totals.map((t: any) => [t.code, t]));
+    // 118 including 16% VAT: the VAT inside is 16.28 and the total doesn't grow.
+    expect(lines.tax).toMatchObject({ title: 'Includes VAT (16%)', value: 16.28 });
+    expect(lines.total.value).toBe(418);
+    expect((await request(app).get('/api/rest/store')).body.data.finance.currency).toBe('KES');
+  });
+});
+
 describe('cart', () => {
   test('server prices the cart and keeps option choices on separate lines', async () => {
     const token = await shopper();
@@ -341,7 +374,11 @@ describe('order management and returns', () => {
     expect(d.kpis.new_customers).toMatchObject({ value: 1, first_time_share: 100 });
     expect(d.kpis.average_order.value).toBe(137.44);
     expect(d.series).toHaveLength(7);
-    expect(d.series[6]).toMatchObject({ revenue: 137.44, orders: 1, prev_revenue: 0 });
+    expect(d.series[6]).toMatchObject({ revenue: 137.44, orders: 1, last_year_revenue: 0 });
+    expect(d.last_year).toMatchObject({ revenue: 0, revenue_change: 100 });
+    const year = await request(app).get('/api/admin/dashboard?days=365').set(bearer(admin));
+    expect(year.body.data.series).toHaveLength(12);
+    expect(year.body.data.series_unit).toBe('month');
     expect(d.top_products[0]).toMatchObject({ name: 'Denim jacket', units: 2 });
     expect(d.categories.reduce((s: number, c: any) => s + c.share, 0)).toBe(100);
     expect(d.fulfilment).toMatchObject({ packing: 1, in_transit: 0, delayed: 0, total: 1 });

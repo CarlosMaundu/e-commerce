@@ -48,6 +48,14 @@ module.exports = defineConfig({
         CORS_ORIGINS: `http://localhost:${WEB_PORT}`,
         UPLOADS_DIR: 'uploads-e2e',
         SEED_SAMPLE_CATALOG: 'true',
+        // The e2e suite is written in dollars with 8% tax added at checkout.
+        CURRENCY: 'USD',
+        TAX_LABEL: 'Tax',
+        TAX_RATE: '0.08',
+        PRICES_INCLUDE_TAX: 'false',
+        STANDARD_SHIPPING: '10',
+        EXPRESS_SHIPPING: '25',
+        FREE_SHIPPING_OVER: '150',
       },
     },
     {

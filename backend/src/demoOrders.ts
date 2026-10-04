@@ -1,15 +1,16 @@
 // src/demoOrders.ts — optional demo sales history for the back-office Store
 // overview: ~40 demo shoppers (demo.buyer…@example.com, no password, so they
-// can't sign in) and a few hundred orders over the last 90 days, shipped to
+// can't sign in) and orders over the last 15 months (so the chart has a
+// "last year" to compare with), shipped to
 // towns across Kenya, using the real catalog's products and prices.
 //
 //   node dist/demoOrders.js            add demo orders
 //   node dist/demoOrders.js --remove   delete demo shoppers and their orders
 //
 // Deterministic (seeded random), so runs give the same shape of data.
-import { config } from './config';
 import { pool, query, transaction } from './db';
-import { round2 } from './lib/pricing';
+import { finance, loadFinance } from './lib/finance';
+import { applyTax, round2 } from './lib/pricing';
 
 const DEMO_EMAIL = 'demo.buyer%@example.com';
 
@@ -70,7 +71,7 @@ export const seedDemoOrders = async () => {
     const last = pick(LAST);
     const email = `demo.buyer${i}@example.com`;
     const town = weighted(TOWNS.map((t) => [t, t[1]] as [typeof t, number]));
-    const joinedDaysAgo = Math.floor(rand() * 150);
+    const joinedDaysAgo = Math.floor(rand() * 480);
     const { rows } = await query(
       `INSERT INTO users (email, password_hash, firstname, lastname, role_id, created_at)
        VALUES ($1, NULL, $2, $3, $4, now() - make_interval(days => $5)) RETURNING id`,
@@ -81,11 +82,12 @@ export const seedDemoOrders = async () => {
 
   let count = 0;
   await transaction(async (db) => {
-    for (let day = 90; day >= 0; day -= 1) {
-      // Gentle growth towards today, with a weekend bump.
+    const DAYS = 456;
+    for (let day = DAYS; day >= 0; day -= 1) {
+      // Steady growth towards today, with a weekend bump.
       const date = new Date(Date.now() - day * 86400000);
       const weekend = [0, 6].includes(date.getDay());
-      const perDay = Math.round((2 + (90 - day) / 30 + rand() * 3) * (weekend ? 1.4 : 1));
+      const perDay = Math.round((1 + (DAYS - day) / 110 + rand() * 2.5) * (weekend ? 1.4 : 1));
       for (let n = 0; n < perDay; n += 1) {
         const buyer = pick(buyers);
         const [city, , street] = buyer.town;
@@ -98,9 +100,11 @@ export const seedDemoOrders = async () => {
         });
         const subtotal = round2(lines.reduce((s, l) => s + l.total, 0));
         const express = rand() < 0.25;
-        const shipping = express ? config.shop.expressShipping : subtotal >= config.shop.freeShippingOver ? 0 : config.shop.standardShipping;
-        const tax = round2(subtotal * config.shop.taxRate);
-        const total = round2(subtotal + shipping + tax);
+        const f = finance();
+        const shipping = express
+          ? f.express_shipping
+          : f.free_shipping_over && subtotal >= f.free_shipping_over ? 0 : f.standard_shipping;
+        const { tax, total } = applyTax(subtotal, shipping);
         const card = rand() < 0.55;
         const hoursAgo = day * 24 + Math.floor(rand() * (day === 0 ? 10 : 24));
         // Status follows the order's age.
@@ -125,7 +129,7 @@ export const seedDemoOrders = async () => {
              now() - make_interval(hours => $13), now() - make_interval(hours => $13), now())
            RETURNING id`,
           [buyer.id, buyer.email, status, card ? 'stripe' : 'cod', paymentStatus, express ? 'express' : 'standard',
-            JSON.stringify(address), subtotal, shipping, tax, total, config.shop.currency, hoursAgo]
+            JSON.stringify(address), subtotal, shipping, tax, total, finance().currency, hoursAgo]
         );
         const orderId = rows[0].id;
         for (const l of lines) {
@@ -134,6 +138,14 @@ export const seedDemoOrders = async () => {
              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
             [orderId, l.p.id, l.v?.id ?? null, l.p.name, l.v?.image || l.p.image || '', JSON.stringify(l.v?.options || {}),
               l.unit, l.quantity, l.total]
+          );
+        }
+        // Shoppers look before they buy: about 25–35 product views per sale.
+        for (const l of lines) {
+          await db.query(
+            `INSERT INTO product_views (product_id, day, views) VALUES ($1, current_date - $2::int, $3)
+             ON CONFLICT (product_id, day) DO UPDATE SET views = product_views.views + EXCLUDED.views`,
+            [l.p.id, day, 25 + Math.floor(rand() * 11)]
           );
         }
         await db.query(
@@ -151,7 +163,7 @@ export const seedDemoOrders = async () => {
 if (require.main === module) {
   (process.argv.includes('--remove')
     ? removeDemoOrders().then((n) => console.log(`Removed ${n} demo shoppers and their orders`))
-    : seedDemoOrders()
+    : loadFinance().then(() => seedDemoOrders())
   )
     .then(() => pool.end())
     .catch((error) => {

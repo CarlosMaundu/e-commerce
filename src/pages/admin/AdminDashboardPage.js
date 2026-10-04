@@ -37,7 +37,12 @@ import { AuthContext } from '../../context/AuthContext';
 import { hasPermission } from '../../auth/permissions';
 import { adminOrders } from '../../api';
 import { useNotify } from '../../notification/NotificationProvider';
-import { Pill } from '../../components/admin/DataTable';
+import {
+  LoadingRows,
+  PAGE_SIZE,
+  Pill,
+  StandardPagination,
+} from '../../components/admin/DataTable';
 import KenyaMap from '../../components/admin/KenyaMap';
 import { formatMoney, formatMoneyCompact } from '../../utils/format';
 
@@ -54,6 +59,8 @@ const PERIODS = [
   { value: 7, label: '7 days' },
   { value: 30, label: '30 days' },
   { value: 90, label: '90 days' },
+  { value: 180, label: '6 months' },
+  { value: 365, label: '12 months' },
 ];
 
 // ---------- building blocks ----------
@@ -258,23 +265,36 @@ const shortDate = (iso, withMonth) =>
     day: 'numeric',
   }).format(new Date(`${iso}T00:00:00`));
 
+/** Chart label for a bucket: "Mar 4"/"5" for days and weeks, "Oct" for months. */
+const bucketLabel = (iso, i, unit) =>
+  unit === 'month'
+    ? new Intl.DateTimeFormat('en-US', { month: 'short' }).format(
+        new Date(`${iso}T00:00:00`)
+      )
+    : shortDate(iso, unit === 'week' || i === 0 || iso.endsWith('-01'));
+
+const THIS_YEAR = new Date().getFullYear();
+
 const SalesPerformance = ({ data }) => {
   const theme = useTheme();
   const [metric, setMetric] = useState('revenue');
   const revenue = metric === 'revenue';
   const series = data.series;
   const total = revenue ? data.kpis.revenue.value : data.kpis.orders.value;
-  const change = revenue ? data.kpis.revenue.change : data.kpis.orders.change;
+  // Compared with the same dates last year, like the chart.
+  const change = revenue
+    ? data.last_year.revenue_change
+    : data.last_year.orders_change;
+  const thisLabel = `This year (${THIS_YEAR})`;
+  const lastLabel = `Last year (${THIS_YEAR - 1})`;
   const main = theme.palette.primary.main;
 
   const chart = useMemo(
     () => ({
-      labels: series.map((d, i) =>
-        shortDate(d.date, i === 0 || d.date.endsWith('-01'))
-      ),
+      labels: series.map((d, i) => bucketLabel(d.date, i, data.series_unit)),
       datasets: [
         {
-          label: 'This period',
+          label: thisLabel,
           data: series.map((d) => (revenue ? d.revenue : d.orders)),
           borderColor: main,
           borderWidth: 3,
@@ -299,8 +319,10 @@ const SalesPerformance = ({ data }) => {
           },
         },
         {
-          label: 'Previous period',
-          data: series.map((d) => (revenue ? d.prev_revenue : d.prev_orders)),
+          label: lastLabel,
+          data: series.map((d) =>
+            revenue ? d.last_year_revenue : d.last_year_orders
+          ),
           borderColor: theme.palette.text.disabled,
           borderDash: [6, 6],
           borderWidth: 2,
@@ -310,7 +332,7 @@ const SalesPerformance = ({ data }) => {
         },
       ],
     }),
-    [series, revenue, main, theme]
+    [series, revenue, main, theme, thisLabel, lastLabel, data.series_unit]
   );
 
   const options = useMemo(
@@ -364,7 +386,7 @@ const SalesPerformance = ({ data }) => {
     <Card sx={{ height: '100%' }}>
       <CardTitle
         title="Sales performance"
-        subtitle="Daily performance for the selected period"
+        subtitle={`${{ day: 'Daily', week: 'Weekly', month: 'Monthly' }[data.series_unit] || 'Daily'} performance, compared with the same dates last year`}
         action={
           <Segmented
             label="Chart"
@@ -403,8 +425,8 @@ const SalesPerformance = ({ data }) => {
         <Box sx={{ flex: 1 }} />
         <Stack direction="row" spacing={2.5} aria-hidden>
           {[
-            ['This period', main, 'solid'],
-            ['Previous period', theme.palette.text.disabled, 'dashed'],
+            [thisLabel, main, 'solid'],
+            [lastLabel, theme.palette.text.disabled, 'dashed'],
           ].map(([l, c, style]) => (
             <Stack key={l} direction="row" spacing={1} alignItems="center">
               <Box sx={{ width: 22, borderTop: `3px ${style} ${c}` }} />
@@ -834,16 +856,33 @@ const TopProducts = ({ data }) => {
 };
 TopProducts.propTypes = { data: PropTypes.object.isRequired };
 
-/** One label per order for the recent-orders table and its tabs. */
+/** One label per order for the recent-orders table. */
 export const orderState = (o) => {
-  if (o.status === 'refunded') return ['refunded', 'Refunded', 'error'];
-  if (o.status === 'cancelled') return ['cancelled', 'Cancelled', 'default'];
-  if (o.status === 'processing') return ['processing', 'Processing', 'info'];
-  if (o.status === 'shipped') return ['shipped', 'Shipped', 'info'];
-  if (o.status === 'delivered') return ['paid', 'Delivered', 'success'];
-  if (o.payment_status === 'paid') return ['paid', 'Paid', 'success'];
-  return ['pending', 'Pending', 'warning'];
+  if (o.status === 'refunded') return ['Refunded', 'error'];
+  if (o.status === 'cancelled') return ['Cancelled', 'default'];
+  if (o.status === 'processing') return ['Processing', 'info'];
+  if (o.status === 'shipped') return ['Shipped', 'info'];
+  if (o.status === 'delivered') return ['Delivered', 'success'];
+  if (o.paymentStatus === 'paid') return ['Paid', 'success'];
+  return ['Pending', 'warning'];
 };
+
+// Each tab is an order-list filter, so paging covers every order.
+const RECENT_TABS = [
+  { value: 'all', label: 'All', filter: {} },
+  { value: 'paid', label: 'Paid', filter: { paymentStatus: 'paid' } },
+  {
+    value: 'processing',
+    label: 'Processing',
+    filter: { status: 'processing' },
+  },
+  {
+    value: 'pending',
+    label: 'Pending',
+    filter: { status: 'pending,awaiting_payment' },
+  },
+  { value: 'refunded', label: 'Refunded', filter: { status: 'refunded' } },
+];
 
 const when = (iso) => {
   const d = new Date(iso);
@@ -858,16 +897,36 @@ const when = (iso) => {
   const diff = Math.round((today - day) / 86400000);
   if (diff === 0) return `Today, ${time}`;
   if (diff === 1) return `Yesterday, ${time}`;
-  return `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, ${time}`;
+  return `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', ...(d.getFullYear() !== today.getFullYear() ? { year: 'numeric' } : {}) })}, ${time}`;
 };
 
-const RecentOrders = ({ data }) => {
+const RecentOrders = () => {
+  const notify = useNotify();
   const [tab, setTab] = useState('all');
-  const rows = data.recent_orders
-    .filter((o) => tab === 'all' || orderState(o)[0] === tab)
-    .slice(0, 6);
+  const [page, setPage] = useState(0);
+  const [result, setResult] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    setResult(null);
+    adminOrders
+      .list({
+        page: page + 1,
+        limit: PAGE_SIZE,
+        ...RECENT_TABS.find((t) => t.value === tab).filter,
+      })
+      .then((r) => active && setResult(r))
+      .catch((e) => {
+        if (active) setResult({ orders: [], total: 0 });
+        notify.error(e, 'We couldn’t load recent orders.');
+      });
+    return () => {
+      active = false;
+    };
+  }, [tab, page, notify]);
+
   return (
-    <Card sx={{ p: 0 }}>
+    <Card sx={{ p: 0, overflow: 'hidden' }} data-testid="recent-orders">
       <Box sx={{ p: { xs: 2.5, md: 3 }, pb: { xs: 1, md: 1 } }}>
         <CardTitle
           title="Recent orders"
@@ -876,14 +935,11 @@ const RecentOrders = ({ data }) => {
             <Segmented
               label="Order status"
               value={tab}
-              onChange={setTab}
-              options={[
-                { value: 'all', label: 'All' },
-                { value: 'paid', label: 'Paid' },
-                { value: 'processing', label: 'Processing' },
-                { value: 'pending', label: 'Pending' },
-                { value: 'refunded', label: 'Refunded' },
-              ]}
+              onChange={(v) => {
+                setTab(v);
+                setPage(0);
+              }}
+              options={RECENT_TABS}
             />
           }
         />
@@ -901,46 +957,52 @@ const RecentOrders = ({ data }) => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {rows.map((o) => {
-              const [, label, tone] = orderState(o);
-              return (
-                <TableRow
-                  key={o.order_id}
-                  hover
-                  data-testid={`recent-order-${o.order_id}`}
-                >
-                  <TableCell>
-                    <Link
-                      component={RouterLink}
-                      to={`/admin/orders/${o.order_id}`}
-                      underline="hover"
-                      sx={{ fontWeight: 700 }}
-                    >
-                      #{o.order_id}
-                    </Link>
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 500 }}>
-                    {o.customer_name}
-                  </TableCell>
-                  <TableCell sx={{ color: 'text.secondary' }}>
-                    {o.first_item}
-                    {o.other_items ? ` +${o.other_items} more` : ''}
-                  </TableCell>
-                  <TableCell
-                    sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}
+            {!result ? (
+              <LoadingRows cols={6} rows={PAGE_SIZE} />
+            ) : (
+              result.orders.map((o) => {
+                const [label, tone] = orderState(o);
+                const first = o.preview[0]?.name || '';
+                const more = Math.max(0, o.preview.length - 1);
+                return (
+                  <TableRow
+                    key={o.id}
+                    hover
+                    data-testid={`recent-order-${o.id}`}
                   >
-                    {when(o.placed_at)}
-                  </TableCell>
-                  <TableCell sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
-                    {formatMoney(o.total)}
-                  </TableCell>
-                  <TableCell>
-                    <Pill label={label} tone={tone} />
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-            {!rows.length && (
+                    <TableCell>
+                      <Link
+                        component={RouterLink}
+                        to={`/admin/orders/${o.id}`}
+                        underline="hover"
+                        sx={{ fontWeight: 700 }}
+                      >
+                        #{o.id}
+                      </Link>
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 500 }}>
+                      {o.customer?.name || o.email}
+                    </TableCell>
+                    <TableCell sx={{ color: 'text.secondary' }}>
+                      {first}
+                      {more ? ` +${more} more` : ''}
+                    </TableCell>
+                    <TableCell
+                      sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}
+                    >
+                      {when(o.placedAt)}
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
+                      {formatMoney(o.total)}
+                    </TableCell>
+                    <TableCell>
+                      <Pill label={label} tone={tone} />
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+            {result && !result.orders.length && (
               <TableRow>
                 <TableCell colSpan={6} sx={{ color: 'text.secondary' }}>
                   No orders here yet.
@@ -950,10 +1012,20 @@ const RecentOrders = ({ data }) => {
           </TableBody>
         </Table>
       </TableContainer>
+      {result && result.total > 0 && (
+        <StandardPagination
+          count={result.total}
+          page={page}
+          rowsPerPage={PAGE_SIZE}
+          onPageChange={(_, p) => setPage(p)}
+          onRowsPerPageChange={() => {}}
+          maxShowAll={0}
+          label="orders"
+        />
+      )}
     </Card>
   );
 };
-RecentOrders.propTypes = { data: PropTypes.object.isRequired };
 
 const OverviewSkeleton = () => (
   <Stack spacing={3} data-testid="overview-loading" sx={{ mt: 4 }}>
@@ -996,13 +1068,19 @@ const OverviewSkeleton = () => (
 
 const csvOf = (data) => {
   const lines = [
-    ['Date', 'Revenue', 'Orders', 'Previous revenue', 'Previous orders'],
+    [
+      'Period starting',
+      'Revenue',
+      'Orders',
+      'Revenue last year',
+      'Orders last year',
+    ],
     ...data.series.map((d) => [
       d.date,
       d.revenue,
       d.orders,
-      d.prev_revenue,
-      d.prev_orders,
+      d.last_year_revenue,
+      d.last_year_orders,
     ]),
   ];
   return lines.map((l) => l.join(',')).join('\n');
@@ -1220,7 +1298,7 @@ const AdminDashboardPage = () => {
             <TopProducts data={data} />
           </Box>
 
-          <RecentOrders data={data} />
+          <RecentOrders />
         </Stack>
       )}
     </Box>

@@ -4,6 +4,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { config } from '../config';
+import { finance } from '../lib/finance';
 import { query, transaction } from '../db';
 import { audit } from '../lib/audit';
 import { fail, handler, ok, parse } from '../lib/http';
@@ -218,7 +219,7 @@ export const checkoutRoutes = ({ payments }: { payments: PaymentGateway | null }
         [userId, req.auth!.user.email, state.payment_method, state.shipping_method,
           JSON.stringify(toContractAddress(shipping)), JSON.stringify(toContractAddress(billing)),
           totals.coupon?.code ?? null, totals.subtotal, totals.discount, totals.shipping, totals.tax, totals.total,
-          config.shop.currency, state.comment || '']
+          finance().currency, state.comment || '']
       );
       const id = rows[0].id as number;
       for (const l of lines) {
@@ -236,7 +237,7 @@ export const checkoutRoutes = ({ payments }: { payments: PaymentGateway | null }
     if (state.payment_method === 'stripe') {
       if (!payments) fail(503, 'Card payments aren’t available right now. Please choose another payment method.');
       const intent = await payments!.createIntent({
-        amountCents: Math.round(totals.total * 100), currency: config.shop.currency, orderId, email: req.auth!.user.email,
+        amountCents: Math.round(totals.total * 100), currency: finance().currency, orderId, email: req.auth!.user.email,
       });
       await query('UPDATE orders SET payment_reference = $2 WHERE id = $1', [orderId, intent.id]);
       payment = { ...payment, client_secret: intent.clientSecret, publishable_key: config.stripe.publishableKey };

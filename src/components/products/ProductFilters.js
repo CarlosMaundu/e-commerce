@@ -1,6 +1,7 @@
 // src/components/products/ProductFilters.js — Aurora-style filter sidebar for
 // the product list. Filters are kept in the URL (see useProductQuery).
 import React, { useEffect, useMemo, useState } from 'react';
+import { getCurrency } from '../../utils/format';
 import PropTypes from 'prop-types';
 import { useSearchParams } from 'react-router-dom';
 import {
@@ -177,7 +178,9 @@ const PriceFilter = ({ range, filters, update }) => {
             onBlur={() => commit(value)}
             InputProps={{
               startAdornment: (
-                <InputAdornment position="start">$</InputAdornment>
+                <InputAdornment position="start">
+                  {getCurrency()}
+                </InputAdornment>
               ),
             }}
           />

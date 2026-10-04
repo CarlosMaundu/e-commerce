@@ -1,6 +1,7 @@
 // src/seed.ts — idempotent: roles/permissions every start, first super admin
 // from ADMIN_EMAIL/ADMIN_PASSWORD, sample catalog only into an empty shop.
 import { config } from './config';
+import { demoAmount, demoMoney } from './lib/demoMoney';
 import { query, transaction } from './db';
 import { seedDemoCatalog } from './demoCatalog';
 import { hashPassword } from './lib/security';
@@ -45,6 +46,7 @@ export const PERMISSION_CATALOG: { code: string; description: string; implied?: 
   { code: 'admin.security.manage', description: 'Change security settings and end sessions' },
   { code: 'admin.audit.view', description: 'View the audit log' },
   { code: 'admin.settings.manage', description: 'Change the shop’s name, logo, favicon and contact details', implied: ['admin.security.manage'] },
+  { code: 'admin.finance.manage', description: 'Change the currency, tax and delivery prices', implied: ['admin.settings.manage'] },
 ];
 
 export const PERMISSIONS: Record<string, string> = Object.fromEntries(
@@ -146,11 +148,13 @@ const seedSampleCatalog = async () => {
 const seedSampleCoupons = async () => {
   if (!config.seed.sampleCatalog) return;
   if ((await query('SELECT 1 FROM coupons LIMIT 1')).rows[0]) return;
+  // Written in dollars; converted when the shop uses another currency.
   await query(
     `INSERT INTO coupons (code, description, type, value, min_total) VALUES
        ('WELCOME10', '10% off your order', 'percent', 10, 0),
-       ('FRIDAY35', '35% off orders over $50', 'percent', 35, 50),
-       ('SAVE5', '$5 off any order', 'fixed', 5, 0)`
+       ('FRIDAY35', $1, 'percent', 35, $2),
+       ('SAVE5', $3, 'fixed', $4, 0)`,
+    [`35% off orders over ${demoMoney(50)}`, demoAmount(50), `${demoMoney(5)} off any order`, demoAmount(5)]
   );
   console.log('Seeded sample promo codes');
 };

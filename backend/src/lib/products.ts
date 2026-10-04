@@ -44,6 +44,17 @@ export interface ProductRow {
   low_stock_threshold: number;
   rating: string;
   reviews: number;
+  manufacturer: string;
+  barcode_type: string;
+  barcode: string;
+  mfr_part_number: string;
+  length: string | null;
+  width: string | null;
+  height: string | null;
+  dimension_unit: string;
+  weight: string | null;
+  weight_unit: string;
+  specs: { label: string; value: string }[];
   created_at: Date;
   updated_at: Date;
 }
@@ -94,8 +105,17 @@ export const toContractProduct = (p: ProductRow, variants: VariantRow[] = []) =>
     images: p.images,
     category: p.category_id ? [{ category_id: p.category_id, name: p.category_name }] : [],
     brand: p.brand_id ? { brand_id: p.brand_id, name: p.brand_name, logo: p.brand_logo || '' } : null,
-    manufacturer: p.brand_name || '',
+    // OpenCart's field; our own manufacturer when set, else the brand.
+    manufacturer: p.manufacturer || p.brand_name || '',
     sku: p.sku,
+    barcode: p.barcode ? { type: p.barcode_type || '', value: p.barcode } : null,
+    mfr_part_number: p.mfr_part_number || '',
+    dimensions:
+      p.length || p.width || p.height
+        ? { length: num(p.length), width: num(p.width), height: num(p.height), unit: p.dimension_unit }
+        : null,
+    weight: p.weight ? { value: Number(p.weight), unit: p.weight_unit } : null,
+    specs: p.specs || [],
     status: p.status,
     published_at: p.published_at,
     featured: p.featured,

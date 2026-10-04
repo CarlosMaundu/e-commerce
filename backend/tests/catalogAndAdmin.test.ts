@@ -198,6 +198,28 @@ describe('admin catalog permissions', () => {
     expect(created.status).toBe(201);
     expect(created.body.data).toMatchObject({ name: 'Rain jacket', price: 100, special: 80, quantity: 3, status: 'published' });
 
+    // Formatted description (unsafe parts removed) and product information.
+    const detailed = await request(app).post('/api/admin/products').set(bearer(manager.token)).send({
+      name: 'Desk lamp', price: 40,
+      description: '<p style="text-align:center"><strong>Warm</strong> light<script>alert(1)</script></p><a href="javascript:x()">x</a><ul><li>LED</li></ul>',
+      manufacturer: 'Lumo Works', barcode_type: 'EAN', barcode: '4006381333931', mfr_part_number: 'LW-200',
+      length: 30, width: '12.5', height: 45, dimension_unit: 'cm', weight: 1.2, weight_unit: 'kg',
+      specs: [{ label: 'Bulb', value: 'E27 LED, 9 W' }],
+    });
+    expect(detailed.status).toBe(201);
+    expect(detailed.body.data.description).toBe('<p style="text-align:center"><strong>Warm</strong> light</p><a target="_blank" rel="noopener noreferrer">x</a><ul><li>LED</li></ul>');
+    expect(detailed.body.data).toMatchObject({
+      manufacturer: 'Lumo Works',
+      barcode: { type: 'EAN', value: '4006381333931' },
+      mfr_part_number: 'LW-200',
+      dimensions: { length: 30, width: 12.5, height: 45, unit: 'cm' },
+      weight: { value: 1.2, unit: 'kg' },
+      specs: [{ label: 'Bulb', value: 'E27 LED, 9 W' }],
+    });
+    // A partial edit keeps the product information.
+    const renamed = await request(app).put(`/api/admin/products/${detailed.body.data.product_id}`).set(bearer(manager.token)).send({ name: 'Desk lamp 2' });
+    expect(renamed.body.data).toMatchObject({ name: 'Desk lamp 2', manufacturer: 'Lumo Works', weight: { value: 1.2, unit: 'kg' } });
+
     const users = await request(app).get('/api/admin/users').set(bearer(manager.token));
     expect(users.status).toBe(403);
   });

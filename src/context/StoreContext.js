@@ -11,6 +11,11 @@ import React, {
 } from 'react';
 import PropTypes from 'prop-types';
 import { store as storeApi } from '../api';
+import {
+  getCurrency,
+  hasRememberedCurrency,
+  setCurrency,
+} from '../utils/format';
 
 export const DEFAULT_STORE = {
   name: 'Carlos Shop',
@@ -23,6 +28,13 @@ export const DEFAULT_STORE = {
   footerText: '',
   announcement: '',
   social: { facebook: '', instagram: '', x: '', tiktok: '' },
+  finance: {
+    currency: 'KES',
+    taxLabel: 'VAT',
+    taxRate: 16,
+    pricesIncludeTax: true,
+    freeShippingOver: 0,
+  },
   hero: {
     main: {
       eyebrow: 'Weekend drop · 20% off',
@@ -67,18 +79,26 @@ const setFavicon = (href) => {
 export const StoreProvider = ({ children }) => {
   const [settings, setSettings] = useState(DEFAULT_STORE);
   const [loaded, setLoaded] = useState(false);
+  // Remounts the app when the shop's currency turns out to differ from the
+  // one remembered, so every price re-renders in the right currency.
+  const [currencyKey, setCurrencyKey] = useState(getCurrency());
+  const [remembered] = useState(hasRememberedCurrency);
 
   const reload = useCallback(
     () =>
       storeApi
         .get()
-        .then((s) =>
+        .then((s) => {
+          if (s.finance?.currency && s.finance.currency !== getCurrency()) {
+            setCurrency(s.finance.currency);
+          }
+          setCurrencyKey(getCurrency());
           setSettings({
             ...DEFAULT_STORE,
             ...s,
             hero: s.hero || DEFAULT_STORE.hero,
-          })
-        )
+          });
+        })
         .catch(() => {})
         .finally(() => setLoaded(true)),
     []
@@ -105,7 +125,11 @@ export const StoreProvider = ({ children }) => {
     [settings, loaded, reload]
   );
   return (
-    <StoreContext.Provider value={value}>{children}</StoreContext.Provider>
+    <StoreContext.Provider value={value}>
+      {loaded || remembered ? (
+        <React.Fragment key={currencyKey}>{children}</React.Fragment>
+      ) : null}
+    </StoreContext.Provider>
   );
 };
 

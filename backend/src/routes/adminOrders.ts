@@ -59,12 +59,13 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
     params.push(q.limit, (q.page - 1) * q.limit);
     const { rows } = await query(
       `SELECT o.*, TRIM(COALESCE(u.firstname, '') || ' ' || COALESCE(u.lastname, '')) AS customer_name,
-         (SELECT COALESCE(sum(quantity), 0)::int FROM order_items WHERE order_id = o.id) AS item_count
+         (SELECT COALESCE(sum(quantity), 0)::int FROM order_items WHERE order_id = o.id) AS item_count,
+         (SELECT json_agg(json_build_object('name', name, 'image', image) ORDER BY id) FROM order_items WHERE order_id = o.id) AS preview
        ${base} ${whereSql} ORDER BY o.placed_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
       params
     );
     res.set('X-Total-Count', String(total));
-    ok(res, rows.map((o) => toContractOrder(o, [], [], { admin: true })));
+    ok(res, rows.map((o) => ({ ...toContractOrder(o, [], [], { admin: true }), preview: (o.preview || []).slice(0, 4) })));
   }));
 
   router.get('/orders/:id', requirePermission('orders.orders.view'), handler(async (req, res) => {
@@ -151,7 +152,7 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
   // The back-office "Store overview": GET /admin/dashboard?days=7|30|90.
   router.get('/dashboard', requirePermission('dashboard.overview.view'), handler(async (req, res) => {
     const days = Number(req.query.days) || 30;
-    if (!(OVERVIEW_PERIODS as readonly number[]).includes(days)) fail(400, 'Please choose 7, 30 or 90 days.');
+    if (!(OVERVIEW_PERIODS as readonly number[]).includes(days)) fail(400, 'Please choose 7, 30 or 90 days, 6 months or 12 months.');
     ok(res, await storeOverview(days));
   }));
 

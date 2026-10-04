@@ -378,9 +378,6 @@ export const AdminOrdersPage = () => {
                       >
                         #{o.id}
                       </Link>
-                      <Typography variant="caption" sx={{ display: 'block' }}>
-                        {o.itemCount} item{o.itemCount === 1 ? '' : 's'}
-                      </Typography>
                     </TableCell>
                     <TableCell sx={{ whiteSpace: 'nowrap' }}>
                       {formatDateTime(o.placedAt)}
