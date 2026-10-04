@@ -409,6 +409,11 @@ const storeFromApi = (d) => ({
   footerText: d.footer_text || '',
   announcement: d.announcement || '',
   social: d.social || {},
+  hero: d.hero && {
+    main: { ...d.hero.main, ctaLabel: d.hero.main?.cta_label ?? '' },
+    side: { ...d.hero.side },
+    member: { ...d.hero.member },
+  },
 });
 
 const storeToApi = (s) => ({
@@ -422,6 +427,13 @@ const storeToApi = (s) => ({
   footer_text: s.footerText,
   announcement: s.announcement,
   social: s.social,
+  hero: s.hero && {
+    main: (({ ctaLabel, ...rest }) => ({ ...rest, cta_label: ctaLabel }))(
+      s.hero.main
+    ),
+    side: s.hero.side,
+    member: s.hero.member,
+  },
 });
 
 /** The shop's name, logo, favicon and contact details. */
@@ -697,8 +709,16 @@ export const adminOrders = {
     const { data } = await http().put(`/admin/returns/${id}`, { status });
     return returnFromApi(data);
   },
-  async dashboard() {
-    const { data } = await http().get('/admin/dashboard');
+  /** Store overview for the last `days` (7, 30 or 90), raw API shape. */
+  async dashboard(days = 30) {
+    const { data } = await http().get('/admin/dashboard', {
+      params: { days },
+    });
+    return data;
+  },
+  /** Attention counts for the bell; null where you lack the permission. */
+  async notifications() {
+    const { data } = await http().get('/admin/notifications');
     return data;
   },
 };

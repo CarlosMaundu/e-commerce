@@ -23,7 +23,9 @@ export const stripeGateway = (): PaymentGateway | null => {
           currency: currency.toLowerCase(),
           receipt_email: email,
           metadata: { order_id: String(orderId) },
-          automatic_payment_methods: { enabled: true },
+          // Cards only: confirmed in our own checkout (3-D Secure opens in a
+          // Stripe modal on the page), never a redirect to another site.
+          payment_method_types: ['card'],
         },
         { idempotencyKey: `order-${orderId}-${amountCents}` }
       );

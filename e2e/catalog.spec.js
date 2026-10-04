@@ -122,7 +122,7 @@ test('customers review a product once', async ({ page }) => {
     lastname: 'Viewer',
   });
   await login(page, 'rev@example.com');
-  await expect(page.getByText('Hi, Rae Viewer')).toBeVisible();
+  await expect(page.getByText('Hi, Rae')).toBeVisible();
   await openProduct(page, 'Canvas tote bag');
   await page.getByRole('tab', { name: /Reviews/ }).click();
   const form = page.getByRole('form', { name: 'Write a review' });
@@ -169,8 +169,9 @@ test('the iPhone shows each model’s price and only the chosen variation’s ph
   await expect(
     page.getByRole('img', { name: 'Apple iPhone 14', exact: true })
   ).toHaveAttribute('src', /iphone14promax-gold/);
-  // Gold has one photo, so no other colours' thumbnails are offered.
+  // Gold has one photo: its thumbnail stays (so the layout doesn't shift),
+  // and no other colours' photos are offered.
   await expect(page.getByRole('button', { name: /^Show photo/ })).toHaveCount(
-    0
+    1
   );
 });

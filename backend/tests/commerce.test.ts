@@ -251,9 +251,9 @@ describe('checkout', () => {
 });
 
 describe('order management and returns', () => {
-  const staff = async (role = 'order_manager') => {
-    await createUser('staff@example.com', role);
-    return (await signIn('staff@example.com')).token;
+  const staff = async (role = 'order_manager', email = 'staff@example.com') => {
+    await createUser(email, role);
+    return (await signIn(email)).token;
   };
 
   test('status moves follow the allowed path, notify the customer, and cancellation restocks', async () => {
@@ -328,15 +328,31 @@ describe('order management and returns', () => {
     expect((await request(app).get('/api/admin/dashboard').set(bearer(catalog))).status).toBe(403);
   });
 
-  test('dashboard reports today’s real orders and top products', async () => {
+  test('store overview reports the period’s real orders, compared with the one before', async () => {
     const token = await shopper();
     await placeOrder(token);
     const admin = await staff('admin');
-    const res = await request(app).get('/api/admin/dashboard').set(bearer(admin));
-    expect(res.body.data.today).toEqual({ revenue: 137.44, orders: 1 });
-    expect(res.body.data.top_products[0]).toMatchObject({ name: 'Denim jacket', sold: 2 });
-    expect(res.body.data.revenue_series).toHaveLength(30);
-    expect(res.body.data.counts).toMatchObject({ to_fulfil: 1, customers: 1 });
+    const bad = await request(app).get('/api/admin/dashboard?days=12').set(bearer(admin));
+    expect(bad.status).toBe(400);
+    const res = await request(app).get('/api/admin/dashboard?days=7').set(bearer(admin));
+    const d = res.body.data;
+    expect(d.kpis.revenue).toEqual({ value: 137.44, change: 100 });
+    expect(d.kpis.orders).toMatchObject({ value: 1, awaiting: 1 });
+    expect(d.kpis.new_customers).toMatchObject({ value: 1, first_time_share: 100 });
+    expect(d.kpis.average_order.value).toBe(137.44);
+    expect(d.series).toHaveLength(7);
+    expect(d.series[6]).toMatchObject({ revenue: 137.44, orders: 1, prev_revenue: 0 });
+    expect(d.top_products[0]).toMatchObject({ name: 'Denim jacket', units: 2 });
+    expect(d.categories.reduce((s: number, c: any) => s + c.share, 0)).toBe(100);
+    expect(d.fulfilment).toMatchObject({ packing: 1, in_transit: 0, delayed: 0, total: 1 });
+    expect(d.locations).toHaveLength(1);
+    expect(d.recent_orders[0]).toMatchObject({ total: 137.44, status: 'pending', first_item: expect.any(String) });
+
+    const bell = await request(app).get('/api/admin/notifications').set(bearer(admin));
+    expect(bell.body.data).toMatchObject({ to_fulfil: 1, open_returns: 0 });
+    const catalog = await staff('catalog_manager', 'stock@example.com');
+    const theirs = await request(app).get('/api/admin/notifications').set(bearer(catalog));
+    expect(theirs.body.data).toMatchObject({ to_fulfil: null, open_returns: null, low_stock: expect.any(Number) });
   });
 });
 

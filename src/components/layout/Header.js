@@ -1,7 +1,9 @@
-// src/components/layout/Header.js — storefront header: brand row with
-// category menu, scoped search and shopping icons; a link bar; and a promo
-// strip. Layout inspired by the Aurora template, built from our own code.
+// src/components/layout/Header.js — storefront header: brand, Categories
+// panel, Products, a search box with a collection selector (All, Popular,
+// New, Discounted, Top rated, Featured), wishlist, cart and account; a link
+// bar with Today's deals and the top categories; then the promo strip.
 import React, { useContext, useEffect, useMemo, useState } from 'react';
+import PropTypes from 'prop-types';
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import {
@@ -15,28 +17,24 @@ import {
   Drawer,
   IconButton,
   InputBase,
-  ListItemIcon,
-  ListItemText,
   Menu,
   MenuItem,
+  Popover,
   Select,
   Skeleton,
   Stack,
-  Toolbar,
   Typography,
   useMediaQuery,
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import {
+  FiChevronDown,
+  FiChevronUp,
   FiGrid,
   FiHeart,
-  FiLogOut,
   FiMenu,
-  FiPackage,
   FiSearch,
-  FiSettings,
-  FiShoppingCart,
-  FiUser,
+  FiShoppingBag,
   FiX,
 } from 'react-icons/fi';
 import { AuthContext } from '../../context/AuthContext';
@@ -47,13 +45,143 @@ import { PromoStrip } from '../promotions/Promotions';
 import { useNotify } from '../../notification/NotificationProvider';
 import { MESSAGES } from '../../notification/messages';
 import { useStore } from '../../context/StoreContext';
+import BrandMark from '../common/BrandMark';
+import { initialsOf } from '../common/BrandMark';
 
-const LINKS = [
-  { label: 'Orders', to: '/account/orders', auth: true, shopper: true },
-  { label: 'Wishlist', to: '/wishlist', shopper: true },
-  { label: 'New arrivals', to: '/products' },
-  { label: 'Help', to: '/information/support' },
+/** The search box's "All" selector: each choice is a ready-made listing. */
+export const SEARCH_SCOPES = [
+  { value: '', label: 'All', params: {} },
+  { value: 'popular', label: 'Popular', params: { sort: 'popular' } },
+  { value: 'new', label: 'New', params: { tag: 'new-season' } },
+  { value: 'discounted', label: 'Discounted', params: { on_sale: '1' } },
+  { value: 'top-rated', label: 'Top rated', params: { sort: 'rating' } },
+  { value: 'featured', label: 'Featured', params: { featured: '1' } },
 ];
+
+const scopeFromParams = (params) =>
+  SEARCH_SCOPES.find(
+    (s) =>
+      s.value && Object.entries(s.params).every(([k, v]) => params.get(k) === v)
+  )?.value || '';
+
+const NEW_AND_TRENDING = {
+  id: 'new',
+  name: 'New & trending',
+  to: '/products?sort=popular',
+};
+
+const squareButtonSx = {
+  width: 44,
+  height: 44,
+  borderRadius: '8px',
+  bgcolor: 'background.neutral',
+  color: 'text.primary',
+  '&:hover': { bgcolor: 'background.neutralDeep' },
+};
+
+/** "Shop by category" panel opened from the Categories button. */
+const CategoryPanel = ({ anchorEl, onClose, items }) => {
+  const theme = useTheme();
+  const tones = [theme.palette.primary.main, theme.palette.warning.main];
+  return (
+    <Popover
+      open={Boolean(anchorEl)}
+      anchorEl={anchorEl}
+      onClose={onClose}
+      anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+      transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+      slotProps={{
+        paper: {
+          sx: {
+            mt: 1.5,
+            p: 3,
+            width: 520,
+            maxWidth: 'calc(100vw - 32px)',
+            borderRadius: 1,
+            border: 1,
+            borderColor: 'divider',
+            boxShadow: '0 24px 48px rgba(27,33,36,0.12)',
+          },
+        },
+      }}
+    >
+      <Stack
+        direction="row"
+        justifyContent="space-between"
+        alignItems="center"
+        sx={{ mb: 2 }}
+      >
+        <Typography variant="h6" component="h2">
+          Shop by category
+        </Typography>
+        <Button
+          size="small"
+          color="inherit"
+          onClick={onClose}
+          sx={{ color: 'text.secondary' }}
+        >
+          Close
+        </Button>
+      </Stack>
+      <Box
+        component="nav"
+        aria-label="Categories"
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+          gap: 1.5,
+        }}
+      >
+        {items.map((c, i) => {
+          const tone = tones[i % 2];
+          return (
+            <Box
+              key={c.id}
+              component={RouterLink}
+              to={c.to}
+              onClick={onClose}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 2,
+                p: 2,
+                minHeight: 80,
+                borderRadius: '8px',
+                bgcolor: 'background.neutral',
+                color: 'text.primary',
+                textDecoration: 'none',
+                fontWeight: 600,
+                transition: 'background-color .15s',
+                '&:hover': { bgcolor: 'background.neutralDeep' },
+              }}
+            >
+              <Box
+                sx={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: '8px',
+                  display: 'grid',
+                  placeItems: 'center',
+                  color: tone,
+                  bgcolor: alpha(tone, 0.12),
+                  flexShrink: 0,
+                }}
+              >
+                <FiGrid />
+              </Box>
+              {c.name}
+            </Box>
+          );
+        })}
+      </Box>
+    </Popover>
+  );
+};
+CategoryPanel.propTypes = {
+  anchorEl: PropTypes.object,
+  onClose: PropTypes.func.isRequired,
+  items: PropTypes.array.isRequired,
+};
 
 const Header = () => {
   const shop = useStore();
@@ -91,16 +219,24 @@ const Header = () => {
     if (location.pathname !== '/products') return;
     const params = new URLSearchParams(location.search);
     setQuery(params.get('search') || '');
-    setScope(params.get('category') || '');
+    setScope(scopeFromParams(params));
   }, [location.pathname, location.search]);
 
-  const topCategories = useMemo(() => categories.slice(0, 12), [categories]);
+  const categoryLinks = useMemo(
+    () => categories.map((c) => ({ ...c, to: `/products?category=${c.id}` })),
+    [categories]
+  );
+  const panelItems = useMemo(
+    () => [NEW_AND_TRENDING, ...categoryLinks.slice(0, 9)],
+    [categoryLinks]
+  );
 
   const goSearch = (e) => {
     e.preventDefault();
-    const params = new URLSearchParams();
+    const params = new URLSearchParams(
+      SEARCH_SCOPES.find((s) => s.value === scope)?.params
+    );
     if (query.trim()) params.set('search', query.trim());
-    if (scope) params.set('category', scope);
     setDrawerOpen(false);
     navigate(`/products${params.toString() ? `?${params}` : ''}`);
   };
@@ -127,11 +263,7 @@ const Header = () => {
 
   const firstName = user?.name?.split(' ')[0] || '';
   const shopper = canShop(user);
-  const iconButtonSx = {
-    bgcolor: 'background.neutralDeep',
-    width: 42,
-    height: 42,
-  };
+  const closeUserMenu = () => setUserMenuAnchor(null);
 
   const searchForm = (
     <Box
@@ -141,15 +273,14 @@ const Header = () => {
       sx={{
         display: 'flex',
         alignItems: 'center',
-        bgcolor: 'background.neutralDeep',
-        borderRadius: 999,
-        pl: 0.5,
-        pr: 1,
-        height: 42,
+        bgcolor: 'background.neutral',
+        borderRadius: '8px',
+        height: 48,
         width: '100%',
-        maxWidth: 620,
+        maxWidth: 940,
+        pr: 0.5,
         '&:focus-within': {
-          boxShadow: `0 0 0 2px ${alpha(theme.palette.primary.main, 0.35)}`,
+          boxShadow: `0 0 0 2px ${alpha(theme.palette.primary.main, 0.3)}`,
         },
       }}
     >
@@ -159,39 +290,68 @@ const Header = () => {
         displayEmpty
         variant="standard"
         disableUnderline
+        IconComponent={FiChevronDown}
         inputProps={{ 'aria-label': 'Search in' }}
         renderValue={(v) =>
-          v
-            ? categories.find((c) => String(c.id) === String(v))?.name || 'All'
-            : 'All'
+          SEARCH_SCOPES.find((s) => s.value === v)?.label || 'All'
         }
         sx={{
-          pl: 1.5,
-          pr: 0.5,
+          alignSelf: 'stretch',
+          pl: 2.5,
+          pr: 1,
+          width: { md: 150, xs: 110 },
+          flexShrink: 0,
           fontWeight: 600,
-          fontSize: '0.875rem',
-          minWidth: 64,
+          fontSize: '0.9rem',
+          borderRight: 1,
+          borderColor: 'divider',
+          '& .MuiSelect-select': {
+            display: 'flex',
+            alignItems: 'center',
+            height: '100%',
+            py: 0,
+          },
+          '& .MuiSelect-icon': { right: 12, fontSize: 16 },
         }}
       >
-        <MenuItem value="">All</MenuItem>
-        {topCategories.map((c) => (
-          <MenuItem key={c.id} value={String(c.id)}>
-            {c.name}
+        {SEARCH_SCOPES.map((s) => (
+          <MenuItem key={s.value} value={s.value}>
+            {s.label}
           </MenuItem>
         ))}
       </Select>
       <InputBase
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search products"
+        placeholder="Search products, brands and categories"
         inputProps={{ 'aria-label': 'Search products', enterKeyHint: 'search' }}
-        sx={{ flex: 1, px: 1, fontSize: '0.9rem' }}
+        sx={{ flex: 1, px: 2.5, fontSize: '0.95rem', minWidth: 0 }}
       />
-      <IconButton type="submit" size="small" aria-label="Search">
+      <IconButton
+        type="submit"
+        aria-label="Search"
+        sx={{
+          width: 40,
+          height: 40,
+          borderRadius: '8px',
+          bgcolor: 'primary.main',
+          color: 'primary.contrastText',
+          '&:hover': { bgcolor: 'primary.dark' },
+        }}
+      >
         <FiSearch />
       </IconButton>
     </Box>
   );
+
+  const darkButtonSx = {
+    height: 44,
+    borderRadius: '8px',
+    bgcolor: 'text.primary',
+    color: 'common.white',
+    px: 3,
+    '&:hover': { bgcolor: alpha(theme.palette.text.primary, 0.88) },
+  };
 
   return (
     <AppBar
@@ -205,15 +365,17 @@ const Header = () => {
       }}
     >
       <Container maxWidth="xl">
-        <Toolbar
-          disableGutters
-          sx={{ gap: { xs: 1, md: 3 }, minHeight: { xs: 64, md: 76 } }}
+        <Stack
+          direction="row"
+          alignItems="center"
+          spacing={{ xs: 1, md: 3 }}
+          sx={{ minHeight: { xs: 64, md: 84 } }}
         >
           {isMobile && (
             <IconButton
               aria-label="Open menu"
               onClick={() => setDrawerOpen(true)}
-              sx={iconButtonSx}
+              sx={squareButtonSx}
             >
               <FiMenu />
             </IconButton>
@@ -222,81 +384,61 @@ const Header = () => {
             component={RouterLink}
             to="/"
             aria-label={`${shop.name} home`}
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-              textDecoration: 'none',
-              color: 'inherit',
-            }}
+            sx={{ textDecoration: 'none', flexShrink: 0 }}
           >
-            <Box
-              component="img"
-              src={shop.logoUrl}
-              alt=""
-              sx={{ height: 36, maxWidth: 140, objectFit: 'contain' }}
+            <BrandMark
+              size={isMobile ? 36 : 44}
+              showName={!isMobile}
+              fontSize="1.4rem"
             />
-            {!isMobile && (
-              <Typography
-                sx={{
-                  fontWeight: 800,
-                  fontSize: '1.2rem',
-                  letterSpacing: '-0.02em',
-                }}
-              >
-                {shop.name}
-              </Typography>
-            )}
           </Box>
 
           {!isMobile && (
-            <Button
-              color="inherit"
-              startIcon={<FiGrid />}
-              onClick={(e) => setCategoryAnchor(e.currentTarget)}
-              aria-haspopup="menu"
-              sx={{ fontWeight: 600 }}
-            >
-              Category
-            </Button>
-          )}
-          <Menu
-            anchorEl={categoryAnchor}
-            open={Boolean(categoryAnchor)}
-            onClose={() => setCategoryAnchor(null)}
-            slotProps={{
-              paper: { sx: { borderRadius: 1, minWidth: 220, mt: 1 } },
-            }}
-          >
-            {topCategories.map((c) => (
-              <MenuItem
-                key={c.id}
-                onClick={() => {
-                  setCategoryAnchor(null);
-                  navigate(`/products?category=${c.id}`);
-                }}
+            <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
+              <Button
+                color="inherit"
+                endIcon={categoryAnchor ? <FiChevronUp /> : <FiChevronDown />}
+                onClick={(e) => setCategoryAnchor(e.currentTarget)}
+                aria-haspopup="dialog"
+                aria-expanded={Boolean(categoryAnchor)}
+                sx={{ fontWeight: 700, fontSize: '1rem' }}
               >
-                {c.name}
-              </MenuItem>
-            ))}
-            {!topCategories.length && (
-              <MenuItem disabled>No categories yet</MenuItem>
-            )}
-          </Menu>
+                Categories
+              </Button>
+              <Button
+                color="inherit"
+                component={RouterLink}
+                to="/products"
+                sx={{ fontWeight: 700, fontSize: '1rem' }}
+              >
+                Products
+              </Button>
+            </Stack>
+          )}
+          <CategoryPanel
+            anchorEl={categoryAnchor}
+            onClose={() => setCategoryAnchor(null)}
+            items={panelItems}
+          />
 
           <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
             {!isMobile && searchForm}
           </Box>
 
-          <Stack direction="row" spacing={1.25} alignItems="center">
+          <Stack
+            direction="row"
+            spacing={1.25}
+            alignItems="center"
+            sx={{ flexShrink: 0 }}
+          >
             {shopper && (
               <IconButton
                 component={RouterLink}
                 to="/wishlist"
                 aria-label={`Wishlist, ${wishlistCount} items`}
-                sx={iconButtonSx}
+                sx={squareButtonSx}
               >
-                <Badge badgeContent={wishlistCount} color="error" max={99}>
+                <Badge badgeContent={wishlistCount} color="warning" max={99}>
                   <FiHeart />
                 </Badge>
               </IconButton>
@@ -306,151 +448,186 @@ const Header = () => {
                 component={RouterLink}
                 to="/cart"
                 aria-label={`Cart, ${cartCount} items`}
-                sx={iconButtonSx}
+                sx={squareButtonSx}
               >
-                <Badge badgeContent={cartCount} color="error" max={99}>
-                  <FiShoppingCart />
+                <Badge badgeContent={cartCount} color="warning" max={99}>
+                  <FiShoppingBag />
                 </Badge>
               </IconButton>
             )}
             {loading ? (
-              <Skeleton variant="circular" width={36} height={36} />
+              <Skeleton
+                variant="rounded"
+                width={isMobile ? 44 : 140}
+                height={44}
+              />
             ) : user ? (
               <>
-                {!isMobile && (
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    Hi, {user.name}
-                  </Typography>
-                )}
-                <IconButton
+                <Button
                   aria-label="User account"
                   onClick={(e) => setUserMenuAnchor(e.currentTarget)}
-                  sx={{ p: 0.25 }}
+                  endIcon={!isMobile && <FiChevronDown />}
+                  sx={{
+                    ...darkButtonSx,
+                    pl: 0.75,
+                    pr: isMobile ? 0.75 : 2,
+                    minWidth: 0,
+                    gap: 0.5,
+                  }}
                 >
                   <Avatar
                     src={user.avatar || undefined}
                     alt=""
-                    sx={{ width: 40, height: 40, bgcolor: 'primary.main' }}
+                    sx={{
+                      width: 32,
+                      height: 32,
+                      fontSize: 12,
+                      fontWeight: 800,
+                      bgcolor: 'highlight.main',
+                      color: 'text.primary',
+                    }}
                   >
-                    {firstName.charAt(0)}
+                    {initialsOf(user.name)}
                   </Avatar>
-                </IconButton>
+                  {!isMobile && (
+                    <Box component="span" sx={{ ml: 0.75 }}>
+                      Hi, {firstName}
+                    </Box>
+                  )}
+                </Button>
                 <Menu
                   anchorEl={userMenuAnchor}
                   open={Boolean(userMenuAnchor)}
-                  onClose={() => setUserMenuAnchor(null)}
+                  onClose={closeUserMenu}
                   anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                   transformOrigin={{ vertical: 'top', horizontal: 'right' }}
                   slotProps={{
-                    paper: { sx: { borderRadius: 1, minWidth: 220, mt: 1 } },
+                    paper: {
+                      sx: {
+                        borderRadius: 1,
+                        minWidth: 240,
+                        mt: 1.5,
+                        border: 1,
+                        borderColor: 'divider',
+                        boxShadow: '0 24px 48px rgba(27,33,36,0.12)',
+                      },
+                    },
                   }}
                 >
-                  <Box sx={{ px: 2, py: 1 }}>
-                    <Typography variant="subtitle2">{user.name}</Typography>
+                  <Box sx={{ px: 2.5, pt: 1.5, pb: 1.5 }}>
+                    <Typography variant="subtitle1">{user.name}</Typography>
                     <Typography variant="caption">{user.email}</Typography>
                   </Box>
-                  <Divider />
-                  <MenuItem
-                    component={RouterLink}
-                    to={shopper ? '/account' : '/admin/profile'}
-                    onClick={() => setUserMenuAnchor(null)}
-                  >
-                    <ListItemIcon>
-                      <FiUser />
-                    </ListItemIcon>
-                    <ListItemText>
-                      {shopper ? 'My account' : 'My profile'}
-                    </ListItemText>
-                  </MenuItem>
+                  <Divider sx={{ mx: 2 }} />
                   {shopper && (
                     <MenuItem
                       component={RouterLink}
                       to="/account/orders"
-                      onClick={() => setUserMenuAnchor(null)}
+                      onClick={closeUserMenu}
+                      sx={{ px: 2.5, py: 1.25 }}
                     >
-                      <ListItemIcon>
-                        <FiPackage />
-                      </ListItemIcon>
-                      <ListItemText>My orders</ListItemText>
+                      My orders
                     </MenuItem>
                   )}
+                  <MenuItem
+                    component={RouterLink}
+                    to={shopper ? '/account/profile' : '/admin/profile'}
+                    onClick={closeUserMenu}
+                    sx={{ px: 2.5, py: 1.25 }}
+                  >
+                    Account settings
+                  </MenuItem>
                   {isStaff(user) && (
                     <MenuItem
                       component={RouterLink}
                       to="/admin"
-                      onClick={() => setUserMenuAnchor(null)}
+                      onClick={closeUserMenu}
+                      sx={{ px: 2.5, py: 1.25 }}
                     >
-                      <ListItemIcon>
-                        <FiSettings />
-                      </ListItemIcon>
-                      <ListItemText>Admin</ListItemText>
+                      Open back office
                     </MenuItem>
                   )}
-                  <Divider />
-                  <MenuItem onClick={logoutClick}>
-                    <ListItemIcon>
-                      <FiLogOut />
-                    </ListItemIcon>
-                    <ListItemText>Logout</ListItemText>
+                  <MenuItem
+                    onClick={logoutClick}
+                    sx={{ px: 2.5, py: 1.25, color: 'error.main' }}
+                  >
+                    Sign out
                   </MenuItem>
                 </Menu>
               </>
             ) : (
-              <Button component={RouterLink} to="/login" variant="contained">
-                Login
+              <Button component={RouterLink} to="/login" sx={darkButtonSx}>
+                Sign in
               </Button>
             )}
           </Stack>
-        </Toolbar>
+        </Stack>
       </Container>
 
       {!isMobile && (
-        <Box
-          sx={{
-            bgcolor: 'background.neutral',
-            borderTop: 1,
-            borderColor: 'divider',
-          }}
-        >
+        <Box sx={{ borderTop: 1, borderColor: 'divider' }}>
           <Container maxWidth="xl">
-            <Stack direction="row" alignItems="center" sx={{ height: 40 }}>
+            <Stack
+              direction="row"
+              alignItems="center"
+              spacing={5}
+              component="nav"
+              aria-label="Shop"
+              sx={{ height: 52 }}
+            >
               <Typography
                 component={RouterLink}
-                to="/products"
+                to="/products?on_sale=1"
                 sx={{
-                  fontWeight: 600,
-                  color: 'text.primary',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  fontWeight: 700,
+                  color: 'warning.main',
                   textDecoration: 'none',
+                  whiteSpace: 'nowrap',
+                  '&::before': {
+                    content: '""',
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    bgcolor: 'warning.main',
+                    boxShadow: `0 0 0 3px ${alpha(theme.palette.warning.main, 0.2)}`,
+                  },
                 }}
               >
                 Today’s deals
               </Typography>
+              {[NEW_AND_TRENDING, ...categoryLinks.slice(0, 6)].map((c) => (
+                <Typography
+                  key={c.id}
+                  component={RouterLink}
+                  to={c.to}
+                  sx={{
+                    color: 'text.secondary',
+                    textDecoration: 'none',
+                    fontWeight: 500,
+                    whiteSpace: 'nowrap',
+                    '&:hover': { color: 'text.primary' },
+                  }}
+                >
+                  {c.name}
+                </Typography>
+              ))}
               <Box sx={{ flex: 1 }} />
-              <Stack
-                direction="row"
-                spacing={3}
-                component="nav"
-                aria-label="Shop"
+              <Typography
+                component={RouterLink}
+                to="/information/support"
+                sx={{
+                  color: 'text.secondary',
+                  textDecoration: 'none',
+                  fontWeight: 500,
+                  whiteSpace: 'nowrap',
+                  '&:hover': { color: 'text.primary' },
+                }}
               >
-                {LINKS.filter(
-                  (l) => (!l.auth || user) && (shopper || !l.shopper)
-                ).map((l) => (
-                  <Typography
-                    key={l.label}
-                    component={RouterLink}
-                    to={l.to}
-                    variant="body2"
-                    sx={{
-                      color: 'text.primary',
-                      textDecoration: 'none',
-                      fontWeight: 500,
-                      '&:hover': { color: 'primary.main' },
-                    }}
-                  >
-                    {l.label}
-                  </Typography>
-                ))}
-              </Stack>
+                Help center
+              </Typography>
             </Stack>
           </Container>
         </Box>
@@ -461,7 +638,7 @@ const Header = () => {
       <Drawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        PaperProps={{ sx: { width: 300, p: 2 } }}
+        PaperProps={{ sx: { width: 320, p: 2 } }}
       >
         <Stack spacing={2}>
           <Stack
@@ -469,7 +646,7 @@ const Header = () => {
             justifyContent="space-between"
             alignItems="center"
           >
-            <Typography sx={{ fontWeight: 800 }}>{shop.name}</Typography>
+            <BrandMark size={36} fontSize="1.15rem" />
             <IconButton
               aria-label="Close menu"
               onClick={() => setDrawerOpen(false)}
@@ -478,39 +655,54 @@ const Header = () => {
             </IconButton>
           </Stack>
           {searchForm}
-          <Divider />
-          {LINKS.filter(
-            (l) => (!l.auth || user) && (shopper || !l.shopper)
-          ).map((l) => (
-            <Typography
-              key={l.label}
-              component={RouterLink}
-              to={l.to}
-              onClick={() => setDrawerOpen(false)}
-              sx={{
-                color: 'text.primary',
-                textDecoration: 'none',
-                fontWeight: 600,
-              }}
-            >
-              {l.label}
-            </Typography>
-          ))}
+          <Typography
+            component={RouterLink}
+            to="/products?on_sale=1"
+            onClick={() => setDrawerOpen(false)}
+            sx={{
+              color: 'warning.main',
+              fontWeight: 700,
+              textDecoration: 'none',
+            }}
+          >
+            Today’s deals
+          </Typography>
+          <Typography
+            component={RouterLink}
+            to="/products"
+            onClick={() => setDrawerOpen(false)}
+            sx={{
+              color: 'text.primary',
+              fontWeight: 600,
+              textDecoration: 'none',
+            }}
+          >
+            All products
+          </Typography>
           <Divider />
           <Typography variant="overline" color="text.secondary">
             Categories
           </Typography>
-          {topCategories.map((c) => (
+          {[NEW_AND_TRENDING, ...categoryLinks].map((c) => (
             <Typography
               key={c.id}
               component={RouterLink}
-              to={`/products?category=${c.id}`}
+              to={c.to}
               onClick={() => setDrawerOpen(false)}
               sx={{ color: 'text.primary', textDecoration: 'none' }}
             >
               {c.name}
             </Typography>
           ))}
+          <Divider />
+          <Typography
+            component={RouterLink}
+            to="/information/support"
+            onClick={() => setDrawerOpen(false)}
+            sx={{ color: 'text.secondary', textDecoration: 'none' }}
+          >
+            Help center
+          </Typography>
         </Stack>
       </Drawer>
     </AppBar>

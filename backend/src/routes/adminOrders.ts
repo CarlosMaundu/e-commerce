@@ -7,6 +7,7 @@ import { fail, handler, ok, parse } from '../lib/http';
 import { sendOrderStatusEmail } from '../lib/mailer';
 import { addHistory, loadOrder, NEXT_STATUSES, orderLink, restock, statusName, toContractOrder } from '../lib/orders';
 import { PaymentGateway } from '../lib/payments';
+import { attentionCounts, OVERVIEW_PERIODS, storeOverview } from '../lib/overview';
 import { round2 } from '../lib/pricing';
 import { hasPermission } from '../lib/users';
 import { authenticate, requirePermission } from '../middleware/auth';
@@ -14,7 +15,7 @@ import { RETURN_SELECT, toContractReturn } from './orders';
 
 export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null }) => {
   const router = Router();
-  router.use(['/orders', '/orderhistory', '/returns', '/dashboard'], authenticate);
+  router.use(['/orders', '/orderhistory', '/returns', '/dashboard', '/notifications'], authenticate);
 
   router.get('/orders', requirePermission('orders.orders.view'), handler(async (req, res) => {
     const q = parse(
@@ -147,56 +148,27 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
     ok(res, toContractReturn((await query(`${RETURN_SELECT} WHERE r.id = $1`, [row.id])).rows[0]));
   }));
 
-  // Figures for the admin dashboard, computed from real orders.
-  router.get('/dashboard', requirePermission('dashboard.overview.view'), handler(async (_req, res) => {
-    const revenueBetween = async (from: string, to: string) => {
-      const r = (await query(
-        `SELECT COALESCE(sum(total), 0) AS revenue, count(*)::int AS orders FROM orders
-         WHERE placed_at >= ${from} AND placed_at < ${to} AND status NOT IN ('cancelled', 'refunded')`
-      )).rows[0];
-      return { revenue: round2(Number(r.revenue)), orders: r.orders };
-    };
-    const today = await revenueBetween(`date_trunc('day', now())`, `now() + interval '1 second'`);
-    const yesterday = await revenueBetween(`date_trunc('day', now()) - interval '1 day'`, `date_trunc('day', now())`);
-    const month = await revenueBetween(`date_trunc('month', now())`, `now() + interval '1 second'`);
-    const lastMonth = await revenueBetween(
-      `date_trunc('month', now()) - interval '1 month'`,
-      `date_trunc('month', now()) - interval '1 month' + (now() - date_trunc('month', now()))`
-    );
-    const newCustomers = (await query(
-      `SELECT count(*)::int AS n FROM users u JOIN roles r ON r.id = u.role_id
-       WHERE r.code = 'customer' AND u.created_at >= date_trunc('day', now()) - interval '1 day'
-         AND u.created_at < date_trunc('day', now())`
-    )).rows[0].n;
-    const series = (await query(
-      `WITH days AS (SELECT generate_series(date_trunc('day', now()) - interval '29 days', date_trunc('day', now()), interval '1 day') AS d)
-       SELECT to_char(d, 'YYYY-MM-DD') AS date,
-         COALESCE((SELECT sum(total) FROM orders WHERE placed_at >= d AND placed_at < d + interval '1 day' AND status NOT IN ('cancelled','refunded')), 0) AS revenue,
-         COALESCE((SELECT sum(total) FROM orders WHERE placed_at >= d - interval '30 days' AND placed_at < d - interval '29 days' AND status NOT IN ('cancelled','refunded')), 0) AS previous
-       FROM days ORDER BY d`
-    )).rows.map((r) => ({ date: r.date, revenue: round2(Number(r.revenue)), previous: round2(Number(r.previous)) }));
-    const topProducts = (await query(
-      `SELECT p.id, p.name, p.images->>0 AS image, p.quantity AS stock, sum(oi.quantity)::int AS sold, sum(oi.total) AS revenue
-       FROM order_items oi JOIN orders o ON o.id = oi.order_id JOIN products p ON p.id = oi.product_id
-       WHERE o.placed_at IS NOT NULL AND o.status NOT IN ('cancelled','refunded')
-       GROUP BY p.id ORDER BY sold DESC LIMIT 6`
-    )).rows.map((r) => ({ product_id: r.id, name: r.name, image: r.image || '', stock: r.stock, sold: r.sold, revenue: round2(Number(r.revenue)) }));
-    const recentOrders = (await query(
-      `SELECT o.*, TRIM(COALESCE(u.firstname,'') || ' ' || COALESCE(u.lastname,'')) AS customer_name,
-         (SELECT COALESCE(sum(quantity),0)::int FROM order_items WHERE order_id = o.id) AS item_count
-       FROM orders o LEFT JOIN users u ON u.id = o.user_id WHERE o.placed_at IS NOT NULL
-       ORDER BY o.placed_at DESC LIMIT 6`
-    )).rows.map((o) => toContractOrder(o, [], [], { admin: true }));
-    const counts = (await query(
-      `SELECT
-         (SELECT count(*)::int FROM orders WHERE status IN ('pending','processing')) AS to_fulfil,
-         (SELECT count(*)::int FROM products WHERE quantity <= 5) AS low_stock,
-         (SELECT count(*)::int FROM returns WHERE status = 'requested') AS open_returns,
-         (SELECT count(*)::int FROM users u JOIN roles r ON r.id = u.role_id WHERE r.code = 'customer') AS customers`
-    )).rows[0];
+  // The back-office "Store overview": GET /admin/dashboard?days=7|30|90.
+  router.get('/dashboard', requirePermission('dashboard.overview.view'), handler(async (req, res) => {
+    const days = Number(req.query.days) || 30;
+    if (!(OVERVIEW_PERIODS as readonly number[]).includes(days)) fail(400, 'Please choose 7, 30 or 90 days.');
+    ok(res, await storeOverview(days));
+  }));
+
+  // Counts for the back-office bell and the Orders badge; each one only for
+  // staff who may see that area.
+  router.get('/notifications', handler(async (req, res) => {
+    const user = req.auth!.permissions;
+    const c = await attentionCounts();
+    const orders = hasPermission(user, 'orders.orders.view');
+    const returns = hasPermission(user, 'orders.returns.view');
+    const stock = hasPermission(user, 'catalog.products.view');
     ok(res, {
-      today, yesterday: { ...yesterday, new_customers: newCustomers }, month, last_month_to_date: lastMonth,
-      revenue_series: series, top_products: topProducts, recent_orders: recentOrders, counts,
+      to_fulfil: orders ? c.to_fulfil : null,
+      delayed: orders ? c.delayed : null,
+      open_returns: returns ? c.open_returns : null,
+      low_stock: stock ? c.low_stock : null,
+      out_of_stock: stock ? c.out_of_stock : null,
     });
   }));
 

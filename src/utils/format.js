@@ -6,6 +6,18 @@ export const formatMoney = (value, code = currency) =>
     Number(value || 0)
   );
 
+/** Short money for big figures: $6.28M, $753K; exact below 10,000. */
+export const formatMoneyCompact = (value, code = currency) => {
+  const n = Number(value || 0);
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: code,
+    ...(Math.abs(n) >= 10000
+      ? { notation: 'compact', maximumFractionDigits: 2 }
+      : { maximumFractionDigits: 0 }),
+  }).format(n);
+};
+
 export const formatDate = (value, options = {}) =>
   value
     ? new Intl.DateTimeFormat('en-US', {

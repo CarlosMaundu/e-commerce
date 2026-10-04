@@ -9,7 +9,7 @@ import { audit } from '../lib/audit';
 import { fail, handler, ok, parse } from '../lib/http';
 import { IMPERSONATION_MINUTES, revokeAllSessions, revokeSession, startImpersonation } from '../lib/sessions';
 import { getSettings, saveSettings, settingsSchema } from '../lib/settings';
-import { getStore, saveStore, storeSchema } from '../lib/store';
+import { getStore, mergeHero, saveStore, storeSchema } from '../lib/store';
 import { findUserById, permissionsForRole, UserRow } from '../lib/users';
 import { authenticate, notWhileImpersonating, requirePermission } from '../middleware/auth';
 
@@ -338,7 +338,12 @@ export const adminSecurityRoutes = () => {
     handler(async (req, res) => {
       const current = await getStore();
       const body = req.body || {};
-      const merged = parse(storeSchema, { ...current, ...body, social: { ...current.social, ...(body.social || {}) } });
+      const merged = parse(storeSchema, {
+        ...current,
+        ...body,
+        social: { ...current.social, ...(body.social || {}) },
+        hero: mergeHero(current.hero, body.hero),
+      });
       await saveStore(merged, req.auth!.userId);
       audit(req, 'admin.store_settings_updated', 'store_settings', { fields: Object.keys(body) });
       ok(res, { settings: merged });

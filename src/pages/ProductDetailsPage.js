@@ -61,7 +61,7 @@ const Gallery = ({ images, title }) => {
   const current = images[index] || images[0];
   return (
     <Stack direction={{ xs: 'column-reverse', md: 'row' }} spacing={1.5}>
-      {images.length > 1 && (
+      {images.length > 0 && (
         <Stack
           direction={{ xs: 'row', md: 'column' }}
           spacing={1}

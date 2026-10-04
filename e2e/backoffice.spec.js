@@ -128,7 +128,7 @@ test('staff don’t shop, but can view the shop as a customer and come back', as
     .click();
   const banner = page.getByTestId('impersonation-banner');
   await expect(banner).toContainText('You’re viewing the shop as Cam Customer');
-  await expect(page.getByText('Hi, Cam Customer')).toBeVisible();
+  await expect(page.getByText('Hi, Cam')).toBeVisible();
 
   await page.goto('/products?search=Canvas tote');
   await page
@@ -277,11 +277,14 @@ test('store settings rename the shop everywhere and add an announcement', async 
 }) => {
   await signInAdmin(page);
   await page.goto('/admin/settings');
+  await expect(page.getByLabel('Shop name')).toBeDisabled();
+  await page.getByRole('button', { name: 'Edit settings' }).click();
   await page.getByLabel('Shop name').fill('Nyota Market');
   await page.getByLabel('Announcement bar').fill('Free delivery this week');
   await page.getByLabel('Instagram').fill('https://instagram.com/nyotamarket');
   await page.getByRole('button', { name: 'Save changes' }).click();
   await expect(toast(page)).toHaveText('Store settings saved.');
+  await expect(page.getByLabel('Shop name')).toBeDisabled();
 
   await page.goto('/');
   await expect(
@@ -293,4 +296,27 @@ test('store settings rename the shop everywhere and add an announcement', async 
     'https://instagram.com/nyotamarket'
   );
   await expect(page).toHaveTitle(/Nyota Market/);
+});
+
+test('the store overview loads its figures and the header search finds products', async ({
+  page,
+}) => {
+  await signInAdmin(page);
+  await expect(page.getByTestId('admin-page-title')).toHaveText(
+    'Store overview'
+  );
+  for (const id of [
+    'kpi-revenue',
+    'kpi-orders',
+    'kpi-customers',
+    'kpi-conversion',
+  ])
+    await expect(page.getByTestId(id)).toBeVisible();
+  await page.getByLabel('Period').click();
+  await page.getByRole('option', { name: '7 days' }).click();
+  await expect(page.getByText('Share of net sales in 7 days')).toBeVisible();
+
+  await page.getByLabel('Search the back office').fill('iPhone');
+  await page.getByRole('menuitem', { name: /Apple iPhone 14/ }).click();
+  await expect(page).toHaveURL(/\/admin\/products\/\d+$/);
 });

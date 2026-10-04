@@ -39,6 +39,10 @@ const theme = createTheme({
     divider: line,
     background: { default: '#FFFFFF', paper: '#FFFFFF', neutral, neutralDeep },
     promo: { main: '#FFF1E6', text: '#7A3C0A', accent: '#F27A1A' },
+    // Warm yellow for highlights (hero side card, account avatar).
+    highlight: { main: '#F8DE72', light: '#FDF4CF', contrastText: ink },
+    // Deep surface for dark cards (hero member card, help card).
+    ink: { main: ink, light: '#2A3236', contrastText: '#fff' },
   },
   shape: { borderRadius: RADIUS },
   typography: {

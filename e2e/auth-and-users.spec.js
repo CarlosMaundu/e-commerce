@@ -63,7 +63,7 @@ test('sign up creates the account, signs in, and survives a reload', async ({
   await page.getByRole('button', { name: /create account/i }).click();
 
   await expect(toast(page)).toContainText('Your account has been created');
-  await expect(page.getByText('Hi, Grace Hopper')).toBeVisible();
+  await expect(page.getByText('Hi, Grace')).toBeVisible();
   expect(await userRow('grace@example.com')).toMatchObject({
     role: 'customer',
     firstname: 'Grace',
@@ -71,7 +71,7 @@ test('sign up creates the account, signs in, and survives a reload', async ({
 
   // Access token is in memory only; the httpOnly cookie restores the session.
   await page.reload();
-  await expect(page.getByText('Hi, Grace Hopper')).toBeVisible();
+  await expect(page.getByText('Hi, Grace')).toBeVisible();
   const cookies = await page.context().cookies();
   expect(cookies.find((c) => c.name === 'cs_refresh')).toMatchObject({
     httpOnly: true,
@@ -97,15 +97,16 @@ test('signing out ends the session for good', async ({ page }) => {
     lastname: 'Doe',
   });
   await login(page, 'jane@example.com');
-  await expect(page.getByText('Hi, Jane Doe')).toBeVisible();
+  await expect(page.getByText('Hi, Jane')).toBeVisible();
   await page.getByRole('button', { name: 'User account' }).click();
-  await page.getByRole('menuitem', { name: 'Logout' }).click();
+  await page.getByRole('menuitem', { name: 'Sign out' }).click();
   await expect(toast(page)).toHaveText('You’ve been signed out.');
   await page.reload();
   await expect(
     page
-      .getByRole('button', { name: 'Login' })
-      .or(page.getByRole('link', { name: 'Login' }))
+      .getByRole('button', { name: 'Sign in' })
+      .or(page.getByRole('link', { name: 'Sign in' }))
+      .first()
   ).toBeVisible();
 });
 
@@ -128,7 +129,7 @@ test('forgot password: the emailed link sets a new password', async ({
 
   const page2 = await freshPage();
   await login(page2, 'forgot@example.com', 'N3w!Password');
-  await expect(page2.getByText('Hi, For Got')).toBeVisible();
+  await expect(page2.getByText('Hi, For')).toBeVisible();
 });
 
 test('a used or bogus reset link is explained', async ({ page }) => {
@@ -149,10 +150,10 @@ test('profile password change signs out other devices', async ({
   });
   const phone = await freshPage();
   await login(phone, 'pat@example.com');
-  await expect(phone.getByText('Hi, Pat Change')).toBeVisible();
+  await expect(phone.getByText('Hi, Pat')).toBeVisible();
 
   await login(page, 'pat@example.com');
-  await expect(page.getByText('Hi, Pat Change')).toBeVisible();
+  await expect(page.getByText('Hi, Pat')).toBeVisible();
   await page.goto('/account/security');
   await page.locator('input[name="currentPassword"]').fill(PASSWORD);
   await page.locator('input[name="newPassword"]').fill('An0ther!Pass');
@@ -164,11 +165,11 @@ test('profile password change signs out other devices', async ({
 
   // The other device's session was revoked.
   await phone.reload();
-  await expect(phone.getByText('Hi, Pat Change')).toHaveCount(0);
+  await expect(phone.getByText('Hi, Pat')).toHaveCount(0);
 
   const again = await freshPage();
   await login(again, 'pat@example.com', 'An0ther!Pass');
-  await expect(again.getByText('Hi, Pat Change')).toBeVisible();
+  await expect(again.getByText('Hi, Pat')).toBeVisible();
 });
 
 test('wrong current password is explained', async ({ page }) => {
@@ -178,7 +179,7 @@ test('wrong current password is explained', async ({ page }) => {
     lastname: 'Wrong',
   });
   await login(page, 'lee@example.com');
-  await expect(page.getByText('Hi, Lee Wrong')).toBeVisible();
+  await expect(page.getByText('Hi, Lee')).toBeVisible();
   await page.goto('/account/security');
   await page.locator('input[name="currentPassword"]').fill('incorrect');
   await page.locator('input[name="newPassword"]').fill('An0ther!Pass');
@@ -242,7 +243,7 @@ test.describe('admin user management', () => {
     });
     const camPage = await freshPage();
     await login(camPage, 'cam@example.com');
-    await expect(camPage.getByText('Hi, Cam Customer')).toBeVisible();
+    await expect(camPage.getByText('Hi, Cam')).toBeVisible();
 
     await signInAsAdmin(page);
     await page
@@ -262,7 +263,7 @@ test.describe('admin user management', () => {
     await expect(row).toContainText('Suspended');
 
     await camPage.reload();
-    await expect(camPage.getByText('Hi, Cam Customer')).toHaveCount(0);
+    await expect(camPage.getByText('Hi, Cam')).toHaveCount(0);
     await login(camPage, 'cam@example.com');
     await expect(toast(camPage)).toHaveText(
       'This account has been suspended. Please contact support.'
@@ -322,7 +323,7 @@ test.describe('admin user management', () => {
       lastname: 'Tomer',
     });
     await login(page, 'cus@example.com');
-    await expect(page.getByText('Hi, Cus Tomer')).toBeVisible();
+    await expect(page.getByText('Hi, Cus')).toBeVisible();
     await page.goto('/admin/users');
     await expect(page).toHaveURL(/\/$/);
     // The old profile link redirects to /admin/users, which is guarded too.
@@ -334,6 +335,8 @@ test.describe('admin user management', () => {
     await expect(
       page.getByRole('menuitem', { name: 'My orders' })
     ).toBeVisible();
-    await expect(page.getByRole('menuitem', { name: 'Admin' })).toHaveCount(0);
+    await expect(
+      page.getByRole('menuitem', { name: 'Open back office' })
+    ).toHaveCount(0);
   });
 });

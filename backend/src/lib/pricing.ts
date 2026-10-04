@@ -52,7 +52,7 @@ export const SHIPPING_METHODS = () => [
 
 export const PAYMENT_METHODS = () => [
   { code: 'cod', title: 'Cash on delivery', description: 'Pay when your order arrives.' },
-  ...(config.stripe.secretKey
+  ...(config.stripe.secretKey && config.stripe.publishableKey
     ? [{
         code: 'stripe',
         title: 'Credit or debit card',

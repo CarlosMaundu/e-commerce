@@ -70,7 +70,7 @@ const ImageField = ({
             <FiImage size={24} />
           )}
         </Box>
-        <Stack spacing={1}>
+        <Stack spacing={1} className="image-field-actions">
           <Button
             size="small"
             variant="outlined"

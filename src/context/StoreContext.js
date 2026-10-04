@@ -11,7 +11,6 @@ import React, {
 } from 'react';
 import PropTypes from 'prop-types';
 import { store as storeApi } from '../api';
-import defaultLogo from '../images/logo.png';
 
 export const DEFAULT_STORE = {
   name: 'Carlos Shop',
@@ -24,11 +23,33 @@ export const DEFAULT_STORE = {
   footerText: '',
   announcement: '',
   social: { facebook: '', instagram: '', x: '', tiktok: '' },
+  hero: {
+    main: {
+      eyebrow: 'Weekend drop · 20% off',
+      title: 'Finds that feel like you.',
+      text: 'Fresh tech, everyday essentials and standout style — all in one place, picked for real life.',
+      ctaLabel: 'Shop today’s edit',
+      link: '/products?on_sale=1',
+      image: '',
+    },
+    side: {
+      eyebrow: 'Sound, upgraded',
+      title: 'Your new favourite headphones',
+      link: '/products?search=headphones',
+      image: '',
+    },
+    member: {
+      eyebrow: 'Member perks',
+      title: 'More perks. Zero fuss.',
+      text: 'Early access, member pricing and free express delivery.',
+      link: '/signup',
+    },
+  },
 };
 
 const StoreContext = createContext({
   ...DEFAULT_STORE,
-  logoUrl: defaultLogo,
+  logoUrl: '',
   loaded: false,
   reload: () => {},
 });
@@ -51,7 +72,13 @@ export const StoreProvider = ({ children }) => {
     () =>
       storeApi
         .get()
-        .then((s) => setSettings({ ...DEFAULT_STORE, ...s }))
+        .then((s) =>
+          setSettings({
+            ...DEFAULT_STORE,
+            ...s,
+            hero: s.hero || DEFAULT_STORE.hero,
+          })
+        )
         .catch(() => {})
         .finally(() => setLoaded(true)),
     []
@@ -71,7 +98,7 @@ export const StoreProvider = ({ children }) => {
   const value = useMemo(
     () => ({
       ...settings,
-      logoUrl: settings.logo || defaultLogo,
+      logoUrl: settings.logo,
       loaded,
       reload,
     }),

@@ -32,9 +32,11 @@ async function login(page, email, greeting) {
   await page.getByLabel('Email Address').fill(email);
   await page.locator('input[name="password"]').fill(PASSWORD);
   await page.getByRole('button', { name: /^sign in$/i }).click();
-  // Customers see "Hi, Name" in the shop; staff land in the back office.
+  await expect(page).not.toHaveURL(/\/login/);
+  // Customers see "Hi, First" in the shop; staff see their name in the
+  // back office. Either way the first name shows.
   await expect(
-    page.getByText(greeting.replace(/^Hi, /, '')).first()
+    page.getByText(greeting.replace(/^Hi, /, '').split(' ')[0]).first()
   ).toBeVisible();
 }
 

@@ -18,6 +18,37 @@ const link = z
   .max(500)
   .refine((v) => v === '' || /^https:\/\/\S+$/i.test(v), { message: 'Please enter a full https:// link.' });
 
+// A link inside the shop ("/products?on_sale=1") or a full https:// URL.
+const target = z
+  .string()
+  .trim()
+  .max(500)
+  .refine((v) => v === '' || /^\/(?!\/)\S*$/.test(v) || /^https:\/\/\S+$/i.test(v), {
+    message: 'Please use a shop link starting with / or a full https:// link.',
+  });
+const text = (max: number) => z.string().trim().max(max).default('');
+
+const heroSchema = z
+  .object({
+    main: z
+      .object({
+        eyebrow: text(60),
+        title: text(80),
+        text: text(200),
+        cta_label: text(40),
+        link: target.default(''),
+        image: image.default(''),
+      })
+      .default({}),
+    side: z
+      .object({ eyebrow: text(60), title: text(60), link: target.default(''), image: image.default('') })
+      .default({}),
+    member: z
+      .object({ eyebrow: text(60), title: text(60), text: text(160), link: target.default('') })
+      .default({}),
+  })
+  .default({});
+
 export const storeSchema = z.object({
   name: z.string().trim().min(1, 'Please enter the shop’s name.').max(80),
   tagline: z.string().trim().max(160).default(''),
@@ -31,6 +62,7 @@ export const storeSchema = z.object({
   social: z
     .object({ facebook: link.default(''), instagram: link.default(''), x: link.default(''), tiktok: link.default('') })
     .default({}),
+  hero: heroSchema,
 });
 
 export type StoreSettings = z.output<typeof storeSchema>;
@@ -46,11 +78,37 @@ export const DEFAULT_STORE: StoreSettings = {
   footer_text: '',
   announcement: '',
   social: { facebook: '', instagram: '', x: '', tiktok: '' },
+  // Home-page hero; empty images fall back to the app's own photos.
+  hero: {
+    main: {
+      eyebrow: 'Weekend drop · 20% off',
+      title: 'Finds that feel like you.',
+      text: 'Fresh tech, everyday essentials and standout style — all in one place, picked for real life.',
+      cta_label: 'Shop today’s edit',
+      link: '/products?on_sale=1',
+      image: '',
+    },
+    side: { eyebrow: 'Sound, upgraded', title: 'Your new favourite headphones', link: '/products?search=headphones', image: '' },
+    member: {
+      eyebrow: 'Member perks',
+      title: 'More perks. Zero fuss.',
+      text: 'Early access, member pricing and free express delivery.',
+      link: '/signup',
+    },
+  },
 };
+
+/** Section-by-section merge, so saving one hero field keeps the others. */
+export const mergeHero = (base: StoreSettings['hero'], patch?: Partial<Record<keyof StoreSettings['hero'], object>>) => ({
+  main: { ...base.main, ...(patch?.main || {}) },
+  side: { ...base.side, ...(patch?.side || {}) },
+  member: { ...base.member, ...(patch?.member || {}) },
+});
 
 export const getStore = async (): Promise<StoreSettings> => {
   const row = (await query('SELECT settings FROM store_settings WHERE id = 1')).rows[0];
-  const parsed = storeSchema.safeParse({ ...DEFAULT_STORE, ...(row?.settings || {}) });
+  const saved = row?.settings || {};
+  const parsed = storeSchema.safeParse({ ...DEFAULT_STORE, ...saved, hero: mergeHero(DEFAULT_STORE.hero, saved.hero) });
   return parsed.success ? parsed.data : DEFAULT_STORE;
 };
 
