@@ -20,6 +20,13 @@ export const sendPasswordResetEmail = (to: string, link: string) =>
     `We received a request to reset your password.\n\nChoose a new password here (the link expires in ${config.resetTokenMinutes} minutes):\n${link}\n\nIf you didn't ask for this, you can ignore this email.`
   );
 
+export const sendVerificationEmail = (to: string, name: string, link: string) =>
+  send(
+    to,
+    'Confirm your Carlos Shop email address',
+    `Hi ${name || 'there'},\n\nPlease confirm your email address to finish setting up your account (the link expires in 24 hours):\n${link}\n\nIf you didn't create an account, you can ignore this email.`
+  );
+
 export const sendAccountSetupEmail = (to: string, name: string, link: string) =>
   send(
     to,
@@ -32,18 +39,18 @@ const orderLines = (items: { name: string; quantity: number; total: number }[]) 
 
 export const sendOrderConfirmationEmail = (
   to: string,
-  order: { id: number; total: number; currency: string; items: { name: string; quantity: number; total: number }[] },
+  order: { number: string; total: number; currency: string; items: { name: string; quantity: number; total: number }[] },
   link: string
 ) =>
   send(
     to,
-    `Your Carlos Shop order #${order.id}`,
+    `Your Carlos Shop order ${order.number}`,
     `Thank you for your order.\n\n${orderLines(order.items)}\n\nTotal: ${order.total.toFixed(2)} ${order.currency}\n\nTrack it here: ${link}`
   );
 
-export const sendOrderStatusEmail = (to: string, orderId: number, statusLabel: string, comment: string, link: string) =>
+export const sendOrderStatusEmail = (to: string, orderNumber: string, statusLabel: string, comment: string, link: string) =>
   send(
     to,
-    `Order #${orderId} is now ${statusLabel.toLowerCase()}`,
-    `Your order #${orderId} is now ${statusLabel.toLowerCase()}.${comment ? `\n\n${comment}` : ''}\n\nDetails: ${link}`
+    `Order ${orderNumber} is now ${statusLabel.toLowerCase()}`,
+    `Your order ${orderNumber} is now ${statusLabel.toLowerCase()}.${comment ? `\n\n${comment}` : ''}\n\nDetails: ${link}`
   );

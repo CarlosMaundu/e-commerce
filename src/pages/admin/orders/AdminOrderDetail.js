@@ -206,7 +206,7 @@ const AdminOrderDetail = () => {
         crumbs={[
           { label: 'Home', to: '/admin' },
           { label: 'Orders', to: '/admin/orders' },
-          { label: `#${order.id}`, to: `/admin/orders/${order.id}` },
+          { label: order.number, to: `/admin/orders/${order.id}` },
         ]}
         title={
           <Stack
@@ -217,7 +217,7 @@ const AdminOrderDetail = () => {
             useFlexGap
             component="span"
           >
-            <span>Order #{order.id}</span>
+            <span>Order {order.number}</span>
             <StatusChip status={order.status} label={order.statusName} />
             {invoice && <Pill label={invLabel} tone={invTone} />}
           </Stack>
@@ -341,9 +341,25 @@ const AdminOrderDetail = () => {
                               Print on the packing slip: “{item.gift.message}”
                             </Typography>
                           )}
-                          {item.gift.giftBox && (
+                          {item.gift.box && (
                             <Typography component="li" variant="body2">
-                              Wrap it in a gift box.
+                              Wrap it in the{' '}
+                              <strong>{item.gift.box.name}</strong>.
+                              {item.gift.box.image && (
+                                <Box
+                                  component="img"
+                                  src={item.gift.box.image}
+                                  alt=""
+                                  sx={{
+                                    display: 'block',
+                                    mt: 0.5,
+                                    width: 56,
+                                    height: 56,
+                                    objectFit: 'cover',
+                                    borderRadius: '8px',
+                                  }}
+                                />
+                              )}
                             </Typography>
                           )}
                           <Typography component="li" variant="body2">

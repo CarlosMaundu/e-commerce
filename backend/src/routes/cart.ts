@@ -5,8 +5,8 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { query } from '../db';
 import { fail, handler, ok, parse } from '../lib/http';
-import { computeTotals, couponProblem, findCoupon, loadCartLines } from '../lib/pricing';
-import { delivery } from '../lib/delivery';
+import { computeTotals, couponProblem, findCoupon, GiftChoice, giftBoxOf, loadCartLines } from '../lib/pricing';
+import { delivery, giftBoxes } from '../lib/delivery';
 import { authenticate, customersOnly } from '../middleware/auth';
 import { hydrate, PRODUCT_SELECT, ProductRow, resolveItem } from '../lib/products';
 
@@ -32,7 +32,7 @@ export const buildCart = async (userId: number) => {
   const coupon = state.coupon_code ? await findCoupon(state.coupon_code) : undefined;
   const totals = computeTotals(lines, coupon, state.shipping_method || null);
   return {
-    products: lines.map((l) => ({ ...l, in_stock: l.stock >= l.quantity })),
+    products: lines.map((l) => ({ ...l, gift: giftContract(l.gift), in_stock: l.stock >= l.quantity })),
     item_count: lines.reduce((s, l) => s + l.quantity, 0),
     coupon: totals.coupon,
     coupon_problem: totals.coupon_problem,
@@ -43,17 +43,25 @@ export const buildCart = async (userId: number) => {
   };
 };
 
-const giftOptions = () => {
-  const g = delivery().gift;
-  return { enabled: g.enabled, box_price: g.box_price, box_description: g.box_description };
+/** A cart line's gift with its box details. */
+const giftContract = (g: GiftChoice | null | undefined) => {
+  if (!g) return null;
+  const box = giftBoxOf(g);
+  return { to: g.to, from: g.from, message: g.message || '', box: box ? { id: box.id, name: box.name, price: box.price, image: box.image } : null };
 };
+
+const giftOptions = () => ({
+  enabled: delivery().gift.enabled,
+  boxes: giftBoxes().map(({ id, name, price, image, description }) => ({ id, name, price, image, description })),
+});
 
 const giftSchema = z
   .object({
     to: z.string().trim().min(1, 'Please say who the gift is for.').max(60, 'Keep the name under 60 characters.'),
     from: z.string().trim().min(1, 'Please say who the gift is from.').max(60, 'Keep the name under 60 characters.'),
     message: z.string().trim().max(60, 'Gift messages can be up to 60 characters.').default(''),
-    gift_box: z.coerce.boolean().default(false),
+    // Which gift box, if any (see Delivery options → Gift options).
+    box_id: z.string().trim().max(40).nullable().default(null),
   })
   .nullable();
 
@@ -133,6 +141,9 @@ export const cartRoutes = () => {
     handler(async (req, res) => {
       const gift = parse(giftSchema, req.body?.gift ?? null);
       if (gift && !delivery().gift.enabled) fail(400, 'Gift options aren’t available right now.');
+      if (gift?.box_id && !giftBoxes().some((b) => b.id === gift.box_id)) {
+        fail(400, 'That gift box isn’t available any more. Please choose another.');
+      }
       const { rowCount } = await query('UPDATE cart_items SET gift = $3::jsonb WHERE id = $1 AND user_id = $2', [
         Number(req.params.key), req.auth!.userId, gift ? JSON.stringify(gift) : null,
       ]) as any;

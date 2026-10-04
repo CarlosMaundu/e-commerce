@@ -32,6 +32,7 @@ import {
   FiChevronUp,
   FiGrid,
   FiHeart,
+  FiArrowLeft,
   FiMenu,
   FiSearch,
   FiShoppingBag,
@@ -371,15 +372,26 @@ const Header = () => {
           spacing={{ xs: 1, md: 3 }}
           sx={{ minHeight: { xs: 64, md: 84 } }}
         >
-          {isMobile && (
-            <IconButton
-              aria-label="Open menu"
-              onClick={() => setDrawerOpen(true)}
-              sx={squareButtonSx}
-            >
-              <FiMenu />
-            </IconButton>
-          )}
+          {isMobile &&
+            (location.pathname === '/' ? (
+              <IconButton
+                aria-label="Open menu"
+                onClick={() => setDrawerOpen(true)}
+                sx={squareButtonSx}
+              >
+                <FiMenu />
+              </IconButton>
+            ) : (
+              <IconButton
+                aria-label="Back"
+                onClick={() =>
+                  window.history.length > 1 ? navigate(-1) : navigate('/')
+                }
+                sx={squareButtonSx}
+              >
+                <FiArrowLeft />
+              </IconButton>
+            ))}
           <Box
             component={RouterLink}
             to="/"
@@ -431,7 +443,7 @@ const Header = () => {
             alignItems="center"
             sx={{ flexShrink: 0 }}
           >
-            {shopper && (
+            {shopper && !isMobile && (
               <IconButton
                 component={RouterLink}
                 to="/wishlist"
@@ -443,7 +455,7 @@ const Header = () => {
                 </Badge>
               </IconButton>
             )}
-            {shopper && (
+            {shopper && !isMobile && (
               <IconButton
                 component={RouterLink}
                 to="/cart"
@@ -519,6 +531,24 @@ const Header = () => {
                     <Typography variant="caption">{user.email}</Typography>
                   </Box>
                   <Divider sx={{ mx: 2 }} />
+                  <MenuItem
+                    component={RouterLink}
+                    to={shopper ? '/account/profile' : '/admin/profile'}
+                    onClick={closeUserMenu}
+                    sx={{ px: 2.5, py: 1.25 }}
+                  >
+                    Profile
+                  </MenuItem>
+                  {shopper && (
+                    <MenuItem
+                      component={RouterLink}
+                      to="/account"
+                      onClick={closeUserMenu}
+                      sx={{ px: 2.5, py: 1.25 }}
+                    >
+                      Account
+                    </MenuItem>
+                  )}
                   {shopper && (
                     <MenuItem
                       component={RouterLink}
@@ -529,14 +559,6 @@ const Header = () => {
                       My orders
                     </MenuItem>
                   )}
-                  <MenuItem
-                    component={RouterLink}
-                    to={shopper ? '/account/profile' : '/admin/profile'}
-                    onClick={closeUserMenu}
-                    sx={{ px: 2.5, py: 1.25 }}
-                  >
-                    Account settings
-                  </MenuItem>
                   {isStaff(user) && (
                     <MenuItem
                       component={RouterLink}
@@ -562,6 +584,11 @@ const Header = () => {
             )}
           </Stack>
         </Stack>
+        {/* Phones: search under the bar on the home and product pages. */}
+        {isMobile &&
+          (location.pathname === '/' || location.pathname === '/products') && (
+            <Box sx={{ pb: 1.5 }}>{searchForm}</Box>
+          )}
       </Container>
 
       {!isMobile && (

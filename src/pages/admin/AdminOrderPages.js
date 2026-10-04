@@ -211,7 +211,7 @@ export const AdminOrdersPage = () => {
             value={search}
             onChange={setSearch}
             onSubmit={() => setFilter('search', search.trim())}
-            placeholder="Search order #, customer or email"
+            placeholder="Search order number, customer or email"
             label="Search orders"
           />
           <Box sx={{ flex: 1 }} />
@@ -396,7 +396,7 @@ export const AdminOrdersPage = () => {
                         underline="hover"
                         sx={{ fontWeight: 600 }}
                       >
-                        #{o.id}
+                        {o.number}
                       </Link>
                     </TableCell>
                     <TableCell sx={{ whiteSpace: 'nowrap' }}>
@@ -717,7 +717,7 @@ export const AdminReturnsPage = () => {
                             variant="caption"
                             underline="hover"
                           >
-                            Order #{r.orderId}
+                            {r.orderNumber}
                           </Link>
                         </Box>
                       </Stack>

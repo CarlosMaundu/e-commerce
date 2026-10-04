@@ -12,8 +12,6 @@ export const INFORMATION_PAGES = [
   { slug: 'faq', title: 'Frequently asked questions', body: null },
   { slug: 'support', title: 'Support', body: null },
   { slug: 'documentation', title: 'Documentation', body: null },
-  { slug: 'terms', title: 'Terms and conditions', body: null },
-  { slug: 'privacy', title: 'Privacy policy', body: null },
 ];
 
 export const getInformationPage = (slug) =>

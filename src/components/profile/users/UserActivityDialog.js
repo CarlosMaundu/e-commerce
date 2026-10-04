@@ -1,5 +1,6 @@
 // src/components/profile/users/UserActivityDialog.js — a user's recent
 // activity and active sessions (the portal's UserActivityDialog, simplified).
+import { PagedList } from '../../admin/DataTable';
 import React, { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import {
@@ -66,12 +67,18 @@ const UserActivityDialog = ({ user, onClose }) => {
           />
         </Tabs>
         {tab === 'activity' ? (
-          <ActivityList activity={data?.activity} />
+          <PagedList rows={data?.activity} label="events" padded>
+            {(rows) => <ActivityList activity={rows} />}
+          </PagedList>
         ) : (
-          <SessionsTable
-            sessions={data?.sessions}
-            emptyText="Not signed in anywhere."
-          />
+          <PagedList rows={data?.sessions} label="sessions">
+            {(rows) => (
+              <SessionsTable
+                sessions={rows}
+                emptyText="Not signed in anywhere."
+              />
+            )}
+          </PagedList>
         )}
       </DialogContent>
       <DialogActions>

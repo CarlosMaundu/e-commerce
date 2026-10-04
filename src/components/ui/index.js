@@ -107,6 +107,7 @@ export const StatTile = ({
   label,
   onClick,
   color = 'primary',
+  card = false,
 }) => {
   const theme = useTheme();
   return (
@@ -116,7 +117,10 @@ export const StatTile = ({
       tabIndex={onClick ? 0 : undefined}
       onKeyDown={onClick ? (e) => e.key === 'Enter' && onClick() : undefined}
       sx={{
-        bgcolor: 'background.neutral',
+        bgcolor: card ? 'background.paper' : 'background.neutral',
+        border: card ? 1 : 0,
+        borderColor: 'divider',
+        boxShadow: card ? '0 1px 2px rgba(27,33,36,0.04)' : 'none',
         borderRadius: 1,
         p: 2.5,
         cursor: onClick ? 'pointer' : 'default',
@@ -158,6 +162,7 @@ StatTile.propTypes = {
   label: PropTypes.node.isRequired,
   onClick: PropTypes.func,
   color: PropTypes.string,
+  card: PropTypes.bool,
 };
 
 export const EmptyState = ({ icon, title, children, action }) => (

@@ -1,5 +1,6 @@
 // src/routes/catalog.ts — storefront catalog, brands, reviews, promotions and
 // newsletter (OpenCart routes plus documented extensions).
+import { getRefundSettings } from '../lib/refunds';
 import { Router } from 'express';
 import { z } from 'zod';
 import { query, transaction } from '../db';
@@ -369,7 +370,17 @@ export const catalogRoutes = () => {
     '/store',
     handler(async (_req, res) => {
       res.set('Cache-Control', 'no-cache');
-      ok(res, { ...(await getStore()), finance: publicFinance() });
+      // Return rules for the Refund & Return Policy page.
+      const r = await getRefundSettings();
+      ok(res, {
+        ...(await getStore()),
+        finance: publicFinance(),
+        returns: {
+          window_days: r.return_window_days,
+          refund_delivery: r.refund_delivery,
+          restocking_fee_percent: r.restocking_fee_percent,
+        },
+      });
     })
   );
 

@@ -28,7 +28,7 @@ const GiftNote = ({ gift, sx }) => {
       </Box>
       <Typography variant="body2" component="div">
         <strong>Gift</strong> for {gift.to} from {gift.from}
-        {gift.giftBox ? ' · in a gift box' : ''}
+        {gift.box ? ` · in a ${gift.box.name.toLowerCase()}` : ''}
         {gift.message && (
           <Box component="span" sx={{ display: 'block', fontStyle: 'italic' }}>
             “{gift.message}”
@@ -44,7 +44,7 @@ GiftNote.propTypes = {
     to: PropTypes.string,
     from: PropTypes.string,
     message: PropTypes.string,
-    giftBox: PropTypes.bool,
+    box: PropTypes.object,
   }),
   sx: PropTypes.object,
 };

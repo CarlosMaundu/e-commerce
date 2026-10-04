@@ -167,7 +167,7 @@ export const storeOverview = async (days: number) => {
 
   const recentOrders = (
     await query(
-      `SELECT o.id, o.placed_at, o.total, o.status, o.payment_status, o.user_id,
+      `SELECT o.id, o.number, o.placed_at, o.total, o.status, o.payment_status, o.user_id,
          TRIM(COALESCE(u.firstname, '') || ' ' || COALESCE(u.lastname, '')) AS customer_name,
          (SELECT name FROM order_items WHERE order_id = o.id ORDER BY id LIMIT 1) AS first_item,
          (SELECT count(*) FROM order_items WHERE order_id = o.id)::int AS lines
@@ -176,6 +176,7 @@ export const storeOverview = async (days: number) => {
     )
   ).rows.map((o) => ({
     order_id: o.id,
+    order_number: o.number,
     placed_at: o.placed_at,
     total: round2(Number(o.total)),
     status: o.status,

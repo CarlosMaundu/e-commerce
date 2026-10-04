@@ -2,7 +2,7 @@
 // the server. The browser only displays these numbers.
 import { config } from '../config';
 import { query } from '../db';
-import { delivery } from './delivery';
+import { delivery, findGiftBox } from './delivery';
 import { finance } from './finance';
 import { fail } from './http';
 import { stockOf } from './products';
@@ -30,8 +30,19 @@ export interface GiftChoice {
   to: string;
   from: string;
   message: string;
-  gift_box: boolean;
+  box_id: string | null;
+  gift_box?: boolean; // older carts: the first box
 }
+
+/** The box a gift line goes in (null: no box), at today's price. */
+export const giftBoxOf = (gift: GiftChoice | null | undefined) => {
+  if (!gift) return null;
+  // An order line keeps the box it was bought with.
+  const saved = (gift as any).box;
+  if (saved && saved.price !== null && saved.price !== undefined) return saved as { id: string; name: string; price: number; image: string };
+  if (gift.box_id) return findGiftBox(gift.box_id);
+  return gift.gift_box ? delivery().gift.boxes[0] || null : null;
+};
 
 export interface Coupon {
   code: string;
@@ -193,8 +204,9 @@ export const computeTotals = (
         : Math.min(round2(Number(usable.value)), subtotal);
   }
   // A gift box per line sent in one (taxed like the goods).
-  const giftBoxes = lines.filter((l) => l.gift?.gift_box).length;
-  const gift = round2(giftBoxes * delivery().gift.box_price);
+  const boxed = lines.map((l) => giftBoxOf(l.gift)).filter(Boolean);
+  const giftBoxes = boxed.length;
+  const gift = round2(boxed.reduce((s, b) => s + b!.price, 0));
   const goods = round2(subtotal - discount + gift);
   const method = SHIPPING_METHODS().find((m) => m.code === shippingMethod);
   let shipping = method ? method.cost : 0;
@@ -205,7 +217,7 @@ export const computeTotals = (
 
   const out: Totals['lines'] = [{ code: 'sub_total', title: 'Subtotal', value: subtotal }];
   if (discount) out.push({ code: 'coupon', title: `Promo code (${usable!.code})`, value: -discount });
-  if (gift) out.push({ code: 'gift_wrap', title: `Gift box${giftBoxes > 1 ? `es (${giftBoxes})` : ''}`, value: gift });
+  if (gift) out.push({ code: 'gift_wrap', title: giftBoxes > 1 ? `Gift wrapping (${giftBoxes})` : `Gift wrapping: ${boxed[0]!.name}`, value: gift });
   if (method) out.push({ code: 'shipping', title: method.title, value: shipping });
   out.push({ code: 'tax', title: taxTitle(), value: tax });
   out.push({ code: 'total', title: 'Total', value: total });

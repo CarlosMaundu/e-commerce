@@ -33,6 +33,8 @@ import CheckoutPage from './pages/CheckoutPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import ResetPassword from './components/password/ResetPassword';
+import VerifyEmailPage from './pages/VerifyEmailPage';
+import PolicyPage from './pages/PolicyPage';
 import InformationPage from './pages/InformationPage';
 import NotFoundPage from './pages/NotFoundPage';
 
@@ -172,6 +174,16 @@ const App = () => (
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/register" element={<SignupPage />} />
                     <Route path="/reset-password" element={<ResetPassword />} />
+                    <Route path="/verify-email" element={<VerifyEmailPage />} />
+                    <Route path="/policies/:slug" element={<PolicyPage />} />
+                    <Route
+                      path="/information/terms"
+                      element={<Navigate to="/policies/terms" replace />}
+                    />
+                    <Route
+                      path="/information/privacy"
+                      element={<Navigate to="/policies/privacy" replace />}
+                    />
                     <Route
                       path="/information/:slug"
                       element={<InformationPage />}

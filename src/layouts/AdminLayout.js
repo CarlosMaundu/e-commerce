@@ -40,14 +40,32 @@ import { alpha, useTheme } from '@mui/material/styles';
 import {
   FiAlertTriangle,
   FiBell,
+  FiBookOpen,
   FiBox,
   FiChevronDown,
+  FiCornerUpLeft,
+  FiCreditCard,
+  FiDollarSign,
+  FiFileText,
+  FiGift,
+  FiGrid,
   FiHelpCircle,
+  FiLayers,
+  FiList,
+  FiLock,
   FiMenu,
   FiPackage,
+  FiPercent,
   FiRotateCcw,
   FiSearch,
+  FiSettings,
+  FiShield,
+  FiShoppingBag,
+  FiSliders,
+  FiTag,
+  FiTruck,
   FiUser,
+  FiUsers,
   FiX,
 } from 'react-icons/fi';
 import { AuthContext } from '../context/AuthContext';
@@ -70,6 +88,7 @@ export const adminNav = (user) =>
       items: [
         {
           label: 'Overview',
+          icon: <FiGrid />,
           title: 'Store overview',
           to: '/admin',
           end: true,
@@ -77,12 +96,14 @@ export const adminNav = (user) =>
         },
         {
           label: 'Orders',
+          icon: <FiShoppingBag />,
           to: '/admin/orders',
           badge: 'to_fulfil',
           show: hasPermission(user, PERMISSIONS.ordersView),
         },
         {
           label: 'Returns',
+          icon: <FiRotateCcw />,
           to: '/admin/returns',
           badge: 'open_returns',
           show: hasPermission(user, PERMISSIONS.returnsView),
@@ -94,21 +115,25 @@ export const adminNav = (user) =>
       items: [
         {
           label: 'Invoices',
+          icon: <FiFileText />,
           to: '/admin/invoices',
           show: hasPermission(user, PERMISSIONS.invoicesView),
         },
         {
           label: 'Payments',
+          icon: <FiCreditCard />,
           to: '/admin/payments',
           show: hasPermission(user, PERMISSIONS.invoicesView),
         },
         {
           label: 'Refunds',
+          icon: <FiCornerUpLeft />,
           to: '/admin/refunds',
           show: hasPermission(user, PERMISSIONS.invoicesView),
         },
         {
           label: 'Ledger',
+          icon: <FiBookOpen />,
           to: '/admin/ledger',
           show: hasPermission(user, PERMISSIONS.ledgerView),
         },
@@ -119,16 +144,19 @@ export const adminNav = (user) =>
       items: [
         {
           label: 'Products',
+          icon: <FiPackage />,
           to: '/admin/products',
           show: hasPermission(user, 'catalog.products.view'),
         },
         {
           label: 'Categories',
+          icon: <FiLayers />,
           to: '/admin/categories',
           show: hasPermissionPrefix(user, 'catalog.categories.'),
         },
         {
           label: 'Brands',
+          icon: <FiTag />,
           to: '/admin/brands',
           show: hasPermissionPrefix(user, 'catalog.brands.'),
         },
@@ -139,12 +167,14 @@ export const adminNav = (user) =>
       items: [
         {
           label: 'Customers & staff',
+          icon: <FiUsers />,
           title: 'Users',
           to: '/admin/users',
           show: hasPermission(user, PERMISSIONS.usersView),
         },
         {
           label: 'Roles',
+          icon: <FiShield />,
           to: '/admin/roles',
           show: hasPermission(user, PERMISSIONS.rolesView),
         },
@@ -155,31 +185,37 @@ export const adminNav = (user) =>
       items: [
         {
           label: 'Store settings',
+          icon: <FiSettings />,
           to: '/admin/settings',
           show: hasPermission(user, PERMISSIONS.settingsManage),
         },
         {
           label: 'Delivery options',
+          icon: <FiTruck />,
           to: '/admin/delivery',
           show: hasPermission(user, PERMISSIONS.deliveryManage),
         },
         {
           label: 'Refund settings',
+          icon: <FiSliders />,
           to: '/admin/refund-settings',
           show: hasPermission(user, PERMISSIONS.refundsManage),
         },
         {
           label: 'Financial settings',
+          icon: <FiPercent />,
           to: '/admin/finance',
           show: hasPermission(user, PERMISSIONS.financeManage),
         },
         {
           label: 'Security',
+          icon: <FiLock />,
           to: '/admin/security',
           show: hasPermission(user, PERMISSIONS.securityView),
         },
         {
           label: 'Audit log',
+          icon: <FiList />,
           to: '/admin/audit',
           show: hasPermission(user, PERMISSIONS.auditView),
         },
@@ -204,6 +240,7 @@ const pageTitle = (user, pathname) => {
 /** Attention counts for the bell and the nav badges, refreshed each minute. */
 const useAttention = (pathname) => {
   const [counts, setCounts] = useState({});
+  const [tick, setTick] = useState(0);
   useEffect(() => {
     let active = true;
     const load = () =>
@@ -217,8 +254,8 @@ const useAttention = (pathname) => {
       active = false;
       clearInterval(t);
     };
-  }, [pathname]);
-  return counts;
+  }, [pathname, tick]);
+  return [counts, setCounts, () => setTick((n) => n + 1)];
 };
 
 const Rail = ({ onNavigate, counts }) => {
@@ -275,12 +312,10 @@ const Rail = ({ onNavigate, counts }) => {
                       textDecoration: 'none',
                       fontWeight: 500,
                       fontSize: '1rem',
-                      '&::before': {
-                        content: '""',
-                        width: 8,
-                        height: 8,
-                        borderRadius: '50%',
-                        bgcolor: 'divider',
+                      '& .nav-icon': {
+                        display: 'grid',
+                        placeItems: 'center',
+                        fontSize: 18,
                         flexShrink: 0,
                       },
                       '&:hover': {
@@ -291,10 +326,12 @@ const Rail = ({ onNavigate, counts }) => {
                         bgcolor: alpha(theme.palette.primary.main, 0.1),
                         color: 'primary.main',
                         fontWeight: 600,
-                        '&::before': { bgcolor: 'primary.main' },
                       },
                     }}
                   >
+                    <Box component="span" className="nav-icon" aria-hidden>
+                      {item.icon}
+                    </Box>
                     <Box component="span" sx={{ flex: 1 }}>
                       {item.label}
                     </Box>
@@ -542,7 +579,7 @@ const GlobalSearch = ({ compact }) => {
           icon: <FiPackage />,
           items: results.orders.map((o) => ({
             key: `o${o.id}`,
-            primary: `Order #${o.id}`,
+            primary: `Order ${o.number}`,
             secondary: `${o.customer?.name || o.email || ''} · ${formatMoney(o.total)}`,
             to: `/admin/orders/${o.id}`,
           })),
@@ -694,48 +731,61 @@ const GlobalSearch = ({ compact }) => {
 };
 GlobalSearch.propTypes = { compact: PropTypes.bool };
 
-/** Bell: orders to fulfil, delayed orders, returns and stock alerts. */
-const Notifications = ({ counts }) => {
+const KIND_ICONS = {
+  order: [<FiShoppingBag key="o" />, 'primary.main'],
+  delayed: [<FiAlertTriangle key="d" />, 'error.main'],
+  gift: [<FiGift key="g" />, 'secondary.main'],
+  return: [<FiRotateCcw key="r" />, 'warning.main'],
+  refund: [<FiDollarSign key="f" />, 'warning.main'],
+  invoice: [<FiFileText key="i" />, 'error.main'],
+  stock: [<FiBox key="s" />, 'warning.main'],
+};
+
+const ago = (at) => {
+  const m = Math.max(0, Math.round((Date.now() - new Date(at)) / 60000));
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m} min ago`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h} h ago`;
+  const d = Math.round(h / 24);
+  return d === 1 ? 'yesterday' : `${d} days ago`;
+};
+
+/** Bell: what needs attention for this person; read, dismiss or clear. */
+const Notifications = ({ counts, setCounts, reload }) => {
   const navigate = useNavigate();
   const [anchor, setAnchor] = useState(null);
-  const items = [
-    counts.delayed > 0 && {
-      icon: <FiAlertTriangle />,
-      tone: 'error.main',
-      text: `${counts.delayed} order${counts.delayed === 1 ? ' is' : 's are'} waiting more than 3 days`,
-      to: '/admin/orders',
-    },
-    counts.to_fulfil > 0 && {
-      icon: <FiPackage />,
-      tone: 'primary.main',
-      text: `${counts.to_fulfil} order${counts.to_fulfil === 1 ? '' : 's'} to fulfil`,
-      to: '/admin/orders',
-    },
-    counts.open_returns > 0 && {
-      icon: <FiRotateCcw />,
-      tone: 'warning.main',
-      text: `${counts.open_returns} return request${counts.open_returns === 1 ? '' : 's'}`,
-      to: '/admin/returns',
-    },
-    counts.out_of_stock > 0 && {
-      icon: <FiBox />,
-      tone: 'error.main',
-      text: `${counts.out_of_stock} product${counts.out_of_stock === 1 ? '' : 's'} out of stock`,
-      to: '/admin/products?stock=out',
-    },
-    counts.low_stock > 0 && {
-      icon: <FiBox />,
-      tone: 'warning.main',
-      text: `${counts.low_stock} product${counts.low_stock === 1 ? '' : 's'} running low`,
-      to: '/admin/products?stock=low',
-    },
-  ].filter(Boolean);
+  const items = counts.items || [];
+  const unread = counts.unread || 0;
+
+  const open = (e) => {
+    setAnchor(e.currentTarget);
+    if (unread) {
+      adminOrders.notificationsRead().catch(() => {});
+      setCounts((c) => ({
+        ...c,
+        unread: 0,
+        items: (c.items || []).map((i) => ({ ...i, unread: false })),
+      }));
+    }
+  };
+  const dismiss = (key) => {
+    setCounts((c) => ({
+      ...c,
+      items: (c.items || []).filter((i) => i.key !== key),
+    }));
+    adminOrders.dismissNotification(key).catch(reload);
+  };
+  const clearAll = () => {
+    setCounts((c) => ({ ...c, items: [], unread: 0 }));
+    adminOrders.notificationsClear().catch(reload);
+  };
 
   return (
     <>
       <IconButton
-        aria-label={`Notifications, ${items.length}`}
-        onClick={(e) => setAnchor(e.currentTarget)}
+        aria-label={`Notifications${unread ? `, ${unread} new` : ''}`}
+        onClick={open}
         sx={{
           width: 48,
           height: 48,
@@ -745,16 +795,11 @@ const Notifications = ({ counts }) => {
           '&:hover': { bgcolor: 'background.neutralDeep' },
         }}
       >
-        <Badge
-          variant="dot"
-          color="error"
-          invisible={!items.length}
-          overlap="circular"
-        >
+        <Badge badgeContent={unread} color="error" max={99} invisible={!unread}>
           <FiBell />
         </Badge>
       </IconButton>
-      <Menu
+      <Popover
         anchorEl={anchor}
         open={Boolean(anchor)}
         onClose={() => setAnchor(null)}
@@ -764,7 +809,10 @@ const Notifications = ({ counts }) => {
           paper: {
             sx: {
               mt: 1.5,
-              width: 320,
+              width: { xs: 'calc(100vw - 32px)', sm: 380 },
+              maxHeight: 520,
+              display: 'flex',
+              flexDirection: 'column',
               borderRadius: 1,
               border: 1,
               borderColor: 'divider',
@@ -773,38 +821,106 @@ const Notifications = ({ counts }) => {
           },
         }}
       >
-        <Typography variant="subtitle1" sx={{ px: 2.5, pt: 1, pb: 1.5 }}>
-          Notifications
-        </Typography>
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+          sx={{ px: 2.5, py: 1.5 }}
+        >
+          <Typography variant="subtitle1">Notifications</Typography>
+          {items.length > 0 && (
+            <Button size="small" onClick={clearAll}>
+              Clear all
+            </Button>
+          )}
+        </Stack>
         <Divider />
-        {items.length ? (
-          items.map((it) => (
-            <MenuItem
-              key={it.text}
-              onClick={() => {
-                setAnchor(null);
-                navigate(it.to);
-              }}
-              sx={{ gap: 1.5, py: 1.25, px: 2.5, whiteSpace: 'normal' }}
+        <Box sx={{ overflowY: 'auto' }} data-testid="notification-list">
+          {items.length ? (
+            items.map((it) => {
+              const [icon, tone] = KIND_ICONS[it.kind] || KIND_ICONS.order;
+              return (
+                <Stack
+                  key={it.key}
+                  direction="row"
+                  spacing={1.5}
+                  sx={{
+                    px: 2.5,
+                    py: 1.25,
+                    borderBottom: 1,
+                    borderColor: 'divider',
+                    '&:hover': { bgcolor: 'background.neutral' },
+                  }}
+                >
+                  <Box
+                    sx={{
+                      width: 32,
+                      height: 32,
+                      flexShrink: 0,
+                      borderRadius: '8px',
+                      display: 'grid',
+                      placeItems: 'center',
+                      color: tone,
+                      bgcolor: 'background.neutral',
+                    }}
+                  >
+                    {icon}
+                  </Box>
+                  <Box
+                    role="link"
+                    tabIndex={0}
+                    onClick={() => {
+                      setAnchor(null);
+                      navigate(it.link);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        setAnchor(null);
+                        navigate(it.link);
+                      }
+                    }}
+                    sx={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
+                  >
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {it.title}
+                    </Typography>
+                    <Typography variant="caption" component="div">
+                      {it.body}
+                    </Typography>
+                    <Typography variant="caption" color="text.disabled">
+                      {ago(it.at)}
+                    </Typography>
+                  </Box>
+                  <IconButton
+                    size="small"
+                    aria-label={`Dismiss: ${it.title}`}
+                    onClick={() => dismiss(it.key)}
+                    sx={{ alignSelf: 'flex-start', color: 'text.disabled' }}
+                  >
+                    <FiX />
+                  </IconButton>
+                </Stack>
+              );
+            })
+          ) : (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ px: 2.5, py: 3, textAlign: 'center' }}
             >
-              <Box sx={{ color: it.tone, display: 'flex' }}>{it.icon}</Box>
-              <Typography variant="body2">{it.text}</Typography>
-            </MenuItem>
-          ))
-        ) : (
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{ px: 2.5, py: 2 }}
-          >
-            You’re all caught up.
-          </Typography>
-        )}
-      </Menu>
+              You’re all caught up.
+            </Typography>
+          )}
+        </Box>
+      </Popover>
     </>
   );
 };
-Notifications.propTypes = { counts: PropTypes.object.isRequired };
+Notifications.propTypes = {
+  counts: PropTypes.object.isRequired,
+  setCounts: PropTypes.func.isRequired,
+  reload: PropTypes.func.isRequired,
+};
 
 const AdminLayout = () => {
   const { user, logout } = useContext(AuthContext);
@@ -814,7 +930,7 @@ const AdminLayout = () => {
   const { pathname } = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [menuAnchor, setMenuAnchor] = useState(null);
-  const counts = useAttention(pathname);
+  const [counts, setCounts, reloadAttention] = useAttention(pathname);
   const [helpHidden, setHelpHidden] = useState(false);
 
   const closeMenu = () => setMenuAnchor(null);
@@ -916,7 +1032,11 @@ const AdminLayout = () => {
             >
               View storefront
             </Button>
-            <Notifications counts={counts} />
+            <Notifications
+              counts={counts}
+              setCounts={setCounts}
+              reload={reloadAttention}
+            />
             <Button
               aria-label="Account menu"
               onClick={(e) => setMenuAnchor(e.currentTarget)}

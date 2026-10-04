@@ -406,10 +406,17 @@ test('staff create an order for a customer, invoice it, take an M-Pesa payment a
   await expect(toast(page)).toContainText('created and invoiced');
   await expect(page).toHaveURL(/\/admin\/orders\/\d+$/);
   await expect(page.getByTestId('order-customer-link')).toHaveText('Jane Doe');
+  // Staff-made orders are numbered STF-…, invoices INV-date-time-code.
+  await expect(
+    page.getByRole('heading', { name: /Order STF-[0-9A-Z]{8}/ })
+  ).toBeVisible();
 
   await page.getByRole('link', { name: 'Invoice', exact: true }).click();
   await expect(page.getByTestId('invoice-document')).toContainText(
     'Canvas tote bag'
+  );
+  await expect(page.getByTestId('invoice-document')).toContainText(
+    /INV-\d{8}-\d{6}-[0-9A-Z]{4}/
   );
   await page.getByRole('button', { name: 'Record payment' }).click();
   const dialog = page.getByRole('dialog');
@@ -424,4 +431,20 @@ test('staff create an order for a customer, invoice it, take an M-Pesa payment a
   await expect(page.getByTestId('ledger-balanced')).toHaveText(
     'Debits equal credits'
   );
+  // One simple row per entry; the details open on click.
+  await page.getByRole('row', { name: /Jane Doe paid by M-Pesa/ }).click();
+  const journal = page.getByRole('dialog');
+  await expect(journal).toContainText('Jane Doe paid by M-Pesa');
+  await expect(
+    journal.getByRole('cell', { name: 'Mobile money (M-Pesa)' })
+  ).toBeVisible();
+
+  await journal.getByRole('button', { name: 'Close' }).click();
+
+  // The bell lists the new order; it can be dismissed and cleared.
+  await page.getByRole('button', { name: /^Notifications/ }).click();
+  const bell = page.getByTestId('notification-list');
+  await expect(bell).toContainText(/New order STF-/);
+  await page.getByRole('button', { name: 'Clear all' }).click();
+  await expect(bell).toContainText('You’re all caught up.');
 });

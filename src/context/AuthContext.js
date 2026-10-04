@@ -105,7 +105,7 @@ export const AuthProvider = ({ children }) => {
       email: email.trim(),
       password,
     });
-    setUser(created);
+    if (!created.verificationRequired) setUser(created);
     return created;
   };
 

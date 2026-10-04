@@ -15,6 +15,16 @@ const price = z.coerce
 const name = z.string().trim().min(1, 'Please give this option a name.').max(60);
 const text = (max: number) => z.string().trim().max(max).default('');
 
+const giftBoxSchema = z.object({
+  id: z.string().trim().min(1).max(40).regex(/^[a-z0-9-]+$/, 'Use lowercase letters, numbers and dashes.'),
+  name: z.string().trim().min(1, 'Please name the gift box.').max(60),
+  price,
+  image: z.string().trim().max(500).default(''),
+  description: text(160),
+  enabled: z.boolean().default(true),
+});
+export type GiftBox = z.output<typeof giftBoxSchema>;
+
 export const deliverySchema = z
   .object({
     standard: z.object({
@@ -34,11 +44,10 @@ export const deliverySchema = z
       location: text(300),
       hours: text(160),
     }),
-    // Sending an item as a gift: a free message, and an optional paid box.
+    // Sending an item as a gift: a free message, and a choice of paid boxes.
     gift: z.object({
       enabled: z.boolean(),
-      box_price: price,
-      box_description: text(160),
+      boxes: z.array(giftBoxSchema).max(12, 'Offer up to 12 gift boxes.'),
     }),
   })
   .refine((d) => d.standard.enabled || d.express.enabled || d.pickup.enabled, {
@@ -76,10 +85,39 @@ export const defaultDelivery = (): Delivery => ({
   },
   gift: {
     enabled: true,
-    box_price: config.shop.giftBoxPrice,
-    box_description: 'We’ll wrap your gift in a silver box with ribbons.',
+    boxes: [
+      {
+        id: 'silver',
+        name: 'Silver box',
+        price: config.shop.giftBoxPrice,
+        image: '/images/gift-boxes/silver.svg',
+        description: 'A silver box tied with a satin ribbon.',
+        enabled: true,
+      },
+      {
+        id: 'kraft',
+        name: 'Kraft paper wrap',
+        price: Math.round(config.shop.giftBoxPrice * 0.6 * 100) / 100,
+        image: '/images/gift-boxes/kraft.svg',
+        description: 'Recycled brown paper with twine and a tag.',
+        enabled: true,
+      },
+      {
+        id: 'luxury',
+        name: 'Luxury keepsake box',
+        price: Math.round(config.shop.giftBoxPrice * 3 * 100) / 100,
+        image: '/images/gift-boxes/luxury.svg',
+        description: 'A rigid black box with gold ribbon, to keep.',
+        enabled: true,
+      },
+    ],
   },
 });
+
+/** Gift boxes shoppers can choose now. */
+export const giftBoxes = () => (current.gift.enabled ? current.gift.boxes.filter((b) => b.enabled) : []);
+export const findGiftBox = (id: string | null | undefined) =>
+  id ? current.gift.boxes.find((b) => b.id === id) || null : null;
 
 let current: Delivery = defaultDelivery();
 
@@ -90,8 +128,20 @@ const merge = (base: Delivery, saved: any = {}) => ({
   standard: { ...base.standard, ...(saved.standard || {}) },
   express: { ...base.express, ...(saved.express || {}) },
   pickup: { ...base.pickup, ...(saved.pickup || {}) },
-  gift: { ...base.gift, ...(saved.gift || {}) },
+  gift: mergeGift(base.gift, saved.gift),
 });
+
+// Settings saved before gift box types existed had one box price.
+const mergeGift = (base: Delivery['gift'], saved: any) => {
+  if (!saved) return base;
+  const boxes = Array.isArray(saved.boxes)
+    ? saved.boxes
+    : saved.box_price !== undefined
+      ? [{ ...base.boxes[0], price: saved.box_price, description: saved.box_description || base.boxes[0].description },
+        ...base.boxes.slice(1)]
+      : base.boxes;
+  return { enabled: saved.enabled ?? base.enabled, boxes };
+};
 
 export const mergeDelivery = merge;
 

@@ -20,7 +20,9 @@ import {
   FiEdit2,
   FiGift,
   FiMapPin,
+  FiPlus,
   FiSave,
+  FiTrash2,
   FiTruck,
   FiZap,
 } from 'react-icons/fi';
@@ -28,6 +30,8 @@ import { delivery as deliveryApi } from '../../api';
 import { useNotify } from '../../notification/NotificationProvider';
 import { PageHeader, Pill } from '../../components/admin/DataTable';
 import { useHideHelpWhile } from '../../layouts/AdminLayout';
+import ImageField from '../../components/admin/ImageField';
+import { GiftBoxImage } from '../../components/cart/GiftDialog';
 import { formatDateTime, formatMoney, getCurrency } from '../../utils/format';
 
 const OPTIONS = [
@@ -220,9 +224,49 @@ OptionCard.propTypes = {
   editing: PropTypes.bool,
 };
 
-// Gift options shoppers can pick per cart item: a free message and a paid box.
-const GiftCard = ({ value, onChange, errors, editing }) => {
-  const set = (key) => (e) => onChange({ ...value, [key]: e.target.value });
+// Gift options: a free message, and the gift boxes shoppers can choose, each
+// with a name, price, photo and short description.
+const slug = (name, taken) => {
+  const base =
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 30) || 'box';
+  let id = base;
+  for (let n = 2; taken.includes(id); n += 1) id = `${base}-${n}`;
+  return id;
+};
+
+const GiftCard = ({ value, onChange, errors, editing, onUploading }) => {
+  const boxes = value.boxes || [];
+  const setBox = (i, patch) =>
+    onChange({
+      ...value,
+      boxes: boxes.map((b, j) => (j === i ? { ...b, ...patch } : b)),
+    });
+  const addBox = () =>
+    onChange({
+      ...value,
+      boxes: [
+        ...boxes,
+        {
+          id: slug(
+            'New gift box',
+            boxes.map((b) => b.id)
+          ),
+          name: 'New gift box',
+          price: 0,
+          image: '',
+          description: '',
+          enabled: true,
+        },
+      ],
+    });
+  const removeBox = (i) =>
+    onChange({ ...value, boxes: boxes.filter((_, j) => j !== i) });
+  const err = (i, key) => errors[`gift.boxes.${i}.${key}`];
+
   return (
     <Box
       sx={{
@@ -266,7 +310,7 @@ const GiftCard = ({ value, onChange, errors, editing }) => {
           </Stack>
           <Typography variant="body2" color="text.secondary">
             Shoppers can send an item as a gift with a free message on the
-            packing slip and an optional gift box. Staff tick each gift off
+            packing slip and one of these gift boxes. Staff tick each gift off
             before the order ships.
           </Typography>
         </Box>
@@ -286,34 +330,110 @@ const GiftCard = ({ value, onChange, errors, editing }) => {
         />
       </Stack>
       {value.enabled && (
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-          <TextField
-            label="Gift box price"
-            type="number"
-            value={value.box_price}
-            onChange={set('box_price')}
-            error={!!errors['gift.box_price']}
-            helperText={errors['gift.box_price'] || 'Charged per item boxed.'}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  {getCurrency()}
-                </InputAdornment>
-              ),
-            }}
-            inputProps={{ min: 0, step: '0.01' }}
-            sx={{ minWidth: { sm: 220 } }}
-          />
-          <TextField
-            label="Gift box description"
-            value={value.box_description}
-            onChange={set('box_description')}
-            inputProps={{ maxLength: 160 }}
-            helperText={
-              errors['gift.box_description'] || 'Shown in the gift window.'
-            }
-            fullWidth
-          />
+        <Stack spacing={2}>
+          {boxes.map((b, i) => (
+            <Box
+              key={b.id}
+              data-testid={`gift-box-${b.id}`}
+              sx={{
+                display: 'grid',
+                gap: 2,
+                gridTemplateColumns: { xs: '1fr', md: '200px minmax(0, 1fr)' },
+                p: 2,
+                borderRadius: '8px',
+                bgcolor: 'background.neutral',
+              }}
+            >
+              {editing ? (
+                <ImageField
+                  label="Photo"
+                  value={b.image || ''}
+                  onChange={(url) => setBox(i, { image: url })}
+                  onUploading={onUploading}
+                  hint="Square, about 400 × 400 px."
+                />
+              ) : (
+                <GiftBoxImage box={b} size={120} />
+              )}
+              <Stack spacing={1.5}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                  <TextField
+                    label="Name"
+                    value={b.name}
+                    onChange={(e) => setBox(i, { name: e.target.value })}
+                    error={!!err(i, 'name')}
+                    helperText={err(i, 'name')}
+                    inputProps={{ maxLength: 60 }}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Price"
+                    type="number"
+                    value={b.price}
+                    onChange={(e) => setBox(i, { price: e.target.value })}
+                    error={!!err(i, 'price')}
+                    helperText={err(i, 'price')}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          {getCurrency()}
+                        </InputAdornment>
+                      ),
+                    }}
+                    inputProps={{ min: 0, step: '0.01' }}
+                    sx={{ minWidth: { sm: 180 } }}
+                  />
+                </Stack>
+                <TextField
+                  label="Description"
+                  value={b.description}
+                  onChange={(e) => setBox(i, { description: e.target.value })}
+                  inputProps={{ maxLength: 160 }}
+                  helperText="Shown in the gift window, e.g. what it looks like."
+                  fullWidth
+                />
+                <Stack
+                  direction="row"
+                  justifyContent="space-between"
+                  alignItems="center"
+                >
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={b.enabled !== false}
+                        onChange={(e) =>
+                          setBox(i, { enabled: e.target.checked })
+                        }
+                        disabled={!editing}
+                      />
+                    }
+                    label={b.enabled !== false ? 'Available' : 'Hidden'}
+                  />
+                  {editing && (
+                    <Button
+                      color="error"
+                      startIcon={<FiTrash2 />}
+                      onClick={() => removeBox(i)}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </Stack>
+              </Stack>
+            </Box>
+          ))}
+          {!boxes.length && (
+            <Typography variant="body2" color="text.secondary">
+              No gift boxes yet: shoppers can still add a free message.
+            </Typography>
+          )}
+          {editing && boxes.length < 12 && (
+            <Box>
+              <Button startIcon={<FiPlus />} onClick={addBox}>
+                Add gift box
+              </Button>
+            </Box>
+          )}
         </Stack>
       )}
     </Box>
@@ -324,6 +444,7 @@ GiftCard.propTypes = {
   onChange: PropTypes.func.isRequired,
   errors: PropTypes.object.isRequired,
   editing: PropTypes.bool,
+  onUploading: PropTypes.func,
 };
 
 const DeliverySettingsPage = () => {
@@ -334,6 +455,7 @@ const DeliverySettingsPage = () => {
   const [errors, setErrors] = useState({});
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   useHideHelpWhile(editing);
 
   useEffect(() => {
@@ -440,6 +562,7 @@ const DeliverySettingsPage = () => {
                 editing={editing}
                 errors={errors}
                 onChange={(v) => setForm((f) => ({ ...f, gift: v }))}
+                onUploading={setUploading}
               />
             )}
           </Stack>
@@ -480,7 +603,7 @@ const DeliverySettingsPage = () => {
             variant="contained"
             size="large"
             startIcon={<FiSave />}
-            disabled={saving}
+            disabled={saving || uploading}
           >
             {saving ? 'Saving…' : 'Save changes'}
           </Button>

@@ -156,7 +156,80 @@ export const CuratedPicks = () => {
   return (
     <Box component="section" aria-labelledby="curated-title">
       <SectionTitle id="curated-title">Curated picks</SectionTitle>
-      <Grid container spacing={2}>
+      {/* Phones: a row of circles to swipe through. */}
+      <Box
+        data-testid="curated-circles"
+        sx={{
+          display: { xs: 'flex', md: 'none' },
+          gap: 2,
+          overflowX: 'auto',
+          scrollSnapType: 'x mandatory',
+          mx: -2,
+          px: 2,
+          pb: 1,
+          '&::-webkit-scrollbar': { display: 'none' },
+        }}
+      >
+        {(categories ? list : Array.from({ length: 5 })).map((cat, i) =>
+          cat ? (
+            <Box
+              key={cat.id}
+              component={RouterLink}
+              to={`/products?category=${cat.id}`}
+              sx={{
+                flexShrink: 0,
+                width: 76,
+                textAlign: 'center',
+                textDecoration: 'none',
+                color: 'text.primary',
+                scrollSnapAlign: 'start',
+              }}
+            >
+              <Box
+                sx={{
+                  width: 72,
+                  height: 72,
+                  mx: 'auto',
+                  borderRadius: '50%',
+                  p: '3px',
+                  border: 2,
+                  borderColor: 'primary.main',
+                }}
+              >
+                <Box
+                  component="img"
+                  src={cat.image}
+                  alt=""
+                  sx={{
+                    width: '100%',
+                    height: '100%',
+                    borderRadius: '50%',
+                    objectFit: 'cover',
+                    display: 'block',
+                  }}
+                />
+              </Box>
+              <Typography
+                variant="caption"
+                noWrap
+                component="div"
+                sx={{ mt: 0.75, fontWeight: 600, color: 'text.primary' }}
+              >
+                {cat.name}
+              </Typography>
+            </Box>
+          ) : (
+            <Skeleton
+              key={i}
+              variant="circular"
+              width={72}
+              height={72}
+              sx={{ flexShrink: 0 }}
+            />
+          )
+        )}
+      </Box>
+      <Grid container spacing={2} sx={{ display: { xs: 'none', md: 'flex' } }}>
         {(categories ? list : Array.from({ length: 4 })).map((cat, i) => (
           <Grid item xs={6} sm={4} md={3} lg key={cat?.id ?? i}>
             {cat ? (
@@ -338,10 +411,10 @@ export const FeaturedGrid = () => {
         sx={{
           display: 'grid',
           gridTemplateColumns: {
-            xs: 'repeat(2, 1fr)',
-            sm: 'repeat(3, 1fr)',
-            md: 'repeat(4, 1fr)',
-            lg: 'repeat(5, 1fr)',
+            xs: 'repeat(2, minmax(0, 1fr))',
+            sm: 'repeat(3, minmax(0, 1fr))',
+            md: 'repeat(4, minmax(0, 1fr))',
+            lg: 'repeat(5, minmax(0, 1fr))',
           },
           gap: { xs: 1, md: 1.5 },
         }}

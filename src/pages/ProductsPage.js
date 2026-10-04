@@ -196,7 +196,9 @@ const ProductsPage = () => {
 
   return (
     <Container maxWidth="xl" sx={{ pb: 6 }}>
-      <HeroSection compact />
+      <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+        <HeroSection compact />
+      </Box>
 
       <PageBreadcrumbs
         sx={{ mt: 3 }}
@@ -217,14 +219,49 @@ const ProductsPage = () => {
         ]}
       />
 
-      <Stack
-        direction="row"
-        alignItems="center"
-        spacing={2}
-        flexWrap="wrap"
-        useFlexGap
-        sx={{ py: 2.5 }}
+      {/* Phones: title and count, then Filters and Sort side by side. */}
+      <Box
+        sx={{
+          display: 'grid',
+          alignItems: 'center',
+          gap: { xs: 1.25, md: 2 },
+          gridTemplateColumns: {
+            xs: 'minmax(0, 1fr) minmax(0, 1fr)',
+            md: 'auto minmax(0, 1fr) auto auto',
+          },
+          py: { xs: 2, md: 2.5 },
+        }}
       >
+        <Stack
+          direction="row"
+          alignItems="baseline"
+          spacing={1.5}
+          sx={{
+            gridColumn: { xs: '1 / -1', md: '2' },
+            gridRow: { xs: 1, md: 1 },
+            minWidth: 0,
+          }}
+        >
+          <Typography
+            variant="h4"
+            component="h1"
+            noWrap
+            sx={{ fontSize: { xs: '1.4rem', md: undefined }, minWidth: 0 }}
+          >
+            {title}
+          </Typography>
+          {!desktop && (
+            <Typography
+              color="text.secondary"
+              aria-live="polite"
+              sx={{ whiteSpace: 'nowrap' }}
+            >
+              {result.products
+                ? `${result.total} result${result.total === 1 ? '' : 's'}`
+                : ''}
+            </Typography>
+          )}
+        </Stack>
         <Button
           variant="contained"
           color="inherit"
@@ -233,29 +270,42 @@ const ProductsPage = () => {
             desktop ? setShowFilters(!showFilters) : setDrawerOpen(true)
           }
           sx={{
+            gridColumn: { xs: '1', md: '1' },
+            gridRow: { xs: 2, md: 1 },
+            height: 40,
             bgcolor: 'primary.light',
             color: 'primary.main',
             boxShadow: 'none',
             '&:hover': { bgcolor: 'primary.light' },
           }}
         >
-          {desktop && showFilters ? 'Hide filters' : 'Filters'}
+          {desktop && showFilters
+            ? 'Hide filters'
+            : `Filters${chips.length ? ` (${chips.length})` : ''}`}
         </Button>
-        <Typography variant="h4" component="h1" sx={{ flex: 1, minWidth: 200 }}>
-          {title}
-        </Typography>
-        <Typography color="text.secondary" aria-live="polite">
-          {result.products
-            ? `${result.total} result${result.total === 1 ? '' : 's'}`
-            : ''}
-        </Typography>
+        {desktop && (
+          <Typography
+            color="text.secondary"
+            aria-live="polite"
+            sx={{ gridRow: 1 }}
+          >
+            {result.products
+              ? `${result.total} result${result.total === 1 ? '' : 's'}`
+              : ''}
+          </Typography>
+        )}
         <Select
           size="small"
           value={filters.sort}
           displayEmpty
           onChange={(e) => update({ sort: e.target.value })}
           inputProps={{ 'aria-label': 'Sort by' }}
-          sx={{ minWidth: 190, bgcolor: 'background.neutral' }}
+          sx={{
+            gridRow: { xs: 2, md: 1 },
+            minWidth: { md: 190 },
+            height: 40,
+            bgcolor: 'background.neutral',
+          }}
         >
           {SORTS.map((s) => (
             <MenuItem key={s.value} value={s.value}>
@@ -263,7 +313,7 @@ const ProductsPage = () => {
             </MenuItem>
           ))}
         </Select>
-      </Stack>
+      </Box>
       <Divider />
 
       <Box
@@ -314,9 +364,11 @@ const ProductsPage = () => {
               sx={{
                 display: 'grid',
                 gridTemplateColumns: {
-                  xs: 'repeat(2, 1fr)',
-                  sm: 'repeat(3, 1fr)',
-                  lg: showFilters ? 'repeat(4, 1fr)' : 'repeat(5, 1fr)',
+                  xs: 'repeat(2, minmax(0, 1fr))',
+                  sm: 'repeat(3, minmax(0, 1fr))',
+                  lg: showFilters
+                    ? 'repeat(4, minmax(0, 1fr))'
+                    : 'repeat(5, minmax(0, 1fr))',
                 },
                 gap: { xs: 1, md: 1.5 },
               }}
@@ -362,21 +414,50 @@ const ProductsPage = () => {
         </Box>
       </Box>
 
+      {/* Phones: filters slide up from the bottom. */}
       <Drawer
-        anchor="left"
+        anchor="bottom"
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
+        PaperProps={{
+          sx: {
+            borderTopLeftRadius: 16,
+            borderTopRightRadius: 16,
+            maxHeight: '85vh',
+          },
+        }}
       >
-        <Box sx={{ width: 300, p: 2 }}>
-          <Stack direction="row" justifyContent="flex-end">
-            <IconButton
-              aria-label="Close filters"
-              onClick={() => setDrawerOpen(false)}
-            >
-              <FiX />
-            </IconButton>
-          </Stack>
-          {panel}
+        <Stack
+          direction="row"
+          alignItems="center"
+          justifyContent="space-between"
+          sx={{
+            px: 2,
+            py: 1.5,
+            borderBottom: 1,
+            borderColor: 'divider',
+          }}
+        >
+          <Typography variant="h6">Filters</Typography>
+          <IconButton
+            aria-label="Close filters"
+            onClick={() => setDrawerOpen(false)}
+          >
+            <FiX />
+          </IconButton>
+        </Stack>
+        <Box sx={{ p: 2, overflowY: 'auto' }}>{panel}</Box>
+        <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
+          <Button
+            variant="contained"
+            size="large"
+            fullWidth
+            onClick={() => setDrawerOpen(false)}
+          >
+            {result.products
+              ? `Show ${result.total} result${result.total === 1 ? '' : 's'}`
+              : 'Show results'}
+          </Button>
         </Box>
       </Drawer>
     </Container>

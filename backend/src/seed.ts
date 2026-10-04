@@ -135,8 +135,8 @@ const seedSuperAdmin = async () => {
     return;
   }
   await query(
-    `INSERT INTO users (email, password_hash, firstname, lastname, role_id)
-     SELECT lower($1), $2, 'Shop', 'Admin', id FROM roles WHERE code = 'super_admin'
+    `INSERT INTO users (email, password_hash, firstname, lastname, role_id, email_verified_at)
+     SELECT lower($1), $2, 'Shop', 'Admin', id, now() FROM roles WHERE code = 'super_admin'
      ON CONFLICT DO NOTHING`,
     [adminEmail, await hashPassword(adminPassword)]
   );

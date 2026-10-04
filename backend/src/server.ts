@@ -6,6 +6,7 @@ import { runSeed } from './seed';
 import { loadFinance } from './lib/finance';
 import { loadDelivery } from './lib/delivery';
 import { backfillAccounting } from './lib/accounting';
+import { fixLegacyData } from './lib/dataFixes';
 
 const main = async () => {
   await runMigrations();
@@ -15,6 +16,8 @@ const main = async () => {
   // Invoices and ledger entries for orders placed before accounting existed.
   const backfilled = await backfillAccounting();
   if (backfilled) console.log(`Posted accounts for ${backfilled} earlier orders`);
+  const fixed = await fixLegacyData();
+  if (fixed) console.log(`Updated ${fixed} order numbers, invoice numbers and payment references`);
   createApp().listen(config.port, () => {
     console.log(`Carlos Shop API listening on :${config.port}`);
   });

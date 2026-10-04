@@ -140,7 +140,7 @@ const OrderCard = ({ order: o, detailed, onReorder, reordering }) => {
               color="text.primary"
               variant="subtitle1"
             >
-              Order #{o.id}
+              Order {o.number}
             </Link>
             <StatusChip status={o.status} label={o.statusName} />
           </Stack>
@@ -592,6 +592,16 @@ const ReturnDialog = ({ order, item, reasons, onClose, onDone }) => {
               value={form.comment}
               onChange={(e) => setForm({ ...form, comment: e.target.value })}
             />
+            <Typography variant="caption" color="text.secondary">
+              How refunds work:{' '}
+              <Link
+                component={RouterLink}
+                to="/policies/refunds"
+                target="_blank"
+              >
+                Refund &amp; Return Policy
+              </Link>
+            </Typography>
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
@@ -694,7 +704,7 @@ export const OrderDetailPage = () => {
   const canReturn = order.status === 'delivered';
   return (
     <AccountPage
-      title={`Order #${order.id}`}
+      title={`Order ${order.number}`}
       subtitle={`Placed ${formatDateTime(order.placedAt)}`}
       back="/account/orders"
       backLabel="My orders"
@@ -1044,7 +1054,15 @@ export const ReturnsPage = () => {
   return (
     <AccountPage
       title="Returns"
-      subtitle="Return delivered items from the order page."
+      subtitle={
+        <>
+          Return delivered items from the order page. See our{' '}
+          <Link component={RouterLink} to="/policies/refunds">
+            Refund &amp; Return Policy
+          </Link>
+          .
+        </>
+      }
     >
       {!list ? (
         <Skeleton variant="rounded" height={200} />
@@ -1092,7 +1110,7 @@ export const ReturnsPage = () => {
                     variant="body2"
                     sx={{ color: 'primary.main' }}
                   >
-                    Order #{r.orderId}
+                    Order {r.orderNumber}
                   </Typography>
                 </Typography>
                 <Box sx={{ mt: 1 }}>

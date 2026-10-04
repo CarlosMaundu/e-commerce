@@ -2,6 +2,17 @@
 //   shippingaddress → shippingmethods → paymentaddress → paymentmethods →
 //   POST confirm (order overview + payment) → PUT confirm (place order)
 import { Router } from 'express';
+import { orderNumber } from '../lib/numbers';
+import { GiftChoice, giftBoxOf } from '../lib/pricing';
+
+/** The gift as bought: the box's name, price and photo at the time. */
+const giftSnapshot = (g: GiftChoice) => {
+  const box = giftBoxOf(g);
+  return {
+    to: g.to, from: g.from, message: g.message || '', done: false,
+    box: box ? { id: box.id, name: box.name, price: box.price, image: box.image } : null,
+  };
+};
 import { z } from 'zod';
 import { config } from '../config';
 import { finance } from '../lib/finance';
@@ -218,12 +229,12 @@ export const checkoutRoutes = ({ payments }: { payments: PaymentGateway | null }
       }
       const { rows } = await db.query(
         `INSERT INTO orders (user_id, email, status, payment_method, shipping_method, shipping_address, payment_address,
-           coupon_code, subtotal, discount, shipping_total, tax_total, total, currency, comment, gift_total)
-         VALUES ($1, $2, 'awaiting_payment', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING id`,
+           coupon_code, subtotal, discount, shipping_total, tax_total, total, currency, comment, gift_total, number)
+         VALUES ($1, $2, 'awaiting_payment', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING id`,
         [userId, req.auth!.user.email, state.payment_method, state.shipping_method,
           JSON.stringify(toContractAddress(shipping)), JSON.stringify(toContractAddress(billing)),
           totals.coupon?.code ?? null, totals.subtotal, totals.discount, totals.shipping, totals.tax, totals.total,
-          finance().currency, state.comment || '', totals.gift]
+          finance().currency, state.comment || '', totals.gift, orderNumber('WEB')]
       );
       const id = rows[0].id as number;
       for (const l of lines) {
@@ -231,7 +242,7 @@ export const checkoutRoutes = ({ payments }: { payments: PaymentGateway | null }
           `INSERT INTO order_items (order_id, product_id, variant_id, name, image, options, unit_price, quantity, total, gift)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
           [id, l.product_id, l.variant_id, l.name, l.image, JSON.stringify(l.options), l.unit_price, l.quantity, l.total,
-            l.gift ? JSON.stringify({ ...l.gift, done: false }) : null]
+            l.gift ? JSON.stringify(giftSnapshot(l.gift)) : null]
         );
       }
       await db.query('UPDATE checkout_state SET pending_order_id = $2 WHERE user_id = $1', [userId, id]);
@@ -304,7 +315,7 @@ export const checkoutRoutes = ({ payments }: { payments: PaymentGateway | null }
     const loaded = (await loadOrder(pending.id, { userId }))!;
     audit(req, 'order.placed', `order:${pending.id}`, { total: Number(pending.total) });
     sendOrderConfirmationEmail(req.auth!.user.email, {
-      id: pending.id,
+      number: pending.number,
       total: Number(pending.total),
       currency: pending.currency,
       items: placed.map((i: any) => ({ name: i.name, quantity: i.quantity, total: round2(Number(i.total)) })),

@@ -69,9 +69,9 @@ export const TrackOrderPage = () => {
   }, []);
 
   const lookUp = async (id) => {
-    const clean = String(id).replace(/[^0-9]/g, '');
+    const clean = String(id).trim().toUpperCase().replace(/^#/, '');
     if (!clean) {
-      setProblem('Please enter your order number, for example 1024.');
+      setProblem('Please enter your order number, for example WEB-1FT3K9X7.');
       return;
     }
     setBusy(true);
@@ -81,7 +81,7 @@ export const TrackOrderPage = () => {
       setParams({ order: clean }, { replace: true });
     } catch {
       setFound(null);
-      setProblem(`We couldn’t find order #${clean} in your account.`);
+      setProblem(`We couldn’t find order ${clean} in your account.`);
     } finally {
       setBusy(false);
     }
@@ -138,7 +138,7 @@ export const TrackOrderPage = () => {
 
         {found && (
           <SectionCard
-            title={`Order #${found.id}`}
+            title={`Order ${found.number}`}
             subtitle={`Placed ${formatDate(found.placedAt)} · ${found.items.length} item${found.items.length === 1 ? '' : 's'} · ${formatMoney(found.total, found.currency)}`}
             action={
               <Button
@@ -197,14 +197,16 @@ export const TrackOrderPage = () => {
                   </Stack>
                   <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Stack direction="row" spacing={1} alignItems="center">
-                      <Typography variant="subtitle2">Order #{o.id}</Typography>
+                      <Typography variant="subtitle2">
+                        Order {o.number}
+                      </Typography>
                       <StatusChip status={o.status} label={o.statusName} />
                     </Stack>
                     <LinearProgress
                       variant="determinate"
                       value={progressOf(o.status)}
                       sx={{ mt: 1, height: 6, borderRadius: 999 }}
-                      aria-label={`Order #${o.id} progress`}
+                      aria-label={`Order ${o.number} progress`}
                     />
                   </Box>
                   <Button
@@ -212,7 +214,7 @@ export const TrackOrderPage = () => {
                       setNumber(String(o.id));
                       lookUp(o.id);
                     }}
-                    aria-label={`Track order #${o.id}`}
+                    aria-label={`Track order ${o.number}`}
                     sx={{ flexShrink: 0 }}
                   >
                     Track
@@ -300,10 +302,10 @@ export const InvoicesPage = () => {
                           underline="hover"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          {invoiceNumber(o.id)}
+                          {invoiceNumber(o)}
                         </Link>
                       </TableCell>
-                      <TableCell>#{o.id}</TableCell>
+                      <TableCell>{o.number}</TableCell>
                       <TableCell sx={{ whiteSpace: 'nowrap' }}>
                         {formatDate(o.placedAt)}
                       </TableCell>
@@ -364,8 +366,8 @@ export const InvoicePage = () => {
 
   return (
     <AccountPage
-      title={invoiceNumber(id)}
-      subtitle={order ? `For order #${order.id}` : ' '}
+      title={order ? invoiceNumber(order) : 'Invoice'}
+      subtitle={order ? `For order ${order.number}` : ' '}
       back="/account/invoices"
       backLabel="Invoices"
       action={

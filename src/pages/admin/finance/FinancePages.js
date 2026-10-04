@@ -14,9 +14,13 @@ import {
   Box,
   Button,
   Chip,
+  Dialog,
+  DialogContent,
+  DialogTitle,
   Divider,
   FormControlLabel,
   Grid,
+  IconButton,
   InputAdornment,
   Link,
   MenuItem,
@@ -419,7 +423,7 @@ export const InvoicesPage = () => {
                           underline="hover"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          #{i.order_id}
+                          {i.order_number}
                         </Link>
                       </TableCell>
                       <TableCell sx={{ whiteSpace: 'nowrap' }}>
@@ -522,7 +526,7 @@ export const InvoiceDetailPage = () => {
             <Pill label={label} tone={tone} />
           </Stack>
         }
-        subtitle={`${invoice.number} · order #${invoice.order_id}`}
+        subtitle={`${invoice.number} · order ${invoice.order_number}`}
         actions={
           <Stack
             direction="row"
@@ -840,7 +844,7 @@ export const PaymentsPage = () => {
                           to={`/admin/orders/${p.order_id}`}
                           underline="hover"
                         >
-                          #{p.order_id}
+                          {p.order_number || `#${p.order_id}`}
                         </Link>
                       ) : (
                         '—'
@@ -1128,7 +1132,7 @@ export const RefundsPage = () => {
                           to={`/admin/orders/${r.order_id}`}
                           underline="hover"
                         >
-                          #{r.order_id}
+                          {r.order_number || `#${r.order_id}`}
                         </Link>
                       </TableCell>
                       <TableCell>
@@ -1481,7 +1485,139 @@ const JOURNAL_KINDS = {
   adjustment: ['Adjustment', 'default'],
 };
 
+/** One journal entry in full: what happened, links, and the double entry. */
+const JournalDialog = ({ journal: j, onClose }) => {
+  const [kindLabel, tone] = (j && JOURNAL_KINDS[j.kind]) || ['', 'default'];
+  return (
+    <Dialog open={!!j} onClose={onClose} fullWidth maxWidth="sm">
+      {j && (
+        <>
+          <DialogTitle sx={{ pr: 6 }}>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <span>Journal J{j.journal_id}</span>
+              <Pill label={kindLabel} tone={tone} />
+            </Stack>
+            <IconButton
+              aria-label="Close"
+              onClick={onClose}
+              sx={{ position: 'absolute', right: 12, top: 12 }}
+            >
+              <FiX />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent>
+            <Typography sx={{ fontWeight: 600 }}>{j.description}</Typography>
+            <Box
+              component="dl"
+              sx={{
+                mt: 2,
+                mb: 0,
+                display: 'grid',
+                gridTemplateColumns: 'auto minmax(0, 1fr)',
+                columnGap: 2,
+                rowGap: 1,
+                '& dt': { color: 'text.secondary', fontSize: '0.875rem' },
+                '& dd': { m: 0, fontSize: '0.875rem' },
+              }}
+            >
+              <dt>When</dt>
+              <dd>{formatDateTime(j.occurred_at)}</dd>
+              <dt>Amount</dt>
+              <dd>
+                <strong>{formatMoney(j.amount, j.currency)}</strong>
+              </dd>
+              {j.customer && (
+                <>
+                  <dt>Customer</dt>
+                  <dd>
+                    <Link
+                      component={RouterLink}
+                      to={`/admin/users/${j.customer.customer_id}`}
+                    >
+                      {j.customer.name}
+                    </Link>
+                  </dd>
+                </>
+              )}
+              {j.order_id && (
+                <>
+                  <dt>Order</dt>
+                  <dd>
+                    <Link
+                      component={RouterLink}
+                      to={`/admin/orders/${j.order_id}`}
+                    >
+                      {j.order_number || `#${j.order_id}`}
+                    </Link>
+                  </dd>
+                </>
+              )}
+              {j.invoice_id && (
+                <>
+                  <dt>Invoice</dt>
+                  <dd>
+                    <Link
+                      component={RouterLink}
+                      to={`/admin/invoices/${j.invoice_id}`}
+                    >
+                      {j.invoice_number}
+                    </Link>
+                  </dd>
+                </>
+              )}
+              {j.refund_id && (
+                <>
+                  <dt>Refund</dt>
+                  <dd>
+                    <Link
+                      component={RouterLink}
+                      to={`/admin/refunds?tab=approved&search=${j.order_number || ''}`}
+                    >
+                      Refund #{j.refund_id}
+                    </Link>
+                  </dd>
+                </>
+              )}
+              <dt>Note</dt>
+              <dd>{j.memo}</dd>
+            </Box>
+            <Table size="small" sx={{ mt: 2.5 }}>
+              <TableHead sx={headSx}>
+                <TableRow>
+                  <TableCell>Account</TableCell>
+                  <TableCell align="right">Debit</TableCell>
+                  <TableCell align="right">Credit</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {j.lines.map((l, i) => (
+                  <TableRow key={i}>
+                    <TableCell sx={{ pl: l.credit ? 4 : 2 }}>
+                      {l.name}
+                    </TableCell>
+                    <TableCell align="right">
+                      {l.debit ? formatMoney(l.debit, j.currency) : ''}
+                    </TableCell>
+                    <TableCell align="right">
+                      {l.credit ? formatMoney(l.credit, j.currency) : ''}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </DialogContent>
+        </>
+      )}
+    </Dialog>
+  );
+};
+JournalDialog.propTypes = {
+  journal: PropTypes.object,
+  onClose: PropTypes.func,
+};
+
 export const LedgerPage = () => {
+  const [openJournal, setOpenJournal] = useState(null);
   const notify = useNotify();
   const { params, get, set, page } = useListParams();
   const [data, setData] = useState(null);
@@ -1609,15 +1745,9 @@ export const LedgerPage = () => {
         )}
       </SectionCard>
 
-      <Box>
-        <Typography variant="h5" component="h2">
-          Everyday Business Language
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-          Each entry in the books, in plain words: what happened, who it was
-          with, and which accounts it moved.
-        </Typography>
-      </Box>
+      <Typography variant="h5" component="h2">
+        Journal entries
+      </Typography>
       <TablePanel>
         <PanelToolbar>
           <Search
@@ -1657,15 +1787,13 @@ export const LedgerPage = () => {
               <TableRow>
                 <TableCell>Date</TableCell>
                 <TableCell>Type</TableCell>
-                <TableCell>What happened</TableCell>
-                <TableCell>Accounts</TableCell>
+                <TableCell>Description</TableCell>
                 <TableCell align="right">Amount</TableCell>
-                <TableCell>Reference</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {!data ? (
-                <LoadingRows cols={6} rows={PAGE_SIZE} />
+                <LoadingRows cols={4} rows={PAGE_SIZE} />
               ) : data.journals.length ? (
                 data.journals.map((j) => {
                   const [kindLabel, tone] = JOURNAL_KINDS[j.kind] || [
@@ -1676,97 +1804,30 @@ export const LedgerPage = () => {
                     <TableRow
                       key={j.journal_id}
                       hover
+                      tabIndex={0}
+                      sx={{ cursor: 'pointer' }}
+                      onClick={() => setOpenJournal(j)}
+                      onKeyDown={(e) => e.key === 'Enter' && setOpenJournal(j)}
                       data-testid={`journal-${j.journal_id}`}
                     >
-                      <TableCell
-                        sx={{ whiteSpace: 'nowrap' }}
-                        title={formatDateTime(j.occurred_at)}
-                      >
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>
                         {formatShortDate(j.occurred_at)}
                       </TableCell>
                       <TableCell>
                         <Pill label={kindLabel} tone={tone} />
                       </TableCell>
-                      <TableCell sx={{ minWidth: 240 }}>
-                        <Typography variant="body2">{j.description}</Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          J{j.journal_id} · {j.memo}
-                        </Typography>
-                      </TableCell>
-                      <TableCell sx={{ minWidth: 220 }}>
-                        {j.lines.map((l, i) => (
-                          <Stack
-                            key={i}
-                            direction="row"
-                            spacing={1}
-                            justifyContent="space-between"
-                          >
-                            <Typography variant="caption" noWrap>
-                              <Box
-                                component="span"
-                                sx={{
-                                  fontWeight: 700,
-                                  color: l.debit
-                                    ? 'success.main'
-                                    : 'text.secondary',
-                                  mr: 0.5,
-                                }}
-                              >
-                                {l.debit ? 'Dr' : 'Cr'}
-                              </Box>
-                              {l.name}
-                            </Typography>
-                            <Typography variant="caption" noWrap>
-                              {formatMoney(l.debit || l.credit, j.currency)}
-                            </Typography>
-                          </Stack>
-                        ))}
-                      </TableCell>
+                      <TableCell>{j.description}</TableCell>
                       <TableCell
                         align="right"
                         sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}
                       >
                         {formatMoney(j.amount, j.currency)}
                       </TableCell>
-                      <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                        <Stack spacing={0.25}>
-                          {j.order_id && (
-                            <Link
-                              component={RouterLink}
-                              to={`/admin/orders/${j.order_id}`}
-                              variant="body2"
-                              underline="hover"
-                            >
-                              Order #{j.order_id}
-                            </Link>
-                          )}
-                          {j.invoice_id && (
-                            <Link
-                              component={RouterLink}
-                              to={`/admin/invoices/${j.invoice_id}`}
-                              variant="body2"
-                              underline="hover"
-                            >
-                              {j.invoice_number}
-                            </Link>
-                          )}
-                          {j.refund_id && (
-                            <Link
-                              component={RouterLink}
-                              to={`/admin/refunds?tab=approved&search=${j.order_id || ''}`}
-                              variant="body2"
-                              underline="hover"
-                            >
-                              Refund #{j.refund_id}
-                            </Link>
-                          )}
-                        </Stack>
-                      </TableCell>
                     </TableRow>
                   );
                 })
               ) : (
-                <EmptyRow cols={6}>Nothing matches.</EmptyRow>
+                <EmptyRow cols={4}>Nothing matches.</EmptyRow>
               )}
             </TableBody>
           </Table>
@@ -1783,6 +1844,10 @@ export const LedgerPage = () => {
           />
         )}
       </TablePanel>
+      <JournalDialog
+        journal={openJournal}
+        onClose={() => setOpenJournal(null)}
+      />
     </Stack>
   );
 };

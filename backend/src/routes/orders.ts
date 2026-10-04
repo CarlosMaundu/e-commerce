@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { query } from '../db';
 import { audit } from '../lib/audit';
 import { fail, handler, ok, parse } from '../lib/http';
-import { loadOrder, ORDER_STATUSES, RETURN_REASONS, toContractOrder } from '../lib/orders';
+import { loadOrder, orderRef, ORDER_STATUSES, RETURN_REASONS, toContractOrder } from '../lib/orders';
 import { resolveItem } from '../lib/products';
 import { authenticate, customersOnly } from '../middleware/auth';
 import { buildCart } from './cart';
@@ -14,6 +14,7 @@ import { buildCart } from './cart';
 export const toContractReturn = (r: any) => ({
   return_id: r.id,
   order_id: r.order_id,
+  order_number: r.order_number,
   order_product_id: r.order_item_id,
   product: r.product_name,
   image: r.image,
@@ -45,6 +46,7 @@ export const RETURN_STATUS_NAMES: Record<string, string> = {
 
 export const RETURN_SELECT = `
   SELECT r.*, oi.name AS product_name, oi.image, oi.unit_price, oi.options,
+    (SELECT number FROM orders WHERE id = r.order_id) AS order_number,
     rf.id AS refund_id, rf.status AS refund_status, rf.amount AS refund_amount, rf.method AS refund_method
   FROM returns r JOIN order_items oi ON oi.id = r.order_item_id
   LEFT JOIN LATERAL (
@@ -83,7 +85,7 @@ export const orderRoutes = () => {
     const total = (await query(`SELECT count(*)::int AS n FROM orders o WHERE ${filter}`, params)).rows[0].n;
     params.push(q.limit, (q.page - 1) * q.limit);
     const { rows } = await query(
-      `SELECT o.*,
+      `SELECT o.*, (SELECT number FROM invoices WHERE order_id = o.id) AS invoice_number,
          (SELECT COALESCE(sum(quantity), 0)::int FROM order_items WHERE order_id = o.id) AS item_count,
          (SELECT json_agg(json_build_object('name', name, 'image', image, 'options', options, 'quantity', quantity,
             'price', unit_price, 'total', total, 'product_id', product_id) ORDER BY id)
@@ -97,7 +99,7 @@ export const orderRoutes = () => {
   }));
 
   router.get('/customerorders/:id', handler(async (req, res) => {
-    const loaded = await loadOrder(Number(req.params.id), { userId: req.auth!.userId });
+    const loaded = await loadOrder(orderRef(req.params.id), { userId: req.auth!.userId });
     if (!loaded) fail(404, 'Order not found.');
     const returns = (await query(`${RETURN_SELECT} WHERE r.order_id = $1 ORDER BY r.id`, [loaded!.order.id])).rows;
     ok(res, { ...loaded!.contract, returns: returns.map(toContractReturn) });
@@ -105,7 +107,7 @@ export const orderRoutes = () => {
 
   // Adds everything still available from a past order back to the cart.
   router.post('/customerorders/:id/reorder', handler(async (req, res) => {
-    const loaded = await loadOrder(Number(req.params.id), { userId: req.auth!.userId });
+    const loaded = await loadOrder(orderRef(req.params.id), { userId: req.auth!.userId });
     if (!loaded) fail(404, 'Order not found.');
     let added = 0;
     for (const item of loaded!.items) {

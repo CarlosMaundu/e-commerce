@@ -202,7 +202,7 @@ const OrderSummary = ({ items, address, shipment, totals, total, actions }) => (
         </Typography>
       </Stack>
     </Stack>
-    {actions && <Box sx={{ mt: 3 }}>{actions}</Box>}
+    {actions && <Box sx={{ mt: 3, display: { md: 'none' } }}>{actions}</Box>}
   </SectionCard>
 );
 OrderSummary.propTypes = {
@@ -688,10 +688,18 @@ const CheckoutPage = () => {
                         I accept the{' '}
                         <Link
                           component={RouterLink}
-                          to="/information/terms"
+                          to="/policies/terms"
                           target="_blank"
                         >
                           terms and conditions
+                        </Link>{' '}
+                        and the{' '}
+                        <Link
+                          component={RouterLink}
+                          to="/policies/refunds"
+                          target="_blank"
+                        >
+                          refund & return policy
                         </Link>
                       </>
                     }
@@ -699,6 +707,19 @@ const CheckoutPage = () => {
                 </Stack>
               </Stack>
             </SectionCard>
+          )}
+          {showActions && (
+            <Box
+              sx={{
+                display: { xs: 'none', md: 'flex' },
+                justifyContent: 'flex-end',
+                mt: 3,
+                '& > div': { minWidth: 420 },
+              }}
+              data-testid="checkout-actions"
+            >
+              {actions}
+            </Box>
           )}
         </Grid>
       </Grid>

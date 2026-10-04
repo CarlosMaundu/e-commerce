@@ -134,10 +134,10 @@ test('checkout places an order the customer can see, and emails them', async ({
   const id = await checkout(page);
 
   await expect(
-    page.getByRole('heading', { name: `Order #${id}` })
+    page.getByRole('heading', { name: /^Order WEB-[0-9A-Z]{8}$/ })
   ).toBeVisible();
   const { subject } = await linkFromLatestEmail('cam@example.com');
-  expect(subject).toContain(`#${id}`);
+  expect(subject).toMatch(/order WEB-[0-9A-Z]{8}$/);
 
   // The cart was emptied and the order is listed.
   await page.goto('/cart');
@@ -150,7 +150,7 @@ test('checkout places an order the customer can see, and emails them', async ({
   await expect(page.getByTestId('order-tracker')).toContainText('Order placed');
   await page.getByRole('link', { name: 'Invoice', exact: true }).click();
   const invoice = page.getByTestId('invoice-document');
-  await expect(invoice).toContainText(`INV-${String(id).padStart(6, '0')}`);
+  await expect(invoice).toContainText(/INV-\d{8}-\d{6}-[0-9A-Z]{4}/);
   await expect(invoice).toContainText('Nourishing body lotion');
   await expect(invoice).toContainText('Due');
   await page.goto('/account/track');
@@ -256,10 +256,12 @@ test('an item sent as a gift is charged for its box and prepared before dispatch
   await gift.getByLabel('From').fill('Cam');
   await gift.getByRole('checkbox', { name: 'Gift message' }).check();
   await gift.getByLabel('Message (optional)').fill('Happy birthday!');
-  await gift.getByRole('checkbox', { name: 'Gift box' }).check();
+  await gift.getByRole('radio', { name: /^Silver box/ }).click();
   await gift.getByRole('button', { name: 'Save' }).click();
   await expect(toast(page)).toHaveText('Gift details saved.');
-  await expect(page.getByText('To Amina · From Cam')).toBeVisible();
+  await expect(
+    page.getByText('To Amina · From Cam · Silver box')
+  ).toBeVisible();
   const id = await checkout(page);
   await expect(page.getByTestId('gift-note')).toContainText('Amina');
   await expect(page.getByText('Gift boxes')).toBeVisible();

@@ -19,7 +19,11 @@ export const settingsSchema = z.object({
     idle_minutes: z.coerce.number().int().min(5, 'The idle timeout must be at least 5 minutes.').max(24 * 60),
     max_concurrent: z.coerce.number().int().min(1).max(50),
   }),
-  accounts: z.object({ allow_registration: z.boolean() }),
+  accounts: z.object({
+    allow_registration: z.boolean(),
+    // New accounts must confirm their email address before signing in.
+    require_email_verification: z.boolean().default(false),
+  }),
 });
 
 export type SecuritySettings = z.output<typeof settingsSchema>;
@@ -28,7 +32,7 @@ export const DEFAULT_SETTINGS: SecuritySettings = {
   password: { min_length: 8, require_symbol: false },
   lockout: { max_attempts: 5, minutes: 15 },
   staff_sessions: { max_hours: 12, idle_minutes: 60, max_concurrent: 5 },
-  accounts: { allow_registration: true },
+  accounts: { allow_registration: true, require_email_verification: false },
 };
 
 export const getSettings = async (): Promise<SecuritySettings> => {

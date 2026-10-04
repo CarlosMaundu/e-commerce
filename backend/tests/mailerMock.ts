@@ -4,6 +4,9 @@ export const mailerMock = () => ({
   sendPasswordResetEmail: jest.fn(async (to: string, link: string) => {
     sentEmails.push({ to, link, kind: 'reset' });
   }),
+  sendVerificationEmail: jest.fn(async (to: string, _name: string, link: string) => {
+    sentEmails.push({ to, link, kind: 'verify' });
+  }),
   sendAccountSetupEmail: jest.fn(async (to: string, _name: string, link: string) => {
     sentEmails.push({ to, link, kind: 'setup' });
   }),

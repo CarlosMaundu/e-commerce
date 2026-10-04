@@ -174,6 +174,7 @@ const ActiveSessions = () => {
         ].map(([label, value, icon, color]) => (
           <Grid item xs={6} md={3} key={label}>
             <StatTile
+              card
               label={label}
               value={value ?? '—'}
               icon={icon}
@@ -400,6 +401,24 @@ const SecuritySettingsPage = () => {
             }
             label="Shoppers can create their own accounts (sign up, and first Google sign-in)"
           />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={!!settings.accounts.require_email_verification}
+                onChange={(e) =>
+                  set('accounts', {
+                    require_email_verification: e.target.checked,
+                  })
+                }
+              />
+            }
+            label="New accounts must confirm their email address before they can sign in"
+          />
+          <Typography variant="body2" color="text.secondary">
+            When this is on, new sign-ups get an email with a confirmation link,
+            and signing in is refused until they use it. Google accounts are
+            already confirmed. Existing accounts aren’t affected.
+          </Typography>
         </PolicyForm>
       )}
     </Stack>

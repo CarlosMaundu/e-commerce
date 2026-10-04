@@ -35,6 +35,7 @@ export const DEFAULT_STORE = {
     pricesIncludeTax: true,
     freeShippingOver: 0,
   },
+  returns: { windowDays: 14, refundDelivery: false, restockingFeePercent: 0 },
   hero: {
     main: {
       eyebrow: 'Weekend drop · 20% off',

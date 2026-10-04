@@ -319,7 +319,14 @@ export const giftFromApi = (g) =>
         to: g.to,
         from: g.from,
         message: g.message || '',
-        giftBox: !!g.gift_box,
+        box: g.box
+          ? {
+              id: g.box.id,
+              name: g.box.name,
+              price: g.box.price === null ? null : Number(g.box.price),
+              image: g.box.image || '',
+            }
+          : null,
         ...(g.done !== undefined
           ? {
               done: !!g.done,
@@ -336,7 +343,7 @@ export const giftToApi = (g) =>
         to: g.to,
         from: g.from,
         message: g.message || '',
-        gift_box: !!g.giftBox,
+        box_id: g.boxId || null,
       }
     : null;
 
@@ -359,8 +366,10 @@ export const cartFromApi = (c) => ({
   giftOptions: c?.gift_options
     ? {
         enabled: c.gift_options.enabled,
-        boxPrice: Number(c.gift_options.box_price),
-        boxDescription: c.gift_options.box_description,
+        boxes: (c.gift_options.boxes || []).map((b) => ({
+          ...b,
+          price: Number(b.price),
+        })),
       }
     : null,
   itemCount: c?.item_count || 0,
@@ -422,6 +431,8 @@ export const formatAddress = (a) =>
 export const orderFromApi = (o) =>
   o && {
     id: o.order_id,
+    number: o.order_number || String(o.order_id),
+    invoiceNumber: o.invoice_number || null,
     status: o.status,
     statusName: o.status_name,
     email: o.email,
@@ -477,6 +488,7 @@ export function returnFromApi(r) {
     r && {
       id: r.return_id,
       orderId: r.order_id,
+      orderNumber: r.order_number || String(r.order_id),
       orderItemId: r.order_product_id,
       product: r.product,
       image: r.image,

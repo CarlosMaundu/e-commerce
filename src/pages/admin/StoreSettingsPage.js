@@ -9,12 +9,9 @@ import {
   InputAdornment,
   Skeleton,
   Stack,
-  Tab,
-  Tabs,
   TextField,
   Typography,
 } from '@mui/material';
-import { alpha } from '@mui/material/styles';
 import {
   FiFacebook,
   FiEdit2,
@@ -27,7 +24,7 @@ import { store as storeApi } from '../../api';
 import { useNotify } from '../../notification/NotificationProvider';
 import { useStore } from '../../context/StoreContext';
 import { SectionCard } from '../../components/ui';
-import { PageHeader } from '../../components/admin/DataTable';
+import { PageHeader, PanelTabs } from '../../components/admin/DataTable';
 import { useHideHelpWhile } from '../../layouts/AdminLayout';
 import ImageField from '../../components/admin/ImageField';
 import { formatDateTime } from '../../utils/format';
@@ -166,34 +163,16 @@ const StoreSettingsPage = () => {
         <SettingsSkeleton />
       ) : (
         <>
-          <Tabs
-            value={tab}
-            onChange={(_, v) => setTab(v)}
-            sx={{
-              mt: 3,
-              minHeight: 44,
-              display: 'inline-flex',
-              bgcolor: 'background.paper',
-              border: 1,
-              borderColor: 'divider',
-              borderRadius: '8px',
-              p: 0.5,
-              '& .MuiTabs-indicator': { display: 'none' },
-              '& .MuiTab-root': {
-                minHeight: 36,
-                borderRadius: '6px',
-                textTransform: 'none',
-                fontWeight: 600,
-                px: 2.5,
-              },
-              '& .Mui-selected': {
-                bgcolor: (t) => alpha(t.palette.primary.main, 0.1),
-              },
-            }}
-          >
-            <Tab value="general" label="General" />
-            <Tab value="home" label="Home page" />
-          </Tabs>
+          <Box sx={{ mt: 3 }}>
+            <PanelTabs
+              value={tab}
+              onChange={setTab}
+              tabs={[
+                { value: 'general', label: 'General' },
+                { value: 'home', label: 'Home page' },
+              ]}
+            />
+          </Box>
           <Box
             component="fieldset"
             disabled={!editing}

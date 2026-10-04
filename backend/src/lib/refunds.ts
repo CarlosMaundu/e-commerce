@@ -72,7 +72,6 @@ export const createRefund = async (
     method,
     returnId = null,
     by,
-    canApprove,
     gateway,
     applyFee = true,
   }: {
@@ -83,7 +82,6 @@ export const createRefund = async (
     method?: string;
     returnId?: number | null;
     by: number | null;
-    canApprove: boolean;
     gateway: PaymentGateway | null;
     applyFee?: boolean;
   }
@@ -102,7 +100,9 @@ export const createRefund = async (
   if (!(amount > 0)) fail(400, 'The refund must be more than zero.');
   if (amount + fee > left.amount + 0.009) fail(400, `Only ${left.amount.toFixed(2)} can still be refunded on this order.`);
 
-  const needsApproval = settings.approval_threshold !== null && amount > settings.approval_threshold && !canApprove;
+  // Above the limit every refund waits in the approval queue, whoever raised
+  // it (an approver then approves it there, even their own).
+  const needsApproval = settings.approval_threshold !== null && amount > settings.approval_threshold;
   const refund = (
     await db.query(
       `INSERT INTO refunds (order_id, invoice_id, return_id, status, items_amount, delivery_amount, restocking_fee, amount,
@@ -119,6 +119,7 @@ export const createRefund = async (
 export const toContractRefund = (r: any) => ({
   refund_id: r.id,
   order_id: r.order_id,
+  order_number: r.order_number ?? undefined,
   invoice_id: r.invoice_id,
   invoice_number: r.invoice_number ?? undefined,
   return_id: r.return_id,

@@ -2,6 +2,7 @@
 // customer, order edits, invoices, payments, refunds (with approval),
 // refund settings and the ledger.
 import { Router } from 'express';
+import { orderNumber } from '../lib/numbers';
 import { z } from 'zod';
 import { query, transaction } from '../db';
 import {
@@ -134,7 +135,7 @@ const reissue = async (db: Db, invoice: any, order: any, by: number) => {
 };
 
 const INVOICE_SELECT = `
-  SELECT i.*, o.status AS order_status, o.payment_method, o.email,
+  SELECT i.*, o.status AS order_status, o.payment_method, o.email, o.number AS order_number,
     TRIM(COALESCE(u.firstname, '') || ' ' || COALESCE(u.lastname, '')) AS customer_name
   FROM invoices i JOIN orders o ON o.id = i.order_id LEFT JOIN users u ON u.id = i.user_id`;
 
@@ -142,6 +143,7 @@ const toContractInvoice = (i: any) => ({
   invoice_id: i.id,
   number: i.number,
   order_id: i.order_id,
+  order_number: i.order_number,
   status: i.status,
   customer: { customer_id: i.user_id, name: i.customer_name || '', email: i.email },
   subtotal: Number(i.subtotal),
@@ -168,6 +170,7 @@ const toContractPayment = (p: any) => ({
   currency: p.currency,
   reference: p.reference,
   order_id: p.order_id,
+  order_number: p.order_number ?? undefined,
   invoice_id: p.invoice_id,
   invoice_number: p.invoice_number ?? undefined,
   refund_id: p.refund_id,
@@ -183,7 +186,7 @@ const METHOD_WORDS: Record<string, string> = { stripe: 'card', cod: 'cash on del
 /** What a journal means, in words anyone can follow. */
 const describeJournal = (j: any) => {
   const who = j.customer_name || 'a customer';
-  const order = j.order_id ? ` (order #${j.order_id})` : '';
+  const order = j.order_number ? ` (order ${j.order_number})` : '';
   switch (j.kind) {
     case 'sale':
       return `Sold goods to ${who}${order}; they now owe us for invoice ${j.invoice_number || ''}`.trim();
@@ -252,10 +255,11 @@ export const adminFinanceRoutes = ({ payments }: { payments: PaymentGateway | nu
       const totals = computeTotals(lines as any, undefined, b.shipping_method);
       const { rows } = await db.query(
         `INSERT INTO orders (user_id, email, status, payment_method, payment_status, shipping_method, shipping_address,
-           payment_address, subtotal, discount, shipping_total, tax_total, total, currency, comment, placed_at, created_by)
-         VALUES ($1, $2, 'pending', $3, 'pending', $4, $5, $5, $6, $7, $8, $9, $10, $11, $12, now(), $13) RETURNING *`,
+           payment_address, subtotal, discount, shipping_total, tax_total, total, currency, comment, placed_at, created_by, number)
+         VALUES ($1, $2, 'pending', $3, 'pending', $4, $5, $5, $6, $7, $8, $9, $10, $11, $12, now(), $13, $14) RETURNING *`,
         [customer.id, customer.email, b.payment_method, b.shipping_method, JSON.stringify(address), totals.subtotal,
-          totals.discount, totals.shipping, totals.tax, totals.total, finance().currency, b.comment, req.auth!.userId]
+          totals.discount, totals.shipping, totals.tax, totals.total, finance().currency, b.comment, req.auth!.userId,
+          orderNumber('STF')]
       );
       const order = rows[0];
       await insertItems(db, order.id, lines);
@@ -383,7 +387,8 @@ export const adminFinanceRoutes = ({ payments }: { payments: PaymentGateway | nu
     if (q.search) {
       params.push(`%${q.search.replace(/^#/, '')}%`);
       where.push(`(i.number ILIKE $${params.length} OR o.email ILIKE $${params.length}
-        OR (u.firstname || ' ' || u.lastname) ILIKE $${params.length} OR o.id::text ILIKE $${params.length})`);
+        OR (u.firstname || ' ' || u.lastname) ILIKE $${params.length} OR o.id::text ILIKE $${params.length}
+        OR o.number ILIKE $${params.length})`);
     }
     const w = where.length ? `WHERE ${where.join(' AND ')}` : '';
     const base = `FROM invoices i JOIN orders o ON o.id = i.order_id LEFT JOIN users u ON u.id = i.user_id ${w}`;
@@ -463,6 +468,7 @@ export const adminFinanceRoutes = ({ payments }: { payments: PaymentGateway | nu
     if (q.search) {
       params.push(`%${q.search.replace(/^#/, '')}%`);
       where.push(`(p.reference ILIKE $${params.length} OR i.number ILIKE $${params.length} OR p.order_id::text ILIKE $${params.length}
+        OR EXISTS (SELECT 1 FROM orders x WHERE x.id = p.order_id AND x.number ILIKE $${params.length})
         OR (u.firstname || ' ' || u.lastname) ILIKE $${params.length} OR u.email ILIKE $${params.length})`);
     }
     const w = where.length ? `WHERE ${where.join(' AND ')}` : '';
@@ -476,6 +482,7 @@ export const adminFinanceRoutes = ({ payments }: { payments: PaymentGateway | nu
     params.push(q.limit, (q.page - 1) * q.limit);
     const rows = (await query(
       `SELECT p.*, i.number AS invoice_number, u.email AS customer_email,
+         (SELECT number FROM orders WHERE id = p.order_id) AS order_number,
          TRIM(COALESCE(u.firstname, '') || ' ' || COALESCE(u.lastname, '')) AS customer_name,
          NULLIF(TRIM(COALESCE(r.firstname, '') || ' ' || COALESCE(r.lastname, '')), '') AS recorded_by_name
        ${base} ORDER BY p.received_at DESC, p.id DESC LIMIT $${params.length - 1} OFFSET $${params.length}`, params
@@ -509,7 +516,7 @@ export const adminFinanceRoutes = ({ payments }: { payments: PaymentGateway | nu
       if (!order || !order.placed_at) fail(404, 'Order not found.');
       const r = await createRefund(db, {
         order, itemsAmount: b.items_amount, includeDelivery: b.include_delivery, applyFee: b.apply_fee, reason: b.reason,
-        method: b.method, by: req.auth!.userId, canApprove: hasPermission(req.auth!.permissions, 'admin.refunds.approve'),
+        method: b.method, by: req.auth!.userId,
         gateway: payments,
       });
       await addHistory(db, order.id, order.status,
@@ -540,7 +547,8 @@ export const adminFinanceRoutes = ({ payments }: { payments: PaymentGateway | nu
     }
     if (q.search) {
       params.push(`%${q.search.replace(/^#/, '')}%`);
-      where.push(`(i.number ILIKE $${params.length} OR o.id::text ILIKE $${params.length} OR r.reference ILIKE $${params.length}
+      where.push(`(i.number ILIKE $${params.length} OR o.id::text ILIKE $${params.length} OR o.number ILIKE $${params.length}
+        OR r.reference ILIKE $${params.length}
         OR r.reason ILIKE $${params.length} OR (u.firstname || ' ' || u.lastname) ILIKE $${params.length})`);
     }
     const from = `FROM refunds r JOIN orders o ON o.id = r.order_id LEFT JOIN invoices i ON i.id = r.invoice_id
@@ -558,7 +566,7 @@ export const adminFinanceRoutes = ({ payments }: { payments: PaymentGateway | nu
     const total = (await query(`SELECT count(*)::int AS n ${from} ${w}`, params)).rows[0].n;
     params.push(q.limit, (q.page - 1) * q.limit);
     const rows = (await query(
-      `SELECT r.*, i.number AS invoice_number, o.user_id,
+      `SELECT r.*, i.number AS invoice_number, o.user_id, o.number AS order_number,
          TRIM(COALESCE(u.firstname, '') || ' ' || COALESCE(u.lastname, '')) AS customer_name,
          NULLIF(TRIM(COALESCE(q.firstname, '') || ' ' || COALESCE(q.lastname, '')), '') AS requested_by_name,
          NULLIF(TRIM(COALESCE(a.firstname, '') || ' ' || COALESCE(a.lastname, '')), '') AS approved_by_name
@@ -651,7 +659,7 @@ export const adminFinanceRoutes = ({ payments }: { payments: PaymentGateway | nu
     }
     if (q.search) {
       jParams.push(`%${q.search.replace(/^#/, '')}%`);
-      jWhere.push(`(j.memo ILIKE $${jParams.length} OR j.order_id::text ILIKE $${jParams.length}
+      jWhere.push(`(j.memo ILIKE $${jParams.length} OR j.order_id::text ILIKE $${jParams.length} OR o.number ILIKE $${jParams.length}
         OR (u.firstname || ' ' || u.lastname) ILIKE $${jParams.length} OR u.email ILIKE $${jParams.length})`);
     }
     const jw = jWhere.length ? `WHERE ${jWhere.join(' AND ')}` : '';
@@ -667,7 +675,7 @@ export const adminFinanceRoutes = ({ payments }: { payments: PaymentGateway | nu
     const totalJournals = (await query(`SELECT count(*)::int AS n ${journalsFrom} ${jw}`, jParams)).rows[0].n;
     jParams.push(q.limit, (q.page - 1) * q.limit);
     const rows = (await query(
-      `SELECT j.*, i.number AS invoice_number, p.method AS payment_method, rf.method AS refund_method,
+      `SELECT j.*, i.number AS invoice_number, p.method AS payment_method, rf.method AS refund_method, o.number AS order_number,
          NULLIF(TRIM(COALESCE(u.firstname, '') || ' ' || COALESCE(u.lastname, '')), '') AS customer_name, u.id AS customer_id
        ${journalsFrom} LEFT JOIN invoices i ON i.id = j.invoice_id LEFT JOIN payments p ON p.id = j.payment_id
        LEFT JOIN refunds rf ON rf.id = j.refund_id
@@ -687,6 +695,7 @@ export const adminFinanceRoutes = ({ payments }: { payments: PaymentGateway | nu
       amount: round2(Number(j.amount)),
       currency: j.currency,
       order_id: j.order_id,
+      order_number: j.order_number,
       invoice_id: j.invoice_id,
       invoice_number: j.invoice_number,
       refund_id: j.refund_id,

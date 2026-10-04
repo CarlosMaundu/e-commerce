@@ -471,7 +471,12 @@ describe('invoices, payments, refunds and the ledger', () => {
     fakePayments.intents.get(intentId)!.status = 'succeeded';
     const card = (await request(app).put('/api/rest/confirm').set(bearer(token))).body.data;
     const money = (await request(app).get(`/api/admin/orders/${card.order_id}/finance`).set(bearer(admin))).body.data;
-    expect(money.invoice).toMatchObject({ number: `INV-${String(card.order_id).padStart(6, '0')}`, status: 'paid', total: 137.44, balance: 0 });
+    expect(money.invoice).toMatchObject({ status: 'paid', total: 137.44, balance: 0 });
+    expect(money.invoice.number).toMatch(/^INV-\d{8}-\d{6}-[0-9A-Z]{4}$/);
+    expect(card.order_number).toMatch(/^WEB-[0-9A-Z]{8}$/);
+    expect(card.invoice_number).toBe(money.invoice.number);
+    // Orders can be opened by number too.
+    expect((await request(app).get(`/api/admin/orders/${card.order_number}`).set(bearer(admin))).body.data.order_id).toBe(card.order_id);
     expect(money.payments).toMatchObject([{ kind: 'payment', method: 'stripe', amount: 137.44, reference: intentId }]);
     expect(await balance('card_clearing')).toBe(137.44);
     expect(await balance('receivables')).toBe(0);
@@ -570,6 +575,12 @@ describe('invoices, payments, refunds and the ledger', () => {
     const approved = await request(app).put(`/api/admin/refunds/${big.body.data.refund_id}`).set(bearer(admin)).send({ action: 'approve' });
     expect(approved.body.data.status).toBe('processed');
 
+    // Raised by an approver, it still waits in the queue for them to approve.
+    const own = await request(app).post(`/api/admin/orders/${order.order_id}/refunds`).set(bearer(admin))
+      .send({ items_amount: 25, reason: 'Late delivery', apply_fee: false });
+    expect(own.body.data.status).toBe('pending_approval');
+    await request(app).put(`/api/admin/refunds/${own.body.data.refund_id}`).set(bearer(admin)).send({ action: 'reject' }).expect(200);
+
     const money = (await request(app).get(`/api/admin/orders/${order.order_id}/finance`).set(bearer(admin))).body.data;
     expect(money.invoice.status).toBe('partially_refunded');
     expect(money.refundable.amount).toBeCloseTo(137.44 - 20 - 50, 2);
@@ -605,17 +616,24 @@ describe('invoices, payments, refunds and the ledger', () => {
       .send({ product_id: await productId('Denim jacket'), quantity: 1, option: M }).expect(200);
     const key = (await request(app).get('/api/rest/cart').set(bearer(token))).body.data.products[0].key;
     const long = await request(app).put(`/api/rest/cart/${key}/gift`).set(bearer(token))
-      .send({ gift: { to: 'Amina', from: 'Jane', message: 'x'.repeat(61), gift_box: true } });
+      .send({ gift: { to: 'Amina', from: 'Jane', message: 'x'.repeat(61), box_id: 'silver' } });
     expect(long.status).toBe(400);
     const cart = (await request(app).put(`/api/rest/cart/${key}/gift`).set(bearer(token))
-      .send({ gift: { to: 'Amina', from: 'Jane', message: 'Happy birthday!', gift_box: true } })).body.data;
-    expect(cart.products[0].gift).toMatchObject({ to: 'Amina', gift_box: true });
+      .send({ gift: { to: 'Amina', from: 'Jane', message: 'Happy birthday!', box_id: 'silver' } })).body.data;
+    expect(cart.products[0].gift).toMatchObject({ to: 'Amina', box: { id: 'silver', price: 5 } });
+    expect(cart.gift_options.boxes.map((b: any) => b.id)).toEqual(['silver', 'kraft', 'luxury']);
+    const noBox = await request(app).put(`/api/rest/cart/${key}/gift`).set(bearer(token))
+      .send({ gift: { to: 'Amina', from: 'Jane', box_id: 'gold' } });
+    expect(noBox.status).toBe(400);
     expect(cart.totals.find((t: any) => t.code === 'gift_wrap')).toMatchObject({ value: 5 });
 
     await prepareCheckout(token, { items: [] });
     const order = (await request(app).put('/api/rest/confirm').set(bearer(token))).body.data;
     expect(order.totals.gift).toBe(5);
-    expect(order.products[0].gift).toEqual({ to: 'Amina', from: 'Jane', message: 'Happy birthday!', gift_box: true });
+    expect(order.products[0].gift).toEqual({
+      to: 'Amina', from: 'Jane', message: 'Happy birthday!',
+      box: { id: 'silver', name: 'Silver box', price: 5, image: '/images/gift-boxes/silver.svg' },
+    });
 
     const admin = await staffUser('admin', 'boss@example.com');
     await request(app).put(`/api/admin/orderhistory/${order.order_id}`).set(bearer(admin)).send({ order_status: 'processing' }).expect(200);
@@ -662,5 +680,31 @@ describe('invoices, payments, refunds and the ledger', () => {
     expect(ledger.journals[0]).toMatchObject({ kind: 'refund', kind_name: 'Refund' });
     expect(ledger.journals[0].description).toMatch(/Gave money back to/);
     await ledgerBalanced();
+  });
+
+  test('the bell lists what needs attention, per permission, and can be read, dismissed and cleared', async () => {
+    const token = await shopper();
+    const order = await placeOrder(token);
+    const admin = await staffUser('admin', 'boss@example.com');
+    const catalog = await staffUser('catalog_manager', 'cat@example.com');
+    const bell = async (t: string) => (await request(app).get('/api/admin/notifications').set(bearer(t))).body.data;
+
+    let feed = await bell(admin);
+    const newOrder = feed.items.find((i: any) => i.key === `order:${order.order_id}`);
+    expect(newOrder).toMatchObject({ kind: 'order', title: `New order ${order.order_number}`, unread: true });
+    expect(feed.unread).toBeGreaterThan(0);
+    expect((await bell(catalog)).items.some((i: any) => i.kind === 'order')).toBe(false);
+
+    await request(app).post('/api/admin/notifications/read').set(bearer(admin)).expect(200);
+    expect((await bell(admin)).unread).toBe(0);
+    await request(app).delete(`/api/admin/notifications/${encodeURIComponent(newOrder.key)}`).set(bearer(admin)).expect(200);
+    expect((await bell(admin)).items.some((i: any) => i.key === newOrder.key)).toBe(false);
+    await request(app).post('/api/admin/notifications/clear').set(bearer(admin)).expect(200);
+    expect((await bell(admin)).items).toEqual([]);
+
+    // Something new after clearing shows up again.
+    await placeOrder(await shopper('kim@example.com'));
+    feed = await bell(admin);
+    expect(feed.items.filter((i: any) => i.kind === 'order')).toHaveLength(1);
   });
 });

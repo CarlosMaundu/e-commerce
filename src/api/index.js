@@ -44,7 +44,18 @@ export const auth = {
       email,
       password,
     });
+    // The shop may ask new accounts to confirm their email first.
+    if (data.verification_required) {
+      return { verificationRequired: true, email: data.email };
+    }
     return acceptSession(data);
+  },
+  async verifyEmail(token) {
+    const { data } = await http().post('/rest/verify-email', { token });
+    return data;
+  },
+  async resendVerification(email) {
+    await http().post('/rest/verify-email/resend', { email: email.trim() });
   },
   async login(email, password, { rememberMe = false } = {}) {
     const { data } = await http().post('/rest/login', {
@@ -421,6 +432,11 @@ const storeFromApi = (d) => ({
     taxRate: Number(d.finance.tax_rate),
     pricesIncludeTax: Boolean(d.finance.prices_include_tax),
     freeShippingOver: Number(d.finance.free_shipping_over || 0),
+  },
+  returns: d.returns && {
+    windowDays: Number(d.returns.window_days),
+    refundDelivery: Boolean(d.returns.refund_delivery),
+    restockingFeePercent: Number(d.returns.restocking_fee_percent),
   },
   hero: d.hero && {
     main: { ...d.hero.main, ctaLabel: d.hero.main?.cta_label ?? '' },
@@ -813,6 +829,15 @@ export const adminOrders = {
   async notifications() {
     const { data } = await http().get('/admin/notifications');
     return data;
+  },
+  async notificationsRead() {
+    await http().post('/admin/notifications/read');
+  },
+  async notificationsClear() {
+    await http().post('/admin/notifications/clear');
+  },
+  async dismissNotification(key) {
+    await http().delete(`/admin/notifications/${encodeURIComponent(key)}`);
   },
 };
 

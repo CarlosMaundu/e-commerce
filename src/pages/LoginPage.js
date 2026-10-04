@@ -101,6 +101,13 @@ const LoginPage = () => {
         notify.success(MESSAGES.auth.signedIn);
         navigate(destination(signedIn), { replace: true });
       } catch (error) {
+        // Unconfirmed email: a new link was sent; offer to send another.
+        if (/confirm your email/i.test(String(error?.message || ''))) {
+          navigate(
+            `/verify-email?sent=${encodeURIComponent(values.email.trim())}`
+          );
+          return;
+        }
         notify.error(error, MESSAGES.auth.signInFailed);
       }
     },

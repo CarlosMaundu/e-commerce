@@ -516,7 +516,7 @@ export const adminCatalogRoutes = () => {
   // ---------- files ----------
   router.post(
     '/files',
-    requireAnyPermission('catalog.files.upload', 'admin.settings.manage'),
+    requireAnyPermission('catalog.files.upload', 'admin.settings.manage', 'admin.delivery.manage'),
     singleImage,
     handler(async (req, res) => {
       if (!req.file) fail(400, 'Please choose a file to upload.');

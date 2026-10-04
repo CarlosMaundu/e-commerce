@@ -102,7 +102,8 @@ const ProductCard = ({ product, compact = false }) => {
         textDecoration: 'none',
         color: 'text.primary',
         borderRadius: 1,
-        p: compact ? 1.5 : 2,
+        minWidth: 0,
+        p: { xs: 1, sm: compact ? 1.5 : 2 },
         transition: 'background-color .15s',
         '&:hover': { bgcolor: 'background.neutral' },
         '&:hover .wishlist, &:focus-within .wishlist': { opacity: 1 },
@@ -220,7 +221,13 @@ const ProductCard = ({ product, compact = false }) => {
           </Typography>
         )}
         {product.rating > 0 && (
-          <Stack direction="row" spacing={0.5} alignItems="center">
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="center"
+            flexWrap="wrap"
+            columnGap={0.5}
+          >
             <Rating
               value={Number(product.rating)}
               precision={0.5}
@@ -233,7 +240,11 @@ const ProductCard = ({ product, compact = false }) => {
             </Typography>
           </Stack>
         )}
-        <Typography variant={compact ? 'h6' : 'h5'} component="p">
+        <Typography
+          variant={compact ? 'h6' : 'h5'}
+          component="p"
+          sx={{ fontSize: { xs: '1.05rem', sm: undefined } }}
+        >
           {priceVaries && (
             <Typography component="span" variant="body2" color="text.secondary">
               From{' '}
@@ -242,7 +253,13 @@ const ProductCard = ({ product, compact = false }) => {
           {formatMoney(priceVaries ? product.minPrice : price)}
         </Typography>
         {onSale && (
-          <Stack direction="row" spacing={1} alignItems="center">
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="center"
+            flexWrap="wrap"
+            gap={0.5}
+          >
             <Typography
               variant="body2"
               color="text.disabled"
@@ -280,7 +297,7 @@ const ProductCard = ({ product, compact = false }) => {
               onClick={add}
               disabled={product.inStock === false}
               aria-label={`Add ${product.title} to cart`}
-              sx={{ mt: 1 }}
+              sx={{ mt: 1, px: { xs: 1, sm: 2 }, whiteSpace: 'nowrap' }}
             >
               Add to cart
             </Button>

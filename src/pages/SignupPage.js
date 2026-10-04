@@ -91,12 +91,18 @@ const SignupPage = () => {
     }),
     onSubmit: async (values) => {
       try {
-        await signUp({
+        const created = await signUp({
           firstName: values.firstName,
           lastName: values.lastName,
           email: values.email,
           password: values.password,
         });
+        if (created.verificationRequired) {
+          navigate(`/verify-email?sent=${encodeURIComponent(created.email)}`, {
+            replace: true,
+          });
+          return;
+        }
         notify.success(MESSAGES.auth.signedUp);
         navigate('/', { replace: true });
       } catch (error) {
@@ -362,12 +368,21 @@ const SignupPage = () => {
                   <Typography variant="body2">
                     I accept the{' '}
                     <Link
-                      href="/information/terms"
+                      href="/policies/terms"
                       underline="hover"
                       target="_blank"
                       rel="noopener"
                     >
                       Terms and Conditions
+                    </Link>{' '}
+                    and have read the{' '}
+                    <Link
+                      href="/policies/privacy"
+                      underline="hover"
+                      target="_blank"
+                      rel="noopener"
+                    >
+                      Privacy Policy
                     </Link>
                   </Typography>
                 }

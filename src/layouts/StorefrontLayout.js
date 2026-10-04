@@ -8,6 +8,7 @@ import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
 import ImpersonationBanner from '../components/ImpersonationBanner';
 import { useStore } from '../context/StoreContext';
+import MobileBottomNav, { BOTTOM_NAV_HEIGHT } from './MobileBottomNav';
 
 const AnnouncementBar = () => {
   const { announcement } = useStore();
@@ -31,7 +32,14 @@ const AnnouncementBar = () => {
 };
 
 const StorefrontLayout = () => (
-  <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+  <Box
+    sx={{
+      minHeight: '100vh',
+      display: 'flex',
+      flexDirection: 'column',
+      overflowX: 'clip',
+    }}
+  >
     <ImpersonationBanner />
     <AnnouncementBar />
     <Header />
@@ -39,6 +47,14 @@ const StorefrontLayout = () => (
       <Outlet />
     </Box>
     <Footer />
+    {/* Room for the phone menu so it never covers the footer. */}
+    <Box
+      sx={{
+        display: { md: 'none' },
+        height: `calc(${BOTTOM_NAV_HEIGHT + 12}px + env(safe-area-inset-bottom))`,
+      }}
+    />
+    <MobileBottomNav />
   </Box>
 );
 

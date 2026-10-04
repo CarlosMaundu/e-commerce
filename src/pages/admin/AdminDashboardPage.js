@@ -977,7 +977,7 @@ const RecentOrders = () => {
                         underline="hover"
                         sx={{ fontWeight: 700 }}
                       >
-                        #{o.id}
+                        {o.number}
                       </Link>
                     </TableCell>
                     <TableCell sx={{ fontWeight: 500 }}>
@@ -1033,7 +1033,11 @@ const OverviewSkeleton = () => (
       sx={{
         display: 'grid',
         gap: 2,
-        gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: 'repeat(4, 1fr)' },
+        gridTemplateColumns: {
+          xs: '1fr',
+          sm: '1fr 1fr',
+          lg: 'repeat(4, minmax(0, 1fr))',
+        },
       }}
     >
       {[0, 1, 2, 3].map((i) => (
@@ -1054,7 +1058,7 @@ const OverviewSkeleton = () => (
       sx={{
         display: 'grid',
         gap: 3,
-        gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
+        gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' },
       }}
     >
       {[0, 1, 2].map((i) => (
@@ -1216,7 +1220,7 @@ const AdminDashboardPage = () => {
               gridTemplateColumns: {
                 xs: '1fr',
                 sm: '1fr 1fr',
-                lg: 'repeat(4, 1fr)',
+                lg: 'repeat(4, minmax(0, 1fr))',
               },
             }}
           >

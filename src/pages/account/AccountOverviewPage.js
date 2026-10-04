@@ -211,7 +211,7 @@ const AccountOverviewPage = () => {
         }}
       >
         <SectionCard
-          title={latest ? `Latest order #${latest.id}` : 'Latest order'}
+          title={latest ? `Latest order ${latest.number}` : 'Latest order'}
           subtitle={
             latest
               ? `Placed ${formatDate(latest.placedAt)} · ${formatMoney(latest.total, latest.currency)}`
@@ -393,7 +393,7 @@ const AccountOverviewPage = () => {
                 />
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography className="order-link" variant="subtitle2">
-                    Order #{o.id}
+                    Order {o.number}
                   </Typography>
                   <Typography variant="caption" noWrap component="div">
                     {formatDate(o.placedAt)} · {o.itemCount} item

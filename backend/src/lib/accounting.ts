@@ -34,7 +34,7 @@ export const accountFor = (method: string) =>
   ({ stripe: 'card_clearing', cod: 'cash', cash: 'cash', mpesa: 'mobile_money', bank: 'bank' } as Record<string, string>)[method] ||
   'cash';
 
-export const invoiceNumber = (orderId: number) => `INV-${String(orderId).padStart(6, '0')}`;
+import { cashReceipt, invoiceNumber, mpesaRef, bankRef, stripeLikeRef } from './numbers';
 
 interface Line {
   account: string;
@@ -99,7 +99,7 @@ export const issueInvoice = async (
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::timestamptz,
          CASE WHEN $11::int > 0 THEN $10::timestamptz + make_interval(days => $11::int) END, $12, $13)
        RETURNING *`,
-      [invoiceNumber(order.id), order.id, order.user_id, order.subtotal, order.discount || 0, s.shipping, s.tax, s.total,
+      [invoiceNumber(issued), order.id, order.user_id, order.subtotal, order.discount || 0, s.shipping, s.tax, s.total,
         order.currency, issued, dueDays, notes, by]
     )
   ).rows[0];
@@ -243,6 +243,23 @@ export const refundable = async (db: Db, invoice: any) => {
 };
 
 /**
+ * How an earlier order was paid. Card orders keep their Stripe id. Demo
+ * shoppers' cash-on-delivery orders were mostly paid by M-Pesa on delivery,
+ * some by bank transfer or in cash, with references in the usual formats.
+ */
+export const backfillPayment = (o: any, at: Date | string) => {
+  if (o.payment_method === 'stripe') {
+    return { method: 'stripe' as Method, reference: o.payment_reference || stripeLikeRef('pi') };
+  }
+  if (String(o.email || '').startsWith('demo.buyer')) {
+    const r = Math.random();
+    if (r < 0.7) return { method: 'mpesa' as Method, reference: mpesaRef(at) };
+    if (r < 0.85 || Number(o.total) > 100000) return { method: 'bank' as Method, reference: bankRef(at) };
+  }
+  return { method: 'cod' as Method, reference: cashReceipt(at) };
+};
+
+/**
  * Gives every placed order without an invoice its invoice, payment and
  * refund history (orders placed before invoicing existed, demo orders).
  */
@@ -261,14 +278,9 @@ export const backfillAccounting = async (db: Db = direct) => {
     let invoice = await issueInvoice(db, o, { at: o.placed_at });
     const paid = ['paid', 'refunded'].includes(o.payment_status);
     if (paid) {
-      const method: Method = o.payment_method === 'stripe' ? 'stripe' : 'cod';
-      await recordPayment(db, {
-        invoice,
-        method,
-        amount: Number(invoice.total),
-        reference: o.payment_reference || `COD-${o.id}`,
-        at: method === 'stripe' ? o.placed_at : o.delivered_at || o.placed_at,
-      });
+      const at = o.payment_method === 'stripe' ? o.placed_at : o.delivered_at || o.placed_at;
+      const { method, reference } = backfillPayment(o, at);
+      await recordPayment(db, { invoice, method, amount: Number(invoice.total), reference, at });
       invoice = (await db.query('SELECT * FROM invoices WHERE id = $1', [invoice.id])).rows[0];
     }
     if (o.payment_status === 'refunded' || (o.status === 'refunded' && paid)) {
@@ -277,7 +289,8 @@ export const backfillAccounting = async (db: Db = direct) => {
           `INSERT INTO refunds (order_id, invoice_id, status, items_amount, delivery_amount, amount, method, reference, reason, created_at)
            VALUES ($1, $2, 'pending_approval', $3, $4, $5, $6, $7, 'Order refunded', COALESCE($8::timestamptz, now())) RETURNING *`,
           [o.id, invoice.id, round2(Number(invoice.total) - Number(invoice.shipping)), Number(invoice.shipping), Number(invoice.total),
-            o.payment_method === 'stripe' ? 'stripe' : 'cash', o.payment_reference || '', o.ended_at]
+            o.payment_method === 'stripe' ? 'stripe' : 'cash',
+            o.payment_method === 'stripe' ? stripeLikeRef('re') : cashReceipt(o.ended_at || undefined), o.ended_at]
         )
       ).rows[0];
       await postRefund(db, refund, invoice, { at: o.ended_at });

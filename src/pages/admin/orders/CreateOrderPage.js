@@ -138,7 +138,7 @@ const CreateOrderPage = () => {
             }
           : {}),
       });
-      notify.success(`Order #${order.id} created and invoiced.`);
+      notify.success(`Order ${order.number} created and invoiced.`);
       navigate(`/admin/orders/${order.id}`);
     } catch (error) {
       notify.error(error, 'We couldn’t create the order.');

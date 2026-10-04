@@ -70,6 +70,43 @@ describe('register and sign in', () => {
   });
 });
 
+describe('email verification', () => {
+  test('when required, new accounts confirm their email before signing in', async () => {
+    await createUser('boss@example.com', 'super_admin');
+    const admin = (await signIn('boss@example.com')).token;
+    await request(app).put('/api/admin/security/settings').set(bearer(admin))
+      .send({ accounts: { require_email_verification: true } }).expect(200);
+
+    const reg = await request(app).post('/api/rest/register').send({
+      firstname: 'Ada', lastname: 'L', email: 'ada@example.com', password: PASSWORD,
+    });
+    expect(reg.status).toBe(201);
+    expect(reg.body.data).toEqual({ verification_required: true, email: 'ada@example.com' });
+    expect(reg.headers['set-cookie']).toBeUndefined();
+
+    const blocked = await request(app).post('/api/rest/login').send({ email: 'ada@example.com', password: PASSWORD });
+    expect(blocked.status).toBe(403);
+    expect(blocked.body.error[0]).toMatch(/confirm your email/);
+    const links = sentEmails.filter((e) => e.kind === 'verify');
+    expect(links).toHaveLength(2); // on sign-up and again on the blocked sign-in
+
+    const verified = await request(app).post('/api/rest/verify-email').send({ token: tokenFrom(links[1].link) });
+    expect(verified.body.data).toEqual({ verified: true, email: 'ada@example.com' });
+    expect((await request(app).post('/api/rest/verify-email').send({ token: tokenFrom(links[1].link) })).status).toBe(400);
+    const ok = await request(app).post('/api/rest/login').send({ email: 'ada@example.com', password: PASSWORD });
+    expect(ok.status).toBe(200);
+    expect(ok.body.data.user.email_verified).toBe(true);
+  });
+
+  test('when not required, sign-up signs straight in', async () => {
+    const reg = await request(app).post('/api/rest/register').send({
+      firstname: 'Bo', lastname: 'K', email: 'bo@example.com', password: PASSWORD,
+    });
+    expect(reg.body.data.access_token).toBeTruthy();
+    expect(sentEmails.filter((e) => e.kind === 'verify')).toHaveLength(0);
+  });
+});
+
 describe('sessions', () => {
   test('refresh rotates the cookie and the old one stops working', async () => {
     await createUser('jane@example.com');

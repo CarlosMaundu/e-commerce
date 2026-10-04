@@ -67,7 +67,7 @@ const CustomerExperienceSection = () => (
       sx={{
         mt: { xs: 4, md: 5 },
         display: 'grid',
-        gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' },
+        gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' },
         gap: 2,
       }}
     >

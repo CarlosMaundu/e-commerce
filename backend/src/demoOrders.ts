@@ -8,6 +8,7 @@
 //   node dist/demoOrders.js --remove   delete demo shoppers and their orders
 //
 // Deterministic (seeded random), so runs give the same shape of data.
+import { orderNumber } from './lib/numbers';
 import { pool, query, transaction } from './db';
 import { delivery, loadDelivery } from './lib/delivery';
 import { finance, loadFinance } from './lib/finance';
@@ -80,8 +81,8 @@ export const seedDemoOrders = async () => {
     const town = weighted(TOWNS.map((t) => [t, t[1]] as [typeof t, number]));
     const joinedDaysAgo = Math.floor(rand() * 480);
     const { rows } = await query(
-      `INSERT INTO users (email, password_hash, firstname, lastname, role_id, created_at)
-       VALUES ($1, NULL, $2, $3, $4, now() - make_interval(days => $5)) RETURNING id`,
+      `INSERT INTO users (email, password_hash, firstname, lastname, role_id, created_at, email_verified_at)
+       VALUES ($1, NULL, $2, $3, $4, now() - make_interval(days => $5), now() - make_interval(days => $5)) RETURNING id`,
       [email, first, last, role, joinedDaysAgo]
     );
     buyers.push({ id: rows[0].id, email, first, last, town });
@@ -131,12 +132,13 @@ export const seedDemoOrders = async () => {
         const { rows } = await db.query(
           `INSERT INTO orders (user_id, email, status, payment_method, payment_status, shipping_method,
              shipping_address, payment_address, subtotal, discount, shipping_total, tax_total, total, currency,
-             placed_at, created_at, updated_at)
+             placed_at, created_at, updated_at, number)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $7, $8, 0, $9, $10, $11, $12,
-             now() - make_interval(hours => $13), now() - make_interval(hours => $13), now())
+             now() - make_interval(hours => $13), now() - make_interval(hours => $13), now(), $14)
            RETURNING id`,
           [buyer.id, buyer.email, status, card ? 'stripe' : 'cod', paymentStatus, express ? 'express' : 'standard',
-            JSON.stringify(address), subtotal, shipping, tax, total, finance().currency, hoursAgo]
+            JSON.stringify(address), subtotal, shipping, tax, total, finance().currency, hoursAgo,
+            orderNumber('WEB', new Date(Date.now() - hoursAgo * 3600000))]
         );
         const orderId = rows[0].id;
         for (const l of lines) {

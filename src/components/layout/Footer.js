@@ -42,8 +42,8 @@ const COLUMNS = [
     links: [
       ['Support', '/information/support'],
       ['FAQs', '/information/faq'],
-      ['Returns', '/account/returns'],
-      ['Terms', '/information/terms'],
+      ['Your returns', '/account/returns'],
+      ['Refund & Return Policy', '/policies/refunds'],
     ],
   },
   {
@@ -52,7 +52,8 @@ const COLUMNS = [
       ['About us', '/information/about'],
       ['Careers', '/information/careers'],
       ['Press', '/information/press'],
-      ['Privacy', '/information/privacy'],
+      ['Terms and conditions', '/policies/terms'],
+      ['Privacy policy', '/policies/privacy'],
     ],
   },
 ];

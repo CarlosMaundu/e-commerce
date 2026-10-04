@@ -8,7 +8,7 @@ import { query, transaction } from '../db';
 import { audit } from '../lib/audit';
 import { GoogleVerifier } from '../lib/google';
 import { fail, handler, ok, parse } from '../lib/http';
-import { sendPasswordResetEmail } from '../lib/mailer';
+import { sendPasswordResetEmail, sendVerificationEmail } from '../lib/mailer';
 import { hashPassword, passwordSchema, randomToken, sha256, verifyPassword } from '../lib/security';
 import { enforcePasswordPolicy, getSettings } from '../lib/settings';
 import {
@@ -48,9 +48,9 @@ const loginLimiter = limiter(30, 'Too many sign-in attempts. Please wait a few m
 const emailLimiter = limiter(10, 'Too many requests. Please wait a few minutes and try again.');
 
 /** Creates a single-use emailed token and returns the raw value. */
-export const issueEmailToken = async (userId: number, purpose: 'reset' | 'setup') => {
+export const issueEmailToken = async (userId: number, purpose: 'reset' | 'setup' | 'verify') => {
   const token = randomToken();
-  const minutes = purpose === 'reset' ? config.resetTokenMinutes : config.setupTokenHours * 60;
+  const minutes = purpose === 'reset' ? config.resetTokenMinutes : purpose === 'verify' ? 24 * 60 : config.setupTokenHours * 60;
   await query(
     `UPDATE auth_tokens SET used_at = now() WHERE user_id = $1 AND purpose = $2 AND used_at IS NULL`,
     [userId, purpose]
@@ -65,6 +65,17 @@ export const issueEmailToken = async (userId: number, purpose: 'reset' | 'setup'
 
 export const resetLink = (token: string) =>
   `${config.frontendUrl.replace(/\/$/, '')}/reset-password?token=${encodeURIComponent(token)}`;
+
+const verifyLink = (token: string) =>
+  `${config.frontendUrl.replace(/\/$/, '')}/verify-email?token=${encodeURIComponent(token)}`;
+
+/** Emails a fresh "confirm your email" link. */
+const sendVerification = async (user: { id: number; email: string; firstname: string }) => {
+  const token = await issueEmailToken(user.id, 'verify');
+  await sendVerificationEmail(user.email, user.firstname, verifyLink(token));
+};
+
+export const UNVERIFIED = 'Please confirm your email address first. We’ve sent you a new link; it expires in 24 hours.';
 
 const findValidToken = async (token: string) =>
   (
@@ -104,6 +115,11 @@ export const authRoutes = ({ verifyGoogle }: { verifyGoogle: GoogleVerifier | nu
       );
       const user = await findUserById(rows[0].id);
       audit(req, 'auth.register', `user:${user.id}`, {}, user.id);
+      // When the shop requires it, the account works once the email is confirmed.
+      if ((await getSettings()).accounts.require_email_verification) {
+        await sendVerification(user);
+        return ok(res, { verification_required: true, email: user.email }, 201);
+      }
       ok(res, await startSession(req, res, user), 201);
     })
   );
@@ -141,6 +157,11 @@ export const authRoutes = ({ verifyGoogle }: { verifyGoogle: GoogleVerifier | nu
         fail(401, WRONG_CREDENTIALS);
       }
       if (user!.status !== 'active') fail(403, SUSPENDED);
+      if (!user!.email_verified_at && (await getSettings()).accounts.require_email_verification) {
+        await sendVerification(user!);
+        audit(req, 'auth.login_unverified', `user:${user!.id}`, {}, user!.id);
+        fail(403, UNVERIFIED);
+      }
       audit(req, 'auth.login', `user:${user!.id}`, { method: 'password' }, user!.id);
       ok(res, await startSession(req, res, user!, { rememberMe: body.remember_me }));
     })
@@ -176,14 +197,17 @@ export const authRoutes = ({ verifyGoogle }: { verifyGoogle: GoogleVerifier | nu
         ).rows[0];
         if (byEmail) {
           // Same verified email: link Google to the existing account.
-          await client.query('UPDATE users SET google_sub = $1 WHERE id = $2', [identity!.sub, byEmail.id]);
+          await client.query(
+            'UPDATE users SET google_sub = $1, email_verified_at = COALESCE(email_verified_at, now()) WHERE id = $2',
+            [identity!.sub, byEmail.id]
+          );
           return byEmail.id as number;
         }
         if (!(await getSettings()).accounts.allow_registration) fail(403, REGISTRATION_CLOSED);
         const roleId = (await client.query("SELECT id FROM roles WHERE code = 'customer'")).rows[0].id;
         const created = await client.query(
-          `INSERT INTO users (email, google_sub, firstname, lastname, avatar, role_id)
-           VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+          `INSERT INTO users (email, google_sub, firstname, lastname, avatar, role_id, email_verified_at)
+           VALUES ($1, $2, $3, $4, $5, $6, now()) RETURNING id`,
           [identity!.email.toLowerCase(), identity!.sub, identity!.givenName, identity!.familyName, identity!.picture, roleId]
         );
         return created.rows[0].id as number;
@@ -281,6 +305,34 @@ export const authRoutes = ({ verifyGoogle }: { verifyGoogle: GoogleVerifier | nu
     })
   );
 
+  // Confirms an email address from the emailed link.
+  router.post(
+    '/verify-email',
+    emailLimiter,
+    handler(async (req, res) => {
+      const body = parse(z.object({ token: z.string().min(1, BAD_LINK) }), req.body);
+      const row = await findValidToken(body.token);
+      if (!row || row.purpose !== 'verify') fail(400, BAD_LINK);
+      await query('UPDATE auth_tokens SET used_at = now() WHERE id = $1', [row.id]);
+      await query('UPDATE users SET email_verified_at = COALESCE(email_verified_at, now()) WHERE id = $1', [row.user_id]);
+      audit(req, 'auth.email_verified', `user:${row.user_id}`, {}, row.user_id);
+      const user = await findUserById(row.user_id);
+      ok(res, { verified: true, email: user.email });
+    })
+  );
+
+  router.post(
+    '/verify-email/resend',
+    emailLimiter,
+    handler(async (req, res) => {
+      const body = parse(z.object({ email }), req.body);
+      const user = await findUserByEmail(body.email);
+      if (user && user.status === 'active' && !user.email_verified_at) await sendVerification(user);
+      // Same answer either way, so this can't be used to find accounts.
+      ok(res, { sent: true });
+    })
+  );
+
   // Lets the reset page say up front whether a link still works.
   router.get(
     '/reset-password',
@@ -306,7 +358,8 @@ export const authRoutes = ({ verifyGoogle }: { verifyGoogle: GoogleVerifier | nu
       await enforcePasswordPolicy(body.password);
       await query('UPDATE auth_tokens SET used_at = now() WHERE id = $1', [row.id]);
       await query(
-        `UPDATE users SET password_hash = $2, failed_login_attempts = 0, locked_until = NULL, updated_at = now()
+        `UPDATE users SET password_hash = $2, failed_login_attempts = 0, locked_until = NULL, updated_at = now(),
+           email_verified_at = COALESCE(email_verified_at, now())
          WHERE id = $1`,
         [row.user_id, await hashPassword(body.password)]
       );

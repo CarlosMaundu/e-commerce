@@ -16,11 +16,10 @@ import {
   InputBase,
   Stack,
   Typography,
+  useMediaQuery,
 } from '@mui/material';
 import {
   FiChevronLeft,
-  FiEdit2,
-  FiGift,
   FiHeart,
   FiMinus,
   FiPlus,
@@ -63,6 +62,8 @@ const CartPage = () => {
   const notify = useNotify();
   const [code, setCode] = useState('');
   const busy = cart.status === 'loading';
+  // On phones the gift option moves under the quantity.
+  const wide = useMediaQuery((t) => t.breakpoints.up('sm'));
 
   const act = async (thunk, success) => {
     try {
@@ -218,6 +219,51 @@ const CartPage = () => {
                   ? `?${new URLSearchParams(item.options)}`
                   : ''
               }`;
+              const giftRow = giftsOn && (
+                <Box>
+                  <Stack direction="row" alignItems="center" spacing={0.5}>
+                    <Checkbox
+                      size="small"
+                      checked={!!item.gift}
+                      onChange={(e) => toggleGift(item, e.target.checked)}
+                      disabled={busy}
+                      inputProps={{
+                        'aria-label': `Send ${item.title} as a gift`,
+                      }}
+                      sx={{ ml: -1, p: 0.75 }}
+                    />
+                    <Typography variant="body2">Send as a gift</Typography>
+                    <Button
+                      size="small"
+                      onClick={() =>
+                        item.gift
+                          ? setGiftFor(item.key)
+                          : toggleGift(item, true)
+                      }
+                      aria-label={`Gift details for ${item.title}`}
+                      sx={{
+                        minWidth: 0,
+                        ml: 1,
+                        color: item.gift ? 'primary.main' : 'text.disabled',
+                      }}
+                    >
+                      Details
+                    </Button>
+                  </Stack>
+                  {item.gift && (
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      component="div"
+                      sx={{ ml: 3.5 }}
+                    >
+                      To {item.gift.to} · From {item.gift.from}
+                      {item.gift.box ? ` · ${item.gift.box.name}` : ''}
+                      {item.gift.message ? ' · Message' : ''}
+                    </Typography>
+                  )}
+                </Box>
+              );
               return (
                 <Box
                   key={item.key}
@@ -225,13 +271,14 @@ const CartPage = () => {
                   sx={{
                     bgcolor: 'background.neutral',
                     borderRadius: 1,
-                    p: { xs: 2, md: 3 },
+                    px: { xs: 1.5, md: 2.5 },
+                    py: { xs: 1.5, md: 2 },
                   }}
                 >
                   <Stack
                     direction={{ xs: 'column', sm: 'row' }}
                     justifyContent="space-between"
-                    spacing={1}
+                    spacing={0.5}
                     alignItems={{ sm: 'center' }}
                   >
                     <Stack
@@ -241,12 +288,13 @@ const CartPage = () => {
                       sx={{ minWidth: 0 }}
                     >
                       <Checkbox
+                        size="small"
                         checked={selected.includes(item.key)}
                         onChange={(e) =>
-                          setSelected((s) =>
+                          setSelected((sel) =>
                             e.target.checked
-                              ? [...s, item.key]
-                              : s.filter((k) => k !== item.key)
+                              ? [...sel, item.key]
+                              : sel.filter((k) => k !== item.key)
                           )
                         }
                         inputProps={{ 'aria-label': `Select ${item.title}` }}
@@ -255,9 +303,9 @@ const CartPage = () => {
                       <Typography
                         component={RouterLink}
                         to={editLink}
+                        noWrap
                         sx={{
                           fontWeight: 700,
-                          fontSize: { xs: '1rem', md: '1.1rem' },
                           color: 'text.primary',
                           textDecoration: 'none',
                           '&:hover': { textDecoration: 'underline' },
@@ -270,10 +318,12 @@ const CartPage = () => {
                       direction="row"
                       spacing={1}
                       alignItems="center"
-                      sx={{ flexShrink: 0 }}
+                      sx={{ flexShrink: 0, pl: { xs: 4, sm: 0 } }}
                     >
-                      <Typography color="text.secondary">Each</Typography>
-                      <Typography sx={{ fontWeight: 700 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        Each
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontWeight: 700 }}>
                         {formatMoney(item.unitPrice)}
                       </Typography>
                       {save > 0 && (
@@ -281,7 +331,7 @@ const CartPage = () => {
                           size="small"
                           label={`Save ${save}%`}
                           sx={{
-                            height: 22,
+                            height: 20,
                             color: 'success.main',
                             bgcolor: 'success.light',
                             fontWeight: 600,
@@ -293,13 +343,14 @@ const CartPage = () => {
 
                   <Box
                     sx={{
-                      mt: 2,
+                      mt: 1,
                       display: 'grid',
-                      gap: { xs: 2, sm: 3 },
+                      columnGap: { xs: 1.5, sm: 2.5 },
+                      rowGap: 1,
                       alignItems: 'center',
                       gridTemplateColumns: {
-                        xs: '96px minmax(0, 1fr)',
-                        sm: '140px minmax(0, 1fr) auto',
+                        xs: '72px minmax(0, 1fr)',
+                        sm: '96px minmax(0, 1fr) auto',
                       },
                     }}
                   >
@@ -325,13 +376,13 @@ const CartPage = () => {
                         }}
                       />
                     </Box>
-                    <Stack spacing={1.25} alignItems="flex-start">
+                    <Stack spacing={0.75} alignItems="flex-start">
                       {item.inStock === false ? (
                         <Chip
                           size="small"
                           label={`Only ${item.stock} left`}
                           sx={{
-                            height: 24,
+                            height: 20,
                             color: 'error.main',
                             bgcolor: 'error.light',
                             fontWeight: 600,
@@ -344,7 +395,7 @@ const CartPage = () => {
                             size="small"
                             label={`${item.stock} remaining`}
                             sx={{
-                              height: 24,
+                              height: 20,
                               color: 'warning.main',
                               bgcolor: 'warning.light',
                               fontWeight: 600,
@@ -352,20 +403,20 @@ const CartPage = () => {
                           />
                         )
                       )}
-                      <OptionRows options={item.options} />
+                      <OptionRows options={item.options} dense />
+                      {wide && giftRow}
                     </Stack>
                     <Stack
-                      spacing={1.5}
-                      alignItems={{ xs: 'flex-start', sm: 'flex-end' }}
+                      spacing={0.75}
+                      direction={{ xs: 'row', sm: 'column' }}
+                      justifyContent="space-between"
+                      alignItems={{ xs: 'center', sm: 'flex-end' }}
                       sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}
                     >
-                      <Stack
-                        direction="row"
-                        spacing={1.5}
-                        alignItems="baseline"
-                      >
+                      <Stack direction="row" spacing={1} alignItems="baseline">
                         {onSale && (
                           <Typography
+                            variant="body2"
                             color="text.disabled"
                             sx={{ textDecoration: 'line-through' }}
                           >
@@ -373,10 +424,7 @@ const CartPage = () => {
                           </Typography>
                         )}
                         <Typography
-                          sx={{
-                            fontWeight: 800,
-                            fontSize: { xs: '1.25rem', md: '1.5rem' },
-                          }}
+                          sx={{ fontWeight: 800, fontSize: '1.2rem' }}
                         >
                           {formatMoney(item.total)}
                         </Typography>
@@ -385,7 +433,7 @@ const CartPage = () => {
                         <Typography
                           variant="body2"
                           color="text.secondary"
-                          sx={{ mr: 0.5 }}
+                          sx={{ mr: 0.5, display: { xs: 'none', sm: 'block' } }}
                         >
                           Quantity:
                         </Typography>
@@ -436,90 +484,39 @@ const CartPage = () => {
                         </IconButton>
                       </Stack>
                     </Stack>
+                    {!wide && (
+                      <Box sx={{ gridColumn: '1 / -1' }}>{giftRow}</Box>
+                    )}
                   </Box>
-
-                  {giftsOn && (
-                    <Stack
-                      direction="row"
-                      alignItems="center"
-                      flexWrap="wrap"
-                      useFlexGap
-                      spacing={1}
-                      sx={{
-                        mt: 2,
-                        px: 1.5,
-                        py: 0.75,
-                        borderRadius: '8px',
-                        bgcolor: 'background.paper',
-                      }}
-                    >
-                      <Checkbox
-                        size="small"
-                        checked={!!item.gift}
-                        onChange={(e) => toggleGift(item, e.target.checked)}
-                        disabled={busy}
-                        inputProps={{
-                          'aria-label': `Send ${item.title} as a gift`,
-                        }}
-                        sx={{ ml: -1 }}
-                      />
-                      <FiGift />
-                      <Typography sx={{ fontWeight: 600 }}>
-                        Send as a gift
-                      </Typography>
-                      {item.gift && (
-                        <>
-                          <Typography
-                            variant="body2"
-                            color="text.secondary"
-                            sx={{ minWidth: 0 }}
-                            noWrap
-                          >
-                            To {item.gift.to} · From {item.gift.from}
-                            {item.gift.giftBox ? ' · Gift box' : ''}
-                            {item.gift.message ? ' · Message' : ''}
-                          </Typography>
-                          <Button
-                            size="small"
-                            onClick={() => setGiftFor(item.key)}
-                            aria-label={`Gift details for ${item.title}`}
-                            sx={{ ml: 'auto' }}
-                          >
-                            Details
-                          </Button>
-                        </>
-                      )}
-                    </Stack>
-                  )}
 
                   <Stack
                     direction="row"
                     alignItems="center"
                     justifyContent="space-between"
-                    sx={{ mt: 2 }}
+                    sx={{ mt: 1 }}
                   >
                     <Stack
                       direction="row"
                       alignItems="center"
                       divider={
                         <Box
-                          sx={{ width: '1px', height: 24, bgcolor: 'divider' }}
+                          sx={{ width: '1px', height: 20, bgcolor: 'divider' }}
                         />
                       }
-                      spacing={1}
+                      spacing={0.5}
                     >
                       <Button
+                        size="small"
                         component={RouterLink}
                         to={editLink}
                         color="inherit"
-                        startIcon={<FiEdit2 />}
                       >
                         Edit
                       </Button>
                       {shopper && (
                         <Button
+                          size="small"
                           color="inherit"
-                          startIcon={<FiHeart />}
                           aria-label={`Move ${item.title} to wishlist`}
                           onClick={() => moveToWishlist(item)}
                           disabled={busy}
@@ -529,6 +526,7 @@ const CartPage = () => {
                       )}
                     </Stack>
                     <Button
+                      size="small"
                       color="error"
                       aria-label={`Remove ${item.title}`}
                       onClick={() =>

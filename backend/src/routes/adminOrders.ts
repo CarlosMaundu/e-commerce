@@ -5,7 +5,7 @@ import { query, transaction } from '../db';
 import { audit } from '../lib/audit';
 import { fail, handler, ok, parse } from '../lib/http';
 import { sendOrderStatusEmail } from '../lib/mailer';
-import { addHistory, loadOrder, NEXT_STATUSES, orderLink, restock, statusName, toContractOrder } from '../lib/orders';
+import { addHistory, loadOrder, orderRef, NEXT_STATUSES, orderLink, restock, statusName, toContractOrder } from '../lib/orders';
 import { PaymentGateway } from '../lib/payments';
 import { attentionCounts, OVERVIEW_PERIODS, storeOverview } from '../lib/overview';
 import { round2 } from '../lib/pricing';
@@ -15,6 +15,13 @@ import { hasPermission } from '../lib/users';
 import { authenticate, requirePermission } from '../middleware/auth';
 import { RETURN_SELECT, toContractReturn } from './orders';
 import { putBack } from '../lib/products';
+import {
+  clearNotifications,
+  dismissNotification,
+  markNotificationsRead,
+  staffNotifications,
+} from '../lib/notifications';
+import { cashReceipt } from '../lib/numbers';
 
 export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null }) => {
   const router = Router();
@@ -47,7 +54,7 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
     }
     if (q.search) {
       params.push(`%${q.search}%`);
-      where.push(`(o.email ILIKE $${params.length} OR o.id::text = $${params.length + 1}
+      where.push(`(o.email ILIKE $${params.length} OR o.number ILIKE $${params.length} OR o.id::text = $${params.length + 1}
         OR (u.firstname || ' ' || u.lastname) ILIKE $${params.length})`);
       params.push(q.search.replace(/^#/, ''));
     }
@@ -66,7 +73,7 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
     const total = (await query(`SELECT count(*)::int AS n ${base} ${whereSql}`, params)).rows[0].n;
     params.push(q.limit, (q.page - 1) * q.limit);
     const { rows } = await query(
-      `SELECT o.*, TRIM(COALESCE(u.firstname, '') || ' ' || COALESCE(u.lastname, '')) AS customer_name,
+      `SELECT o.*, (SELECT number FROM invoices WHERE order_id = o.id) AS invoice_number, TRIM(COALESCE(u.firstname, '') || ' ' || COALESCE(u.lastname, '')) AS customer_name,
          (SELECT COALESCE(sum(quantity), 0)::int FROM order_items WHERE order_id = o.id) AS item_count,
          (SELECT json_agg(json_build_object('name', name, 'image', image) ORDER BY id) FROM order_items WHERE order_id = o.id) AS preview
        ${base} ${whereSql} ORDER BY o.placed_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
@@ -77,7 +84,7 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
   }));
 
   router.get('/orders/:id', requirePermission('orders.orders.view'), handler(async (req, res) => {
-    const loaded = await loadOrder(Number(req.params.id), { admin: true });
+    const loaded = await loadOrder(orderRef(req.params.id), { admin: true });
     if (!loaded || !loaded.order.placed_at) fail(404, 'Order not found.');
     ok(res, loaded!.contract);
   }));
@@ -92,7 +99,7 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
       }),
       req.body
     );
-    const loaded = await loadOrder(Number(req.params.id), { admin: true });
+    const loaded = await loadOrder(orderRef(req.params.id), { admin: true });
     if (!loaded || !loaded.order.placed_at) fail(404, 'Order not found.');
     const order = loaded!.order;
     if (b.order_status !== order.status && !(NEXT_STATUSES[order.status] || []).includes(b.order_status)) {
@@ -121,7 +128,7 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
         const outstanding = Number(invoice.total) - Number(invoice.amount_paid);
         if (b.order_status === 'delivered' && order.payment_method === 'cod' && outstanding > 0.009) {
           await recordPayment(db, {
-            invoice, method: 'cod', amount: outstanding, reference: `COD-${order.id}`,
+            invoice, method: 'cod', amount: outstanding, reference: cashReceipt(),
             note: 'Cash collected on delivery', by: req.auth!.userId,
           });
         }
@@ -137,7 +144,6 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
               applyFee: false,
               reason: b.comment || 'Order refunded',
               by: req.auth!.userId,
-              canApprove: true,
               gateway: payments,
             });
           }
@@ -147,7 +153,7 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
     });
 
     if (b.notify) {
-      sendOrderStatusEmail(order.email, order.id, statusName(b.order_status), b.comment, orderLink(order.id))
+      sendOrderStatusEmail(order.email, order.number, statusName(b.order_status), b.comment, orderLink(order.id))
         .catch((error) => console.error('Status email failed:', error));
     }
     audit(req, 'order.status_changed', `order:${order.id}`, { from: order.status, to: b.order_status });
@@ -199,6 +205,7 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
     if (q.search) {
       params.push(`%${q.search.replace(/^#/, '')}%`);
       where.push(`(oi.name ILIKE $${params.length} OR u.email ILIKE $${params.length} OR r.order_id::text ILIKE $${params.length}
+        OR EXISTS (SELECT 1 FROM orders x WHERE x.id = r.order_id AND x.number ILIKE $${params.length})
         OR r.id::text ILIKE $${params.length} OR (u.firstname || ' ' || u.lastname) ILIKE $${params.length})`);
     }
     const w = where.length ? `WHERE ${where.join(' AND ')}` : '';
@@ -255,7 +262,6 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
           reason: `Return #${row.id}: ${row.reason}`,
           returnId: row.id,
           by: req.auth!.userId,
-          canApprove: hasPermission(req.auth!.permissions, 'admin.refunds.approve'),
           gateway: payments,
         });
         await db.query('UPDATE returns SET status = $2, updated_at = now() WHERE id = $1', [row.id, status]);
@@ -291,12 +297,26 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
     const returns = hasPermission(user, 'orders.returns.view');
     const stock = hasPermission(user, 'catalog.products.view');
     ok(res, {
+      ...(await staffNotifications(req.auth!.userId, user)),
       to_fulfil: orders ? c.to_fulfil : null,
       delayed: orders ? c.delayed : null,
       open_returns: returns ? c.open_returns : null,
       low_stock: stock ? c.low_stock : null,
       out_of_stock: stock ? c.out_of_stock : null,
     });
+  }));
+
+  router.post('/notifications/read', handler(async (req, res) => {
+    await markNotificationsRead(req.auth!.userId);
+    ok(res, { read: true });
+  }));
+  router.post('/notifications/clear', handler(async (req, res) => {
+    await clearNotifications(req.auth!.userId);
+    ok(res, { cleared: true });
+  }));
+  router.delete('/notifications/:key', handler(async (req, res) => {
+    await dismissNotification(req.auth!.userId, String(req.params.key));
+    ok(res, { dismissed: true });
   }));
 
   return router;

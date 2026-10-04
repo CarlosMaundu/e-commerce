@@ -6,7 +6,11 @@ import { Link as RouterLink } from 'react-router-dom';
 import { Breadcrumbs, Link } from '@mui/material';
 
 const PageBreadcrumbs = ({ items, sx }) => (
-  <Breadcrumbs aria-label="Breadcrumb" sx={sx}>
+  // Phones use the back arrow in the header instead.
+  <Breadcrumbs
+    aria-label="Breadcrumb"
+    sx={{ ...sx, display: { xs: 'none', md: 'block' } }}
+  >
     {items.map((item, i) => {
       const last = i === items.length - 1;
       return (

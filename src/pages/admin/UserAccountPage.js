@@ -212,7 +212,7 @@ const CustomerOrders = ({ customerId }) => {
                       underline="hover"
                       sx={{ fontWeight: 700 }}
                     >
-                      #{o.id}
+                      {o.number}
                     </Link>
                   </TableCell>
                   <TableCell sx={{ whiteSpace: 'nowrap' }}>

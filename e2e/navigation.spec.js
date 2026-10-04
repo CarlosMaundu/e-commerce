@@ -29,8 +29,8 @@ test('footer company links open information pages', async ({ page }) => {
 test('signup terms link points at the terms page', async ({ page }) => {
   await page.goto('/register');
   await expect(
-    page.getByRole('link', { name: 'Terms and Conditions' })
-  ).toHaveAttribute('href', '/information/terms');
+    page.getByRole('link', { name: 'Terms and Conditions', exact: true })
+  ).toHaveAttribute('href', '/policies/terms');
 });
 
 test('unknown pages show a helpful not-found page', async ({ page }) => {

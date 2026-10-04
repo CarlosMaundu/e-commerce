@@ -24,6 +24,7 @@ import {
   Typography,
 } from '@mui/material';
 import {
+  FiArrowLeft,
   FiChevronDown,
   FiChevronLeft,
   FiChevronRight,
@@ -32,6 +33,7 @@ import {
   FiMoreVertical,
   FiSearch,
 } from 'react-icons/fi';
+import { Link as RouterLink } from 'react-router-dom';
 import PageBreadcrumbs from '../common/PageBreadcrumbs';
 
 export const PAGE_SIZE = 10;
@@ -237,16 +239,32 @@ StandardPagination.propTypes = {
 export const PageHeader = ({ crumbs, title, subtitle, actions }) => (
   <Box>
     {crumbs && <PageBreadcrumbs items={crumbs} />}
+    {/* Phones: a back arrow to the level above instead of breadcrumbs. */}
+    {crumbs && crumbs.length > 2 && (
+      <Button
+        component={RouterLink}
+        to={crumbs[crumbs.length - 2].to}
+        startIcon={<FiArrowLeft />}
+        size="small"
+        sx={{ display: { md: 'none' }, ml: -1, color: 'text.secondary' }}
+      >
+        {crumbs[crumbs.length - 2].label}
+      </Button>
+    )}
     <Stack
       direction="row"
       alignItems="center"
       spacing={1.5}
-      sx={{ mt: crumbs ? 1 : 0 }}
+      sx={{ mt: crumbs ? { xs: 0.5, md: 1 } : 0 }}
       flexWrap="wrap"
       useFlexGap
     >
       <Box sx={{ flex: 1, minWidth: 220 }}>
-        <Typography variant="h3" component="h1">
+        <Typography
+          variant="h3"
+          component="h1"
+          sx={{ fontSize: { xs: '1.6rem', md: undefined } }}
+        >
           {title}
         </Typography>
         {subtitle && <Typography color="text.secondary">{subtitle}</Typography>}

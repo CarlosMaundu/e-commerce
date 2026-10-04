@@ -59,8 +59,8 @@ export const resetDatabase = async () => {
 
 export const createUser = async (email: string, role = 'customer', password: string | null = PASSWORD) => {
   const { rows } = await query(
-    `INSERT INTO users (email, password_hash, firstname, lastname, role_id)
-     SELECT $1, $2, 'Test', 'User', id FROM roles WHERE code = $3 RETURNING id`,
+    `INSERT INTO users (email, password_hash, firstname, lastname, role_id, email_verified_at)
+     SELECT $1, $2, 'Test', 'User', id, now() FROM roles WHERE code = $3 RETURNING id`,
     [email, password ? await hashPassword(password) : null, role]
   );
   return rows[0].id as number;

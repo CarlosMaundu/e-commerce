@@ -12,8 +12,9 @@ import { formatDate, formatMoney, optionText } from '../../utils/format';
 import { formatAddress } from '../../api/mappers';
 import { countryName } from '../account/AddressForm';
 
-export const invoiceNumber = (orderId) =>
-  `INV-${String(orderId).padStart(6, '0')}`;
+/** The order's invoice number (older data: built from the order id). */
+export const invoiceNumber = (order) =>
+  order?.invoiceNumber || `INV-${String(order?.id ?? order).padStart(6, '0')}`;
 
 export const invoiceState = (order) => {
   if (order.paymentStatus === 'refunded' || order.status === 'refunded')
@@ -136,7 +137,7 @@ const InvoiceDocument = ({ order }) => {
           >
             INVOICE
           </Typography>
-          <Typography variant="subtitle1">{invoiceNumber(order.id)}</Typography>
+          <Typography variant="subtitle1">{invoiceNumber(order)}</Typography>
           <Box sx={{ mt: 1 }}>
             <Pill label={state} tone={tone} />
           </Box>
@@ -150,8 +151,8 @@ const InvoiceDocument = ({ order }) => {
           gap: 3,
           gridTemplateColumns: {
             xs: '1fr',
-            sm: 'repeat(2, 1fr)',
-            md: 'repeat(4, 1fr)',
+            sm: 'repeat(2, minmax(0, 1fr))',
+            md: 'repeat(4, minmax(0, 1fr))',
           },
         }}
       >
@@ -168,7 +169,7 @@ const InvoiceDocument = ({ order }) => {
           <Typography variant="body2" component="div" sx={{ lineHeight: 1.7 }}>
             Issued {formatDate(order.placedAt)}
             <br />
-            Order #{order.id}
+            Order {order.number}
             <br />
             {PAYMENT_NAMES[order.paymentMethod] || order.paymentMethod}
           </Typography>
@@ -241,7 +242,7 @@ const InvoiceDocument = ({ order }) => {
                   {item.gift && (
                     <Typography variant="caption" sx={{ display: 'block' }}>
                       Gift for {item.gift.to} from {item.gift.from}
-                      {item.gift.giftBox ? ' · gift box' : ''}
+                      {item.gift.box ? ` · ${item.gift.box.name}` : ''}
                     </Typography>
                   )}
                 </td>

@@ -53,8 +53,13 @@ export const addHistory = (
 
 const n = (v: unknown) => Number(v);
 
+/** A URL's order: its number (WEB-1FT3K9X7) or, for older links, its id. */
+export const orderRef = (raw: string): number | string => (/^\d+$/.test(raw) ? Number(raw) : raw.trim().toUpperCase());
+
 export const toContractOrder = (o: any, items: any[] = [], history: any[] = [], { admin = false } = {}) => ({
   order_id: o.id,
+  order_number: o.number || String(o.id),
+  invoice_number: o.invoice_number ?? undefined,
   status: o.status,
   status_name: statusName(o.status),
   email: o.email,
@@ -94,7 +99,8 @@ export const toContractOrder = (o: any, items: any[] = [], history: any[] = [], 
           to: i.gift.to,
           from: i.gift.from,
           message: i.gift.message || '',
-          gift_box: !!i.gift.gift_box,
+          // Older orders stored only "gift_box: true".
+          box: i.gift.box || (i.gift.gift_box ? { id: 'box', name: 'Gift box', price: null, image: '' } : null),
           ...(admin ? { done: !!i.gift.done, done_at: i.gift.done_at || null, done_by: i.gift.done_by || null } : {}),
         }
       : null,
@@ -113,16 +119,20 @@ export const toContractOrder = (o: any, items: any[] = [], history: any[] = [], 
   date_modified: o.updated_at,
 });
 
-export const loadOrder = async (id: number, { userId, admin = false }: { userId?: number; admin?: boolean } = {}) => {
+export const loadOrder = async (
+  id: number | string,
+  { userId, admin = false }: { userId?: number; admin?: boolean } = {}
+) => {
   const params: unknown[] = [id];
-  let filter = 'o.id = $1';
+  let filter = typeof id === 'number' ? 'o.id = $1' : 'o.number = $1';
   if (userId !== undefined) {
     params.push(userId);
     filter += ' AND o.user_id = $2 AND o.placed_at IS NOT NULL';
   }
   const order = (
     await query(
-      `SELECT o.*, TRIM(COALESCE(u.firstname, '') || ' ' || COALESCE(u.lastname, '')) AS customer_name
+      `SELECT o.*, TRIM(COALESCE(u.firstname, '') || ' ' || COALESCE(u.lastname, '')) AS customer_name,
+         (SELECT number FROM invoices WHERE order_id = o.id) AS invoice_number
        FROM orders o LEFT JOIN users u ON u.id = o.user_id WHERE ${filter}`,
       params
     )
@@ -135,11 +145,11 @@ export const loadOrder = async (id: number, { userId, admin = false }: { userId?
        LEFT JOIN product_variants v ON v.id = oi.variant_id
        LEFT JOIN products p ON p.id = oi.product_id
        WHERE oi.order_id = $1 ORDER BY oi.id`,
-      [id]
+      [order.id]
     )
   ).rows;
   const history = (
-    await query('SELECT * FROM order_history WHERE order_id = $1 ORDER BY created_at, id', [id])
+    await query('SELECT * FROM order_history WHERE order_id = $1 ORDER BY created_at, id', [order.id])
   ).rows;
   return { order, items, history, contract: toContractOrder(order, items, history, { admin }) };
 };
