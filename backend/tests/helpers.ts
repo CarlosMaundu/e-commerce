@@ -4,6 +4,7 @@ import { pool, query } from '../src/db';
 import { hashPassword } from '../src/lib/security';
 import { GoogleIdentity } from '../src/lib/google';
 import { loadFinance } from '../src/lib/finance';
+import { loadDelivery } from '../src/lib/delivery';
 import { runSeed } from '../src/seed';
 
 // Captured emails (the mailer is mocked in each test file).
@@ -45,6 +46,7 @@ export const resetDatabase = async () => {
        newsletter_subscribers, brands, promotions, role_permissions, roles, permissions RESTART IDENTITY CASCADE`
   );
   await loadFinance(); // before seeding, which prices in the shop's currency
+  await loadDelivery();
   await runSeed();
   sentEmails.length = 0;
   fakePayments.intents.clear();

@@ -216,6 +216,24 @@ describe('admin catalog permissions', () => {
       weight: { value: 1.2, unit: 'kg' },
       specs: [{ label: 'Bulb', value: 'E27 LED, 9 W' }],
     });
+    // Variant-specific content: each variant can carry its own description
+    // and spec rows, but only while the product switches it on.
+    const phone = await request(app).post('/api/admin/products').set(bearer(manager.token)).send({
+      name: 'Pocket phone', price: 500, description: '<p>All models</p>', variant_content: true,
+      attributes: [{ name: 'Model', values: ['Base', 'Pro'] }],
+      variants: [
+        { options: { Model: 'Base' }, quantity: 1 },
+        { options: { Model: 'Pro' }, quantity: 1, price: 700, description: '<p><b>Pro</b> camera</p>', specs: [{ label: 'Camera', value: '48 MP' }] },
+      ],
+    });
+    expect(phone.status).toBe(201);
+    const pro = phone.body.data.variants.find((v: any) => v.options.Model === 'Pro');
+    const base = phone.body.data.variants.find((v: any) => v.options.Model === 'Base');
+    expect(pro).toMatchObject({ description: '<p><b>Pro</b> camera</p>', specs: [{ label: 'Camera', value: '48 MP' }] });
+    expect(base).toMatchObject({ description: null, specs: [] });
+    const off = await request(app).put(`/api/admin/products/${phone.body.data.product_id}`).set(bearer(manager.token)).send({ variant_content: false });
+    expect(off.body.data.variants.find((v: any) => v.options.Model === 'Pro')).toMatchObject({ description: null, specs: [] });
+
     // A partial edit keeps the product information.
     const renamed = await request(app).put(`/api/admin/products/${detailed.body.data.product_id}`).set(bearer(manager.token)).send({ name: 'Desk lamp 2' });
     expect(renamed.body.data).toMatchObject({ name: 'Desk lamp 2', manufacturer: 'Lumo Works', weight: { value: 1.2, unit: 'kg' } });

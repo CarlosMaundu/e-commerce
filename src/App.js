@@ -37,6 +37,13 @@ import InformationPage from './pages/InformationPage';
 import NotFoundPage from './pages/NotFoundPage';
 
 import AccountOverviewPage from './pages/account/AccountOverviewPage';
+import AccountLayout from './layouts/AccountLayout';
+import {
+  InvoicePage,
+  InvoicesPage,
+  TrackOrderPage,
+} from './pages/account/AccountExtraPages';
+import { AccountWishlistPage } from './pages/WishlistPage';
 import {
   AddressesPage,
   ProfilePage,
@@ -65,6 +72,7 @@ import SecuritySettingsPage from './pages/admin/SecuritySettingsPage';
 import AuditLogPage from './pages/admin/AuditLogPage';
 import StoreSettingsPage from './pages/admin/StoreSettingsPage';
 import FinanceSettingsPage from './pages/admin/FinanceSettingsPage';
+import DeliverySettingsPage from './pages/admin/DeliverySettingsPage';
 import { StoreProvider } from './context/StoreContext';
 import UserAccountPage from './pages/admin/UserAccountPage';
 import StaffNotice from './components/StaffNotice';
@@ -173,58 +181,25 @@ const App = () => (
                       path="/account"
                       element={
                         <Account>
-                          <AccountOverviewPage />
+                          <AccountLayout />
                         </Account>
                       }
-                    />
-                    <Route
-                      path="/account/profile"
-                      element={
-                        <Account>
-                          <ProfilePage />
-                        </Account>
-                      }
-                    />
-                    <Route
-                      path="/account/security"
-                      element={
-                        <Account>
-                          <SecurityPage />
-                        </Account>
-                      }
-                    />
-                    <Route
-                      path="/account/addresses"
-                      element={
-                        <Account>
-                          <AddressesPage />
-                        </Account>
-                      }
-                    />
-                    <Route
-                      path="/account/orders"
-                      element={
-                        <Account>
-                          <OrdersPage />
-                        </Account>
-                      }
-                    />
-                    <Route
-                      path="/account/orders/:id"
-                      element={
-                        <Account>
-                          <OrderDetailPage />
-                        </Account>
-                      }
-                    />
-                    <Route
-                      path="/account/returns"
-                      element={
-                        <Account>
-                          <ReturnsPage />
-                        </Account>
-                      }
-                    />
+                    >
+                      <Route index element={<AccountOverviewPage />} />
+                      <Route path="profile" element={<ProfilePage />} />
+                      <Route path="security" element={<SecurityPage />} />
+                      <Route path="addresses" element={<AddressesPage />} />
+                      <Route path="orders" element={<OrdersPage />} />
+                      <Route path="orders/:id" element={<OrderDetailPage />} />
+                      <Route path="track" element={<TrackOrderPage />} />
+                      <Route path="invoices" element={<InvoicesPage />} />
+                      <Route path="invoices/:id" element={<InvoicePage />} />
+                      <Route path="returns" element={<ReturnsPage />} />
+                      <Route
+                        path="wishlist"
+                        element={<AccountWishlistPage />}
+                      />
+                    </Route>
 
                     <Route path="*" element={<NotFoundPage />} />
                   </Route>
@@ -318,6 +293,14 @@ const App = () => (
                       element={
                         <AdminRoute permissions={['admin.security.view']}>
                           <SecuritySettingsPage />
+                        </AdminRoute>
+                      }
+                    />
+                    <Route
+                      path="delivery"
+                      element={
+                        <AdminRoute permissions={['admin.delivery.manage']}>
+                          <DeliverySettingsPage />
                         </AdminRoute>
                       }
                     />

@@ -62,9 +62,25 @@ const AddressForm = ({
   onSubmit,
   onCancel,
   showDefault = true,
+  recipient,
 }) => {
+  // Signed-in shoppers: their name (and phone) fill in by themselves; the
+  // name fields only show when delivering to someone else.
+  const [otherRecipient, setOtherRecipient] = React.useState(false);
+  const hideName =
+    Boolean(recipient?.firstName && recipient?.lastName) && !otherRecipient;
   const formik = useFormik({
-    initialValues: { ...EMPTY_ADDRESS, ...initialValues },
+    initialValues: {
+      ...EMPTY_ADDRESS,
+      ...(recipient
+        ? {
+            firstName: recipient.firstName || '',
+            lastName: recipient.lastName || '',
+            phone: recipient.phone || '',
+          }
+        : {}),
+      ...initialValues,
+    },
     validationSchema: schema,
     enableReinitialize: true,
     onSubmit: async (values, helpers) => {
@@ -89,18 +105,54 @@ const AddressForm = ({
   return (
     <form onSubmit={formik.handleSubmit} noValidate>
       <Grid container spacing={2}>
-        <Grid item xs={12} sm={6}>
-          {field('firstName', 'First name', {
-            required: true,
-            autoComplete: 'given-name',
-          })}
-        </Grid>
-        <Grid item xs={12} sm={6}>
-          {field('lastName', 'Last name', {
-            required: true,
-            autoComplete: 'family-name',
-          })}
-        </Grid>
+        {hideName ? (
+          <Grid item xs={12}>
+            <Stack
+              direction="row"
+              alignItems="center"
+              justifyContent="space-between"
+              spacing={2}
+              sx={{
+                bgcolor: 'background.neutral',
+                borderRadius: '8px',
+                px: 2,
+                py: 1.25,
+              }}
+            >
+              <span>
+                Delivering to{' '}
+                <strong>
+                  {`${recipient.firstName} ${recipient.lastName || ''}`.trim()}
+                </strong>
+              </span>
+              <Button
+                size="small"
+                onClick={() => {
+                  setOtherRecipient(true);
+                  formik.setFieldValue('firstName', '');
+                  formik.setFieldValue('lastName', '');
+                }}
+              >
+                Someone else?
+              </Button>
+            </Stack>
+          </Grid>
+        ) : (
+          <>
+            <Grid item xs={12} sm={6}>
+              {field('firstName', 'First name', {
+                required: true,
+                autoComplete: 'given-name',
+              })}
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              {field('lastName', 'Last name', {
+                required: true,
+                autoComplete: 'family-name',
+              })}
+            </Grid>
+          </>
+        )}
         <Grid item xs={12}>
           {field('line1', 'Street address', {
             required: true,
@@ -206,6 +258,11 @@ AddressForm.propTypes = {
   onSubmit: PropTypes.func.isRequired,
   onCancel: PropTypes.func,
   showDefault: PropTypes.bool,
+  recipient: PropTypes.shape({
+    firstName: PropTypes.string,
+    lastName: PropTypes.string,
+    phone: PropTypes.string,
+  }),
 };
 
 export default AddressForm;

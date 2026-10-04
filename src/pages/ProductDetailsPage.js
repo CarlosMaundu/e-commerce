@@ -29,8 +29,12 @@ import {
   FiHeart,
   FiMinus,
   FiPlus,
+  FiRotateCcw,
+  FiShield,
   FiShoppingCart,
+  FiTruck,
 } from 'react-icons/fi';
+import { useStore } from '../context/StoreContext';
 import { AuthContext } from '../context/AuthContext';
 import { canShop } from '../auth/permissions';
 import { catalog } from '../api';
@@ -45,7 +49,7 @@ import ProductCard from '../components/common/ProductCard';
 import PageBreadcrumbs from '../components/common/PageBreadcrumbs';
 import { EmptyState } from '../components/ui';
 import RichText from '../components/common/RichText';
-import Specifications from '../components/product/Specifications';
+import Specifications, { specRows } from '../components/product/Specifications';
 import { formatDate, formatMoney } from '../utils/format';
 import { isColorAttribute, swatchFor } from '../utils/colors';
 import { friendlyError } from '../utils/friendlyError';
@@ -431,6 +435,8 @@ Reviews.propTypes = {
 
 const ProductDetailsPage = () => {
   const { id } = useParams();
+  const location = useLocation();
+  const shop = useStore();
   const { user } = useContext(AuthContext);
   const shopper = canShop(user);
   const dispatch = useDispatch();
@@ -459,8 +465,14 @@ const ProductDetailsPage = () => {
     load()
       .then((p) => {
         if (!active) return;
-        // Start on the first combination that is in stock.
-        const first = p.variants.find((v) => v.inStock) || p.variants[0];
+        // Options in the link (e.g. from an order: ?Color=Blue&Size=M) win;
+        // otherwise start on the first combination that is in stock.
+        const query = new URLSearchParams(location.search);
+        const asked = p.variants.find((v) =>
+          p.attributes.every((at) => query.get(at.name) === v.options[at.name])
+        );
+        const first =
+          asked || p.variants.find((v) => v.inStock) || p.variants[0];
         setSelected(first ? { ...first.options } : {});
       })
       .catch((e) => active && setError(friendlyError(e)));
@@ -500,6 +512,10 @@ const ProductDetailsPage = () => {
     const union = [...new Set(matching.flatMap((v) => v.images || []))];
     return union.length ? union : product.images;
   }, [product, variant, selected]);
+
+  // A variant's own description (when the product uses variant content).
+  const description =
+    (product?.variantContent && variant?.description) || product?.description;
 
   if (error) {
     return (
@@ -629,128 +645,229 @@ const ProductDetailsPage = () => {
           <Gallery images={images} title={product.title} />
         </Grid>
         <Grid item xs={12} md={6} lg={7}>
-          <Stack spacing={2.5}>
+          <Stack spacing={3}>
+            {/* Brand logo – product name, then rating, SKU and category. */}
             <Box>
-              {product.brand && (
-                <Link
-                  component={RouterLink}
-                  to={`/products?brand=${product.brand.id}`}
-                  underline="hover"
+              <Stack
+                direction="row"
+                alignItems="center"
+                spacing={1.5}
+                flexWrap="wrap"
+                useFlexGap
+              >
+                {product.brand && (
+                  <>
+                    <Box
+                      component={RouterLink}
+                      to={`/products?brand=${product.brand.id}`}
+                      aria-label={`More from ${product.brand.name}`}
+                      title={product.brand.name}
+                      sx={{
+                        height: 44,
+                        minWidth: 44,
+                        px: product.brand.logo ? 1 : 1.5,
+                        borderRadius: '8px',
+                        border: 1,
+                        borderColor: 'divider',
+                        display: 'grid',
+                        placeItems: 'center',
+                        color: 'text.primary',
+                        textDecoration: 'none',
+                        fontWeight: 700,
+                        flexShrink: 0,
+                        '&:hover': { borderColor: 'primary.main' },
+                      }}
+                    >
+                      {product.brand.logo ? (
+                        <Box
+                          component="img"
+                          src={product.brand.logo}
+                          alt={product.brand.name}
+                          sx={{
+                            height: 24,
+                            maxWidth: 90,
+                            objectFit: 'contain',
+                          }}
+                        />
+                      ) : (
+                        product.brand.name
+                      )}
+                    </Box>
+                    <Box
+                      aria-hidden
+                      sx={{
+                        width: 2,
+                        height: 28,
+                        bgcolor: 'divider',
+                        borderRadius: 1,
+                      }}
+                    />
+                  </>
+                )}
+                <Typography
+                  variant="h4"
+                  component="h1"
                   sx={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 1,
-                    mb: 1,
+                    fontWeight: 800,
+                    letterSpacing: '-0.02em',
+                    minWidth: 0,
                   }}
                 >
-                  {product.brand.logo ? (
-                    <Box
-                      component="img"
-                      src={product.brand.logo}
-                      alt={product.brand.name}
-                      sx={{ height: 28 }}
-                    />
-                  ) : (
-                    product.brand.name
-                  )}
-                </Link>
-              )}
-              <Typography variant="h4" component="h1">
-                {product.title}
-              </Typography>
-              {product.rating > 0 && (
-                <Stack
-                  direction="row"
-                  spacing={1}
-                  alignItems="center"
-                  sx={{ mt: 1 }}
-                >
-                  <Rating
-                    value={product.rating}
-                    precision={0.1}
-                    readOnly
-                    size="small"
-                  />
-                  <Link
-                    component="button"
-                    type="button"
-                    onClick={() => setTab('reviews')}
-                    underline="hover"
-                  >
-                    {product.rating.toFixed(1)} · {product.reviewCount} review
-                    {product.reviewCount === 1 ? '' : 's'}
-                  </Link>
-                </Stack>
-              )}
-            </Box>
-
-            <Stack
-              direction="row"
-              spacing={1.5}
-              alignItems="baseline"
-              data-testid="product-price"
-            >
-              <Typography variant="h4" component="p">
-                {formatMoney(special ?? price)}
-              </Typography>
-              {special !== null && special !== undefined && (
-                <>
-                  <Typography
-                    color="text.disabled"
-                    sx={{ textDecoration: 'line-through' }}
-                  >
-                    {formatMoney(price)}
-                  </Typography>
-                  <Chip
-                    size="small"
-                    color="success"
-                    label={`Save ${Math.round(((price - special) / price) * 100)}%`}
-                    sx={{ color: '#fff' }}
-                  />
-                </>
-              )}
-            </Stack>
-
-            {product.attributes.map((a) => (
-              <OptionPicker
-                key={a.name}
-                attribute={a}
-                selected={selected}
-                onSelect={choose}
-                available={available}
-              />
-            ))}
-
-            <Typography
-              data-testid="stock-status"
-              color={
-                !inStock
-                  ? 'error.main'
-                  : lowStock
-                    ? 'warning.main'
-                    : 'success.main'
-              }
-              sx={{ fontWeight: 600 }}
-            >
-              {needsChoice
-                ? 'Choose your options to see availability'
-                : !inStock
-                  ? hasVariants
-                    ? 'This combination is out of stock'
-                    : 'Out of stock'
-                  : lowStock
-                    ? `Only ${stock} left`
-                    : 'In stock'}
-            </Typography>
-
-            {shopper ? (
+                  {product.title}
+                </Typography>
+              </Stack>
               <Stack
                 direction="row"
                 spacing={1.5}
                 alignItems="center"
                 flexWrap="wrap"
                 useFlexGap
+                sx={{ mt: 1.25, color: 'text.secondary' }}
+                divider={
+                  <Box component="span" sx={{ color: 'divider' }}>
+                    |
+                  </Box>
+                }
               >
+                {product.rating > 0 && (
+                  <Stack direction="row" spacing={0.75} alignItems="center">
+                    <Rating
+                      value={product.rating}
+                      precision={0.1}
+                      readOnly
+                      size="small"
+                    />
+                    <Link
+                      component="button"
+                      type="button"
+                      onClick={() => setTab('reviews')}
+                      underline="hover"
+                      variant="body2"
+                    >
+                      {product.rating.toFixed(1)} · {product.reviewCount} review
+                      {product.reviewCount === 1 ? '' : 's'}
+                    </Link>
+                  </Stack>
+                )}
+                {(variant?.sku || product.sku) && (
+                  <Typography variant="body2">
+                    SKU {variant?.sku || product.sku}
+                  </Typography>
+                )}
+                {product.category && (
+                  <Link
+                    component={RouterLink}
+                    to={`/products?category=${product.category.id}`}
+                    variant="body2"
+                    underline="hover"
+                  >
+                    {product.category.name}
+                  </Link>
+                )}
+              </Stack>
+            </Box>
+
+            {/* Price and availability */}
+            <Box
+              sx={{
+                bgcolor: 'background.neutral',
+                borderRadius: 1,
+                p: { xs: 2, md: 2.5 },
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 2,
+                flexWrap: 'wrap',
+              }}
+            >
+              <Box>
+                <Stack
+                  direction="row"
+                  spacing={1.5}
+                  alignItems="baseline"
+                  flexWrap="wrap"
+                  useFlexGap
+                  data-testid="product-price"
+                >
+                  <Typography
+                    component="p"
+                    sx={{
+                      fontWeight: 800,
+                      fontSize: { xs: '1.6rem', md: '1.9rem' },
+                      letterSpacing: '-0.02em',
+                    }}
+                  >
+                    {formatMoney(special ?? price)}
+                  </Typography>
+                  {special !== null && special !== undefined && (
+                    <>
+                      <Typography
+                        color="text.disabled"
+                        sx={{ textDecoration: 'line-through' }}
+                      >
+                        {formatMoney(price)}
+                      </Typography>
+                      <Chip
+                        size="small"
+                        color="success"
+                        label={`Save ${Math.round(((price - special) / price) * 100)}%`}
+                        sx={{ color: '#fff' }}
+                      />
+                    </>
+                  )}
+                </Stack>
+                <Typography variant="caption">
+                  {shop.finance?.pricesIncludeTax
+                    ? `Includes ${shop.finance.taxLabel} · delivery calculated at checkout`
+                    : `${shop.finance?.taxLabel || 'Tax'} and delivery calculated at checkout`}
+                </Typography>
+              </Box>
+              <Box
+                data-testid="stock-status"
+                sx={{
+                  px: 1.5,
+                  py: 0.75,
+                  borderRadius: 999,
+                  fontWeight: 600,
+                  fontSize: '0.85rem',
+                  color: needsChoice
+                    ? 'text.secondary'
+                    : !inStock
+                      ? 'error.main'
+                      : lowStock
+                        ? 'warning.main'
+                        : 'success.main',
+                  bgcolor: 'background.paper',
+                }}
+              >
+                {needsChoice
+                  ? 'Choose your options to see availability'
+                  : !inStock
+                    ? hasVariants
+                      ? 'This combination is out of stock'
+                      : 'Out of stock'
+                    : lowStock
+                      ? `Only ${stock} left`
+                      : 'In stock'}
+              </Box>
+            </Box>
+
+            {product.attributes.length > 0 && (
+              <Stack spacing={2.5}>
+                {product.attributes.map((a) => (
+                  <OptionPicker
+                    key={a.name}
+                    attribute={a}
+                    selected={selected}
+                    onSelect={choose}
+                    available={available}
+                  />
+                ))}
+              </Stack>
+            )}
+
+            {shopper ? (
+              <Stack direction="row" spacing={1.5} alignItems="center">
                 <Stack
                   direction="row"
                   alignItems="center"
@@ -758,15 +875,15 @@ const ProductDetailsPage = () => {
                     border: 1,
                     borderColor: 'divider',
                     borderRadius: '8px',
-                    height: 40,
+                    height: 48,
+                    flexShrink: 0,
                   }}
                 >
                   <IconButton
-                    size="small"
                     aria-label="Decrease quantity"
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
                     disabled={quantity <= 1}
-                    sx={{ borderRadius: '8px', width: 36, height: 36 }}
+                    sx={{ borderRadius: '8px', width: 42, height: 42 }}
                   >
                     <FiMinus size={16} />
                   </IconButton>
@@ -777,21 +894,21 @@ const ProductDetailsPage = () => {
                     {quantity}
                   </Typography>
                   <IconButton
-                    size="small"
                     aria-label="Increase quantity"
                     onClick={() => setQuantity(Math.min(maxQty, quantity + 1))}
                     disabled={quantity >= maxQty}
-                    sx={{ borderRadius: '8px', width: 36, height: 36 }}
+                    sx={{ borderRadius: '8px', width: 42, height: 42 }}
                   >
                     <FiPlus size={16} />
                   </IconButton>
                 </Stack>
                 <Button
                   variant="contained"
+                  size="large"
                   startIcon={<FiShoppingCart />}
                   onClick={add}
                   disabled={!needsChoice && !inStock}
-                  sx={{ minWidth: 180 }}
+                  sx={{ flex: 1, maxWidth: 360 }}
                 >
                   Add to cart
                 </Button>
@@ -804,8 +921,9 @@ const ProductDetailsPage = () => {
                       saved ? 'Remove from wishlist' : 'Add to wishlist'
                     }
                     sx={{
-                      width: 40,
-                      height: 40,
+                      width: 48,
+                      height: 48,
+                      flexShrink: 0,
                       borderRadius: '8px',
                       border: 1,
                       borderColor: saved ? 'error.main' : 'divider',
@@ -827,76 +945,161 @@ const ProductDetailsPage = () => {
               </Alert>
             )}
 
-            <Divider />
-            <Stack spacing={0.75}>
-              {(variant?.sku || product.sku) && (
-                <Typography variant="body2" color="text.secondary">
-                  SKU: {variant?.sku || product.sku}
-                </Typography>
-              )}
-              {product.category && (
-                <Typography variant="body2" color="text.secondary">
-                  Category:{' '}
-                  <Link
-                    component={RouterLink}
-                    to={`/products?category=${product.category.id}`}
-                  >
-                    {product.category.name}
-                  </Link>
-                </Typography>
-              )}
-              {product.tags.length > 0 && (
+            {/* Reassurance */}
+            <Box
+              sx={{
+                display: 'grid',
+                gap: 1.5,
+                gridTemplateColumns: {
+                  xs: '1fr',
+                  sm: 'repeat(3, minmax(0, 1fr))',
+                },
+              }}
+            >
+              {[
+                [
+                  <FiTruck key="t" />,
+                  'Delivery',
+                  shop.finance?.freeShippingOver
+                    ? `Free over ${formatMoney(shop.finance.freeShippingOver)}`
+                    : 'Delivered in 1–5 days',
+                ],
+                [
+                  <FiRotateCcw key="r" />,
+                  'Easy returns',
+                  'Return delivered items from your account',
+                ],
+                [
+                  <FiShield key="s" />,
+                  'Secure payment',
+                  'Card or cash on delivery',
+                ],
+              ].map(([icon, title, text]) => (
                 <Stack
+                  key={title}
                   direction="row"
-                  spacing={0.75}
-                  flexWrap="wrap"
-                  useFlexGap
-                  alignItems="center"
+                  spacing={1.5}
+                  sx={{
+                    p: 1.5,
+                    borderRadius: '8px',
+                    border: 1,
+                    borderColor: 'divider',
+                  }}
                 >
-                  <Typography variant="body2" color="text.secondary">
-                    Tags:
-                  </Typography>
-                  {product.tags.map((t) => (
-                    <Chip
-                      key={t}
-                      size="small"
-                      label={`#${t}`}
-                      component={RouterLink}
-                      to={`/products?tag=${t}`}
-                      clickable
-                    />
-                  ))}
+                  <Box sx={{ color: 'primary.main', fontSize: 20, mt: 0.25 }}>
+                    {icon}
+                  </Box>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography variant="subtitle2">{title}</Typography>
+                    <Typography variant="caption" component="div">
+                      {text}
+                    </Typography>
+                  </Box>
                 </Stack>
-              )}
-            </Stack>
+              ))}
+            </Box>
+
+            {product.tags.length > 0 && (
+              <Stack
+                direction="row"
+                spacing={0.75}
+                flexWrap="wrap"
+                useFlexGap
+                alignItems="center"
+              >
+                {product.tags.map((t) => (
+                  <Chip
+                    key={t}
+                    size="small"
+                    label={`#${t}`}
+                    component={RouterLink}
+                    to={`/products?tag=${t}`}
+                    clickable
+                  />
+                ))}
+              </Stack>
+            )}
           </Stack>
         </Grid>
       </Grid>
 
-      <Box sx={{ mt: { xs: 5, md: 8 } }}>
-        <Tabs
-          value={tab}
-          onChange={(_, v) => setTab(v)}
-          sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}
-        >
-          <Tab value="description" label="Description" />
-          <Tab value="specifications" label="Specifications" />
-          <Tab value="reviews" label={`Reviews (${product.reviewCount})`} />
-        </Tabs>
-        {tab === 'description' &&
-          (product.description ? (
-            <RichText
-              html={product.description}
-              sx={{ maxWidth: 820 }}
-              data-testid="product-description"
-            />
-          ) : (
-            <Typography color="text.secondary">No description yet.</Typography>
-          ))}
-        {tab === 'specifications' && (
-          <Specifications product={product} variant={variant} />
+      <Box
+        sx={{
+          mt: { xs: 5, md: 8 },
+          display: 'grid',
+          gap: { xs: 3, lg: 5 },
+          gridTemplateColumns: {
+            xs: 'minmax(0, 1fr)',
+            lg: 'minmax(0, 1fr) 360px',
+          },
+          alignItems: 'start',
+        }}
+      >
+        <Box sx={{ minWidth: 0 }}>
+          <Tabs
+            value={tab}
+            onChange={(_, v) => setTab(v)}
+            sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}
+          >
+            <Tab value="description" label="Description" />
+            <Tab value="specifications" label="Specifications" />
+            <Tab value="reviews" label={`Reviews (${product.reviewCount})`} />
+          </Tabs>
+          {tab === 'description' &&
+            (description ? (
+              <RichText
+                html={description}
+                sx={{ maxWidth: 820 }}
+                data-testid="product-description"
+              />
+            ) : (
+              <Typography color="text.secondary">
+                No description yet.
+              </Typography>
+            ))}
+          {tab === 'specifications' && (
+            <Specifications product={product} variant={variant} />
+          )}
+          {tab === 'reviews' && <Reviews product={product} onAdded={load} />}
+        </Box>
+        {specRows(product, variant).length > 0 && (
+          <Box
+            component="aside"
+            aria-label="At a glance"
+            sx={{
+              bgcolor: 'background.neutral',
+              borderRadius: 1,
+              p: 3,
+              position: { lg: 'sticky' },
+              top: { lg: 200 },
+            }}
+          >
+            <Typography variant="h6" component="h2" sx={{ mb: 2 }}>
+              At a glance
+            </Typography>
+            <Stack spacing={1.5} divider={<Divider />}>
+              {specRows(product, variant)
+                .slice(0, 6)
+                .map(([label, value]) => (
+                  <Box key={label}>
+                    <Typography variant="caption" component="div">
+                      {label}
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {value}
+                    </Typography>
+                  </Box>
+                ))}
+            </Stack>
+            <Button
+              size="small"
+              sx={{ mt: 2, px: 0 }}
+              onClick={() => setTab('specifications')}
+            >
+              All specifications
+            </Button>
+          </Box>
         )}
-        {tab === 'reviews' && <Reviews product={product} onAdded={load} />}
       </Box>
 
       {related.length > 0 && (

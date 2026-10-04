@@ -4,10 +4,12 @@ import { config } from './config';
 import { runMigrations } from './migrate';
 import { runSeed } from './seed';
 import { loadFinance } from './lib/finance';
+import { loadDelivery } from './lib/delivery';
 
 const main = async () => {
   await runMigrations();
   await loadFinance(); // seeding prices demo data in the shop's currency
+  await loadDelivery();
   await runSeed();
   createApp().listen(config.port, () => {
     console.log(`Carlos Shop API listening on :${config.port}`);

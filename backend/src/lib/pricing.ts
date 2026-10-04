@@ -2,6 +2,7 @@
 // the server. The browser only displays these numbers.
 import { config } from '../config';
 import { query } from '../db';
+import { delivery } from './delivery';
 import { finance } from './finance';
 import { fail } from './http';
 import { stockOf } from './products';
@@ -36,22 +37,36 @@ export interface Coupon {
   active: boolean;
 }
 
-export const SHIPPING_METHODS = () => [
-  {
-    code: 'standard',
-    title: 'Standard delivery',
-    description: finance().free_shipping_over
-      ? `3–5 business days. Free on orders over ${money(finance().free_shipping_over)}.`
-      : '3–5 business days.',
-    cost: finance().standard_shipping,
-  },
-  {
-    code: 'express',
-    title: 'Express delivery',
-    description: '1–2 business days.',
-    cost: finance().express_shipping,
-  },
-];
+/** The delivery options switched on in Back office → Delivery options. */
+export const SHIPPING_METHODS = () => {
+  const d = delivery();
+  return [
+    d.standard.enabled && {
+      code: 'standard',
+      title: d.standard.title,
+      description: [
+        d.standard.description,
+        d.standard.free_over ? `Free on orders over ${money(d.standard.free_over)}.` : '',
+      ]
+        .filter(Boolean)
+        .join(' '),
+      cost: d.standard.price,
+    },
+    d.express.enabled && {
+      code: 'express',
+      title: d.express.title,
+      description: d.express.description,
+      cost: d.express.price,
+    },
+    d.pickup.enabled && {
+      code: 'pickup',
+      title: d.pickup.title,
+      description: [d.pickup.location, d.pickup.hours, d.pickup.description].filter(Boolean).join(' · '),
+      cost: d.pickup.price,
+      pickup: { location: d.pickup.location, hours: d.pickup.hours },
+    },
+  ].filter(Boolean) as { code: string; title: string; description: string; cost: number; pickup?: object }[];
+};
 
 export const PAYMENT_METHODS = () => [
   { code: 'cod', title: 'Cash on delivery', description: 'Pay when your order arrives.' },
@@ -169,7 +184,7 @@ export const computeTotals = (
   const goods = round2(subtotal - discount);
   const method = SHIPPING_METHODS().find((m) => m.code === shippingMethod);
   let shipping = method ? method.cost : 0;
-  const freeOver = finance().free_shipping_over;
+  const freeOver = delivery().standard.free_over;
   if (method?.code === 'standard' && freeOver > 0 && goods >= freeOver) shipping = 0;
   if (!lines.length) shipping = 0;
   const { tax, total } = applyTax(goods, shipping);

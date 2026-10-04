@@ -34,6 +34,12 @@ export const accountRoutes = () => {
           firstname: z.string().trim().min(1, 'Please enter your first name.').max(100).optional(),
           lastname: z.string().trim().max(100).optional(),
           avatar: z.string().trim().max(2000).optional(),
+          telephone: z
+            .string()
+            .trim()
+            .max(30)
+            .regex(/^[+0-9 ()-]*$/, 'Please enter a phone number using digits, spaces and +.')
+            .optional(),
         }),
         req.body
       );
@@ -42,9 +48,10 @@ export const accountRoutes = () => {
            firstname = COALESCE($2, firstname),
            lastname  = COALESCE($3, lastname),
            avatar    = COALESCE($4, avatar),
+           phone     = COALESCE($5, phone),
            updated_at = now()
          WHERE id = $1`,
-        [req.auth!.userId, body.firstname ?? null, body.lastname ?? null, body.avatar ?? null]
+        [req.auth!.userId, body.firstname ?? null, body.lastname ?? null, body.avatar ?? null, body.telephone ?? null]
       );
       const user = await findUserById(req.auth!.userId);
       ok(res, toContractUser(user, req.auth!.permissions));

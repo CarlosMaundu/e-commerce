@@ -49,7 +49,7 @@ const money = (n, code) =>
     Number(n || 0)
   );
 
-/** What a shopper pays for `goods` with standard delivery. */
+/** What a shopper pays for `goods` (before delivery). */
 const example = (f, goods) => {
   const rate = Number(f.taxRate) || 0;
   const free =
@@ -76,10 +76,6 @@ const Worked = ({ form }) => {
   const e = useMemo(() => example(form, goods), [form, goods]);
   const rows = [
     ['Items', money(e.goods, form.currency)],
-    [
-      'Standard delivery',
-      e.shipping ? money(e.shipping, form.currency) : 'Free',
-    ],
     ...(form.pricesIncludeTax
       ? []
       : [
@@ -93,7 +89,7 @@ const Worked = ({ form }) => {
     <SectionCard
       tinted
       title="What a shopper pays"
-      subtitle={`An order of ${money(goods, form.currency)} with standard delivery.`}
+      subtitle={`Items worth ${money(goods, form.currency)}, before delivery.`}
     >
       <Stack spacing={1}>
         {rows.map(([l, v]) => (
@@ -173,26 +169,6 @@ const FinanceSettingsPage = () => {
     }
   };
 
-  const amount = (key, label, helper) => (
-    <TextField
-      label={label}
-      type="number"
-      value={form[key]}
-      onChange={set(key)}
-      inputProps={{ min: 0, step: 'any' }}
-      InputProps={{
-        startAdornment: (
-          <InputAdornment position="start">{form.currency}</InputAdornment>
-        ),
-      }}
-      {...err(key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`))}
-      helperText={
-        errors[key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`)] || helper
-      }
-      fullWidth
-    />
-  );
-
   return (
     <Box component="form" onSubmit={save} noValidate>
       <PageHeader
@@ -206,7 +182,7 @@ const FinanceSettingsPage = () => {
             ? `Last changed ${formatDateTime(meta.updatedAt)}${
                 meta.updatedBy ? ` by ${meta.updatedBy}` : ''
               }`
-            : 'Currency, tax and delivery prices used at checkout.'
+            : 'Currency and tax used across the shop and at checkout.'
         }
         actions={
           !editing && (
@@ -366,31 +342,6 @@ const FinanceSettingsPage = () => {
                         }}
                       />
                     </RadioGroup>
-                  </Stack>
-                </SectionCard>
-
-                <SectionCard
-                  title="Delivery prices"
-                  subtitle="Charged at checkout for each delivery option."
-                >
-                  <Stack spacing={2}>
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                      {amount(
-                        'standardShipping',
-                        'Standard delivery',
-                        '3–5 business days.'
-                      )}
-                      {amount(
-                        'expressShipping',
-                        'Express delivery',
-                        '1–2 business days.'
-                      )}
-                    </Stack>
-                    {amount(
-                      'freeShippingOver',
-                      'Free standard delivery from',
-                      'Orders of at least this much ship free. Use 0 to always charge.'
-                    )}
                   </Stack>
                 </SectionCard>
               </Stack>

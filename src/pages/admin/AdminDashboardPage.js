@@ -92,7 +92,7 @@ const CardTitle = ({ title, subtitle, action }) => (
     sx={{ mb: 2.5 }}
   >
     <Box sx={{ minWidth: 0 }}>
-      <Typography variant="h5" component="h2" sx={{ fontWeight: 700 }}>
+      <Typography variant="h6" component="h2">
         {title}
       </Typography>
       {subtitle && (
@@ -155,10 +155,10 @@ const Kpi = ({ label, value, caption, change, tone, testId, suffix }) => (
     </Stack>
     <Typography
       sx={{
-        mt: 3,
-        mb: 1.5,
+        mt: 2,
+        mb: 1,
         fontWeight: 800,
-        fontSize: { xs: '1.9rem', md: '2.25rem' },
+        fontSize: { xs: '1.4rem', md: '1.6rem' },
         letterSpacing: '-0.03em',
         lineHeight: 1.1,
       }}
@@ -408,7 +408,7 @@ const SalesPerformance = ({ data }) => {
         sx={{ mb: 2 }}
       >
         <Typography
-          sx={{ fontWeight: 800, fontSize: '1.9rem', letterSpacing: '-0.03em' }}
+          sx={{ fontWeight: 800, fontSize: '1.5rem', letterSpacing: '-0.03em' }}
         >
           {revenue ? formatMoneyCompact(total) : total.toLocaleString()}
         </Typography>
@@ -514,7 +514,7 @@ const Fulfilment = ({ data }) => {
         title="Order fulfillment"
         subtitle="Current order pipeline"
         action={
-          <Typography sx={{ fontWeight: 800, fontSize: '1.6rem' }}>
+          <Typography sx={{ fontWeight: 800, fontSize: '1.35rem' }}>
             {f.total}
           </Typography>
         }
@@ -578,7 +578,7 @@ const AverageOrder = ({ data }) => {
         action={<ChangeChip value={k.change} tone="success" />}
       />
       <Typography
-        sx={{ fontWeight: 800, fontSize: '1.9rem', letterSpacing: '-0.03em' }}
+        sx={{ fontWeight: 800, fontSize: '1.5rem', letterSpacing: '-0.03em' }}
       >
         {formatMoney(k.value)}
       </Typography>
@@ -621,7 +621,7 @@ const Inventory = ({ data }) => {
         subtitle={`Across ${inv.total.toLocaleString()} products`}
         action={
           <Typography
-            sx={{ fontWeight: 800, fontSize: '1.6rem', color: 'success.main' }}
+            sx={{ fontWeight: 800, fontSize: '1.35rem', color: 'success.main' }}
           >
             {inv.healthy_share}%
           </Typography>
@@ -1133,16 +1133,16 @@ const AdminDashboardPage = () => {
           <Typography
             component="h1"
             sx={{
-              fontWeight: 800,
-              fontSize: { xs: '2rem', md: '2.75rem' },
-              letterSpacing: '-0.04em',
+              fontWeight: 700,
+              fontSize: { xs: '1.5rem', md: '1.625rem' },
+              letterSpacing: '-0.01em',
               lineHeight: 1.2,
               my: 0.5,
             }}
           >
             Store overview
           </Typography>
-          <Typography color="text.secondary" sx={{ fontSize: '1.05rem' }}>
+          <Typography color="text.secondary">
             Monitor performance, customers and fulfilment from one place.
           </Typography>
         </Box>

@@ -9,6 +9,7 @@ export interface UserRow {
   firstname: string;
   lastname: string;
   avatar: string;
+  phone: string;
   role_id: number;
   role: string;
   status: 'active' | 'suspended';
@@ -52,6 +53,7 @@ export const toContractUser = (u: UserRow, permissions?: string[]) => ({
   role: u.role,
   ...(permissions ? { permissions } : {}),
   avatar: u.avatar,
+  telephone: u.phone || '',
   status: u.status,
   has_password: Boolean(u.password_hash),
   locked_until: u.locked_until && u.locked_until > new Date() ? u.locked_until : null,

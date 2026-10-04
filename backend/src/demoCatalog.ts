@@ -32,6 +32,8 @@ interface Spec {
     imageBy?: string;
     priceBy?: Record<string, number>;
     priceAdd?: Record<string, number>;
+    // Own description/specs per matching variant ("Model=iPhone 14 Pro").
+    variantContent?: Record<string, { description?: string; specs?: { label: string; value: string }[] }>;
     // Product information (Specifications tab).
     info?: {
       manufacturer?: string;
@@ -136,10 +138,11 @@ export const seedDemoCatalog = async ({ replace = false } = {}) => {
       const { rows } = await db.query(
         `INSERT INTO products (name, description, price, special, quantity, category_id, brand_id, images, sku,
            status, featured, tags, attributes, track_inventory, low_stock_threshold, created_at, published_at,
-           manufacturer, mfr_part_number, length, width, height, dimension_unit, weight, weight_unit, specs)
+           manufacturer, mfr_part_number, length, width, height, dimension_unit, weight, weight_unit, specs,
+           variant_content)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'published', $10, $11, $12, true, 5,
                  now() - make_interval(days => $13), now() - make_interval(days => $13),
-                 $14, $15, $16, $17, $18, $19, $20, $21, $22)
+                 $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
          RETURNING id`,
         [
           p.name, p.description, demoPrice(p.price), p.special ? demoPrice(p.special) : null, p.quantity ?? 0, categoryIds[p.category],
@@ -148,6 +151,7 @@ export const seedDemoCatalog = async ({ replace = false } = {}) => {
           p.info?.manufacturer ?? '', p.info?.mfr_part_number ?? '', p.info?.length ?? null, p.info?.width ?? null,
           p.info?.height ?? null, p.info?.dimension_unit ?? 'cm', p.info?.weight ?? null, p.info?.weight_unit ?? 'kg',
           JSON.stringify(p.info?.specs ?? []),
+          Boolean(p.variantContent),
         ]
       );
       const productId = rows[0].id;
@@ -166,6 +170,7 @@ export const seedDemoCatalog = async ({ replace = false } = {}) => {
         const price = usd === null ? null : demoPrice(usd);
         // A variant with its own price keeps the product's sale ratio.
         const special = usd !== null && p.special ? demoPrice(Math.round(usd * (p.special / p.price))) : null;
+        const own = Object.entries(p.variantContent || {}).find(([key]) => matches(options, key))?.[1];
         const roll = rand();
         const quantity = roll < 0.1 ? 0 : roll < 0.2 ? 1 + Math.floor(rand() * 4) : 6 + Math.floor(rand() * 20);
         const ownKey = Object.keys(p.variantImages || {}).find((key) => matches(options, key));
@@ -175,10 +180,12 @@ export const seedDemoCatalog = async ({ replace = false } = {}) => {
             ? byValue(options[p.imageBy])
             : [];
         await db.query(
-          `INSERT INTO product_variants (product_id, options, sku, price, special, quantity, images, position)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          `INSERT INTO product_variants (product_id, options, sku, price, special, quantity, images, position,
+             description, specs)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
           [productId, JSON.stringify(options), `${p.sku}-${Object.entries(options).map(([k, v]) => codes[k][v]).join('-')}`,
-            price, special, quantity, JSON.stringify(images), position]
+            price, special, quantity, JSON.stringify(images), position,
+            own?.description ?? null, JSON.stringify(own?.specs ?? [])]
         );
       }
       await syncProductQuantity(db, productId);

@@ -2,7 +2,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { Outlet, useLocation } from 'react-router-dom';
-import { Box, Container, Stack, Typography } from '@mui/material';
+import { Box, Stack, Typography } from '@mui/material';
 import PageBreadcrumbs from '../components/common/PageBreadcrumbs';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
@@ -52,10 +52,11 @@ export const AccountPage = ({
   backLabel = 'My account',
 }) => {
   const here = useLocation().pathname;
+  // Sits inside AccountLayout, which provides the width and the sidebar.
   return (
-    <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
+    <Box>
       <PageBreadcrumbs
-        sx={{ mb: 2 }}
+        sx={{ mb: 1.5 }}
         items={[
           { label: 'Home', to: '/' },
           { label: backLabel, to: back },
@@ -70,7 +71,7 @@ export const AccountPage = ({
         sx={{ mb: 3 }}
       >
         <Box>
-          <Typography variant="h3" component="h1">
+          <Typography variant="h4" component="h1">
             {title}
           </Typography>
           {subtitle && (
@@ -82,7 +83,7 @@ export const AccountPage = ({
         {action}
       </Stack>
       {children}
-    </Container>
+    </Box>
   );
 };
 AccountPage.propTypes = {

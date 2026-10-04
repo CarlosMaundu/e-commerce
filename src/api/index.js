@@ -248,11 +248,16 @@ export const account = {
     const { data } = await http().get('/rest/account');
     return userFromApi(data);
   },
-  async updateProfile({ name, avatar }) {
-    const { data } = await http().put(
-      '/rest/account',
-      userToApi({ name, avatar })
-    );
+  async updateProfile({ name, firstName, lastName, avatar, phone }) {
+    const body =
+      firstName !== undefined
+        ? { firstname: firstName, lastname: lastName ?? '' }
+        : userToApi({ name });
+    const { data } = await http().put('/rest/account', {
+      ...body,
+      ...(avatar !== undefined ? { avatar } : {}),
+      ...(phone !== undefined ? { telephone: phone } : {}),
+    });
     return userFromApi(data);
   },
   async changePassword(currentPassword, newPassword) {
@@ -448,9 +453,6 @@ const financeFromApi = (f) => ({
   taxLabel: f.tax_label,
   taxRate: Number(f.tax_rate),
   pricesIncludeTax: Boolean(f.prices_include_tax),
-  standardShipping: Number(f.standard_shipping),
-  expressShipping: Number(f.express_shipping),
-  freeShippingOver: Number(f.free_shipping_over),
 });
 
 /** Currency, tax and delivery prices (Back office → Financial settings). */
@@ -469,11 +471,24 @@ export const finance = {
       tax_label: f.taxLabel,
       tax_rate: f.taxRate,
       prices_include_tax: f.pricesIncludeTax,
-      standard_shipping: f.standardShipping,
-      express_shipping: f.expressShipping,
-      free_shipping_over: f.freeShippingOver,
     });
     return financeFromApi(data.settings);
+  },
+};
+
+/** Delivery options: standard, express and pick up (raw API shape). */
+export const delivery = {
+  async adminGet() {
+    const { data } = await http().get('/admin/delivery-settings');
+    return {
+      settings: data.settings,
+      updatedAt: data.updated_at,
+      updatedBy: data.updated_by,
+    };
+  },
+  async save(settings) {
+    const { data } = await http().put('/admin/delivery-settings', settings);
+    return data.settings;
   },
 };
 

@@ -19,6 +19,7 @@ import {
   Divider,
   FormControlLabel,
   Grid,
+  Link,
   MenuItem,
   Skeleton,
   Stack,
@@ -27,7 +28,14 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { FiPackage, FiRefreshCw, FiRotateCcw } from 'react-icons/fi';
+import {
+  FiFileText,
+  FiPackage,
+  FiRefreshCw,
+  FiRotateCcw,
+} from 'react-icons/fi';
+import OrderTracker from '../../components/account/OrderTracker';
+import { useStore } from '../../context/StoreContext';
 import { orders as ordersApi } from '../../api';
 import { StandardPagination } from '../../components/admin/DataTable';
 import { formatAddress } from '../../api/mappers';
@@ -315,7 +323,14 @@ const ReturnDialog = ({ order, item, reasons, onClose, onDone }) => {
   );
 };
 
+/** The product page with the ordered options already chosen. */
+const productLink = (item) => {
+  const query = new URLSearchParams(item.options || {}).toString();
+  return `/products/${item.productId}${query ? `?${query}` : ''}`;
+};
+
 export const OrderDetailPage = () => {
+  const { finance } = useStore();
   const { id } = useParams();
   const [params] = useSearchParams();
   const justPlaced = params.get('placed') === '1';
@@ -396,14 +411,23 @@ export const OrderDetailPage = () => {
       back="/account/orders"
       backLabel="My orders"
       action={
-        <Button
-          variant="outlined"
-          startIcon={<FiRefreshCw />}
-          onClick={reorder}
-          disabled={reordering}
-        >
-          Buy again
-        </Button>
+        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+          <Button
+            component={RouterLink}
+            to={`/account/invoices/${order.id}`}
+            startIcon={<FiFileText />}
+          >
+            Invoice
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<FiRefreshCw />}
+            onClick={reorder}
+            disabled={reordering}
+          >
+            Buy again
+          </Button>
+        </Stack>
       }
     >
       {justPlaced && (
@@ -412,6 +436,9 @@ export const OrderDetailPage = () => {
           {order.email}.
         </Alert>
       )}
+      <SectionCard title="Order progress" sx={{ mb: 3 }}>
+        <OrderTracker order={order} />
+      </SectionCard>
       <Grid container spacing={3}>
         <Grid item xs={12} md={8}>
           <Stack spacing={3}>
@@ -430,19 +457,44 @@ export const OrderDetailPage = () => {
                     alignItems="center"
                   >
                     <Box
-                      component="img"
-                      src={item.image}
-                      alt=""
-                      sx={{
-                        width: 72,
-                        height: 72,
-                        objectFit: 'contain',
-                        borderRadius: 1,
-                        bgcolor: 'background.neutral',
-                      }}
-                    />
+                      component={item.productId ? RouterLink : 'div'}
+                      to={productLink(item)}
+                      aria-label={
+                        item.productId ? `View ${item.title}` : undefined
+                      }
+                      sx={{ flexShrink: 0 }}
+                    >
+                      <Box
+                        component="img"
+                        src={item.image}
+                        alt=""
+                        sx={{
+                          width: 72,
+                          height: 72,
+                          objectFit: 'contain',
+                          borderRadius: 1,
+                          bgcolor: 'background.neutral',
+                          display: 'block',
+                        }}
+                      />
+                    </Box>
                     <Box sx={{ flex: 1 }}>
-                      <Typography variant="subtitle1">{item.title}</Typography>
+                      {item.productId ? (
+                        <Link
+                          component={RouterLink}
+                          to={productLink(item)}
+                          underline="hover"
+                          color="text.primary"
+                          variant="subtitle1"
+                          data-testid="order-item-link"
+                        >
+                          {item.title}
+                        </Link>
+                      ) : (
+                        <Typography variant="subtitle1">
+                          {item.title}
+                        </Typography>
+                      )}
                       <Typography variant="body2" color="text.secondary">
                         {[
                           optionText(item.options),
@@ -471,7 +523,7 @@ export const OrderDetailPage = () => {
                 ))}
               </Stack>
             </SectionCard>
-            <SectionCard title="Progress">
+            <SectionCard title="Order updates">
               <Stack
                 spacing={2.5}
                 component="ol"
@@ -540,7 +592,12 @@ export const OrderDetailPage = () => {
                       ]
                     : null,
                   ['Delivery', order.totals.shipping],
-                  ['Tax', order.totals.tax],
+                  [
+                    finance.pricesIncludeTax
+                      ? `Includes ${finance.taxLabel} (${finance.taxRate}%)`
+                      : `${finance.taxLabel || 'Tax'} (${finance.taxRate}%)`,
+                    order.totals.tax,
+                  ],
                 ]
                   .filter(Boolean)
                   .map(([label, value]) => (

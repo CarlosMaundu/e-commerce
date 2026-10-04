@@ -423,6 +423,71 @@
       "value": "Phone, USB-C to Lightning cable"
      }
     ]
+   },
+   "variantContent": {
+    "Model=iPhone 14": {
+     "description": "<p>The <strong>iPhone 14</strong> brings a 6.1-inch Super Retina XDR display, the A15 Bionic chip and an advanced dual-camera system with a 12 MP main camera.</p><ul><li>Crash Detection and Emergency SOS via satellite</li><li>All-day battery life</li></ul>",
+     "specs": [
+      {
+       "label": "Display",
+       "value": "6.1-inch Super Retina XDR, 60 Hz"
+      },
+      {
+       "label": "Chip",
+       "value": "A15 Bionic"
+      },
+      {
+       "label": "Main camera",
+       "value": "12 MP, ƒ/1.5"
+      }
+     ]
+    },
+    "Model=iPhone 14 Pro": {
+     "description": "<p>The <strong>iPhone 14 Pro</strong> adds the Dynamic Island, an Always-On display and a 48 MP Pro camera system, powered by the A16 Bionic chip.</p><ul><li>48 MP main camera with 3× optical zoom telephoto</li><li>ProMotion display up to 120 Hz</li></ul>",
+     "specs": [
+      {
+       "label": "Display",
+       "value": "6.1-inch Super Retina XDR with ProMotion, Always-On"
+      },
+      {
+       "label": "Chip",
+       "value": "A16 Bionic"
+      },
+      {
+       "label": "Main camera",
+       "value": "48 MP, ƒ/1.78, 3× telephoto"
+      },
+      {
+       "label": "Weight",
+       "value": "206 g"
+      }
+     ]
+    },
+    "Model=iPhone 14 Pro Max": {
+     "description": "<p>The <strong>iPhone 14 Pro Max</strong> has everything in the Pro on a larger 6.7-inch display, with the longest battery life of the range.</p><ul><li>48 MP Pro camera system</li><li>Up to 29 hours of video playback</li></ul>",
+     "specs": [
+      {
+       "label": "Display",
+       "value": "6.7-inch Super Retina XDR with ProMotion, Always-On"
+      },
+      {
+       "label": "Chip",
+       "value": "A16 Bionic"
+      },
+      {
+       "label": "Main camera",
+       "value": "48 MP, ƒ/1.78, 3× telephoto"
+      },
+      {
+       "label": "Weight",
+       "value": "240 g"
+      },
+      {
+       "label": "Dimensions (L × W × H)",
+       "value": "16.07 × 7.76 × 0.79 cm"
+      }
+     ]
+    }
    }
   },
   {

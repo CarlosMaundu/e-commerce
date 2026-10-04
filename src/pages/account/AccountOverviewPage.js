@@ -1,88 +1,97 @@
-// src/pages/account/AccountOverviewPage.js — the customer's home: profile
-// card, summary tiles, order tracking and services (Aurora-style layout).
+// src/pages/account/AccountOverviewPage.js — the account home: a greeting,
+// clickable summary cards, the latest order with its progress, recent
+// orders and the default delivery address.
 import React, { useContext, useEffect, useState } from 'react';
+import PropTypes from 'prop-types';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import {
-  Avatar,
-  Box,
-  Button,
-  Chip,
-  Container,
-  Grid,
-  Skeleton,
-  Stack,
-  Typography,
-} from '@mui/material';
+import { Box, Button, Link, Skeleton, Stack, Typography } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import {
-  FiCreditCard,
-  FiEdit2,
+  FiArrowRight,
   FiHeart,
-  FiHelpCircle,
-  FiLock,
   FiMapPin,
   FiPackage,
   FiRotateCcw,
   FiTruck,
-  FiBox,
 } from 'react-icons/fi';
 import { AuthContext } from '../../context/AuthContext';
 import { addresses as addressApi, orders as ordersApi } from '../../api';
 import { formatAddress } from '../../api/mappers';
-import { DetailRows, StatTile, StatusChip } from '../../components/ui';
-import { formatDate } from '../../utils/format';
-import { roleLabel, isStaff } from '../../auth/permissions';
+import { isStaff } from '../../auth/permissions';
+import { EmptyState, SectionCard, StatusChip } from '../../components/ui';
+import OrderTracker from '../../components/account/OrderTracker';
+import { formatDate, formatMoney } from '../../utils/format';
 
-const SERVICES = [
-  { label: 'Login & security', icon: <FiLock />, to: '/account/security' },
-  { label: 'My orders', icon: <FiPackage />, to: '/account/orders' },
-  { label: 'Addresses', icon: <FiMapPin />, to: '/account/addresses' },
-  { label: 'Wishlist', icon: <FiHeart />, to: '/wishlist' },
-  { label: 'Returns', icon: <FiRotateCcw />, to: '/account/returns' },
-  {
-    label: 'Customer service',
-    icon: <FiHelpCircle />,
-    to: '/information/support',
-  },
-];
+const ACTIVE = ['awaiting_payment', 'pending', 'processing', 'shipped'];
 
-const ServiceLink = ({ item }) => (
-  <Box
-    component={RouterLink}
-    to={item.to}
-    sx={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 2,
-      px: 3,
-      py: 2.25,
-      borderRadius: 1,
-      bgcolor: 'background.neutralDeep',
-      color: 'text.primary',
-      textDecoration: 'none',
-      fontWeight: 600,
-      '& svg': { color: 'primary.main', fontSize: 20 },
-      '&:hover': {
-        bgcolor: 'background.neutral',
-        outline: 1,
-        outlineColor: 'divider',
-      },
-    }}
-  >
-    {item.icon}
-    {item.label}
-  </Box>
-);
-
-const ACTIVE = ['pending', 'processing', 'shipped'];
+const SummaryCard = ({ icon, value, label, to, tone }) => {
+  const theme = useTheme();
+  const color = theme.palette[tone].main;
+  return (
+    <Box
+      component={RouterLink}
+      to={to}
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 2,
+        p: 2.5,
+        borderRadius: 1,
+        border: 1,
+        borderColor: 'divider',
+        bgcolor: 'background.paper',
+        color: 'text.primary',
+        textDecoration: 'none',
+        transition: 'border-color .15s, box-shadow .15s',
+        '&:hover': {
+          borderColor: alpha(color, 0.5),
+          boxShadow: `0 8px 24px ${alpha(color, 0.12)}`,
+        },
+      }}
+    >
+      <Box
+        sx={{
+          width: 48,
+          height: 48,
+          borderRadius: '8px',
+          display: 'grid',
+          placeItems: 'center',
+          fontSize: 22,
+          color,
+          bgcolor: alpha(color, 0.12),
+          flexShrink: 0,
+        }}
+      >
+        {icon}
+      </Box>
+      <Box sx={{ minWidth: 0 }}>
+        <Typography
+          sx={{ fontWeight: 800, fontSize: '1.5rem', lineHeight: 1.1 }}
+        >
+          {value}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {label}
+        </Typography>
+      </Box>
+    </Box>
+  );
+};
+SummaryCard.propTypes = {
+  icon: PropTypes.node.isRequired,
+  value: PropTypes.node,
+  label: PropTypes.string.isRequired,
+  to: PropTypes.string.isRequired,
+  tone: PropTypes.string.isRequired,
+};
 
 const AccountOverviewPage = () => {
   const { user } = useContext(AuthContext);
-  const theme = useTheme();
   const navigate = useNavigate();
   const wishlistCount = useSelector((s) => s.wishlist.items.length);
   const [data, setData] = useState(null);
+  const [latest, setLatest] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -92,12 +101,16 @@ const AccountOverviewPage = () => {
       ordersApi.listReturns(),
     ])
       .then(([orderPage, addressList, returnList]) => {
-        if (active)
-          setData({
-            ...orderPage,
-            addresses: addressList,
-            returns: returnList,
-          });
+        if (!active) return;
+        setData({ ...orderPage, addresses: addressList, returns: returnList });
+        const newest =
+          orderPage.orders.find((o) => ACTIVE.includes(o.status)) ||
+          orderPage.orders[0];
+        if (newest)
+          ordersApi
+            .get(newest.id)
+            .then((o) => active && setLatest(o))
+            .catch(() => {});
       })
       .catch(
         () =>
@@ -109,323 +122,301 @@ const AccountOverviewPage = () => {
     };
   }, []);
 
+  const firstName = user.firstName || user.name.split(' ')[0];
+  const onTheWay = data?.orders.filter((o) => ACTIVE.includes(o.status)).length;
+  const openReturns = data?.returns.filter((r) =>
+    ['requested', 'approved'].includes(r.status)
+  ).length;
   const defaultAddress =
     data?.addresses.find((a) => a.isDefault) || data?.addresses[0];
-  const count = (statuses) =>
-    data?.orders.filter((o) => statuses.includes(o.status)).length || 0;
-  const tracking = data?.orders.find((o) => ACTIVE.includes(o.status));
-  const openReturns =
-    data?.returns.filter((r) => ['requested', 'approved'].includes(r.status))
-      .length || 0;
+  const loading = (v) => (data ? v : <Skeleton width={32} />);
 
   return (
-    <Container maxWidth="xl" disableGutters>
-      <Grid container>
-        <Grid
-          item
-          xs={12}
-          md={8}
-          sx={{ borderRight: { md: 1 }, borderColor: { md: 'divider' } }}
-        >
-          {/* Profile card */}
-          <Box
-            sx={{
-              p: { xs: 2, md: 5 },
-              borderBottom: 1,
-              borderColor: 'divider',
-            }}
-          >
-            <Box
-              sx={{
-                borderRadius: 1,
-                p: { xs: 3, md: 4 },
-                background: `linear-gradient(120deg, ${alpha(theme.palette.primary.main, 0.1)} 0%, ${alpha(
-                  theme.palette.secondary.main,
-                  0.08
-                )} 100%)`,
-              }}
-            >
-              <Stack
-                direction="row"
-                spacing={3}
-                alignItems="center"
-                sx={{ mb: 4 }}
+    <Stack spacing={3}>
+      <Stack
+        direction={{ xs: 'column', sm: 'row' }}
+        alignItems={{ sm: 'flex-end' }}
+        justifyContent="space-between"
+        spacing={2}
+      >
+        <Box>
+          <Typography variant="h4" component="h1">
+            Hi, {firstName}
+          </Typography>
+          <Typography color="text.secondary">
+            Your orders, deliveries and details in one place.
+          </Typography>
+        </Box>
+        <Stack direction="row" spacing={1}>
+          {isStaff(user) && (
+            <Button component={RouterLink} to="/admin">
+              Back office
+            </Button>
+          )}
+          <Button component={RouterLink} to="/products" variant="contained">
+            Continue shopping
+          </Button>
+        </Stack>
+      </Stack>
+
+      <Box
+        sx={{
+          display: 'grid',
+          gap: 2,
+          gridTemplateColumns: {
+            xs: 'repeat(2, minmax(0, 1fr))',
+            lg: 'repeat(4, minmax(0, 1fr))',
+          },
+        }}
+      >
+        <SummaryCard
+          icon={<FiPackage />}
+          value={loading(data?.total)}
+          label="Orders"
+          to="/account/orders"
+          tone="primary"
+        />
+        <SummaryCard
+          icon={<FiTruck />}
+          value={loading(onTheWay)}
+          label="On the way"
+          to="/account/track"
+          tone="warning"
+        />
+        <SummaryCard
+          icon={<FiHeart />}
+          value={wishlistCount}
+          label="Wishlist"
+          to="/account/wishlist"
+          tone="error"
+        />
+        <SummaryCard
+          icon={<FiRotateCcw />}
+          value={loading(openReturns)}
+          label="Open returns"
+          to="/account/returns"
+          tone="success"
+        />
+      </Box>
+
+      <Box
+        sx={{
+          display: 'grid',
+          gap: 3,
+          gridTemplateColumns: {
+            xs: 'minmax(0, 1fr)',
+            lg: 'minmax(0, 2fr) minmax(0, 1fr)',
+          },
+          alignItems: 'start',
+        }}
+      >
+        <SectionCard
+          title={latest ? `Latest order #${latest.id}` : 'Latest order'}
+          subtitle={
+            latest
+              ? `Placed ${formatDate(latest.placedAt)} · ${formatMoney(latest.total, latest.currency)}`
+              : undefined
+          }
+          action={
+            latest && (
+              <Button
+                component={RouterLink}
+                to={`/account/orders/${latest.id}`}
+                endIcon={<FiArrowRight />}
               >
-                <Avatar
-                  src={user.avatar || undefined}
-                  alt=""
-                  sx={{
-                    width: { xs: 72, md: 112 },
-                    height: { xs: 72, md: 112 },
-                    bgcolor: 'primary.main',
-                    fontSize: 36,
-                  }}
-                >
-                  {user.name?.charAt(0)}
-                </Avatar>
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="h4" component="h1">
-                    {user.name}
-                  </Typography>
-                  <Stack
-                    direction="row"
-                    spacing={1}
-                    sx={{ mt: 1 }}
-                    alignItems="center"
-                    flexWrap="wrap"
-                  >
-                    <Chip
-                      size="small"
-                      color="warning"
-                      label={roleLabel(user.role)}
-                      sx={{ color: '#fff' }}
-                    />
-                    {user.creationAt && (
-                      <Typography variant="caption">
-                        Member since {formatDate(user.creationAt)}
-                      </Typography>
-                    )}
-                  </Stack>
-                </Box>
+                Details
+              </Button>
+            )
+          }
+        >
+          {!data ? (
+            <Skeleton variant="rounded" height={160} />
+          ) : !data.orders.length ? (
+            <EmptyState
+              icon={<FiPackage />}
+              title="No orders yet"
+              action={
                 <Button
                   component={RouterLink}
-                  to="/account/profile"
-                  startIcon={<FiEdit2 />}
-                  color="inherit"
-                  sx={{ alignSelf: 'flex-start' }}
-                >
-                  Edit information
-                </Button>
-              </Stack>
-              <DetailRows
-                rows={[
-                  ['Email address', user.email],
-                  [
-                    'Default delivery address',
-                    data ? (
-                      formatAddress(defaultAddress) || 'Not set yet'
-                    ) : (
-                      <Skeleton width={240} />
-                    ),
-                  ],
-                  ['Phone number', defaultAddress?.phone],
-                ]}
-              />
-              {isStaff(user) && (
-                <Button
-                  component={RouterLink}
-                  to="/admin"
+                  to="/products"
                   variant="contained"
-                  sx={{ mt: 3 }}
                 >
-                  Open the back office
+                  Start shopping
                 </Button>
-              )}
-            </Box>
-          </Box>
+              }
+            >
+              Your orders will appear here.
+            </EmptyState>
+          ) : !latest ? (
+            <Skeleton variant="rounded" height={160} />
+          ) : (
+            <Stack spacing={3}>
+              <OrderTracker order={latest} />
+              <Stack direction="row" spacing={1.5} sx={{ overflowX: 'auto' }}>
+                {latest.items.slice(0, 5).map((item) => (
+                  <Box
+                    key={item.id}
+                    component={item.productId ? RouterLink : 'div'}
+                    to={
+                      item.productId
+                        ? `/products/${item.productId}?${new URLSearchParams(item.options || {})}`
+                        : undefined
+                    }
+                    title={item.title}
+                    sx={{
+                      width: 72,
+                      height: 72,
+                      flexShrink: 0,
+                      borderRadius: '8px',
+                      bgcolor: 'background.neutral',
+                      overflow: 'hidden',
+                    }}
+                  >
+                    <Box
+                      component="img"
+                      src={item.image}
+                      alt={item.title}
+                      sx={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'contain',
+                      }}
+                    />
+                  </Box>
+                ))}
+              </Stack>
+            </Stack>
+          )}
+        </SectionCard>
 
-          {/* Summary */}
-          <Box
-            sx={{
-              p: { xs: 2, md: 5 },
-              borderBottom: 1,
-              borderColor: 'divider',
-            }}
+        <Stack spacing={3}>
+          <SectionCard
+            title="Delivery address"
+            action={
+              <Button
+                component={RouterLink}
+                to="/account/addresses"
+                size="small"
+              >
+                Manage
+              </Button>
+            }
           >
-            <Typography variant="h5" component="h2" sx={{ mb: 2.5 }}>
-              Summary
-            </Typography>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={4}>
-                <StatTile
-                  icon={<FiHeart />}
-                  value={wishlistCount}
-                  label="Wishlist"
-                  onClick={() => navigate('/wishlist')}
-                />
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <StatTile
-                  icon={<FiPackage />}
-                  value={data ? data.total : '–'}
-                  label="Orders"
-                  onClick={() => navigate('/account/orders')}
-                />
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <StatTile
-                  icon={<FiMapPin />}
-                  value={data ? data.addresses.length : '–'}
-                  label="Addresses"
-                  onClick={() => navigate('/account/addresses')}
-                />
-              </Grid>
-            </Grid>
-          </Box>
-
-          {/* Track orders */}
-          <Box
-            sx={{
-              p: { xs: 2, md: 5 },
-              borderBottom: 1,
-              borderColor: 'divider',
-            }}
-          >
-            <Typography variant="h5" component="h2" sx={{ mb: 2.5 }}>
-              Track orders
-            </Typography>
             {!data ? (
-              <Skeleton variant="rounded" height={160} />
-            ) : tracking ? (
+              <Skeleton height={80} />
+            ) : defaultAddress ? (
+              <Stack direction="row" spacing={1.5}>
+                <Box sx={{ color: 'primary.main', mt: 0.25 }}>
+                  <FiMapPin />
+                </Box>
+                <Typography variant="body2" sx={{ lineHeight: 1.7 }}>
+                  <strong>{`${defaultAddress.firstName} ${defaultAddress.lastName}`}</strong>
+                  <br />
+                  {formatAddress(defaultAddress)}
+                  {defaultAddress.phone && (
+                    <>
+                      <br />
+                      {defaultAddress.phone}
+                    </>
+                  )}
+                </Typography>
+              </Stack>
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                No address yet. Add one to check out faster.
+              </Typography>
+            )}
+          </SectionCard>
+          <SectionCard title="Your details">
+            <Stack spacing={1}>
+              <Typography variant="body2">{user.email}</Typography>
+              <Typography variant="body2" color="text.secondary">
+                {user.phone || 'No phone number yet'}
+              </Typography>
+              <Link
+                component={RouterLink}
+                to="/account/profile"
+                variant="body2"
+              >
+                Edit profile
+              </Link>
+            </Stack>
+          </SectionCard>
+        </Stack>
+      </Box>
+
+      <SectionCard
+        title="Recent orders"
+        action={
+          <Button
+            component={RouterLink}
+            to="/account/orders"
+            endIcon={<FiArrowRight />}
+          >
+            All orders
+          </Button>
+        }
+      >
+        {!data ? (
+          <Skeleton variant="rounded" height={180} />
+        ) : !data.orders.length ? (
+          <Typography color="text.secondary">No orders yet.</Typography>
+        ) : (
+          <Stack
+            divider={<Box sx={{ borderTop: 1, borderColor: 'divider' }} />}
+          >
+            {data.orders.slice(0, 5).map((o) => (
               <Stack
-                direction={{ xs: 'column', sm: 'row' }}
-                spacing={3}
-                alignItems={{ sm: 'center' }}
-                sx={{ bgcolor: 'background.neutral', borderRadius: 1, p: 3 }}
+                key={o.id}
+                direction="row"
+                alignItems="center"
+                spacing={2}
+                onClick={() => navigate(`/account/orders/${o.id}`)}
+                sx={{
+                  py: 1.5,
+                  cursor: 'pointer',
+                  '&:hover .order-link': { textDecoration: 'underline' },
+                }}
               >
                 <Box
                   component="img"
-                  src={tracking.preview[0]?.image}
+                  src={o.preview[0]?.image}
                   alt=""
                   sx={{
-                    width: 140,
-                    height: 110,
+                    width: 44,
+                    height: 44,
                     objectFit: 'contain',
-                    borderRadius: 1,
-                    bgcolor: 'background.paper',
+                    borderRadius: '8px',
+                    bgcolor: 'background.neutral',
+                    flexShrink: 0,
                   }}
                 />
-                <Box sx={{ flex: 1 }}>
-                  <StatusChip
-                    status={tracking.status}
-                    label={tracking.statusName}
-                  />
-                  <Typography sx={{ mt: 1.5 }}>
-                    Order #{tracking.id} · {tracking.itemCount} item
-                    {tracking.itemCount === 1 ? '' : 's'} · placed{' '}
-                    {formatDate(tracking.placedAt)}
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography className="order-link" variant="subtitle2">
+                    Order #{o.id}
                   </Typography>
-                  <Typography
-                    component={RouterLink}
-                    to={`/account/orders/${tracking.id}`}
-                    sx={{
-                      color: 'primary.main',
-                      fontWeight: 600,
-                      textDecoration: 'none',
-                      display: 'inline-block',
-                      mt: 1,
-                    }}
-                  >
-                    Track this order
+                  <Typography variant="caption" noWrap component="div">
+                    {formatDate(o.placedAt)} · {o.itemCount} item
+                    {o.itemCount === 1 ? '' : 's'}
                   </Typography>
                 </Box>
-              </Stack>
-            ) : (
-              <Typography color="text.secondary">
-                No orders on the way.{' '}
+                <StatusChip status={o.status} label={o.statusName} />
                 <Typography
-                  component={RouterLink}
-                  to="/products"
+                  variant="subtitle2"
                   sx={{
-                    color: 'primary.main',
-                    fontWeight: 600,
-                    textDecoration: 'none',
+                    minWidth: 110,
+                    textAlign: 'right',
+                    display: { xs: 'none', sm: 'block' },
                   }}
                 >
-                  Start shopping
+                  {formatMoney(o.total, o.currency)}
                 </Typography>
-              </Typography>
-            )}
-          </Box>
-
-          {/* Order status */}
-          <Box sx={{ p: { xs: 2, md: 5 } }}>
-            <Typography variant="h5" component="h2" sx={{ mb: 2.5 }}>
-              Order status
-            </Typography>
-            <Grid container spacing={2}>
-              {[
-                {
-                  label: 'To pay',
-                  icon: <FiCreditCard />,
-                  n: count(['awaiting_payment']),
-                  to: '/account/orders?status=awaiting_payment',
-                },
-                {
-                  label: 'To ship',
-                  icon: <FiTruck />,
-                  n: count(['pending', 'processing']),
-                  to: '/account/orders?status=pending,processing',
-                },
-                {
-                  label: 'To receive',
-                  icon: <FiBox />,
-                  n: count(['shipped']),
-                  to: '/account/orders?status=shipped',
-                },
-                {
-                  label: 'Returns',
-                  icon: <FiRotateCcw />,
-                  n: openReturns,
-                  to: '/account/returns',
-                },
-              ].map((t) => (
-                <Grid item xs={6} md={3} key={t.label}>
-                  <Box
-                    component={RouterLink}
-                    to={t.to}
-                    sx={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: 1.5,
-                      py: 4,
-                      borderRadius: 1,
-                      bgcolor: 'background.neutral',
-                      color: 'text.primary',
-                      textDecoration: 'none',
-                      '& svg': { fontSize: 34, color: 'primary.main' },
-                      '&:hover': { bgcolor: 'background.neutralDeep' },
-                    }}
-                  >
-                    {t.icon}
-                    <Typography variant="subtitle1">
-                      {t.label}
-                      {t.n > 0 && (
-                        <Box component="span" sx={{ color: 'error.main' }}>
-                          {' '}
-                          ({t.n})
-                        </Box>
-                      )}
-                    </Typography>
-                  </Box>
-                </Grid>
-              ))}
-            </Grid>
-          </Box>
-        </Grid>
-
-        {/* My services */}
-        <Grid item xs={12} md={4} sx={{ bgcolor: 'background.neutral' }}>
-          <Box
-            sx={{
-              p: { xs: 2, md: 5 },
-              position: { md: 'sticky' },
-              top: { md: 120 },
-            }}
-          >
-            <Typography variant="h5" component="h2" sx={{ mb: 2.5 }}>
-              My services
-            </Typography>
-            <Stack spacing={1.25}>
-              {SERVICES.map((item) => (
-                <ServiceLink key={item.to} item={item} />
-              ))}
-            </Stack>
-          </Box>
-        </Grid>
-      </Grid>
-    </Container>
+              </Stack>
+            ))}
+          </Stack>
+        )}
+      </SectionCard>
+    </Stack>
   );
 };
 

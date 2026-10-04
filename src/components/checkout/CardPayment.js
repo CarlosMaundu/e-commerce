@@ -78,8 +78,9 @@ export const CardPreview = ({ name, brand, complete }) => (
       position: 'relative',
       borderRadius: 1,
       p: { xs: 2.5, sm: 3 },
-      aspectRatio: { xs: '1.6 / 1', sm: '1.9 / 1' },
-      maxHeight: 220,
+      aspectRatio: '1.6 / 1',
+      width: '100%',
+      maxWidth: 400,
       color: 'common.white',
       overflow: 'hidden',
       background:

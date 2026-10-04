@@ -46,7 +46,8 @@ export const PERMISSION_CATALOG: { code: string; description: string; implied?: 
   { code: 'admin.security.manage', description: 'Change security settings and end sessions' },
   { code: 'admin.audit.view', description: 'View the audit log' },
   { code: 'admin.settings.manage', description: 'Change the shop’s name, logo, favicon and contact details', implied: ['admin.security.manage'] },
-  { code: 'admin.finance.manage', description: 'Change the currency, tax and delivery prices', implied: ['admin.settings.manage'] },
+  { code: 'admin.finance.manage', description: 'Change the currency and tax', implied: ['admin.settings.manage'] },
+  { code: 'admin.delivery.manage', description: 'Change delivery options, prices and the pick-up point', implied: ['admin.finance.manage'] },
 ];
 
 export const PERMISSIONS: Record<string, string> = Object.fromEntries(

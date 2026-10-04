@@ -46,6 +46,11 @@ const attributeSchema = z.object({
     .max(50),
 });
 
+const specRow = z.object({
+  label: z.string().trim().min(1, 'Each detail needs a name.').max(60),
+  value: z.string().trim().min(1, 'Each detail needs a value.').max(200),
+});
+
 const variantSchema = z.object({
   options: z.record(z.string().trim().max(60)),
   sku: optionalText(64),
@@ -53,6 +58,14 @@ const variantSchema = z.object({
   special: z.coerce.number().positive('Variant sale prices must be greater than zero.').nullable().optional(),
   quantity: z.coerce.number().int().min(0, 'Stock can’t be negative.').default(0),
   images: z.array(imageUrl).max(6, 'You can add up to 6 images per variant.').default([]),
+  // Variant-specific content (used when the product's variant_content is on).
+  description: z
+    .string()
+    .max(40000)
+    .nullable()
+    .optional()
+    .transform((v) => (v && v.trim() ? cleanRichText(v) || null : null)),
+  specs: z.array(specRow).max(30, 'You can add up to 30 details per variant.').default([]),
 });
 
 // A positive size or weight; blank means not given.
@@ -93,10 +106,9 @@ const productBody = z.object({
   dimension_unit: z.enum(['mm', 'cm', 'm', 'in', 'ft']).default('cm'),
   weight: measure.nullable().optional(),
   weight_unit: z.enum(['g', 'kg', 'oz', 'lb']).default('kg'),
-  specs: z
-    .array(z.object({ label: z.string().trim().min(1, 'Each detail needs a name.').max(60), value: z.string().trim().min(1, 'Each detail needs a value.').max(200) }))
-    .max(30, 'You can add up to 30 details.')
-    .default([]),
+  specs: z.array(specRow).max(30, 'You can add up to 30 details.').default([]),
+  // Off: one description and spec sheet for every variant.
+  variant_content: z.boolean().default(false),
 });
 
 type ProductInput = z.output<typeof productBody>;
@@ -165,7 +177,7 @@ const saveProduct = async (b: ProductInput, id: number | null) => {
         b.track_inventory, b.low_stock_threshold,
         b.manufacturer, b.barcode ? b.barcode_type : '', b.barcode, b.mfr_part_number,
         b.length ?? null, b.width ?? null, b.height ?? null, b.dimension_unit,
-        b.weight ?? null, b.weight_unit, JSON.stringify(b.specs),
+        b.weight ?? null, b.weight_unit, JSON.stringify(b.specs), b.variant_content,
       ];
       let productId = id;
       if (productId === null) {
@@ -173,9 +185,9 @@ const saveProduct = async (b: ProductInput, id: number | null) => {
           `INSERT INTO products (name, description, price, special, quantity, category_id, brand_id, images, sku,
              status, featured, tags, attributes, track_inventory, low_stock_threshold,
              manufacturer, barcode_type, barcode, mfr_part_number, length, width, height, dimension_unit,
-             weight, weight_unit, specs, published_at)
+             weight, weight_unit, specs, variant_content, published_at)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::text, $11, $12, $13, $14, $15,
-             $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26,
+             $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27,
              CASE WHEN $10::text = 'published' THEN now() END) RETURNING id`,
           values
         );
@@ -186,8 +198,8 @@ const saveProduct = async (b: ProductInput, id: number | null) => {
              images=$8, sku=$9, status=$10::text, featured=$11, tags=$12, attributes=$13, track_inventory=$14,
              low_stock_threshold=$15, manufacturer=$16, barcode_type=$17, barcode=$18, mfr_part_number=$19,
              length=$20, width=$21, height=$22, dimension_unit=$23, weight=$24, weight_unit=$25, specs=$26,
-             updated_at=now(),
-             published_at = COALESCE(published_at, CASE WHEN $10::text = 'published' THEN now() END) WHERE id=$27`,
+             variant_content=$27, updated_at=now(),
+             published_at = COALESCE(published_at, CASE WHEN $10::text = 'published' THEN now() END) WHERE id=$28`,
           [...values, productId]
         );
       }
@@ -199,13 +211,14 @@ const saveProduct = async (b: ProductInput, id: number | null) => {
         );
         for (const [position, v] of variants.entries()) {
           await db.query(
-            `INSERT INTO product_variants (product_id, options, sku, price, special, quantity, images, position)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            `INSERT INTO product_variants (product_id, options, sku, price, special, quantity, images, position,
+               description, specs)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
              ON CONFLICT (product_id, options) DO UPDATE SET sku = EXCLUDED.sku, price = EXCLUDED.price,
                special = EXCLUDED.special, quantity = EXCLUDED.quantity, images = EXCLUDED.images,
-               position = EXCLUDED.position`,
+               position = EXCLUDED.position, description = EXCLUDED.description, specs = EXCLUDED.specs`,
             [productId, JSON.stringify(v.options), v.sku, v.price ?? null, v.special ?? null, v.quantity,
-              JSON.stringify(v.images), position]
+              JSON.stringify(v.images), position, v.description ?? null, JSON.stringify(v.specs)]
           );
         }
       } else if (id !== null) {

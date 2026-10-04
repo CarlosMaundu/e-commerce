@@ -13,7 +13,7 @@ export const specRows = (product, variant) => {
   const dims = d
     ? [d.length, d.width, d.height].filter((v) => v !== null && v !== undefined)
     : [];
-  return [
+  const rows = [
     ['Brand', product.brand?.name],
     [
       'Manufacturer',
@@ -50,7 +50,15 @@ export const specRows = (product, variant) => {
       a.values.join(', '),
     ]),
     ...product.specs.map((s) => [s.label, s.value]),
-  ].filter(([, value]) => value);
+  ];
+  // Variant-specific rows replace product rows with the same name, else add.
+  const own = product.variantContent ? variant?.specs || [] : [];
+  own.forEach(({ label, value }) => {
+    const at = rows.findIndex(([l]) => l.toLowerCase() === label.toLowerCase());
+    if (at >= 0) rows[at] = [rows[at][0], value];
+    else rows.push([label, value]);
+  });
+  return rows.filter(([, value]) => value);
 };
 
 const Specifications = ({ product, variant }) => {

@@ -51,8 +51,8 @@ async function checkout(page) {
   await page.goto('/cart');
   await page.getByRole('button', { name: 'Checkout' }).click();
   await expect(page.getByText('Where should we deliver?')).toBeVisible();
-  await page.getByLabel('First name').fill('Cam');
-  await page.getByLabel('Last name').fill('Customer');
+  // Signed in: the recipient is filled in from the profile.
+  await expect(page.getByText('Delivering to')).toContainText('Cam Customer');
   await page.getByLabel('Street address').fill('12 Moi Avenue');
   await page.getByLabel('City or town').fill('Nairobi');
   await page.getByLabel('Phone (for delivery updates)').fill('+254700000000');
@@ -144,6 +144,24 @@ test('checkout places an order the customer can see, and emails them', async ({
   await expect(page.getByText('Your cart is empty')).toBeVisible();
   await page.goto('/account/orders');
   await expect(page.getByTestId(`order-${id}`)).toContainText('Pending');
+
+  // Account pages: progress, the invoice, tracking and the product link.
+  await page.goto(`/account/orders/${id}`);
+  await expect(page.getByTestId('order-tracker')).toContainText('Order placed');
+  await page.getByRole('link', { name: 'Invoice', exact: true }).click();
+  const invoice = page.getByTestId('invoice-document');
+  await expect(invoice).toContainText(`INV-${String(id).padStart(6, '0')}`);
+  await expect(invoice).toContainText('Nourishing body lotion');
+  await expect(invoice).toContainText('Due');
+  await page.goto('/account/track');
+  await page.getByLabel('Order number').fill(String(id));
+  await page.getByRole('button', { name: 'Track', exact: true }).click();
+  await expect(page.getByTestId('order-tracker')).toBeVisible();
+  await page.goto(`/account/orders/${id}`);
+  await page.getByTestId('order-item-link').click();
+  await expect(
+    page.getByRole('heading', { name: 'Nourishing body lotion', level: 1 })
+  ).toBeVisible();
 });
 
 test('an order moves through fulfilment and a delivered item can be returned', async ({
@@ -241,7 +259,7 @@ test('a super admin creates, then deletes, a custom role', async ({ page }) => {
   await expect(toast(page)).toHaveText('Role created.');
   const row = page.getByTestId('role-row-stock_clerk');
   await expect(row).toContainText('Keeps stock up');
-  await expect(row).toContainText('2 of 32');
+  await expect(row).toContainText('2 of 33');
 
   // The Permissions tab lists who holds each permission.
   await page.getByRole('tab', { name: /Permissions/ }).click();

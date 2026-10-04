@@ -134,6 +134,11 @@ export const adminNav = (user) =>
           show: hasPermission(user, PERMISSIONS.settingsManage),
         },
         {
+          label: 'Delivery options',
+          to: '/admin/delivery',
+          show: hasPermission(user, PERMISSIONS.deliveryManage),
+        },
+        {
           label: 'Financial settings',
           to: '/admin/finance',
           show: hasPermission(user, PERMISSIONS.financeManage),

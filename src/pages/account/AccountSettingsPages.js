@@ -1,5 +1,11 @@
 // src/pages/account/AccountSettingsPages.js — profile, security, addresses.
-import React, { useCallback, useContext, useEffect, useState } from 'react';
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import {
   Avatar,
   Box,
@@ -16,7 +22,9 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { FiEdit2, FiMapPin, FiPlus, FiTrash2 } from 'react-icons/fi';
+import { FiEdit2, FiMapPin, FiPlus, FiTrash2, FiUpload } from 'react-icons/fi';
+import { initialsOf } from '../../components/common/BrandMark';
+import { formatDate } from '../../utils/format';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import { AuthContext } from '../../context/AuthContext';
@@ -33,32 +41,59 @@ import ConfirmationDialog from '../../components/common/ConfirmationDialog';
 export const ProfilePage = () => {
   const { user, updateUser } = useContext(AuthContext);
   const notify = useNotify();
-  const [first, ...rest] = (user.name || '').split(' ');
+  const fileRef = useRef(null);
+  const [editing, setEditing] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const formik = useFormik({
+    enableReinitialize: true,
     initialValues: {
-      firstName: first || '',
-      lastName: rest.join(' '),
-      avatar: user.avatar || '',
+      firstName: user.firstName || user.name.split(' ')[0] || '',
+      lastName: user.lastName ?? user.name.split(' ').slice(1).join(' '),
+      phone: user.phone || '',
     },
     validationSchema: Yup.object({
       firstName: Yup.string().trim().required('Please enter your first name.'),
-      avatar: Yup.string()
+      phone: Yup.string()
         .trim()
-        .url('Please enter a full image link starting with https://'),
+        .matches(/^[+0-9 ()-]*$/, 'Use digits, spaces and + only.')
+        .max(30),
     }),
     onSubmit: async (values) => {
       try {
         const updated = await account.updateProfile({
-          name: `${values.firstName.trim()} ${values.lastName.trim()}`.trim(),
-          avatar: values.avatar.trim(),
+          firstName: values.firstName.trim(),
+          lastName: values.lastName.trim(),
+          phone: values.phone.trim(),
         });
         updateUser(updated);
+        setEditing(false);
         notify.success(MESSAGES.profile.updated);
       } catch (error) {
         notify.error(error, MESSAGES.profile.updateFailed);
       }
     },
   });
+
+  const uploadPhoto = async (file) => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      updateUser(await account.uploadAvatar(file));
+      notify.success('Profile photo updated.');
+    } catch (error) {
+      notify.error(error, 'We couldn’t upload that photo.');
+    } finally {
+      setUploading(false);
+    }
+  };
+  const removePhoto = async () => {
+    try {
+      updateUser(await account.updateProfile({ avatar: '' }));
+    } catch (error) {
+      notify.error(error);
+    }
+  };
+
   const field = (name, label, props = {}) => (
     <TextField
       fullWidth
@@ -67,6 +102,7 @@ export const ProfilePage = () => {
       value={formik.values[name]}
       onChange={formik.handleChange}
       onBlur={formik.handleBlur}
+      disabled={!editing}
       error={formik.touched[name] && Boolean(formik.errors[name])}
       helperText={
         (formik.touched[name] && formik.errors[name]) || props.helperText
@@ -74,57 +110,143 @@ export const ProfilePage = () => {
       {...props}
     />
   );
+
   return (
     <AccountPage
-      title="Your information"
-      subtitle="How you appear on orders and emails."
+      title="Profile"
+      subtitle="How you appear on orders, invoices and emails."
+      action={
+        !editing && (
+          <Button
+            variant="contained"
+            startIcon={<FiEdit2 />}
+            onClick={() => setEditing(true)}
+          >
+            Edit profile
+          </Button>
+        )
+      }
     >
-      <SectionCard>
-        <form onSubmit={formik.handleSubmit} noValidate>
-          <Stack direction="row" spacing={3} alignItems="center" sx={{ mb: 3 }}>
+      <Stack spacing={3}>
+        <SectionCard>
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={3}
+            alignItems={{ sm: 'center' }}
+          >
             <Avatar
-              src={formik.values.avatar || undefined}
+              src={user.avatar || undefined}
               alt=""
               sx={{
-                width: 72,
-                height: 72,
-                bgcolor: 'primary.main',
-                fontSize: 28,
+                width: 96,
+                height: 96,
+                fontSize: 32,
+                fontWeight: 700,
+                bgcolor: 'highlight.main',
+                color: 'text.primary',
               }}
             >
-              {formik.values.firstName.charAt(0)}
+              {initialsOf(user.name)}
             </Avatar>
-            <Box>
-              <Typography variant="subtitle1">{user.email}</Typography>
-              <Typography variant="body2" color="text.secondary">
-                Your sign-in email can’t be changed here.
-              </Typography>
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="h5">{user.name}</Typography>
+              <Typography color="text.secondary">{user.email}</Typography>
+              {user.creationAt && (
+                <Typography variant="caption">
+                  Member since {formatDate(user.creationAt)}
+                </Typography>
+              )}
             </Box>
+            <Stack direction="row" spacing={1}>
+              <Button
+                variant="outlined"
+                startIcon={<FiUpload />}
+                disabled={uploading}
+                onClick={() => fileRef.current?.click()}
+              >
+                {uploading
+                  ? 'Uploading…'
+                  : user.avatar
+                    ? 'Change photo'
+                    : 'Add photo'}
+              </Button>
+              {user.avatar && (
+                <Button color="error" onClick={removePhoto}>
+                  Remove
+                </Button>
+              )}
+            </Stack>
+            <input
+              ref={fileRef}
+              type="file"
+              hidden
+              accept="image/png,image/jpeg,image/webp"
+              aria-label="Profile photo"
+              onChange={(e) => {
+                uploadPhoto(e.target.files?.[0]);
+                e.target.value = '';
+              }}
+            />
           </Stack>
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              {field('firstName', 'First name', { required: true })}
+        </SectionCard>
+
+        <SectionCard
+          title="Personal details"
+          subtitle="Your name and phone appear on deliveries and invoices."
+        >
+          <form onSubmit={formik.handleSubmit} noValidate>
+            <Grid container spacing={2.5}>
+              <Grid item xs={12} sm={6}>
+                {field('firstName', 'First name', { required: true })}
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                {field('lastName', 'Last name')}
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                {field('phone', 'Phone number', {
+                  placeholder: '+254 7…',
+                  helperText: 'Used for delivery updates.',
+                })}
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Email address"
+                  value={user.email}
+                  disabled
+                  helperText="Your sign-in email. Contact support to change it."
+                />
+              </Grid>
             </Grid>
-            <Grid item xs={12} sm={6}>
-              {field('lastName', 'Last name')}
-            </Grid>
-            <Grid item xs={12}>
-              {field('avatar', 'Profile picture link (optional)', {
-                placeholder: 'https://…',
-              })}
-            </Grid>
-          </Grid>
-          <Stack direction="row" justifyContent="flex-end" sx={{ mt: 3 }}>
-            <Button
-              type="submit"
-              variant="contained"
-              disabled={formik.isSubmitting}
-            >
-              {formik.isSubmitting ? 'Saving…' : 'Save changes'}
-            </Button>
-          </Stack>
-        </form>
-      </SectionCard>
+            {editing && (
+              <Stack
+                direction="row"
+                justifyContent="flex-end"
+                spacing={1.5}
+                sx={{ mt: 3 }}
+              >
+                <Button
+                  variant="outlined"
+                  onClick={() => {
+                    formik.resetForm();
+                    setEditing(false);
+                  }}
+                  disabled={formik.isSubmitting}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  disabled={formik.isSubmitting}
+                >
+                  {formik.isSubmitting ? 'Saving…' : 'Save changes'}
+                </Button>
+              </Stack>
+            )}
+          </form>
+        </SectionCard>
+      </Stack>
     </AccountPage>
   );
 };

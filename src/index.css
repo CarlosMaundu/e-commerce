@@ -22,3 +22,19 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+/* Printing (invoices): only the document, no shop chrome. */
+@media print {
+  header,
+  footer,
+  aside,
+  nav,
+  [role='note'],
+  [aria-label='Help'],
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff !important;
+  }
+}

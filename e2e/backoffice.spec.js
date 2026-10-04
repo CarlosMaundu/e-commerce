@@ -368,10 +368,10 @@ test('financial settings open read-only and show what a shopper pays', async ({
   await expect(page.getByLabel('Tax rate')).toBeDisabled();
   await page.getByRole('button', { name: 'Edit settings' }).click();
   await page.getByLabel('Tax rate').fill('10');
-  // The e2e shop adds tax at checkout: $100 + $10 delivery + 10% tax.
-  await expect(page.getByTestId('finance-example-total')).toHaveText('$120.00');
-  await page.getByRole('radio', { name: /Prices include Tax/ }).check();
+  // The e2e shop adds tax at checkout: $100 + 10% tax.
   await expect(page.getByTestId('finance-example-total')).toHaveText('$110.00');
+  await page.getByRole('radio', { name: /Prices include Tax/ }).check();
+  await expect(page.getByTestId('finance-example-total')).toHaveText('$100.00');
   await page.getByRole('button', { name: 'Cancel' }).click();
   await expect(page.getByLabel('Tax rate')).toHaveValue('8');
 });

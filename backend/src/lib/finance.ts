@@ -1,11 +1,13 @@
-// src/lib/finance.ts — the shop's money rules: currency, tax (name, rate and
-// whether prices already include it) and delivery prices. Edited in Back
+// src/lib/finance.ts — the shop's money rules: currency and tax (name,
+// rate and whether prices already include it). Delivery prices live in
+// lib/delivery.ts. Edited in Back
 // office → Financial settings; defaults come from the environment (KES, VAT
 // 16%, prices including VAT). Kept in memory so pricing stays synchronous;
 // loadFinance() runs at start-up and saveFinance() updates the copy.
 import { z } from 'zod';
 import { config } from '../config';
 import { query } from '../db';
+import { delivery } from './delivery';
 
 export const financeSchema = z.object({
   currency: z
@@ -19,10 +21,6 @@ export const financeSchema = z.object({
     .min(0, 'The tax rate can’t be negative.')
     .max(100, 'The tax rate must be 100% or less.'),
   prices_include_tax: z.boolean(),
-  standard_shipping: z.coerce.number().min(0, 'Delivery prices can’t be negative.'),
-  express_shipping: z.coerce.number().min(0, 'Delivery prices can’t be negative.'),
-  // 0 means standard delivery is never free.
-  free_shipping_over: z.coerce.number().min(0, 'The free-delivery threshold can’t be negative.'),
 });
 
 export type Finance = z.output<typeof financeSchema>;
@@ -32,9 +30,6 @@ export const defaultFinance = (): Finance => ({
   tax_label: config.shop.taxLabel,
   tax_rate: Math.round(config.shop.taxRate * 10000) / 100,
   prices_include_tax: config.shop.pricesIncludeTax,
-  standard_shipping: config.shop.standardShipping,
-  express_shipping: config.shop.expressShipping,
-  free_shipping_over: config.shop.freeShippingOver,
 });
 
 let current: Finance = defaultFinance();
@@ -44,7 +39,12 @@ export const finance = () => current;
 
 export const loadFinance = async () => {
   const row = (await query('SELECT settings FROM finance_settings WHERE id = 1')).rows[0];
-  const parsed = financeSchema.safeParse({ ...defaultFinance(), ...(row?.settings || {}) });
+  const saved = { ...(row?.settings || {}) };
+  // Delivery prices moved to delivery settings.
+  delete saved.standard_shipping;
+  delete saved.express_shipping;
+  delete saved.free_shipping_over;
+  const parsed = financeSchema.safeParse({ ...defaultFinance(), ...saved });
   current = parsed.success ? parsed.data : defaultFinance();
   return current;
 };
@@ -66,6 +66,6 @@ export const publicFinance = () => {
     tax_label: f.tax_label,
     tax_rate: f.tax_rate,
     prices_include_tax: f.prices_include_tax,
-    free_shipping_over: f.free_shipping_over,
+    free_shipping_over: delivery().standard.enabled ? delivery().standard.free_over : 0,
   };
 };

@@ -53,6 +53,7 @@ import { Pill } from '../../../components/admin/DataTable';
 import { PRODUCT_STATUSES, statusInfo } from '../../../utils/productStatus';
 import RichTextEditor from '../../../components/admin/RichTextEditor';
 import ProductInformation, { infoSummary } from './ProductInformation';
+import VariantContent from './VariantContent';
 
 const MAX_IMAGES = 10;
 const NEW_BRAND = '__new__';
@@ -88,6 +89,7 @@ const EMPTY = {
   weight: '',
   weightUnit: 'kg',
   specs: [],
+  variantContent: false,
 };
 
 export const BARCODE_TYPES = ['UPC', 'EAN', 'GTIN', 'ISBN'];
@@ -147,6 +149,8 @@ const baseFromProduct = (p) => ({
     specialPrice: v.ownPrice && v.specialPrice !== null ? v.specialPrice : '',
     quantity: v.quantity,
     images: v.images,
+    description: v.description || '',
+    specs: (v.specs || []).map((x) => ({ ...x })),
   })),
   price: p.price,
   specialPrice: p.specialPrice ?? '',
@@ -168,6 +172,7 @@ const baseFromProduct = (p) => ({
   weight: p.weight?.value ?? '',
   weightUnit: p.weight?.unit || 'kg',
   specs: (p.specs || []).map((x) => ({ ...x })),
+  variantContent: p.variantContent,
 });
 
 const sameList = (a, b) =>
@@ -1174,6 +1179,13 @@ const ProductFormPage = () => {
                     values.
                   </Alert>
                 )}
+                <VariantContent
+                  enabled={form.variantContent}
+                  onToggle={(variantContent) => set({ variantContent })}
+                  variants={form.variants}
+                  onChange={(variants) => set({ variants })}
+                  disabled={readOnly || saving}
+                />
               </Stack>
             )}
             {nav(5)}

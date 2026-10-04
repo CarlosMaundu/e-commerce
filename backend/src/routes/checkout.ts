@@ -198,6 +198,9 @@ export const checkoutRoutes = ({ payments }: { payments: PaymentGateway | null }
     checkStock(lines);
     if (!state.shipping_address_id) fail(400, 'Please choose a delivery address.');
     if (!state.shipping_method) fail(400, 'Please choose a delivery option.');
+    if (!SHIPPING_METHODS().some((m) => m.code === state.shipping_method)) {
+      fail(400, 'That delivery option is no longer available. Please choose another.');
+    }
     if (!state.payment_method) fail(400, 'Please choose a payment method.');
     if (!PAYMENT_METHODS().some((m) => m.code === state.payment_method)) fail(400, 'That payment method isn’t available. Please choose another.');
     const shipping = await loadAddress(userId, state.shipping_address_id);

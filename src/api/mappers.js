@@ -47,6 +47,8 @@ const variantFromApi = (v, product) => {
     quantity: toNumber(v.quantity) ?? 0,
     inStock: v.in_stock !== false,
     images: v.images || [],
+    description: v.description || '',
+    specs: v.specs || [],
   };
 };
 
@@ -98,6 +100,7 @@ export const productFromApi = (p) => {
     dimensions: p.dimensions || null,
     weight: p.weight || null,
     specs: p.specs || [],
+    variantContent: Boolean(p.variant_content),
     status: p.status || 'published',
     publishedAt: p.published_at || null,
     featured: Boolean(p.featured),
@@ -144,7 +147,14 @@ export const productToApi = (f) => ({
     special: money(v.specialPrice),
     quantity: Number(v.quantity) || 0,
     images: v.images || [],
+    description: f.variantContent ? v.description || null : null,
+    specs: f.variantContent
+      ? (v.specs || [])
+          .map((x) => ({ label: x.label.trim(), value: x.value.trim() }))
+          .filter((x) => x.label && x.value)
+      : [],
   })),
+  variant_content: Boolean(f.variantContent),
   track_inventory: f.trackInventory !== false,
   manufacturer: f.manufacturer?.trim() || '',
   barcode_type: f.barcode?.trim() ? f.barcodeType || '' : '',
@@ -270,6 +280,9 @@ export const userFromApi = (u) =>
   u && {
     id: u.customer_id,
     name: [u.firstname, u.lastname].filter(Boolean).join(' ') || u.email,
+    firstName: u.firstname || '',
+    lastName: u.lastname || '',
+    phone: u.telephone || '',
     email: u.email,
     role: u.role || 'customer',
     permissions: u.permissions || [],

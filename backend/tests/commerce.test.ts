@@ -72,13 +72,24 @@ describe('financial settings', () => {
     expect(Object.keys(bad.body.field_errors)).toEqual(expect.arrayContaining(['currency', 'tax_rate']));
 
     const saved = await request(app).put('/api/admin/finance-settings').set(bearer(admin))
-      .send({ currency: 'kes', tax_label: 'VAT', tax_rate: 16, prices_include_tax: true, standard_shipping: 300, free_shipping_over: 0 });
+      .send({ currency: 'kes', tax_label: 'VAT', tax_rate: 16, prices_include_tax: true });
     expect(saved.body.data.settings).toMatchObject({ currency: 'KES', tax_rate: 16, prices_include_tax: true });
+
+    // Delivery options: new prices, no free threshold, and a pick-up point.
+    const noPickupPlace = await request(app).put('/api/admin/delivery-settings').set(bearer(admin))
+      .send({ pickup: { enabled: true, location: '' } });
+    expect(noPickupPlace.body.field_errors).toMatchObject({ 'pickup.location': expect.any(String) });
+    await request(app).put('/api/admin/delivery-settings').set(bearer(admin))
+      .send({ standard: { price: 300, free_over: 0 }, pickup: { enabled: true, location: 'Moi Avenue shop, Nairobi', price: 0 } })
+      .expect(200);
 
     await request(app).post('/api/rest/cart').set(bearer(token)).send({ product_id: await productId('Denim jacket'), quantity: 2, option: M });
     await request(app).post('/api/rest/shippingaddress').set(bearer(token)).send(ADDRESS).expect(201);
     const methods = await request(app).get('/api/rest/shippingmethods').set(bearer(token));
     expect(methods.body.data.shipping_methods.find((m: any) => m.code === 'standard')).toMatchObject({ cost: 300, description: '3–5 business days.' });
+    expect(methods.body.data.shipping_methods.find((m: any) => m.code === 'pickup')).toMatchObject({
+      cost: 0, title: 'Pick up in store', pickup: { location: 'Moi Avenue shop, Nairobi' },
+    });
     await request(app).post('/api/rest/shippingmethods').set(bearer(token)).send({ shipping_method: 'standard' }).expect(200);
     const cart = await request(app).get('/api/rest/cart').set(bearer(token));
     const lines = Object.fromEntries(cart.body.data.totals.map((t: any) => [t.code, t]));

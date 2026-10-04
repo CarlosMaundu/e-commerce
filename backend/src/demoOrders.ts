@@ -9,6 +9,7 @@
 //
 // Deterministic (seeded random), so runs give the same shape of data.
 import { pool, query, transaction } from './db';
+import { delivery, loadDelivery } from './lib/delivery';
 import { finance, loadFinance } from './lib/finance';
 import { applyTax, round2 } from './lib/pricing';
 
@@ -100,10 +101,10 @@ export const seedDemoOrders = async () => {
         });
         const subtotal = round2(lines.reduce((s, l) => s + l.total, 0));
         const express = rand() < 0.25;
-        const f = finance();
+        const d = delivery();
         const shipping = express
-          ? f.express_shipping
-          : f.free_shipping_over && subtotal >= f.free_shipping_over ? 0 : f.standard_shipping;
+          ? d.express.price
+          : d.standard.free_over && subtotal >= d.standard.free_over ? 0 : d.standard.price;
         const { tax, total } = applyTax(subtotal, shipping);
         const card = rand() < 0.55;
         const hoursAgo = day * 24 + Math.floor(rand() * (day === 0 ? 10 : 24));
@@ -163,7 +164,7 @@ export const seedDemoOrders = async () => {
 if (require.main === module) {
   (process.argv.includes('--remove')
     ? removeDemoOrders().then((n) => console.log(`Removed ${n} demo shoppers and their orders`))
-    : loadFinance().then(() => seedDemoOrders())
+    : Promise.all([loadFinance(), loadDelivery()]).then(() => seedDemoOrders())
   )
     .then(() => pool.end())
     .catch((error) => {

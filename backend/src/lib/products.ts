@@ -19,6 +19,8 @@ export interface VariantRow {
   quantity: number;
   images: string[];
   position: number;
+  description: string | null;
+  specs: { label: string; value: string }[];
 }
 
 export interface ProductRow {
@@ -55,6 +57,7 @@ export interface ProductRow {
   weight: string | null;
   weight_unit: string;
   specs: { label: string; value: string }[];
+  variant_content: boolean;
   created_at: Date;
   updated_at: Date;
 }
@@ -90,6 +93,9 @@ const toContractVariant = (v: VariantRow, p: ProductRow) => {
     quantity: v.quantity,
     in_stock: stockOf(p.track_inventory, v.quantity) > 0,
     images: v.images,
+    // Own content only counts when the product uses variant content.
+    description: p.variant_content ? v.description : null,
+    specs: p.variant_content ? v.specs || [] : [],
   };
 };
 
@@ -116,6 +122,7 @@ export const toContractProduct = (p: ProductRow, variants: VariantRow[] = []) =>
         : null,
     weight: p.weight ? { value: Number(p.weight), unit: p.weight_unit } : null,
     specs: p.specs || [],
+    variant_content: p.variant_content,
     status: p.status,
     published_at: p.published_at,
     featured: p.featured,

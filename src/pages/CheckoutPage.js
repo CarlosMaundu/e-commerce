@@ -3,6 +3,7 @@
 // verified by the server before the order is placed.
 import React, {
   useCallback,
+  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -37,6 +38,7 @@ import { alpha, useTheme } from '@mui/material/styles';
 import { loadStripe } from '@stripe/stripe-js/pure';
 import { Elements } from '@stripe/react-stripe-js';
 import { checkout as checkoutApi } from '../api';
+import { AuthContext } from '../context/AuthContext';
 import { formatAddress } from '../api/mappers';
 import { clearCart, loadCart, selectCart } from '../redux/cartSlice';
 import { useNotify } from '../notification/NotificationProvider';
@@ -118,7 +120,7 @@ const SummaryHeading = ({ children }) => (
 SummaryHeading.propTypes = { children: PropTypes.node };
 
 /** Left-hand card (reference layout): items, address, delivery, totals. */
-const OrderSummary = ({ items, address, shipment, totals, total }) => (
+const OrderSummary = ({ items, address, shipment, totals, total, actions }) => (
   <SectionCard title="Summary">
     <Stack spacing={1.25}>
       {items.map((item) => (
@@ -200,9 +202,11 @@ const OrderSummary = ({ items, address, shipment, totals, total }) => (
         </Typography>
       </Stack>
     </Stack>
+    {actions && <Box sx={{ mt: 3 }}>{actions}</Box>}
   </SectionCard>
 );
 OrderSummary.propTypes = {
+  actions: PropTypes.node,
   items: PropTypes.array.isRequired,
   address: PropTypes.object,
   shipment: PropTypes.object,
@@ -238,6 +242,7 @@ export const CheckoutSkeleton = () => (
 const PAYMENT_TAB_LABELS = { stripe: 'Credit card', cod: 'Cash on delivery' };
 
 const CheckoutPage = () => {
+  const { user } = useContext(AuthContext);
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const notify = useNotify();
@@ -390,6 +395,69 @@ const CheckoutPage = () => {
   const shipment =
     step > 0 ? methods.find((m) => m.code === shippingMethod) : null;
 
+  // Step actions sit under the order summary (after the details).
+  const actions = [
+    <ActionRow>
+      <Button variant="outlined" size="large" component={RouterLink} to="/cart">
+        Back to cart
+      </Button>
+      <Button
+        size="large"
+        variant="contained"
+        onClick={confirmAddress}
+        disabled={!addressId || working}
+      >
+        Deliver here
+      </Button>
+    </ActionRow>,
+    <ActionRow>
+      <Button variant="outlined" size="large" onClick={() => setStep(0)}>
+        Back
+      </Button>
+      <Button
+        size="large"
+        variant="contained"
+        onClick={confirmShipping}
+        disabled={!shippingMethod || working}
+      >
+        Continue
+      </Button>
+    </ActionRow>,
+    <ActionRow>
+      <Button
+        variant="outlined"
+        size="large"
+        onClick={() => setStep(1)}
+        disabled={placing}
+      >
+        Back
+      </Button>
+      <Button
+        size="large"
+        variant="contained"
+        onClick={pay}
+        disabled={
+          !paymentMethod ||
+          !agree ||
+          placing ||
+          (paying && (!stripePromise || !cardReady))
+        }
+        startIcon={
+          placing ? <CircularProgress size={18} color="inherit" /> : null
+        }
+      >
+        {placing
+          ? paying
+            ? 'Processing payment…'
+            : 'Placing order…'
+          : paying
+            ? `Pay ${formatMoney(cart.total)}`
+            : `Place order · ${formatMoney(cart.total)}`}
+      </Button>
+    </ActionRow>,
+  ][step];
+  const showActions = !(step === 0 && addingAddress);
+
   if (loading) return <CheckoutSkeleton />;
 
   return (
@@ -404,8 +472,8 @@ const CheckoutPage = () => {
           </Step>
         ))}
       </Stepper>
-      <Grid container spacing={{ xs: 3, md: 4 }}>
-        <Grid item xs={12} md={5} sx={{ order: { xs: 2, md: 1 } }}>
+      <Grid container spacing={{ xs: 3, md: 4 }} justifyContent="center">
+        <Grid item xs={12} md={5} lg={4.5} sx={{ order: { xs: 2, md: 1 } }}>
           <Box sx={{ position: { md: 'sticky' }, top: { md: 140 } }}>
             <OrderSummary
               items={cart.items}
@@ -413,14 +481,22 @@ const CheckoutPage = () => {
               shipment={shipment}
               totals={totals}
               total={cart.total}
+              actions={showActions ? actions : null}
             />
           </Box>
         </Grid>
-        <Grid item xs={12} md={7} sx={{ order: { xs: 1, md: 2 } }}>
+        <Grid
+          item
+          xs={12}
+          md={7}
+          lg={6}
+          sx={{ order: { xs: 1, md: 2 }, maxWidth: { lg: 680 } }}
+        >
           {step === 0 && (
             <SectionCard title="Where should we deliver?">
               {addingAddress ? (
                 <AddressForm
+                  recipient={user}
                   submitLabel="Use this address"
                   showDefault={false}
                   onSubmit={saveNewAddress}
@@ -446,24 +522,6 @@ const CheckoutPage = () => {
                   >
                     + Add a new address
                   </Button>
-                  <ActionRow>
-                    <Button
-                      variant="outlined"
-                      size="large"
-                      component={RouterLink}
-                      to="/cart"
-                    >
-                      Back to cart
-                    </Button>
-                    <Button
-                      size="large"
-                      variant="contained"
-                      onClick={confirmAddress}
-                      disabled={!addressId || working}
-                    >
-                      Deliver here
-                    </Button>
-                  </ActionRow>
                 </Stack>
               )}
             </SectionCard>
@@ -499,23 +557,6 @@ const CheckoutPage = () => {
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
                 />
-                <ActionRow>
-                  <Button
-                    variant="outlined"
-                    size="large"
-                    onClick={() => setStep(0)}
-                  >
-                    Back
-                  </Button>
-                  <Button
-                    size="large"
-                    variant="contained"
-                    onClick={confirmShipping}
-                    disabled={!shippingMethod || working}
-                  >
-                    Continue
-                  </Button>
-                </ActionRow>
               </Stack>
             </SectionCard>
           )}
@@ -656,41 +697,6 @@ const CheckoutPage = () => {
                     }
                   />
                 </Stack>
-
-                <ActionRow>
-                  <Button
-                    variant="outlined"
-                    size="large"
-                    onClick={() => setStep(1)}
-                    disabled={placing}
-                  >
-                    Back
-                  </Button>
-                  <Button
-                    size="large"
-                    variant="contained"
-                    onClick={pay}
-                    disabled={
-                      !paymentMethod ||
-                      !agree ||
-                      placing ||
-                      (paying && (!stripePromise || !cardReady))
-                    }
-                    startIcon={
-                      placing ? (
-                        <CircularProgress size={18} color="inherit" />
-                      ) : null
-                    }
-                  >
-                    {placing
-                      ? paying
-                        ? 'Processing payment…'
-                        : 'Placing order…'
-                      : paying
-                        ? `Pay ${formatMoney(cart.total)}`
-                        : `Place order · ${formatMoney(cart.total)}`}
-                  </Button>
-                </ActionRow>
               </Stack>
             </SectionCard>
           )}

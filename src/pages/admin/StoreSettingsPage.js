@@ -9,9 +9,12 @@ import {
   InputAdornment,
   Skeleton,
   Stack,
+  Tab,
+  Tabs,
   TextField,
   Typography,
 } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import {
   FiFacebook,
   FiEdit2,
@@ -65,6 +68,7 @@ const StoreSettingsPage = () => {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [tab, setTab] = useState('general');
   useHideHelpWhile(editing);
   const [saved, setSaved] = useState(null); // last saved copy, for Cancel
 
@@ -161,226 +165,267 @@ const StoreSettingsPage = () => {
       {!form ? (
         <SettingsSkeleton />
       ) : (
-        <Box
-          component="fieldset"
-          disabled={!editing}
-          sx={{
-            border: 0,
-            m: 0,
-            p: 0,
-            minWidth: 0,
-            // Read-only until Edit: tinted, borderless fields, no image buttons.
-            ...(!editing && {
-              '& .MuiOutlinedInput-root': { bgcolor: 'background.neutral' },
-              '& .MuiOutlinedInput-notchedOutline': {
-                borderColor: 'transparent',
+        <>
+          <Tabs
+            value={tab}
+            onChange={(_, v) => setTab(v)}
+            sx={{
+              mt: 3,
+              minHeight: 44,
+              display: 'inline-flex',
+              bgcolor: 'background.paper',
+              border: 1,
+              borderColor: 'divider',
+              borderRadius: '8px',
+              p: 0.5,
+              '& .MuiTabs-indicator': { display: 'none' },
+              '& .MuiTab-root': {
+                minHeight: 36,
+                borderRadius: '6px',
+                textTransform: 'none',
+                fontWeight: 600,
+                px: 2.5,
               },
-              '& .MuiInputBase-input.Mui-disabled, & .MuiInputBase-input:disabled':
-                {
-                  color: 'text.primary',
-                  WebkitTextFillColor: 'currentColor',
+              '& .Mui-selected': {
+                bgcolor: (t) => alpha(t.palette.primary.main, 0.1),
+              },
+            }}
+          >
+            <Tab value="general" label="General" />
+            <Tab value="home" label="Home page" />
+          </Tabs>
+          <Box
+            component="fieldset"
+            disabled={!editing}
+            sx={{
+              border: 0,
+              m: 0,
+              p: 0,
+              minWidth: 0,
+              // Read-only until Edit: tinted, borderless fields, no image buttons.
+              ...(!editing && {
+                '& .MuiOutlinedInput-root': { bgcolor: 'background.neutral' },
+                '& .MuiOutlinedInput-notchedOutline': {
+                  borderColor: 'transparent',
                 },
-              '& .image-field-actions': { display: 'none' },
-            }),
-          }}
-        >
-          <Grid container spacing={3} sx={{ mt: 0 }}>
-            <Grid item xs={12} md={6}>
-              <SectionCard
-                title="Brand"
-                subtitle="How your shop introduces itself."
-              >
-                <Stack spacing={2.5}>
-                  <TextField
-                    label="Shop name"
-                    required
-                    value={form.name}
-                    onChange={set('name')}
-                    inputProps={{ maxLength: 80 }}
-                    {...err('name')}
-                  />
-                  <TextField
-                    label="Tagline"
-                    value={form.tagline}
-                    onChange={set('tagline')}
-                    inputProps={{ maxLength: 160 }}
-                    {...err('tagline')}
-                    helperText={
-                      errors.tagline || 'Shown in the footer and browser tab.'
-                    }
-                  />
-                  <ImageField
-                    label="Logo"
-                    value={form.logo}
-                    onChange={set('logo')}
-                    onUploading={setUploading}
-                    contain
-                    hint="PNG or SVG with a transparent background, about 240 × 80 px. Leave empty to use the default logo."
-                  />
-                  {errors.logo && (
-                    <Typography variant="caption" color="error">
-                      {errors.logo}
-                    </Typography>
-                  )}
-                  <ImageField
-                    label="Favicon"
-                    value={form.favicon}
-                    onChange={set('favicon')}
-                    onUploading={setUploading}
-                    contain
-                    hint="Square image, at least 64 × 64 px. Shown in the browser tab."
-                  />
-                  {errors.favicon && (
-                    <Typography variant="caption" color="error">
-                      {errors.favicon}
-                    </Typography>
-                  )}
-                </Stack>
-              </SectionCard>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <SectionCard
-                title="Contact"
-                subtitle="Where customers can reach you."
-              >
-                <Stack spacing={2.5}>
-                  <TextField
-                    label="Support email"
-                    type="email"
-                    value={form.email}
-                    onChange={set('email')}
-                    {...err('email')}
-                  />
-                  <TextField
-                    label="Phone"
-                    value={form.phone}
-                    onChange={set('phone')}
-                    inputProps={{ maxLength: 40 }}
-                    {...err('phone')}
-                  />
-                  <TextField
-                    label="Address"
-                    value={form.address}
-                    onChange={set('address')}
-                    multiline
-                    minRows={2}
-                    inputProps={{ maxLength: 300 }}
-                    {...err('address')}
-                  />
-                  <TextField
-                    label="Announcement bar"
-                    value={form.announcement}
-                    onChange={set('announcement')}
-                    inputProps={{ maxLength: 160 }}
-                    {...err('announcement')}
-                    helperText={
-                      errors.announcement ||
-                      'A short message at the top of every shop page. Leave empty to hide it.'
-                    }
-                  />
-                  <TextField
-                    label="Footer note"
-                    value={form.footerText}
-                    onChange={set('footerText')}
-                    inputProps={{ maxLength: 200 }}
-                    {...err('footer_text')}
-                    helperText={
-                      errors.footer_text || 'Shown after the copyright line.'
-                    }
-                  />
-                </Stack>
-              </SectionCard>
-            </Grid>
-            <Grid item xs={12}>
-              <SectionCard
-                title="Social links"
-                subtitle="Only links you fill in appear in the footer."
-              >
-                <Grid container spacing={2.5}>
-                  {SOCIALS.map((s) => (
-                    <Grid item xs={12} sm={6} key={s.key}>
-                      <TextField
-                        label={s.label}
-                        fullWidth
-                        placeholder="https://"
-                        value={form.social?.[s.key] || ''}
-                        onChange={setSocial(s.key)}
-                        {...err(`social.${s.key}`)}
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              {s.icon}
-                            </InputAdornment>
-                          ),
-                        }}
-                      />
+                '& .MuiInputBase-input.Mui-disabled, & .MuiInputBase-input:disabled':
+                  {
+                    color: 'text.primary',
+                    WebkitTextFillColor: 'currentColor',
+                  },
+                '& .image-field-actions': { display: 'none' },
+              }),
+            }}
+          >
+            <Grid container spacing={3} sx={{ mt: 0 }}>
+              {tab === 'general' ? (
+                <>
+                  <Grid item xs={12} md={6}>
+                    <SectionCard
+                      title="Brand"
+                      subtitle="How your shop introduces itself."
+                    >
+                      <Stack spacing={2.5}>
+                        <TextField
+                          label="Shop name"
+                          required
+                          value={form.name}
+                          onChange={set('name')}
+                          inputProps={{ maxLength: 80 }}
+                          {...err('name')}
+                        />
+                        <TextField
+                          label="Tagline"
+                          value={form.tagline}
+                          onChange={set('tagline')}
+                          inputProps={{ maxLength: 160 }}
+                          {...err('tagline')}
+                          helperText={
+                            errors.tagline ||
+                            'Shown in the footer and browser tab.'
+                          }
+                        />
+                        <ImageField
+                          label="Logo"
+                          value={form.logo}
+                          onChange={set('logo')}
+                          onUploading={setUploading}
+                          contain
+                          hint="PNG or SVG with a transparent background, about 240 × 80 px. Leave empty to use the default logo."
+                        />
+                        {errors.logo && (
+                          <Typography variant="caption" color="error">
+                            {errors.logo}
+                          </Typography>
+                        )}
+                        <ImageField
+                          label="Favicon"
+                          value={form.favicon}
+                          onChange={set('favicon')}
+                          onUploading={setUploading}
+                          contain
+                          hint="Square image, at least 64 × 64 px. Shown in the browser tab."
+                        />
+                        {errors.favicon && (
+                          <Typography variant="caption" color="error">
+                            {errors.favicon}
+                          </Typography>
+                        )}
+                      </Stack>
+                    </SectionCard>
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <SectionCard
+                      title="Contact"
+                      subtitle="Where customers can reach you."
+                    >
+                      <Stack spacing={2.5}>
+                        <TextField
+                          label="Support email"
+                          type="email"
+                          value={form.email}
+                          onChange={set('email')}
+                          {...err('email')}
+                        />
+                        <TextField
+                          label="Phone"
+                          value={form.phone}
+                          onChange={set('phone')}
+                          inputProps={{ maxLength: 40 }}
+                          {...err('phone')}
+                        />
+                        <TextField
+                          label="Address"
+                          value={form.address}
+                          onChange={set('address')}
+                          multiline
+                          minRows={2}
+                          inputProps={{ maxLength: 300 }}
+                          {...err('address')}
+                        />
+                        <TextField
+                          label="Announcement bar"
+                          value={form.announcement}
+                          onChange={set('announcement')}
+                          inputProps={{ maxLength: 160 }}
+                          {...err('announcement')}
+                          helperText={
+                            errors.announcement ||
+                            'A short message at the top of every shop page. Leave empty to hide it.'
+                          }
+                        />
+                        <TextField
+                          label="Footer note"
+                          value={form.footerText}
+                          onChange={set('footerText')}
+                          inputProps={{ maxLength: 200 }}
+                          {...err('footer_text')}
+                          helperText={
+                            errors.footer_text ||
+                            'Shown after the copyright line.'
+                          }
+                        />
+                      </Stack>
+                    </SectionCard>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <SectionCard
+                      title="Social links"
+                      subtitle="Only links you fill in appear in the footer."
+                    >
+                      <Grid container spacing={2.5}>
+                        {SOCIALS.map((s) => (
+                          <Grid item xs={12} sm={6} key={s.key}>
+                            <TextField
+                              label={s.label}
+                              fullWidth
+                              placeholder="https://"
+                              value={form.social?.[s.key] || ''}
+                              onChange={setSocial(s.key)}
+                              {...err(`social.${s.key}`)}
+                              InputProps={{
+                                startAdornment: (
+                                  <InputAdornment position="start">
+                                    {s.icon}
+                                  </InputAdornment>
+                                ),
+                              }}
+                            />
+                          </Grid>
+                        ))}
+                      </Grid>
+                    </SectionCard>
+                  </Grid>
+                </>
+              ) : (
+                <Grid item xs={12}>
+                  <SectionCard
+                    title="Home page hero"
+                    subtitle="The three cards at the top of the home page. Links can be shop paths (/products?on_sale=1) or full https:// links."
+                  >
+                    <Grid container spacing={3}>
+                      <Grid item xs={12} lg={4}>
+                        <Stack spacing={2}>
+                          <Typography variant="subtitle1">
+                            Offer card
+                          </Typography>
+                          {heroField('main', 'eyebrow', 'Label', {
+                            helperText: 'e.g. Weekend drop · 20% off',
+                          })}
+                          {heroField('main', 'title', 'Headline')}
+                          {heroField('main', 'text', 'Text', {
+                            multiline: true,
+                            minRows: 2,
+                          })}
+                          {heroField('main', 'ctaLabel', 'Button label')}
+                          {heroField('main', 'link', 'Button link')}
+                          <ImageField
+                            label="Offer photo"
+                            value={form.hero?.main?.image || ''}
+                            onChange={setHero('main', 'image')}
+                            onUploading={setUploading}
+                            hint="Landscape, at least 1200 px wide. Leave empty for the default photo."
+                          />
+                        </Stack>
+                      </Grid>
+                      <Grid item xs={12} md={6} lg={4}>
+                        <Stack spacing={2}>
+                          <Typography variant="subtitle1">
+                            Highlight card
+                          </Typography>
+                          {heroField('side', 'eyebrow', 'Label')}
+                          {heroField('side', 'title', 'Headline')}
+                          {heroField('side', 'link', 'Arrow link')}
+                          <ImageField
+                            label="Highlight photo"
+                            value={form.hero?.side?.image || ''}
+                            onChange={setHero('side', 'image')}
+                            onUploading={setUploading}
+                            hint="Square, at least 600 px. Leave empty for the default photo."
+                          />
+                        </Stack>
+                      </Grid>
+                      <Grid item xs={12} md={6} lg={4}>
+                        <Stack spacing={2}>
+                          <Typography variant="subtitle1">
+                            Member card
+                          </Typography>
+                          {heroField('member', 'eyebrow', 'Label')}
+                          {heroField('member', 'title', 'Headline')}
+                          {heroField('member', 'text', 'Text', {
+                            multiline: true,
+                            minRows: 2,
+                          })}
+                          {heroField('member', 'link', 'Arrow link')}
+                        </Stack>
+                      </Grid>
                     </Grid>
-                  ))}
+                  </SectionCard>
                 </Grid>
-              </SectionCard>
+              )}
             </Grid>
-            <Grid item xs={12}>
-              <SectionCard
-                title="Home page hero"
-                subtitle="The three cards at the top of the home page. Links can be shop paths (/products?on_sale=1) or full https:// links."
-              >
-                <Grid container spacing={3}>
-                  <Grid item xs={12} lg={4}>
-                    <Stack spacing={2}>
-                      <Typography variant="subtitle1">Offer card</Typography>
-                      {heroField('main', 'eyebrow', 'Label', {
-                        helperText: 'e.g. Weekend drop · 20% off',
-                      })}
-                      {heroField('main', 'title', 'Headline')}
-                      {heroField('main', 'text', 'Text', {
-                        multiline: true,
-                        minRows: 2,
-                      })}
-                      {heroField('main', 'ctaLabel', 'Button label')}
-                      {heroField('main', 'link', 'Button link')}
-                      <ImageField
-                        label="Offer photo"
-                        value={form.hero?.main?.image || ''}
-                        onChange={setHero('main', 'image')}
-                        onUploading={setUploading}
-                        hint="Landscape, at least 1200 px wide. Leave empty for the default photo."
-                      />
-                    </Stack>
-                  </Grid>
-                  <Grid item xs={12} md={6} lg={4}>
-                    <Stack spacing={2}>
-                      <Typography variant="subtitle1">
-                        Highlight card
-                      </Typography>
-                      {heroField('side', 'eyebrow', 'Label')}
-                      {heroField('side', 'title', 'Headline')}
-                      {heroField('side', 'link', 'Arrow link')}
-                      <ImageField
-                        label="Highlight photo"
-                        value={form.hero?.side?.image || ''}
-                        onChange={setHero('side', 'image')}
-                        onUploading={setUploading}
-                        hint="Square, at least 600 px. Leave empty for the default photo."
-                      />
-                    </Stack>
-                  </Grid>
-                  <Grid item xs={12} md={6} lg={4}>
-                    <Stack spacing={2}>
-                      <Typography variant="subtitle1">Member card</Typography>
-                      {heroField('member', 'eyebrow', 'Label')}
-                      {heroField('member', 'title', 'Headline')}
-                      {heroField('member', 'text', 'Text', {
-                        multiline: true,
-                        minRows: 2,
-                      })}
-                      {heroField('member', 'link', 'Arrow link')}
-                    </Stack>
-                  </Grid>
-                </Grid>
-              </SectionCard>
-            </Grid>
-          </Grid>
-        </Box>
+          </Box>
+        </>
       )}
       {form && editing && (
         <Stack
