@@ -70,7 +70,7 @@ const MobileBottomNav = () => {
         bottom: 'calc(12px + env(safe-area-inset-bottom))',
         zIndex: (t) => t.zIndex.appBar,
         height: BOTTOM_NAV_HEIGHT - 12,
-        borderRadius: 3,
+        borderRadius: 1,
         bgcolor: 'background.paper',
         border: 1,
         borderColor: 'divider',

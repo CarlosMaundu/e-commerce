@@ -848,8 +848,11 @@ export const adminOrders = {
     return data;
   },
   /** Attention counts for the bell; null where you lack the permission. */
-  async notifications() {
-    const { data } = await http().get('/admin/notifications');
+  /** The bell's newest 10, or every notification with { all: true }. */
+  async notifications({ all = false } = {}) {
+    const { data } = await http().get('/admin/notifications', {
+      params: all ? { all: 1 } : {},
+    });
     return data;
   },
   async notificationsRead() {

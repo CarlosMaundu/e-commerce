@@ -705,6 +705,9 @@ describe('invoices, payments, refunds and the ledger', () => {
     const newOrder = feed.items.find((i: any) => i.key === `order:${order.order_id}`);
     expect(newOrder).toMatchObject({ kind: 'order', title: `New order ${order.order_number}`, unread: true });
     expect(feed.unread).toBeGreaterThan(0);
+    expect(feed.total).toBe(feed.items.length);
+    const all = (await request(app).get('/api/admin/notifications?all=1').set(bearer(admin))).body.data;
+    expect(all.items.length).toBe(all.total);
     expect((await bell(catalog)).items.some((i: any) => i.kind === 'order')).toBe(false);
 
     await request(app).post('/api/admin/notifications/read').set(bearer(admin)).expect(200);

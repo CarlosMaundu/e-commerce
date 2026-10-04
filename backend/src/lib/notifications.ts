@@ -20,7 +20,7 @@ const money = (n: unknown, currency: string) =>
 
 const name = (r: any) => `${r.firstname || ''} ${r.lastname || ''}`.trim() || r.email || 'A customer';
 
-export const staffNotifications = async (userId: number, permissions: string[]) => {
+export const staffNotifications = async (userId: number, permissions: string[], limit = 10) => {
   const can = (p: string) => hasPermission(permissions, p);
   const state = (await query('SELECT read_at, cleared_at FROM staff_notification_state WHERE user_id = $1', [userId])).rows[0] || {};
   const dismissed = new Set(
@@ -124,12 +124,12 @@ export const staffNotifications = async (userId: number, permissions: string[]) 
 
   const cleared = state.cleared_at ? new Date(state.cleared_at).getTime() : 0;
   const read = state.read_at ? new Date(state.read_at).getTime() : 0;
-  const shown = items
+  const all = items
     .filter((i) => !dismissed.has(i.key) && new Date(i.at).getTime() > cleared)
     .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
-    .slice(0, 50)
     .map((i) => ({ ...i, unread: new Date(i.at).getTime() > read }));
-  return { items: shown, unread: shown.filter((i) => i.unread).length };
+  // The bell shows the newest few; the Notifications page shows them all.
+  return { items: all.slice(0, limit), total: all.length, unread: all.filter((i) => i.unread).length };
 };
 
 const touch = (userId: number, column: 'read_at' | 'cleared_at') =>

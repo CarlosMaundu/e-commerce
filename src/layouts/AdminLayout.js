@@ -38,16 +38,13 @@ import {
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import {
-  FiAlertTriangle,
   FiBell,
   FiBookOpen,
   FiBox,
   FiChevronDown,
   FiCornerUpLeft,
   FiCreditCard,
-  FiDollarSign,
   FiFileText,
-  FiGift,
   FiGrid,
   FiHelpCircle,
   FiLayers,
@@ -77,6 +74,7 @@ import {
 } from '../auth/permissions';
 import { adminCatalog, adminOrders, adminUsers } from '../api';
 import BrandMark, { initialsOf } from '../components/common/BrandMark';
+import { kindOf, timeAgo } from '../components/admin/notificationKinds';
 import { formatMoney } from '../utils/format';
 
 const RAIL_WIDTH = 280;
@@ -228,6 +226,7 @@ export const adminNav = (user) =>
 /** The current page's name for the top bar, from the nav. */
 const pageTitle = (user, pathname) => {
   if (pathname.startsWith('/admin/profile')) return 'Profile settings';
+  if (pathname.startsWith('/admin/notifications')) return 'Notifications';
   const items = adminNav(user).flatMap((g) => g.items);
   const match = items
     .filter((i) => (i.end ? pathname === i.to : pathname.startsWith(i.to)))
@@ -731,26 +730,6 @@ const GlobalSearch = ({ compact }) => {
 };
 GlobalSearch.propTypes = { compact: PropTypes.bool };
 
-const KIND_ICONS = {
-  order: [<FiShoppingBag key="o" />, 'primary.main'],
-  delayed: [<FiAlertTriangle key="d" />, 'error.main'],
-  gift: [<FiGift key="g" />, 'secondary.main'],
-  return: [<FiRotateCcw key="r" />, 'warning.main'],
-  refund: [<FiDollarSign key="f" />, 'warning.main'],
-  invoice: [<FiFileText key="i" />, 'error.main'],
-  stock: [<FiBox key="s" />, 'warning.main'],
-};
-
-const ago = (at) => {
-  const m = Math.max(0, Math.round((Date.now() - new Date(at)) / 60000));
-  if (m < 1) return 'just now';
-  if (m < 60) return `${m} min ago`;
-  const h = Math.round(m / 60);
-  if (h < 24) return `${h} h ago`;
-  const d = Math.round(h / 24);
-  return d === 1 ? 'yesterday' : `${d} days ago`;
-};
-
 /** Bell: what needs attention for this person; read, dismiss or clear. */
 const Notifications = ({ counts, setCounts, reload }) => {
   const navigate = useNavigate();
@@ -838,7 +817,7 @@ const Notifications = ({ counts, setCounts, reload }) => {
         <Box sx={{ overflowY: 'auto' }} data-testid="notification-list">
           {items.length ? (
             items.map((it) => {
-              const [icon, tone] = KIND_ICONS[it.kind] || KIND_ICONS.order;
+              const { icon, tone } = kindOf(it.kind);
               return (
                 <Stack
                   key={it.key}
@@ -860,7 +839,7 @@ const Notifications = ({ counts, setCounts, reload }) => {
                       borderRadius: '8px',
                       display: 'grid',
                       placeItems: 'center',
-                      color: tone,
+                      color: `${tone}.main`,
                       bgcolor: 'background.neutral',
                     }}
                   >
@@ -888,7 +867,7 @@ const Notifications = ({ counts, setCounts, reload }) => {
                       {it.body}
                     </Typography>
                     <Typography variant="caption" color="text.disabled">
-                      {ago(it.at)}
+                      {timeAgo(it.at)}
                     </Typography>
                   </Box>
                   <IconButton
@@ -912,6 +891,19 @@ const Notifications = ({ counts, setCounts, reload }) => {
             </Typography>
           )}
         </Box>
+        <Divider />
+        <Button
+          fullWidth
+          onClick={() => {
+            setAnchor(null);
+            navigate('/admin/notifications');
+          }}
+          sx={{ borderRadius: 0, py: 1.25 }}
+        >
+          {counts.total > items.length
+            ? `View all ${counts.total} notifications`
+            : 'View all notifications'}
+        </Button>
       </Popover>
     </>
   );
