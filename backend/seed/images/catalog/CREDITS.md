@@ -84,3 +84,35 @@ Brand logos in `../brands/`:
 | watch-steel.jpg | [Puru Raj](https://unsplash.com/@puru_rj) | [B6z8FAfi7zY](https://unsplash.com/photos/a-watch-sitting-on-top-of-a-black-cloth-B6z8FAfi7zY) |
 | wrap-dress-black.jpg | [Ali Pazani](https://unsplash.com/@alipzn) | [9krwXd2uDG4](https://unsplash.com/photos/woman-in-black-long-sleeve-dress-standing-beside-red-car-9krwXd2uDG4) |
 | wrap-dress-red.jpg | [Vladimir Fedotov](https://unsplash.com/@fedotov_vs) | [kEC0A-dOw4g](https://unsplash.com/photos/woman-wearing-red-34-sleeved-dress-kEC0A-dOw4g) |
+
+## Phone photos (Wikimedia Commons)
+
+Cropped to 800 × 800. The Gold photos show an iPhone 13 Pro Max, whose design matches the 14 Pro family.
+
+| File | Author | Licence | Source |
+| --- | --- | --- | --- |
+| iphone14-blue-1.jpg | KKPCW（Kyu3） | CC BY-SA 4.0 | [IPhone 14 - 3.jpg](https://commons.wikimedia.org/wiki/File:IPhone_14_-_3.jpg) |
+| iphone14-blue-2.jpg | メイド理世 | CC BY-SA 4.0 | [Back view of iPhone 14 Blue.jpg](https://commons.wikimedia.org/wiki/File:Back_view_of_iPhone_14_Blue.jpg) |
+| iphone14-red-1.jpg | Hajoon0102 | CC BY-SA 4.0 | [IPhone 14 Product Red.jpg](https://commons.wikimedia.org/wiki/File:IPhone_14_Product_Red.jpg) |
+| iphone14-midnight-1.jpg | メイド理世 | CC BY-SA 4.0 | [IPhone 14 20240225 (1) (cropped).jpg](https://commons.wikimedia.org/wiki/File:IPhone_14_20240225_(1)_(cropped).jpg) |
+| iphone14-midnight-2.jpg | メイド理世 | CC BY-SA 4.0 | [IPhone 14 20240225.jpg](https://commons.wikimedia.org/wiki/File:IPhone_14_20240225.jpg) |
+| iphone14pro-purple-1.jpg | Hajoon0102 | CC BY-SA 4.0 | [Back of the iPhone 14 Pro.jpg](https://commons.wikimedia.org/wiki/File:Back_of_the_iPhone_14_Pro.jpg) |
+| iphone14pro-purple-2.jpg | iGeeksBlog | CC BY-SA 4.0 | [IPhone 14 Pro Deep Purple.jpg](https://commons.wikimedia.org/wiki/File:IPhone_14_Pro_Deep_Purple.jpg) |
+| iphone14pro-black-1.jpg | Ssu | CC BY-SA 4.0 | [IPhone 14 Pro - black.jpg](https://commons.wikimedia.org/wiki/File:IPhone_14_Pro_-_black.jpg) |
+| iphone14pro-black-2.jpg | Ssu | CC BY-SA 4.0 | [IPhone 14 Pro - black (2).jpg](https://commons.wikimedia.org/wiki/File:IPhone_14_Pro_-_black_(2).jpg) |
+| iphone14pro-silver-1.jpg | KKPCW（Kyu3） | CC BY-SA 4.0 | [IPhone 14 Pro - 3.jpg](https://commons.wikimedia.org/wiki/File:IPhone_14_Pro_-_3.jpg) |
+| iphone14pro-gold-1.jpg | メイド理世 | CC BY-SA 4.0 | [Back view of iPhone 13 Pro Max Gold.jpg](https://commons.wikimedia.org/wiki/File:Back_view_of_iPhone_13_Pro_Max_Gold.jpg) |
+| iphone14promax-purple-1.jpg | Nishino Asuka | CC BY-SA 4.0 | [Deep Purple iPhone 14 Pro Max back photo.jpg](https://commons.wikimedia.org/wiki/File:Deep_Purple_iPhone_14_Pro_Max_back_photo.jpg) |
+| iphone14promax-purple-2.jpg | 茅野ふたば | CC BY-SA 4.0 | [IPhone 14 Pro Max Deep purple A2896 China, Hong Kong and Macao version rear.jpg](https://commons.wikimedia.org/wiki/File:IPhone_14_Pro_Max_Deep_purple_A2896_China,_Hong_Kong_and_Macao_version_rear.jpg) |
+| iphone14promax-purple-3.jpg | Nishino Asuka | CC BY-SA 4.0 | [Deep Purple iPhone 14 Pro Max front photo.jpg](https://commons.wikimedia.org/wiki/File:Deep_Purple_iPhone_14_Pro_Max_front_photo.jpg) |
+| iphone14promax-black-1.jpg | Hajoon0102 | CC BY-SA 4.0 | [Back of the iPhone 14 Pro Max.jpg](https://commons.wikimedia.org/wiki/File:Back_of_the_iPhone_14_Pro_Max.jpg) |
+| iphone14promax-black-2.jpg | Ssu | CC BY-SA 4.0 | [IPhone 14 Pro - black (3).jpg](https://commons.wikimedia.org/wiki/File:IPhone_14_Pro_-_black_(3).jpg) |
+| iphone14promax-silver-1.jpg | KKPCW（Kyu3） | CC BY-SA 4.0 | [IPhone 14 Pro - 3.jpg](https://commons.wikimedia.org/wiki/File:IPhone_14_Pro_-_3.jpg) |
+| iphone14promax-gold-1.jpg | メイド理世 | CC BY-SA 4.0 | [Back view of iPhone 13 Pro Max Gold.jpg](https://commons.wikimedia.org/wiki/File:Back_view_of_iPhone_13_Pro_Max_Gold.jpg) |
+| galaxy-black-1.jpg | メイド理世 | CC BY-SA 4.0 | [Back view of Samsung Galaxy S23 Ultra Green.jpg](https://commons.wikimedia.org/wiki/File:Back_view_of_Samsung_Galaxy_S23_Ultra_Green.jpg) |
+| galaxy-black-2.jpg | Gannu03 | CC BY-SA 4.0 | [Samsung S23 Ultra.jpg](https://commons.wikimedia.org/wiki/File:Samsung_S23_Ultra.jpg) |
+| galaxy-cream-1.jpg | Questions and | CC BY-SA 4.0 | [Galaxy s23.jpg](https://commons.wikimedia.org/wiki/File:Galaxy_s23.jpg) |
+| galaxy-green-1.jpg | Questions and | CC BY-SA 4.0 | [Galaxy s23 ultra.jpg](https://commons.wikimedia.org/wiki/File:Galaxy_s23_ultra.jpg) |
+| galaxy-green-2.jpg | Hajoon0102 | CC BY-SA 4.0 | [Back of the Samsung Galaxy S23.jpg](https://commons.wikimedia.org/wiki/File:Back_of_the_Samsung_Galaxy_S23.jpg) |
+| galaxy-lavender-1.jpg | Questions and | CC BY-SA 4.0 | [Galaxy s23+.jpg](https://commons.wikimedia.org/wiki/File:Galaxy_s23%2B.jpg) |
+| galaxy-lavender-2.jpg | PantheraLeo1359531 | CC BY 4.0 | [Samsung Galaxy S23 Ultra, 512 GB, Lavender 20230416 HOF00318 RAW-Export cens.png](https://commons.wikimedia.org/wiki/File:Samsung_Galaxy_S23_Ultra,_512_GB,_Lavender_20230416_HOF00318_RAW-Export_cens.png) |

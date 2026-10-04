@@ -42,7 +42,11 @@
   {
    "name": "Electronics",
    "image": "cat-electronics.jpg",
-   "children": []
+   "children": [
+    "Phones",
+    "Audio",
+    "Wearables"
+   ]
   }
  ],
  "brands": [
@@ -217,6 +221,277 @@
   }
  ],
  "products": [
+  {
+   "name": "Apple iPhone 14",
+   "category": "Phones",
+   "brand": "Apple",
+   "price": 799,
+   "sku": "AP-IP14",
+   "featured": true,
+   "tags": [
+    "phones",
+    "new-season",
+    "5g"
+   ],
+   "description": "The iPhone 14 family: choose the model, colour and storage that suit you.\n\n• iPhone 14 — 6.1-inch Super Retina XDR display, A15 Bionic, dual camera\n• iPhone 14 Pro — 6.1-inch ProMotion display with Dynamic Island, A16 Bionic, 48MP main camera\n• iPhone 14 Pro Max — 6.7-inch ProMotion display, A16 Bionic, longest battery life\n• All models: 5G, Ceramic Shield, Emergency SOS via satellite",
+   "attributes": [
+    {
+     "name": "Model",
+     "values": [
+      "iPhone 14",
+      "iPhone 14 Pro",
+      "iPhone 14 Pro Max"
+     ]
+    },
+    {
+     "name": "Color",
+     "values": [
+      "Blue",
+      "Red",
+      "Midnight",
+      "Deep Purple",
+      "Gold",
+      "Silver",
+      "Space Black"
+     ]
+    },
+    {
+     "name": "Storage",
+     "values": [
+      "128GB",
+      "256GB",
+      "512GB"
+     ]
+    }
+   ],
+   "only": [
+    {
+     "Model": "iPhone 14",
+     "Color": "Blue"
+    },
+    {
+     "Model": "iPhone 14",
+     "Color": "Red"
+    },
+    {
+     "Model": "iPhone 14",
+     "Color": "Midnight"
+    },
+    {
+     "Model": "iPhone 14 Pro",
+     "Color": "Deep Purple"
+    },
+    {
+     "Model": "iPhone 14 Pro",
+     "Color": "Gold"
+    },
+    {
+     "Model": "iPhone 14 Pro",
+     "Color": "Silver"
+    },
+    {
+     "Model": "iPhone 14 Pro",
+     "Color": "Space Black"
+    },
+    {
+     "Model": "iPhone 14 Pro Max",
+     "Color": "Deep Purple"
+    },
+    {
+     "Model": "iPhone 14 Pro Max",
+     "Color": "Gold"
+    },
+    {
+     "Model": "iPhone 14 Pro Max",
+     "Color": "Silver"
+    },
+    {
+     "Model": "iPhone 14 Pro Max",
+     "Color": "Space Black"
+    }
+   ],
+   "priceBy": {
+    "Model=iPhone 14 Pro": 999,
+    "Model=iPhone 14 Pro Max": 1099
+   },
+   "priceAdd": {
+    "Storage=256GB": 100,
+    "Storage=512GB": 300
+   },
+   "variantImages": {
+    "Model=iPhone 14|Color=Blue": [
+     "iphone14-blue-1.jpg",
+     "iphone14-blue-2.jpg"
+    ],
+    "Model=iPhone 14|Color=Red": [
+     "iphone14-red-1.jpg"
+    ],
+    "Model=iPhone 14|Color=Midnight": [
+     "iphone14-midnight-1.jpg",
+     "iphone14-midnight-2.jpg"
+    ],
+    "Model=iPhone 14 Pro|Color=Deep Purple": [
+     "iphone14pro-purple-1.jpg",
+     "iphone14pro-purple-2.jpg"
+    ],
+    "Model=iPhone 14 Pro|Color=Gold": [
+     "iphone14pro-gold-1.jpg"
+    ],
+    "Model=iPhone 14 Pro|Color=Silver": [
+     "iphone14pro-silver-1.jpg"
+    ],
+    "Model=iPhone 14 Pro|Color=Space Black": [
+     "iphone14pro-black-1.jpg",
+     "iphone14pro-black-2.jpg"
+    ],
+    "Model=iPhone 14 Pro Max|Color=Deep Purple": [
+     "iphone14promax-purple-1.jpg",
+     "iphone14promax-purple-2.jpg",
+     "iphone14promax-purple-3.jpg"
+    ],
+    "Model=iPhone 14 Pro Max|Color=Gold": [
+     "iphone14promax-gold-1.jpg"
+    ],
+    "Model=iPhone 14 Pro Max|Color=Silver": [
+     "iphone14promax-silver-1.jpg"
+    ],
+    "Model=iPhone 14 Pro Max|Color=Space Black": [
+     "iphone14promax-black-1.jpg",
+     "iphone14promax-black-2.jpg"
+    ]
+   },
+   "images": {},
+   "reviews": [
+    {
+     "author": "Kevin O.",
+     "rating": 5,
+     "title": "Pro Max battery is unreal",
+     "text": "Two full days on a charge and the camera is the best I've used. The Deep Purple looks great in person.",
+     "verified": true,
+     "days_ago": 12
+    },
+    {
+     "author": "Faith W.",
+     "rating": 4,
+     "title": "Great phone, pricey storage",
+     "text": "The 14 Pro is fast and the Dynamic Island is genuinely useful. I wish 256GB was the base.",
+     "verified": true,
+     "days_ago": 30
+    },
+    {
+     "author": "Sam K.",
+     "rating": 5,
+     "title": "Upgraded from an 11",
+     "text": "Huge jump in photos and battery. The blue 14 is a lovely colour.",
+     "verified": false,
+     "days_ago": 45
+    },
+    {
+     "author": "Lucy M.",
+     "rating": 4,
+     "title": "Solid",
+     "text": "Exactly what I expected from an iPhone. Delivery was quick and well packed.",
+     "verified": true,
+     "days_ago": 60
+    }
+   ],
+   "views": 160
+  },
+  {
+   "name": "Samsung Galaxy S23",
+   "category": "Phones",
+   "brand": "Samsung",
+   "price": 799,
+   "special": 749,
+   "sku": "SM-S23",
+   "featured": true,
+   "tags": [
+    "phones",
+    "5g",
+    "android"
+   ],
+   "description": "Galaxy S23 series with Snapdragon 8 Gen 2 for Galaxy.\n\n• S23 — compact 6.1-inch display\n• S23+ — 6.6-inch display and bigger battery\n• S23 Ultra — 6.8-inch display, 200MP camera and built-in S Pen",
+   "attributes": [
+    {
+     "name": "Model",
+     "values": [
+      "Galaxy S23",
+      "Galaxy S23+",
+      "Galaxy S23 Ultra"
+     ]
+    },
+    {
+     "name": "Color",
+     "values": [
+      "Phantom Black",
+      "Cream",
+      "Green",
+      "Lavender"
+     ]
+    },
+    {
+     "name": "Storage",
+     "values": [
+      "128GB",
+      "256GB",
+      "512GB"
+     ]
+    }
+   ],
+   "priceBy": {
+    "Model=Galaxy S23+": 999,
+    "Model=Galaxy S23 Ultra": 1199
+   },
+   "priceAdd": {
+    "Storage=256GB": 60,
+    "Storage=512GB": 180
+   },
+   "imageBy": "Color",
+   "images": {
+    "Phantom Black": [
+     "galaxy-black-1.jpg",
+     "galaxy-black-2.jpg"
+    ],
+    "Cream": [
+     "galaxy-cream-1.jpg"
+    ],
+    "Green": [
+     "galaxy-green-1.jpg",
+     "galaxy-green-2.jpg"
+    ],
+    "Lavender": [
+     "galaxy-lavender-1.jpg",
+     "galaxy-lavender-2.jpg"
+    ]
+   },
+   "reviews": [
+    {
+     "author": "Brian O.",
+     "rating": 5,
+     "title": "Ultra camera is amazing",
+     "text": "The 200MP camera and zoom are incredible, and the S Pen is handy for notes.",
+     "verified": true,
+     "days_ago": 20
+    },
+    {
+     "author": "Achieng A.",
+     "rating": 4,
+     "title": "Perfect size",
+     "text": "The standard S23 fits in one hand and the battery easily lasts a day.",
+     "verified": true,
+     "days_ago": 40
+    },
+    {
+     "author": "Tom R.",
+     "rating": 4,
+     "title": "Lovely cream colour",
+     "text": "Smooth, fast and the cream finish looks premium. Wish it charged faster.",
+     "verified": false,
+     "days_ago": 70
+    }
+   ],
+   "views": 120
+  },
   {
    "name": "Linen summer dress",
    "category": "Dresses",
@@ -2144,7 +2419,7 @@
   },
   {
    "name": "Wireless earbuds",
-   "category": "Electronics",
+   "category": "Audio",
    "brand": "Samsung",
    "price": 89,
    "sku": "PA-EAR-WLS",
@@ -2210,7 +2485,7 @@
   },
   {
    "name": "Over-ear headphones",
-   "category": "Electronics",
+   "category": "Audio",
    "brand": "Sony",
    "price": 199,
    "special": 169,
@@ -2286,7 +2561,7 @@
   },
   {
    "name": "Smart fitness band",
-   "category": "Electronics",
+   "category": "Wearables",
    "brand": "Fitbit",
    "price": 59,
    "special": 45,
@@ -2377,7 +2652,7 @@
   },
   {
    "name": "Portable Bluetooth speaker",
-   "category": "Electronics",
+   "category": "Audio",
    "brand": "JBL",
    "price": 79,
    "sku": "PA-SPK-PRT",
@@ -2466,7 +2741,7 @@
   },
   {
    "name": "Smartwatch Series 3",
-   "category": "Electronics",
+   "category": "Wearables",
    "brand": "Apple",
    "price": 249,
    "sku": "TT-SWT-S3",

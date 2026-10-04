@@ -29,6 +29,11 @@ interface Spec {
     attributes: { name: string; values: string[] }[];
     imageBy?: string;
     priceBy?: Record<string, number>;
+    priceAdd?: Record<string, number>;
+    /** Photos per combination, keyed "Model=X|Color=Y" (all pairs must match). */
+    variantImages?: Record<string, string[]>;
+    /** Only these combinations exist (partial matches), e.g. per-model colours. */
+    only?: Record<string, string>[];
     images: Record<string, string[]>;
     reviews: { author: string; rating: number; title: string; text: string; verified: boolean; days_ago: number }[];
     views: number;
@@ -96,12 +101,29 @@ export const seedDemoCatalog = async ({ replace = false } = {}) => {
     for (const [index, p] of spec.products.entries()) {
       const byValue = (value: string) => (p.images[value] || []).map((f) => copy('catalog', f));
       const order = p.imageBy ? p.attributes.find((a) => a.name === p.imageBy)!.values : [''];
-      const gallery = [...order.flatMap(byValue), ...(p.imageBy ? byValue('') : [])];
+      const combinationPhotos = Object.values(p.variantImages || {}).flat();
+      const gallery = combinationPhotos.length
+        ? [...new Set(combinationPhotos)].map((f) => copy('catalog', f))
+        : [...order.flatMap(byValue), ...(p.imageBy ? byValue('') : [])];
+      // Short SKU codes per value, longer where short ones would clash.
+      const codes: Record<string, Record<string, string>> = {};
+      for (const a of p.attributes) {
+        const short = a.values.map(code);
+        const clash = new Set(short).size !== short.length;
+        codes[a.name] = Object.fromEntries(
+          a.values.map((v, i) => [v, clash ? v.replace(/\+/g, 'PLUS').replace(/[^A-Za-z0-9]/g, '').toUpperCase() : short[i]])
+        );
+      }
+      const matches = (options: Record<string, string>, key: string) =>
+        key.split('|').every((pair) => {
+          const [k, v] = pair.split('=');
+          return options[k] === v;
+        });
       const { rows } = await db.query(
         `INSERT INTO products (name, description, price, special, quantity, category_id, brand_id, images, sku,
-           status, featured, tags, attributes, track_inventory, low_stock_threshold, created_at)
+           status, featured, tags, attributes, track_inventory, low_stock_threshold, created_at, published_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'published', $10, $11, $12, true, 5,
-                 now() - make_interval(days => $13))
+                 now() - make_interval(days => $13), now() - make_interval(days => $13))
          RETURNING id`,
         [
           p.name, p.description, p.price, p.special ?? null, p.quantity ?? 0, categoryIds[p.category],
@@ -111,20 +133,31 @@ export const seedDemoCatalog = async ({ replace = false } = {}) => {
       );
       const productId = rows[0].id;
 
-      for (const [position, options] of (p.attributes.length ? combos(p.attributes) : []).entries()) {
+      const all = p.attributes.length ? combos(p.attributes) : [];
+      const existing = p.only
+        ? all.filter((o) => p.only!.some((rule) => Object.entries(rule).every(([k, v]) => o[k] === v)))
+        : all;
+      for (const [position, options] of existing.entries()) {
         const overrides = Object.entries(options)
           .map(([k, v]) => p.priceBy?.[`${k}=${v}`])
           .filter((n): n is number => n !== undefined);
-        const price = overrides.length ? Math.max(...overrides) : null;
+        const extra = Object.entries(options).reduce((sum, [k, v]) => sum + (p.priceAdd?.[`${k}=${v}`] || 0), 0);
+        const base = overrides.length ? Math.max(...overrides) : null;
+        const price = base !== null || extra ? (base ?? p.price) + extra : null;
         // A variant with its own price keeps the product's sale ratio.
         const special = price !== null && p.special ? Math.round(price * (p.special / p.price)) : null;
         const roll = rand();
         const quantity = roll < 0.1 ? 0 : roll < 0.2 ? 1 + Math.floor(rand() * 4) : 6 + Math.floor(rand() * 20);
-        const images = p.imageBy ? byValue(options[p.imageBy]) : [];
+        const ownKey = Object.keys(p.variantImages || {}).find((key) => matches(options, key));
+        const images = ownKey
+          ? p.variantImages![ownKey].map((f) => copy('catalog', f))
+          : p.imageBy
+            ? byValue(options[p.imageBy])
+            : [];
         await db.query(
           `INSERT INTO product_variants (product_id, options, sku, price, special, quantity, images, position)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-          [productId, JSON.stringify(options), `${p.sku}-${Object.values(options).map(code).join('-')}`,
+          [productId, JSON.stringify(options), `${p.sku}-${Object.entries(options).map(([k, v]) => codes[k][v]).join('-')}`,
             price, special, quantity, JSON.stringify(images), position]
         );
       }

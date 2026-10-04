@@ -60,8 +60,6 @@ async function checkout(page) {
   await page.getByRole('button', { name: 'Continue' }).click();
   await page.getByTestId('payment-cod').click();
   await page.getByRole('checkbox', { name: /terms and conditions/i }).check();
-  await page.getByRole('button', { name: 'Review order' }).click();
-  await expect(page.getByText('Review your order')).toBeVisible();
   await page.getByRole('button', { name: /Place order/ }).click();
   await expect(page.getByText('Your order is confirmed')).toBeVisible();
   const [, id] = page.url().match(/\/account\/orders\/(\d+)/);
@@ -241,7 +239,7 @@ test('a super admin creates, then deletes, a custom role', async ({ page }) => {
   await expect(toast(page)).toHaveText('Role created.');
   const row = page.getByTestId('role-row-stock_clerk');
   await expect(row).toContainText('Keeps stock up');
-  await expect(row).toContainText('2 of 30');
+  await expect(row).toContainText('2 of 31');
 
   // The Permissions tab lists who holds each permission.
   await page.getByRole('tab', { name: /Permissions/ }).click();

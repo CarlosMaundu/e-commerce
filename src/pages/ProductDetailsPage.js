@@ -481,20 +481,22 @@ const ProductDetailsPage = () => {
     [product, selected]
   );
 
-  // Photos follow what's chosen so far (e.g. a colour before a size).
+  // Photos follow what's chosen so far (e.g. a colour before a size): only
+  // the chosen variation's photos are shown, never the rest of the gallery.
   const images = useMemo(() => {
     if (!product) return [];
+    if (variant?.images?.length) return variant.images;
+    const chosen = Object.values(selected).some(Boolean);
     const matching = product.variants.filter((v) =>
       Object.entries(selected).every(([k, val]) => !val || v.options[k] === val)
     );
-    const own = variant?.images?.length
-      ? variant.images
-      : matching.length
-        ? (matching[0].images || []).filter((src) =>
-            matching.every((v) => v.images.includes(src))
-          )
-        : [];
-    return [...own, ...product.images.filter((src) => !own.includes(src))];
+    if (!chosen || !matching.length) return product.images;
+    const shared = (matching[0].images || []).filter((src) =>
+      matching.every((v) => (v.images || []).includes(src))
+    );
+    if (shared.length) return shared;
+    const union = [...new Set(matching.flatMap((v) => v.images || []))];
+    return union.length ? union : product.images;
   }, [product, variant, selected]);
 
   if (error) {

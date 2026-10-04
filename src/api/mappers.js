@@ -91,6 +91,7 @@ export const productFromApi = (p) => {
       : null,
     sku: p.sku || '',
     status: p.status || 'published',
+    publishedAt: p.published_at || null,
     featured: Boolean(p.featured),
     tags: p.tags || [],
     attributes: p.attributes || [],

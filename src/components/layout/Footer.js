@@ -15,8 +15,10 @@ import {
   FiArrowRight,
   FiFacebook,
   FiInstagram,
+  FiMusic,
   FiTwitter,
 } from 'react-icons/fi';
+import { useStore } from '../../context/StoreContext';
 import { newsletter } from '../../api';
 import { useNotify } from '../../notification/NotificationProvider';
 import { MESSAGES } from '../../notification/messages';
@@ -55,6 +57,13 @@ const COLUMNS = [
   },
 ];
 
+const SOCIALS = [
+  { key: 'facebook', label: 'Facebook', Icon: FiFacebook },
+  { key: 'x', label: 'X (Twitter)', Icon: FiTwitter },
+  { key: 'instagram', label: 'Instagram', Icon: FiInstagram },
+  { key: 'tiktok', label: 'TikTok', Icon: FiMusic },
+];
+
 const linkSx = {
   color: 'text.secondary',
   textDecoration: 'none',
@@ -62,6 +71,8 @@ const linkSx = {
 };
 
 const Footer = () => {
+  const shop = useStore();
+  const socials = SOCIALS.filter((x) => shop.social?.[x.key]);
   const notify = useNotify();
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
@@ -102,9 +113,7 @@ const Footer = () => {
                 lineHeight: 1.3,
               }}
             >
-              Everyday things,
-              <br />
-              chosen with care.
+              {shop.tagline || shop.name}
             </Typography>
             <Box
               component="form"
@@ -159,35 +168,41 @@ const Footer = () => {
               </Stack>
             </Grid>
           ))}
-          <Grid
-            item
-            xs={12}
-            sm={12}
-            md={1}
-            sx={{ display: 'flex', flexDirection: 'column' }}
-          >
-            <Typography variant="subtitle2" sx={{ mb: 2 }}>
-              Follow us
-            </Typography>
-            <Stack direction={{ xs: 'row', md: 'column' }} spacing={1}>
-              {[FiFacebook, FiTwitter, FiInstagram].map((Icon, i) => (
-                <IconButton
-                  key={i}
-                  size="small"
-                  aria-label={['Facebook', 'X (Twitter)', 'Instagram'][i]}
-                  sx={{
-                    bgcolor: 'background.paper',
-                    border: 1,
-                    borderColor: 'divider',
-                    width: 36,
-                    height: 36,
-                  }}
-                >
-                  <Icon />
-                </IconButton>
-              ))}
-            </Stack>
-          </Grid>
+          {socials.length > 0 && (
+            <Grid
+              item
+              xs={12}
+              sm={12}
+              md={1}
+              sx={{ display: 'flex', flexDirection: 'column' }}
+            >
+              <Typography variant="subtitle2" sx={{ mb: 2 }}>
+                Follow us
+              </Typography>
+              <Stack direction={{ xs: 'row', md: 'column' }} spacing={1}>
+                {socials.map(({ key, label, Icon }) => (
+                  <IconButton
+                    key={key}
+                    size="small"
+                    component="a"
+                    href={shop.social[key]}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={label}
+                    sx={{
+                      bgcolor: 'background.paper',
+                      border: 1,
+                      borderColor: 'divider',
+                      width: 36,
+                      height: 36,
+                    }}
+                  >
+                    <Icon />
+                  </IconButton>
+                ))}
+              </Stack>
+            </Grid>
+          )}
         </Grid>
       </Container>
       <Box sx={{ borderTop: 1, borderColor: 'divider' }}>
@@ -200,7 +215,8 @@ const Footer = () => {
             sx={{ py: 2.5 }}
           >
             <Typography variant="body2" color="text.secondary">
-              © {new Date().getFullYear()} Carlos Shop
+              © {new Date().getFullYear()} {shop.name}
+              {shop.footerText ? ` · ${shop.footerText}` : ''}
             </Typography>
             <Stack
               direction="row"

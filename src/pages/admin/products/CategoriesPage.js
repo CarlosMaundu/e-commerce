@@ -102,8 +102,8 @@ const CategoriesPage = () => {
     <Stack spacing={3}>
       <PageHeader
         crumbs={[
-          { label: 'Products', to: '/admin/products' },
-          { label: 'Categories', to: '/admin/products/categories' },
+          { label: 'Home', to: '/admin' },
+          { label: 'Categories', to: '/admin/categories' },
         ]}
         title="Categories"
         subtitle="How shoppers browse the shop. Category images appear in Curated picks."

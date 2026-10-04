@@ -14,6 +14,7 @@ import {
   refreshRating,
   SORTS,
 } from '../lib/products';
+import { getStore } from '../lib/store';
 import { authenticate, customersOnly, notWhileImpersonating, optionalAuth } from '../middleware/auth';
 
 interface CategoryRow {
@@ -359,6 +360,15 @@ export const catalogRoutes = () => {
           daily: !p.ends_at,
         }))
       );
+    })
+  );
+
+  // Shop name, logo, favicon and contact details for every page.
+  router.get(
+    '/store',
+    handler(async (_req, res) => {
+      res.set('Cache-Control', 'no-cache');
+      ok(res, await getStore());
     })
   );
 

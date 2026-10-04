@@ -51,6 +51,7 @@ export const PERMISSIONS = {
   rolesManage: 'admin.roles.manage',
   securityView: 'admin.security.view',
   securityManage: 'admin.security.manage',
+  settingsManage: 'admin.settings.manage',
   dashboardView: 'dashboard.overview.view',
   ordersView: 'orders.orders.view',
   ordersUpdate: 'orders.orders.update',

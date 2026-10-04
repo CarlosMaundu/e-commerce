@@ -25,8 +25,10 @@ import {
   TableRow,
   TextField,
   Typography,
+  Avatar,
+  Link,
 } from '@mui/material';
-import { FiChevronLeft } from 'react-icons/fi';
+import { FiChevronLeft, FiDownload, FiEye, FiUser } from 'react-icons/fi';
 import { AuthContext } from '../../context/AuthContext';
 import { adminOrders } from '../../api';
 import { formatAddress } from '../../api/mappers';
@@ -35,11 +37,13 @@ import { useNotify } from '../../notification/NotificationProvider';
 import { SectionCard, StatusChip } from '../../components/ui';
 import {
   EmptyRow,
+  FilterMenu,
   LoadingRows,
   PAGE_SIZE,
   PageHeader,
   PanelTabs,
   PanelToolbar,
+  Pill,
   RowActions,
   SearchField,
   StandardPagination,
@@ -48,14 +52,6 @@ import {
 } from '../../components/admin/DataTable';
 import { formatDateTime, formatMoney, optionText } from '../../utils/format';
 
-const STATUS_TABS = [
-  { label: 'All', value: '' },
-  { label: 'To fulfil', value: 'pending,processing' },
-  { label: 'Shipped', value: 'shipped' },
-  { label: 'Delivered', value: 'delivered' },
-  { label: 'Awaiting payment', value: 'awaiting_payment' },
-  { label: 'Cancelled', value: 'cancelled,refunded' },
-];
 const STATUS_NAMES = {
   awaiting_payment: 'Awaiting payment',
   pending: 'Pending',
@@ -66,25 +62,99 @@ const STATUS_NAMES = {
   refunded: 'Refunded',
 };
 
+const PAYMENT = {
+  paid: ['Paid', 'success'],
+  pending: ['Due', 'warning'],
+  failed: ['Failed', 'error'],
+  refunded: ['Refunded', 'default'],
+};
+const FULFILMENT = {
+  awaiting_payment: ['Unfulfilled', 'default'],
+  pending: ['Unfulfilled', 'default'],
+  processing: ['Processing', 'info'],
+  shipped: ['Shipped', 'info'],
+  delivered: ['Fulfilled', 'success'],
+  cancelled: ['Cancelled', 'error'],
+  refunded: ['Refunded', 'default'],
+};
+const SHIPPING = {
+  standard: ['Standard', 'info'],
+  express: ['Express', 'warning'],
+};
+
+const DATE_RANGES = [
+  { value: '', label: 'All time' },
+  { value: '7', label: 'Last 7 days' },
+  { value: '30', label: 'Last 30 days' },
+  { value: '90', label: 'Last 90 days' },
+  { value: '365', label: 'Last 12 months' },
+];
+
+const ordersCsv = (rows) => {
+  const cell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  return [
+    [
+      'Order',
+      'Date',
+      'Customer',
+      'Email',
+      'Payment',
+      'Fulfilment',
+      'Shipping',
+      'Total',
+    ]
+      .map(cell)
+      .join(','),
+    ...rows.map((o) =>
+      [
+        o.id,
+        formatDateTime(o.placedAt),
+        o.customer?.name,
+        o.email,
+        PAYMENT[o.paymentStatus]?.[0],
+        FULFILMENT[o.status]?.[0],
+        SHIPPING[o.shippingMethod]?.[0],
+        o.total,
+      ]
+        .map(cell)
+        .join(',')
+    ),
+  ].join('\n');
+};
+
 export const AdminOrdersPage = () => {
   const notify = useNotify();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const status = params.get('status') || '';
-  const [search, setSearch] = useState(params.get('search') || '');
+  const get = (k) => params.get(k) || '';
+  const [search, setSearch] = useState(get('search'));
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(PAGE_SIZE);
   const [data, setData] = useState(null);
+  const [selected, setSelected] = useState([]);
+
+  const setFilter = (key, value) => {
+    const next = new URLSearchParams(params);
+    if (value) next.set(key, value);
+    else next.delete(key);
+    setParams(next, { replace: true });
+    setPage(0);
+  };
 
   useEffect(() => {
     let active = true;
     setData(null);
+    setSelected([]);
     adminOrders
       .list({
         page: page + 1,
         limit: rowsPerPage,
-        status: status || undefined,
-        search: params.get('search') || undefined,
+        status: get('status') || undefined,
+        search: get('search') || undefined,
+        paymentStatus: get('payment') || undefined,
+        shippingMethod: get('shipping') || undefined,
+        paymentMethod: get('method') || undefined,
+        days: get('days') || undefined,
       })
       .then((d) => active && setData(d))
       .catch(
@@ -96,14 +166,23 @@ export const AdminOrdersPage = () => {
     return () => {
       active = false;
     };
-  }, [status, page, rowsPerPage, params, notify]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, rowsPerPage, params, notify]);
 
-  const submitSearch = () => {
-    setPage(0);
-    setParams({
-      ...(status ? { status } : {}),
-      ...(search.trim() ? { search: search.trim() } : {}),
-    });
+  const rows = data?.orders || [];
+  const allChecked = rows.length > 0 && selected.length === rows.length;
+  const exportCsv = () => {
+    const chosen = selected.length
+      ? rows.filter((o) => selected.includes(o.id))
+      : rows;
+    const url = URL.createObjectURL(
+      new Blob([ordersCsv(chosen)], { type: 'text/csv' })
+    );
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'orders.csv';
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -113,108 +192,263 @@ export const AdminOrdersPage = () => {
           { label: 'Home', to: '/admin' },
           { label: 'Orders', to: '/admin/orders' },
         ]}
-        title="Orders"
+        title="Order list"
+        actions={
+          <Button
+            startIcon={<FiDownload />}
+            onClick={exportCsv}
+            disabled={!rows.length}
+            sx={{ bgcolor: 'background.neutral' }}
+          >
+            {selected.length ? `Export ${selected.length}` : 'Export'}
+          </Button>
+        }
       />
       <TablePanel>
-        <PanelTabs
-          value={STATUS_TABS.some((t) => t.value === status) ? status : ''}
-          onChange={(v) => {
-            setPage(0);
-            setParams(v ? { status: v } : {});
-          }}
-          tabs={STATUS_TABS.map((t) => ({ value: t.value, label: t.label }))}
-        />
         <PanelToolbar>
           <SearchField
             value={search}
             onChange={setSearch}
-            onSubmit={submitSearch}
-            placeholder="Order #, email or name"
+            onSubmit={() => setFilter('search', search.trim())}
+            placeholder="Search order #, customer or email"
             label="Search orders"
           />
+          <Box sx={{ flex: 1 }} />
+          <TextField
+            select
+            size="small"
+            value={get('days')}
+            onChange={(e) => setFilter('days', e.target.value)}
+            inputProps={{ 'aria-label': 'Date range' }}
+            SelectProps={{ displayEmpty: true }}
+            sx={{
+              minWidth: 170,
+              '& .MuiOutlinedInput-root': { bgcolor: 'background.neutral' },
+            }}
+          >
+            {DATE_RANGES.map((r) => (
+              <MenuItem key={r.value} value={r.value}>
+                {r.label}
+              </MenuItem>
+            ))}
+          </TextField>
         </PanelToolbar>
+        <Stack
+          direction="row"
+          spacing={0.5}
+          flexWrap="wrap"
+          useFlexGap
+          sx={{ px: 2, pb: 1.5 }}
+        >
+          <FilterMenu
+            label="Payment"
+            value={get('payment')}
+            onChange={(v) => setFilter('payment', v)}
+            options={[
+              { value: '', label: 'All' },
+              { value: 'paid', label: 'Paid' },
+              { value: 'pending', label: 'Due' },
+              { value: 'failed', label: 'Failed' },
+              { value: 'refunded', label: 'Refunded' },
+            ]}
+          />
+          <FilterMenu
+            label="Fulfilment"
+            value={get('status')}
+            onChange={(v) => setFilter('status', v)}
+            options={[
+              { value: '', label: 'All' },
+              { value: 'awaiting_payment,pending', label: 'Unfulfilled' },
+              { value: 'processing', label: 'Processing' },
+              { value: 'shipped', label: 'Shipped' },
+              { value: 'delivered', label: 'Fulfilled' },
+              { value: 'cancelled', label: 'Cancelled' },
+              { value: 'refunded', label: 'Refunded' },
+            ]}
+          />
+          <FilterMenu
+            label="Shipping"
+            value={get('shipping')}
+            onChange={(v) => setFilter('shipping', v)}
+            options={[
+              { value: '', label: 'All' },
+              { value: 'standard', label: 'Standard' },
+              { value: 'express', label: 'Express' },
+            ]}
+          />
+          <FilterMenu
+            label="Payment method"
+            value={get('method')}
+            onChange={(v) => setFilter('method', v)}
+            options={[
+              { value: '', label: 'All' },
+              { value: 'stripe', label: 'Card' },
+              { value: 'cod', label: 'Cash on delivery' },
+            ]}
+          />
+          {['payment', 'status', 'shipping', 'method', 'days', 'search'].some(
+            (k) => get(k)
+          ) && (
+            <Button
+              size="small"
+              onClick={() => {
+                setSearch('');
+                setParams({}, { replace: true });
+                setPage(0);
+              }}
+            >
+              Clear filters
+            </Button>
+          )}
+        </Stack>
         <TableContainer>
-          <Table aria-label="Orders">
+          <Table aria-label="Orders" sx={{ minWidth: 900 }}>
             <TableHead>
               <TableRow>
+                <TableCell padding="checkbox">
+                  <Checkbox
+                    checked={allChecked}
+                    indeterminate={selected.length > 0 && !allChecked}
+                    onChange={() =>
+                      setSelected(allChecked ? [] : rows.map((o) => o.id))
+                    }
+                    inputProps={{
+                      'aria-label': 'Select all orders on this page',
+                    }}
+                  />
+                </TableCell>
                 <TableCell>Order</TableCell>
+                <TableCell>Date</TableCell>
                 <TableCell>Customer</TableCell>
-                <TableCell>Placed</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Payment</TableCell>
+                <TableCell>Payment status</TableCell>
+                <TableCell>Fulfillment status</TableCell>
+                <TableCell>Shipping method</TableCell>
                 <TableCell align="right">Total</TableCell>
+                <TableCell align="right" />
               </TableRow>
             </TableHead>
             <TableBody>
-              {!data &&
-                [0, 1, 2, 3].map((i) => (
-                  <TableRow key={i}>
-                    <TableCell colSpan={6}>
-                      <Skeleton height={32} />
+              {!data && <LoadingRows cols={9} />}
+              {data && !rows.length && (
+                <EmptyRow cols={9}>No orders match.</EmptyRow>
+              )}
+              {rows.map((o) => {
+                const pay = PAYMENT[o.paymentStatus] || [
+                  o.paymentStatus,
+                  'default',
+                ];
+                const ful = FULFILMENT[o.status] || [o.statusName, 'default'];
+                const ship = SHIPPING[o.shippingMethod] || [
+                  o.shippingMethod || '—',
+                  'default',
+                ];
+                const name = o.customer?.name || o.email;
+                return (
+                  <TableRow
+                    key={o.id}
+                    hover
+                    selected={selected.includes(o.id)}
+                    data-testid={`admin-order-${o.id}`}
+                    onClick={(e) => {
+                      // Checkbox, links and the ⋯ menu keep their own action.
+                      if (!e.target.closest('a, button, input, [role="menu"]'))
+                        navigate(`/admin/orders/${o.id}`);
+                    }}
+                    sx={{ cursor: 'pointer' }}
+                  >
+                    <TableCell padding="checkbox">
+                      <Checkbox
+                        checked={selected.includes(o.id)}
+                        onChange={() =>
+                          setSelected((s) =>
+                            s.includes(o.id)
+                              ? s.filter((x) => x !== o.id)
+                              : [...s, o.id]
+                          )
+                        }
+                        inputProps={{ 'aria-label': `Select order ${o.id}` }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Link
+                        component={RouterLink}
+                        to={`/admin/orders/${o.id}`}
+                        underline="hover"
+                        sx={{ fontWeight: 600 }}
+                      >
+                        #{o.id}
+                      </Link>
+                      <Typography variant="caption" sx={{ display: 'block' }}>
+                        {o.itemCount} item{o.itemCount === 1 ? '' : 's'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                      {formatDateTime(o.placedAt)}
+                    </TableCell>
+                    <TableCell>
+                      <Stack direction="row" spacing={1.25} alignItems="center">
+                        <Avatar
+                          sx={{
+                            width: 32,
+                            height: 32,
+                            fontSize: '0.85rem',
+                            bgcolor: 'primary.light',
+                            color: 'primary.main',
+                          }}
+                        >
+                          {name.charAt(0).toUpperCase()}
+                        </Avatar>
+                        {o.customer?.customer_id ? (
+                          <Link
+                            component={RouterLink}
+                            to={`/admin/users/${o.customer.customer_id}`}
+                            underline="hover"
+                          >
+                            {name}
+                          </Link>
+                        ) : (
+                          <Typography variant="body2">{name}</Typography>
+                        )}
+                      </Stack>
+                    </TableCell>
+                    <TableCell>
+                      <Pill label={pay[0]} tone={pay[1]} />
+                    </TableCell>
+                    <TableCell>
+                      <Pill label={ful[0]} tone={ful[1]} />
+                    </TableCell>
+                    <TableCell>
+                      <Pill label={ship[0]} tone={ship[1]} />
+                    </TableCell>
+                    <TableCell align="right">
+                      <Typography variant="subtitle2">
+                        {formatMoney(o.total, o.currency)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="right">
+                      <RowActions
+                        label={`Actions for order ${o.id}`}
+                        items={[
+                          {
+                            label: 'View order',
+                            icon: <FiEye />,
+                            onClick: () => navigate(`/admin/orders/${o.id}`),
+                          },
+                          {
+                            label: 'View customer',
+                            icon: <FiUser />,
+                            hidden: !o.customer?.customer_id,
+                            onClick: () =>
+                              navigate(
+                                `/admin/users/${o.customer.customer_id}`
+                              ),
+                          },
+                        ]}
+                      />
                     </TableCell>
                   </TableRow>
-                ))}
-              {data?.orders.map((o) => (
-                <TableRow
-                  key={o.id}
-                  hover
-                  onClick={() => navigate(`/admin/orders/${o.id}`)}
-                  sx={{ cursor: 'pointer' }}
-                  data-testid={`admin-order-${o.id}`}
-                >
-                  <TableCell>
-                    <Typography
-                      variant="subtitle2"
-                      component={RouterLink}
-                      to={`/admin/orders/${o.id}`}
-                      onClick={(e) => e.stopPropagation()}
-                      sx={{ color: 'text.primary', textDecoration: 'none' }}
-                    >
-                      #{o.id}
-                    </Typography>
-                    <br />
-                    <Typography variant="caption">
-                      {o.itemCount} items
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">
-                      {o.customer?.name || '—'}
-                    </Typography>
-                    <Typography variant="caption">{o.email}</Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">
-                      {formatDateTime(o.placedAt)}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <StatusChip status={o.status} label={o.statusName} />
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">
-                      {o.paymentMethod === 'stripe' ? 'Card' : 'Cash'}
-                    </Typography>
-                    <Typography variant="caption">{o.paymentStatus}</Typography>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Typography variant="subtitle2">
-                      {formatMoney(o.total, o.currency)}
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {data && !data.orders.length && (
-                <TableRow>
-                  <TableCell
-                    colSpan={6}
-                    align="center"
-                    sx={{ py: 5, color: 'text.secondary' }}
-                  >
-                    No orders match.
-                  </TableCell>
-                </TableRow>
-              )}
+                );
+              })}
             </TableBody>
           </Table>
         </TableContainer>

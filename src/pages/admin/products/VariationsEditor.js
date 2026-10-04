@@ -35,7 +35,7 @@ export const OPTION_NAMES = [
 ];
 
 /** Pick which product photos belong to one value; upload new ones too. */
-const LinkImagesDialog = ({
+export const LinkImagesDialog = ({
   open,
   title,
   images,

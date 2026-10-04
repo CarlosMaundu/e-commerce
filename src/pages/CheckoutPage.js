@@ -1,7 +1,14 @@
-// src/pages/CheckoutPage.js — OpenCart-style checkout in four steps. Every
+// src/pages/CheckoutPage.js — OpenCart-style checkout in three steps. Every
 // price comes from the server; card payments go through Stripe and are
 // verified by the server before the order is placed.
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import PropTypes from 'prop-types';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import {
@@ -21,26 +28,39 @@ import {
   Step,
   StepLabel,
   Stepper,
+  Tab,
+  Tabs,
   TextField,
   Typography,
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import { loadStripe } from '@stripe/stripe-js';
-import {
-  Elements,
-  PaymentElement,
-  useElements,
-  useStripe,
-} from '@stripe/react-stripe-js';
+import { Elements } from '@stripe/react-stripe-js';
 import { checkout as checkoutApi } from '../api';
 import { formatAddress } from '../api/mappers';
 import { clearCart, loadCart, selectCart } from '../redux/cartSlice';
 import { useNotify } from '../notification/NotificationProvider';
 import { SectionCard } from '../components/ui';
 import AddressForm, { countryName } from '../components/account/AddressForm';
+import CardPayment from '../components/checkout/CardPayment';
 import { formatMoney, optionText } from '../utils/format';
 
-const STEPS = ['Delivery address', 'Delivery option', 'Payment', 'Review'];
+const STEPS = ['Delivery address', 'Delivery option', 'Payment'];
+
+/** Back / forward pair: equal widths, as in the reference. */
+const ActionRow = ({ children }) => (
+  <Box
+    sx={{
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      gap: 2,
+      pt: 1,
+    }}
+  >
+    {children}
+  </Box>
+);
+ActionRow.propTypes = { children: PropTypes.node };
 
 const Choice = ({ selected, onSelect, title, description, aside, testId }) => {
   const theme = useTheme();
@@ -85,50 +105,145 @@ const Choice = ({ selected, onSelect, title, description, aside, testId }) => {
   );
 };
 
-const StripePayment = ({ onPaid, disabled }) => {
-  const stripe = useStripe();
-  const elements = useElements();
-  const notify = useNotify();
-  const [paying, setPaying] = useState(false);
-  const pay = async () => {
-    if (!stripe || !elements) return;
-    setPaying(true);
-    const { error } = await stripe.confirmPayment({
-      elements,
-      redirect: 'if_required',
-      confirmParams: { return_url: window.location.href },
-    });
-    if (error) {
-      notify.error(
-        error,
-        'Your card payment didn’t go through. Please check the details and try again.'
-      );
-      setPaying(false);
-      return;
-    }
-    await onPaid();
-    setPaying(false);
-  };
-  return (
-    <Stack spacing={2}>
-      <PaymentElement />
-      <Button
-        size="large"
-        variant="contained"
-        onClick={pay}
-        disabled={disabled || paying || !stripe}
-      >
-        {paying ? 'Processing payment…' : 'Pay and place order'}
-      </Button>
-    </Stack>
-  );
+const TOTAL_LABELS = {
+  sub_total: 'Subtotal',
+  tax: 'Estimated tax',
+  shipping: 'Estimated shipping & handling',
 };
+
+const SummaryHeading = ({ children }) => (
+  <Typography variant="subtitle2" sx={{ mb: 1 }}>
+    {children}
+  </Typography>
+);
+SummaryHeading.propTypes = { children: PropTypes.node };
+
+/** Left-hand card (reference layout): items, address, delivery, totals. */
+const OrderSummary = ({ items, address, shipment, totals, total }) => (
+  <SectionCard title="Summary">
+    <Stack spacing={1.25}>
+      {items.map((item) => (
+        <Stack
+          key={item.key}
+          direction="row"
+          spacing={1.5}
+          alignItems="center"
+          sx={{ bgcolor: 'background.neutral', borderRadius: '8px', p: 1.25 }}
+        >
+          <Box
+            component="img"
+            src={item.image}
+            alt=""
+            sx={{
+              width: 48,
+              height: 48,
+              objectFit: 'contain',
+              borderRadius: '8px',
+              bgcolor: 'background.paper',
+              flexShrink: 0,
+            }}
+          />
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
+              {item.title}
+            </Typography>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              noWrap
+              sx={{ display: 'block' }}
+            >
+              {[optionText(item.options), `Qty ${item.quantity}`]
+                .filter(Boolean)
+                .join(' · ')}
+            </Typography>
+          </Box>
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            {formatMoney(item.total)}
+          </Typography>
+        </Stack>
+      ))}
+    </Stack>
+    {address && (
+      <Box sx={{ mt: 2.5 }}>
+        <SummaryHeading>Address</SummaryHeading>
+        <Typography variant="body2" color="text.secondary">
+          {`${address.firstName} ${address.lastName}`.trim()}
+          <br />
+          {formatAddress({ ...address, country: countryName(address.country) })}
+        </Typography>
+      </Box>
+    )}
+    {shipment && (
+      <Box sx={{ mt: 2.5 }}>
+        <SummaryHeading>Shipment method</SummaryHeading>
+        <Typography variant="body2" color="text.secondary">
+          {shipment.title}
+          {shipment.description ? ` · ${shipment.description}` : ''}
+        </Typography>
+      </Box>
+    )}
+    <Divider sx={{ my: 2.5 }} />
+    <Stack spacing={1}>
+      {totals.map(([label, value]) => (
+        <Stack key={label} direction="row" justifyContent="space-between">
+          <Typography variant="body2" color="text.secondary">
+            {label}
+          </Typography>
+          <Typography variant="body2">{formatMoney(value)}</Typography>
+        </Stack>
+      ))}
+      <Divider />
+      <Stack direction="row" justifyContent="space-between">
+        <Typography variant="subtitle1">Total</Typography>
+        <Typography variant="subtitle1" data-testid="checkout-total">
+          {formatMoney(total)}
+        </Typography>
+      </Stack>
+    </Stack>
+  </SectionCard>
+);
+OrderSummary.propTypes = {
+  items: PropTypes.array.isRequired,
+  address: PropTypes.object,
+  shipment: PropTypes.object,
+  totals: PropTypes.array.isRequired,
+  total: PropTypes.number,
+};
+
+export const CheckoutSkeleton = () => (
+  <Container
+    maxWidth="xl"
+    sx={{ py: { xs: 3, md: 5 } }}
+    data-testid="checkout-loading"
+  >
+    <Skeleton variant="text" width={200} height={48} />
+    <Skeleton variant="rounded" height={40} sx={{ my: 3 }} />
+    <Grid container spacing={4}>
+      <Grid item xs={12} md={5}>
+        <Stack spacing={1.25}>
+          <Skeleton variant="rounded" height={32} width="40%" />
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} variant="rounded" height={68} />
+          ))}
+          <Skeleton variant="rounded" height={160} />
+        </Stack>
+      </Grid>
+      <Grid item xs={12} md={7}>
+        <Skeleton variant="rounded" height={420} />
+      </Grid>
+    </Grid>
+  </Container>
+);
+
+const PAYMENT_TAB_LABELS = { stripe: 'Credit card', cod: 'Cash on delivery' };
 
 const CheckoutPage = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const notify = useNotify();
   const cart = useSelector(selectCart);
+  const cardRef = useRef(null);
 
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -140,8 +255,10 @@ const CheckoutPage = () => {
   const [comment, setComment] = useState('');
   const [payments, setPayments] = useState([]);
   const [paymentMethod, setPaymentMethod] = useState(null);
+  const [sameBilling, setSameBilling] = useState(true);
+  const [billingId, setBillingId] = useState(null);
   const [agree, setAgree] = useState(false);
-  const [review, setReview] = useState(null);
+  const [cardReady, setCardReady] = useState(false);
   const [placing, setPlacing] = useState(false);
   const [working, setWorking] = useState(false);
 
@@ -193,6 +310,7 @@ const CheckoutPage = () => {
       const data = await checkoutApi.getShippingMethods();
       setMethods(data.methods);
       setShippingMethod(data.selected || data.methods[0]?.code);
+      setBillingId(addressId);
       setStep(1);
     }, 'We couldn’t use that address. Please try again.');
 
@@ -209,22 +327,49 @@ const CheckoutPage = () => {
     run(async () => {
       await checkoutApi.setShippingMethod(shippingMethod, comment);
       const data = await checkoutApi.getPaymentMethods();
-      setPayments(data.methods);
-      setPaymentMethod(data.selected || data.methods[0]?.code);
+      // Card first, as in the reference layout.
+      const sorted = [...data.methods].sort(
+        (a, b) => (b.code === 'stripe') - (a.code === 'stripe')
+      );
+      setPayments(sorted);
+      setPaymentMethod(data.selected || sorted[0]?.code);
       await dispatch(loadCart());
       setStep(2);
     }, 'We couldn’t save your delivery option.');
 
-  const confirmPayment = () =>
-    run(async () => {
-      await checkoutApi.setPaymentMethod(paymentMethod, agree);
-      setReview(await checkoutApi.review());
-      setStep(3);
-    }, 'We couldn’t prepare your order. Please try again.');
+  const stripeMethod = payments.find((m) => m.code === 'stripe');
+  const publishableKey = stripeMethod?.publishable_key;
+  const stripePromise = useMemo(
+    () => (publishableKey ? loadStripe(publishableKey) : null),
+    [publishableKey]
+  );
+  const paying = paymentMethod === 'stripe';
 
-  const place = async () => {
+  const pay = async () => {
+    if (paying && cardRef.current?.needsName()) {
+      notify.error(null, 'Please enter the name on your card.');
+      return;
+    }
     setPlacing(true);
     try {
+      await checkoutApi.usePaymentAddress(sameBilling ? addressId : billingId);
+      await checkoutApi.setPaymentMethod(paymentMethod, agree);
+      const review = await checkoutApi.review();
+      if (review.payment.method === 'stripe') {
+        if (!review.payment.clientSecret || !cardRef.current) {
+          notify.error(
+            null,
+            'Card payments aren’t available right now. Please choose another payment method.'
+          );
+          setPlacing(false);
+          return;
+        }
+        const paid = await cardRef.current.pay(review.payment.clientSecret);
+        if (!paid) {
+          setPlacing(false);
+          return;
+        }
+      }
       const order = await checkoutApi.placeOrder();
       dispatch(clearCart());
       navigate(`/account/orders/${order.id}?placed=1`, { replace: true });
@@ -234,51 +379,45 @@ const CheckoutPage = () => {
     }
   };
 
-  const stripePromise = useMemo(
-    () =>
-      review?.payment.publishableKey
-        ? loadStripe(review.payment.publishableKey)
-        : null,
-    [review?.payment.publishableKey]
-  );
-
-  const totals = review
-    ? [
-        ['Subtotal', review.order.totals.subtotal],
-        review.order.totals.discount
-          ? ['Promo code', -review.order.totals.discount]
-          : null,
-        ['Delivery', review.order.totals.shipping],
-        ['Tax', review.order.totals.tax],
-      ].filter(Boolean)
-    : cart.totals
-        .filter((t) => t.code !== 'total')
-        .map((t) => [t.title, t.value]);
-  const total = review ? review.order.total : cart.total;
+  const totals = cart.totals
+    .filter((t) => t.code !== 'total')
+    .map((t) => [
+      t.code === 'shipping'
+        ? TOTAL_LABELS.shipping
+        : TOTAL_LABELS[t.code] || t.title,
+      t.value,
+    ]);
   const selectedAddress = addresses.find((a) => a.id === addressId);
+  const shipment =
+    step > 0 ? methods.find((m) => m.code === shippingMethod) : null;
 
-  if (loading) {
-    return (
-      <Container maxWidth="lg" sx={{ py: 5 }}>
-        <Skeleton variant="rounded" height={420} />
-      </Container>
-    );
-  }
+  if (loading) return <CheckoutSkeleton />;
 
   return (
     <Container maxWidth="xl" sx={{ py: { xs: 3, md: 5 } }}>
       <Typography variant="h3" component="h1" sx={{ mb: 3 }}>
         Checkout
       </Typography>
-      <Stepper activeStep={step} alternativeLabel sx={{ mb: 4 }}>
+      <Stepper activeStep={step} alternativeLabel sx={{ mb: { xs: 3, md: 4 } }}>
         {STEPS.map((label) => (
           <Step key={label}>
             <StepLabel>{label}</StepLabel>
           </Step>
         ))}
       </Stepper>
-      <Grid container spacing={4}>
-        <Grid item xs={12} md={8}>
+      <Grid container spacing={{ xs: 3, md: 4 }}>
+        <Grid item xs={12} md={5} sx={{ order: { xs: 2, md: 1 } }}>
+          <Box sx={{ position: { md: 'sticky' }, top: { md: 140 } }}>
+            <OrderSummary
+              items={cart.items}
+              address={step > 0 ? selectedAddress : null}
+              shipment={shipment}
+              totals={totals}
+              total={cart.total}
+            />
+          </Box>
+        </Grid>
+        <Grid item xs={12} md={7} sx={{ order: { xs: 1, md: 2 } }}>
           {step === 0 && (
             <SectionCard title="Where should we deliver?">
               {addingAddress ? (
@@ -308,15 +447,24 @@ const CheckoutPage = () => {
                   >
                     + Add a new address
                   </Button>
-                  <Button
-                    size="large"
-                    variant="contained"
-                    onClick={confirmAddress}
-                    disabled={!addressId || working}
-                    sx={{ alignSelf: 'flex-end' }}
-                  >
-                    Deliver here
-                  </Button>
+                  <ActionRow>
+                    <Button
+                      variant="outlined"
+                      size="large"
+                      component={RouterLink}
+                      to="/cart"
+                    >
+                      Back to cart
+                    </Button>
+                    <Button
+                      size="large"
+                      variant="contained"
+                      onClick={confirmAddress}
+                      disabled={!addressId || working}
+                    >
+                      Deliver here
+                    </Button>
+                  </ActionRow>
                 </Stack>
               )}
             </SectionCard>
@@ -352,8 +500,14 @@ const CheckoutPage = () => {
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
                 />
-                <Stack direction="row" justifyContent="space-between">
-                  <Button onClick={() => setStep(0)}>Back</Button>
+                <ActionRow>
+                  <Button
+                    variant="outlined"
+                    size="large"
+                    onClick={() => setStep(0)}
+                  >
+                    Back
+                  </Button>
                   <Button
                     size="large"
                     variant="contained"
@@ -362,215 +516,185 @@ const CheckoutPage = () => {
                   >
                     Continue
                   </Button>
-                </Stack>
+                </ActionRow>
               </Stack>
             </SectionCard>
           )}
 
           {step === 2 && (
             <SectionCard title="Payment">
-              <Stack spacing={1.5}>
-                {payments.map((m) => (
-                  <Choice
-                    key={m.code}
-                    testId={`payment-${m.code}`}
-                    selected={m.code === paymentMethod}
-                    onSelect={() => setPaymentMethod(m.code)}
-                    title={m.title}
-                    description={m.description}
-                  />
-                ))}
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={agree}
-                      onChange={(e) => setAgree(e.target.checked)}
+              <Stack spacing={2.5}>
+                <Tabs
+                  value={paymentMethod || false}
+                  onChange={(_, v) => setPaymentMethod(v)}
+                  variant="fullWidth"
+                  aria-label="Payment method"
+                  sx={{
+                    minHeight: 44,
+                    bgcolor: 'background.neutral',
+                    borderRadius: '8px',
+                    p: 0.5,
+                    '& .MuiTabs-indicator': { display: 'none' },
+                    '& .MuiTab-root': {
+                      minHeight: 36,
+                      borderRadius: '6px',
+                      textTransform: 'none',
+                      fontWeight: 600,
+                    },
+                    '& .Mui-selected': {
+                      bgcolor: 'background.paper',
+                      boxShadow: 1,
+                    },
+                  }}
+                >
+                  {payments.map((m) => (
+                    <Tab
+                      key={m.code}
+                      value={m.code}
+                      label={PAYMENT_TAB_LABELS[m.code] || m.title}
+                      data-testid={`payment-${m.code}`}
                     />
-                  }
-                  label={
-                    <>
-                      I accept the{' '}
-                      <Link
-                        component={RouterLink}
-                        to="/information/terms"
-                        target="_blank"
-                      >
-                        terms and conditions
-                      </Link>
-                    </>
-                  }
-                />
-                <Stack direction="row" justifyContent="space-between">
-                  <Button onClick={() => setStep(1)}>Back</Button>
-                  <Button
-                    size="large"
-                    variant="contained"
-                    onClick={confirmPayment}
-                    disabled={!paymentMethod || !agree || working}
-                  >
-                    Review order
-                  </Button>
-                </Stack>
-              </Stack>
-            </SectionCard>
-          )}
-
-          {step === 3 && review && (
-            <SectionCard title="Review your order">
-              <Stack spacing={3}>
-                <Stack divider={<Divider />} spacing={1.5}>
-                  {review.order.items.map((item) => (
-                    <Stack
-                      key={item.id}
-                      direction="row"
-                      spacing={2}
-                      alignItems="center"
-                    >
-                      <Box
-                        component="img"
-                        src={item.image}
-                        alt=""
-                        sx={{
-                          width: 56,
-                          height: 56,
-                          objectFit: 'contain',
-                          borderRadius: 1,
-                          bgcolor: 'background.neutral',
-                        }}
-                      />
-                      <Box sx={{ flex: 1 }}>
-                        <Typography variant="subtitle2">
-                          {item.title}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {[optionText(item.options), `Qty ${item.quantity}`]
-                            .filter(Boolean)
-                            .join(' · ')}
-                        </Typography>
-                      </Box>
-                      <Typography variant="subtitle2">
-                        {formatMoney(item.total)}
-                      </Typography>
-                    </Stack>
                   ))}
-                </Stack>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="overline" color="text.secondary">
-                      Delivering to
-                    </Typography>
-                    <Typography variant="body2">
-                      {formatAddress(review.order.shippingAddress)}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="overline" color="text.secondary">
-                      Paying by
-                    </Typography>
-                    <Typography variant="body2">
-                      {review.payment.method === 'stripe'
-                        ? 'Card'
-                        : 'Cash on delivery'}
-                    </Typography>
-                  </Grid>
-                </Grid>
-                {review.payment.method === 'stripe' ? (
-                  stripePromise && review.payment.clientSecret ? (
-                    <Elements
-                      stripe={stripePromise}
-                      options={{ clientSecret: review.payment.clientSecret }}
-                    >
-                      <StripePayment onPaid={place} disabled={placing} />
+                </Tabs>
+
+                {paying &&
+                  (stripePromise ? (
+                    <Elements stripe={stripePromise}>
+                      <CardPayment
+                        ref={cardRef}
+                        onReadyChange={setCardReady}
+                        onError={(error) =>
+                          notify.error(
+                            error,
+                            'Your card payment didn’t go through. Please check the details and try again.'
+                          )
+                        }
+                      />
                     </Elements>
                   ) : (
                     <Alert severity="error">
-                      Card payments aren’t available right now. Please go back
-                      and choose another payment method.
+                      Card payments aren’t available right now. Please choose
+                      another payment method.
                     </Alert>
-                  )
-                ) : (
-                  <Stack direction="row" justifyContent="space-between">
-                    <Button onClick={() => setStep(2)} disabled={placing}>
-                      Back
-                    </Button>
-                    <Button
-                      size="large"
-                      variant="contained"
-                      onClick={place}
-                      disabled={placing}
-                      startIcon={
-                        placing ? (
-                          <CircularProgress size={18} color="inherit" />
-                        ) : null
-                      }
-                    >
-                      {placing
-                        ? 'Placing order…'
-                        : `Place order · ${formatMoney(review.order.total)}`}
-                    </Button>
-                  </Stack>
+                  ))}
+                {paymentMethod === 'cod' && (
+                  <Box
+                    sx={{
+                      bgcolor: 'background.neutral',
+                      borderRadius: 1,
+                      p: 2.5,
+                    }}
+                  >
+                    <Typography variant="subtitle1">
+                      Pay when your order arrives
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Have {formatMoney(cart.total)} ready in cash or M-Pesa for
+                      the courier. We’ll email you when it’s on the way.
+                    </Typography>
+                  </Box>
                 )}
+
+                <Stack alignItems="flex-start">
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={sameBilling}
+                        onChange={(e) => {
+                          setSameBilling(e.target.checked);
+                          if (!e.target.checked && !billingId)
+                            setBillingId(addressId);
+                        }}
+                      />
+                    }
+                    label="Same as billing address"
+                  />
+                  {!sameBilling && (
+                    <Stack spacing={1} sx={{ my: 1, alignSelf: 'stretch' }}>
+                      <Typography variant="subtitle2">
+                        Billing address
+                      </Typography>
+                      {addresses.map((a) => (
+                        <Choice
+                          key={a.id}
+                          testId={`billing-choice-${a.id}`}
+                          selected={a.id === billingId}
+                          onSelect={() => setBillingId(a.id)}
+                          title={`${a.firstName} ${a.lastName}`}
+                          description={formatAddress({
+                            ...a,
+                            country: countryName(a.country),
+                          })}
+                        />
+                      ))}
+                      <Typography variant="caption" color="text.secondary">
+                        Add more addresses in{' '}
+                        <Link component={RouterLink} to="/account/addresses">
+                          your account
+                        </Link>
+                        .
+                      </Typography>
+                    </Stack>
+                  )}
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={agree}
+                        onChange={(e) => setAgree(e.target.checked)}
+                      />
+                    }
+                    label={
+                      <>
+                        I accept the{' '}
+                        <Link
+                          component={RouterLink}
+                          to="/information/terms"
+                          target="_blank"
+                        >
+                          terms and conditions
+                        </Link>
+                      </>
+                    }
+                  />
+                </Stack>
+
+                <ActionRow>
+                  <Button
+                    variant="outlined"
+                    size="large"
+                    onClick={() => setStep(1)}
+                    disabled={placing}
+                  >
+                    Back
+                  </Button>
+                  <Button
+                    size="large"
+                    variant="contained"
+                    onClick={pay}
+                    disabled={
+                      !paymentMethod ||
+                      !agree ||
+                      placing ||
+                      (paying && (!stripePromise || !cardReady))
+                    }
+                    startIcon={
+                      placing ? (
+                        <CircularProgress size={18} color="inherit" />
+                      ) : null
+                    }
+                  >
+                    {placing
+                      ? paying
+                        ? 'Processing payment…'
+                        : 'Placing order…'
+                      : paying
+                        ? `Pay ${formatMoney(cart.total)}`
+                        : `Place order · ${formatMoney(cart.total)}`}
+                  </Button>
+                </ActionRow>
               </Stack>
             </SectionCard>
           )}
-        </Grid>
-
-        <Grid item xs={12} md={4}>
-          <SectionCard
-            title="Order summary"
-            tinted
-            sx={{ position: { md: 'sticky' }, top: { md: 140 } }}
-          >
-            <Stack spacing={1.5} sx={{ mb: 2 }}>
-              {cart.items.map((item) => (
-                <Stack
-                  key={item.key}
-                  direction="row"
-                  spacing={1.5}
-                  alignItems="center"
-                >
-                  <Box
-                    component="img"
-                    src={item.image}
-                    alt=""
-                    sx={{
-                      width: 44,
-                      height: 44,
-                      objectFit: 'contain',
-                      borderRadius: 1.5,
-                      bgcolor: 'background.paper',
-                    }}
-                  />
-                  <Typography variant="body2" sx={{ flex: 1 }}>
-                    {item.quantity} × {item.title}
-                  </Typography>
-                  <Typography variant="body2">
-                    {formatMoney(item.total)}
-                  </Typography>
-                </Stack>
-              ))}
-            </Stack>
-            <Divider sx={{ mb: 2 }} />
-            <Stack spacing={1}>
-              {totals.map(([label, value]) => (
-                <Stack
-                  key={label}
-                  direction="row"
-                  justifyContent="space-between"
-                >
-                  <Typography color="text.secondary">{label}</Typography>
-                  <Typography>{formatMoney(value)}</Typography>
-                </Stack>
-              ))}
-              <Divider />
-              <Stack direction="row" justifyContent="space-between">
-                <Typography variant="subtitle1">Total</Typography>
-                <Typography variant="subtitle1" data-testid="checkout-total">
-                  {formatMoney(total)}
-                </Typography>
-              </Stack>
-            </Stack>
-          </SectionCard>
         </Grid>
       </Grid>
     </Container>

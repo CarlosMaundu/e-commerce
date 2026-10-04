@@ -41,7 +41,7 @@ test('filters narrow the list and live in the address bar', async ({
   page,
 }) => {
   await page.goto('/products');
-  await expect(page.getByText('31 results')).toBeVisible();
+  await expect(page.getByText('33 results')).toBeVisible();
 
   await page
     .locator('#filter-color')
@@ -60,7 +60,7 @@ test('filters narrow the list and live in the address bar', async ({
     .getByRole('button', { name: 'Color: Rose' })
     .locator('svg')
     .click();
-  await expect(page.getByText('31 results')).toBeVisible();
+  await expect(page.getByText('33 results')).toBeVisible();
 
   await page
     .getByRole('button', { name: /^Show \d+ more$/ })
@@ -138,4 +138,39 @@ test('customers review a product once', async ({ page }) => {
   await form.getByLabel('Your review').fill('Second thoughts, even better.');
   await form.getByRole('button', { name: 'Post review' }).click();
   await expect(toast(page)).toHaveText('You’ve already reviewed this product.');
+});
+
+test('a subcategory shows only its own products', async ({ page }) => {
+  await page.goto('/products');
+  await page.getByRole('checkbox', { name: /^Electronics/ }).check();
+  const phones = page.getByRole('checkbox', { name: /^Phones/ });
+  await phones.check();
+  // Picking the subcategory replaces its parent, so only phones are left.
+  await expect(
+    page.getByRole('checkbox', { name: /^Electronics/ })
+  ).not.toBeChecked();
+  await expect(page.getByText('2 results')).toBeVisible();
+  await expect(
+    page.getByRole('img', { name: 'Apple iPhone 14', exact: true })
+  ).toBeVisible();
+  await expect(
+    page.getByRole('img', { name: 'Samsung Galaxy S23', exact: true })
+  ).toBeVisible();
+});
+
+test('the iPhone shows each model’s price and only the chosen variation’s photos', async ({
+  page,
+}) => {
+  await openProduct(page, 'Apple iPhone 14');
+  await page.getByRole('radio', { name: 'Model iPhone 14 Pro Max' }).click();
+  await page.getByRole('radio', { name: 'Color Gold' }).click();
+  await page.getByRole('radio', { name: 'Storage 512GB' }).click();
+  await expect(page.getByTestId('product-price')).toContainText('$1,399.00');
+  await expect(
+    page.getByRole('img', { name: 'Apple iPhone 14', exact: true })
+  ).toHaveAttribute('src', /iphone14promax-gold/);
+  // Gold has one photo, so no other colours' thumbnails are offered.
+  await expect(page.getByRole('button', { name: /^Show photo/ })).toHaveCount(
+    0
+  );
 });

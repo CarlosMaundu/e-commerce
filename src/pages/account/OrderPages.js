@@ -20,7 +20,6 @@ import {
   FormControlLabel,
   Grid,
   MenuItem,
-  Pagination,
   Skeleton,
   Stack,
   Tab,
@@ -30,6 +29,7 @@ import {
 } from '@mui/material';
 import { FiPackage, FiRefreshCw, FiRotateCcw } from 'react-icons/fi';
 import { orders as ordersApi } from '../../api';
+import { StandardPagination } from '../../components/admin/DataTable';
 import { formatAddress } from '../../api/mappers';
 import { cartReplaced } from '../../redux/cartSlice';
 import { useNotify } from '../../notification/NotificationProvider';
@@ -180,14 +180,29 @@ export const OrdersPage = () => {
             </Box>
           ))}
           {data.total > PAGE_SIZE && (
-            <Pagination
-              count={Math.ceil(data.total / PAGE_SIZE)}
-              page={page}
-              onChange={(_, p) =>
-                setParams({ ...(status ? { status } : {}), page: String(p) })
-              }
-              sx={{ alignSelf: 'center' }}
-            />
+            <Box
+              sx={{
+                borderRadius: 1,
+                overflow: 'hidden',
+                border: 1,
+                borderColor: 'divider',
+              }}
+            >
+              <StandardPagination
+                count={data.total}
+                page={page - 1}
+                rowsPerPage={PAGE_SIZE}
+                label="orders"
+                maxShowAll={0}
+                onRowsPerPageChange={() => {}}
+                onPageChange={(_, p) =>
+                  setParams({
+                    ...(status ? { status } : {}),
+                    page: String(p + 1),
+                  })
+                }
+              />
+            </Box>
           )}
         </Stack>
       )}

@@ -21,6 +21,10 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
       z.object({
         status: z.string().optional(),
         search: z.string().trim().max(100).optional(),
+        payment_status: z.string().optional(),
+        shipping_method: z.string().optional(),
+        payment_method: z.string().optional(),
+        days: z.coerce.number().int().min(1).max(3650).optional(),
         limit: z.coerce.number().int().min(1).max(100).default(20),
         page: z.coerce.number().int().min(1).default(1),
       }),
@@ -37,6 +41,16 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
       where.push(`(o.email ILIKE $${params.length} OR o.id::text = $${params.length + 1}
         OR (u.firstname || ' ' || u.lastname) ILIKE $${params.length})`);
       params.push(q.search.replace(/^#/, ''));
+    }
+    for (const key of ['payment_status', 'shipping_method', 'payment_method'] as const) {
+      if (q[key]) {
+        params.push(q[key]!.split(','));
+        where.push(`o.${key} = ANY($${params.length}::text[])`);
+      }
+    }
+    if (q.days) {
+      params.push(q.days);
+      where.push(`o.placed_at >= now() - make_interval(days => $${params.length})`);
     }
     const whereSql = `WHERE ${where.join(' AND ')}`;
     const base = 'FROM orders o LEFT JOIN users u ON u.id = o.user_id';

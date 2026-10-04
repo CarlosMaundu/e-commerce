@@ -48,7 +48,9 @@ import ConfirmationDialog from '../../../components/common/ConfirmationDialog';
 import { formatMoney } from '../../../utils/format';
 import BrandDialog from './BrandDialog';
 import PageBreadcrumbs from '../../../components/common/PageBreadcrumbs';
-import VariationsEditor from './VariationsEditor';
+import VariationsEditor, { LinkImagesDialog } from './VariationsEditor';
+import { Pill } from '../../../components/admin/DataTable';
+import { PRODUCT_STATUSES, statusInfo } from '../../../utils/productStatus';
 
 const MAX_IMAGES = 10;
 const NEW_BRAND = '__new__';
@@ -107,7 +109,7 @@ const cleanAttributes = (attributes) =>
     values: [...new Set(a.values.map((v) => v.trim()).filter(Boolean))],
   }));
 
-const fromProduct = (p) => ({
+const baseFromProduct = (p) => ({
   title: p.title,
   description: p.description,
   categoryId: p.category?.id || '',
@@ -140,6 +142,22 @@ const fromProduct = (p) => ({
   status: p.status,
   imageLinks: linksFrom(p.attributes, p.variants),
 });
+
+const sameList = (a, b) =>
+  a.length === b.length && a.every((x, i) => x === b[i]);
+
+/** A variant's photos: its own pick, or those linked to its values. */
+const photosOf = (v, links) => v.ownImages ?? variantImages(v.options, links);
+
+const fromProduct = (p) => {
+  const form = baseFromProduct(p);
+  // Variants whose photos differ from their values' links keep their own.
+  form.variants = form.variants.map((v) => {
+    const linked = variantImages(v.options, form.imageLinks);
+    return { ...v, ownImages: sameList(v.images, linked) ? null : v.images };
+  });
+  return form;
+};
 
 const combos = (attributes) =>
   attributes
@@ -383,6 +401,7 @@ const ProductFormPage = () => {
   const [imageUrl, setImageUrl] = useState('');
   const [brandDialog, setBrandDialog] = useState(null); // { name }
   const [deleting, setDeleting] = useState(false);
+  const [variantPhotos, setVariantPhotos] = useState(null); // variant index
   const [bulk, setBulk] = useState({
     price: '',
     specialPrice: '',
@@ -544,7 +563,7 @@ const ProductFormPage = () => {
           attributes: cleanAttributes(next.attributes),
           variants: next.variants.map((v) => ({
             ...v,
-            images: variantImages(v.options, next.imageLinks),
+            images: photosOf(v, next.imageLinks),
           })),
         }
       : { ...next, attributes: [], variants: [] };
@@ -658,15 +677,9 @@ const ProductFormPage = () => {
                 {isNew ? 'Add product' : form.title || 'Untitled product'}
               </Typography>
               {!isNew && (
-                <Chip
-                  size="small"
-                  variant="outlined"
-                  color={
-                    original?.status === 'published' ? 'success' : 'warning'
-                  }
-                  label={
-                    original?.status === 'published' ? 'Published' : 'Draft'
-                  }
+                <Pill
+                  label={statusInfo(original?.status).label}
+                  tone={statusInfo(original?.status).tone}
                 />
               )}
             </Stack>
@@ -1204,30 +1217,48 @@ const ProductFormPage = () => {
                               spacing={1}
                               alignItems="center"
                             >
-                              {variantImages(v.options, form.imageLinks)[0] ? (
+                              <Tooltip
+                                title={
+                                  v.ownImages
+                                    ? 'Photos picked for this variant'
+                                    : 'Photos linked to its options'
+                                }
+                              >
                                 <Box
-                                  component="img"
-                                  src={
-                                    variantImages(v.options, form.imageLinks)[0]
-                                  }
-                                  alt=""
+                                  component="button"
+                                  type="button"
+                                  onClick={() => setVariantPhotos(i)}
+                                  aria-label={`Photos for ${label(v.options)}`}
                                   sx={{
-                                    width: 32,
-                                    height: 32,
+                                    p: 0,
+                                    width: 36,
+                                    height: 36,
                                     borderRadius: '6px',
-                                    objectFit: 'cover',
-                                  }}
-                                />
-                              ) : (
-                                <Box
-                                  sx={{
-                                    width: 32,
-                                    height: 32,
-                                    borderRadius: '6px',
+                                    overflow: 'hidden',
+                                    cursor: 'pointer',
+                                    border: 2,
+                                    borderColor: v.ownImages
+                                      ? 'primary.main'
+                                      : 'divider',
                                     bgcolor: 'background.neutralDeep',
+                                    flexShrink: 0,
                                   }}
-                                />
-                              )}
+                                >
+                                  {photosOf(v, form.imageLinks)[0] && (
+                                    <Box
+                                      component="img"
+                                      src={photosOf(v, form.imageLinks)[0]}
+                                      alt=""
+                                      sx={{
+                                        width: '100%',
+                                        height: '100%',
+                                        objectFit: 'cover',
+                                        display: 'block',
+                                      }}
+                                    />
+                                  )}
+                                </Box>
+                              </Tooltip>
                               <Typography variant="body2">
                                 {label(v.options)}
                               </Typography>
@@ -1432,20 +1463,17 @@ const ProductFormPage = () => {
                 label="Feature on the home page"
               />
               <RadioGroup
-                row
                 value={form.status}
                 onChange={(e) => set({ status: e.target.value })}
               >
-                <FormControlLabel
-                  value="published"
-                  control={<Radio />}
-                  label="Published — visible in the shop"
-                />
-                <FormControlLabel
-                  value="draft"
-                  control={<Radio />}
-                  label="Draft — only staff can see it"
-                />
+                {PRODUCT_STATUSES.map((st) => (
+                  <FormControlLabel
+                    key={st.value}
+                    value={st.value}
+                    control={<Radio />}
+                    label={`${st.label} — ${st.help.charAt(0).toLowerCase()}${st.help.slice(1)}`}
+                  />
+                ))}
               </RadioGroup>
             </Stack>
             {nav(7)}
@@ -1483,6 +1511,26 @@ const ProductFormPage = () => {
         </Box>
       </fieldset>
 
+      {variantPhotos !== null && form.variants[variantPhotos] && (
+        <LinkImagesDialog
+          open
+          title={`Photos for ${label(form.variants[variantPhotos].options)}`}
+          images={form.images}
+          chosen={photosOf(form.variants[variantPhotos], form.imageLinks)}
+          uploading={uploading > 0}
+          onUpload={uploadFiles}
+          onChange={(urls) => {
+            const linked = variantImages(
+              form.variants[variantPhotos].options,
+              form.imageLinks
+            );
+            setVariant(variantPhotos, {
+              ownImages: sameList(urls, linked) ? null : urls,
+            });
+          }}
+          onClose={() => setVariantPhotos(null)}
+        />
+      )}
       <BrandDialog
         open={Boolean(brandDialog)}
         initialName={brandDialog?.name}

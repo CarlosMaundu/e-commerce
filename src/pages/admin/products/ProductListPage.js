@@ -1,5 +1,6 @@
 // src/pages/admin/products/ProductListPage.js — Aurora-style product list:
-// status tabs, search and filters, selectable rows with bulk actions.
+// Vendor / Tagged with / Status / more filters, search, selectable rows with
+// bulk actions, and dedicated SKU, Variants and Published on columns.
 import React, { useCallback, useContext, useEffect, useState } from 'react';
 import {
   Link as RouterLink,
@@ -8,94 +9,50 @@ import {
 } from 'react-router-dom';
 import {
   Avatar,
-  Box,
   Button,
   Checkbox,
-  Chip,
-  IconButton,
-  InputAdornment,
   Link,
-  ListItemIcon,
-  Menu,
-  MenuItem,
-  Select,
-  Skeleton,
   Stack,
-  Tab,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Tabs,
-  TextField,
   Typography,
 } from '@mui/material';
 import {
   FiDownload,
   FiEdit2,
   FiExternalLink,
-  FiEye,
-  FiEyeOff,
-  FiMoreVertical,
   FiPlus,
-  FiSearch,
   FiTrash2,
 } from 'react-icons/fi';
 import { AuthContext } from '../../../context/AuthContext';
 import { hasPermission, PERMISSIONS } from '../../../auth/permissions';
 import { adminCatalog, catalog } from '../../../api';
 import { useNotify } from '../../../notification/NotificationProvider';
+import ConfirmationDialog from '../../../components/common/ConfirmationDialog';
 import {
+  EmptyRow,
+  FilterMenu,
+  LoadingRows,
   PAGE_SIZE,
   PageHeader,
+  PanelToolbar,
+  Pill,
+  RowActions,
+  SearchField,
   StandardPagination,
   TablePanel,
 } from '../../../components/admin/DataTable';
-import ConfirmationDialog from '../../../components/common/ConfirmationDialog';
-import { EmptyState } from '../../../components/ui';
 import { formatDate, formatMoney } from '../../../utils/format';
-
-const TABS = [
-  { value: '', label: 'All', count: 'all' },
-  { value: 'published', label: 'Published', count: 'published' },
-  { value: 'draft', label: 'Drafts', count: 'draft' },
-  { value: 'low', label: 'Low stock', count: 'low' },
-  { value: 'out', label: 'Out of stock', count: 'out' },
-];
-
-// Brand, tags and date need room; on narrower screens they're in the editor.
-const HIDE_LG = { display: { xs: 'none', xl: 'table-cell' } };
+import { PRODUCT_STATUSES, statusInfo } from '../../../utils/productStatus';
 
 const priceText = (p) =>
   p.minPrice < p.maxPrice
     ? `${formatMoney(p.minPrice)} – ${formatMoney(p.maxPrice)}`
     : formatMoney(p.specialPrice ?? p.price);
-
-const StockCell = ({ p }) => {
-  if (!p.trackInventory)
-    return <Typography variant="body2">Not tracked</Typography>;
-  return (
-    <Stack spacing={0.25}>
-      <Stack direction="row" spacing={1} alignItems="center">
-        <Typography variant="body2" sx={{ fontVariantNumeric: 'tabular-nums' }}>
-          {p.quantity}
-        </Typography>
-        {!p.inStock ? (
-          <Chip size="small" color="error" variant="outlined" label="Out" />
-        ) : p.lowStock ? (
-          <Chip size="small" color="warning" variant="outlined" label="Low" />
-        ) : null}
-      </Stack>
-      {p.variants.length > 0 && (
-        <Typography variant="caption">
-          {p.variants.length} variant{p.variants.length === 1 ? '' : 's'}
-        </Typography>
-      )}
-    </Stack>
-  );
-};
 
 const toCsv = (rows) => {
   const cell = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
@@ -105,10 +62,12 @@ const toCsv = (rows) => {
     'SKU',
     'Status',
     'Category',
-    'Brand',
+    'Vendor',
+    'Variants',
     'Price',
     'Sale price',
     'Stock',
+    'Published on',
     'Tags',
   ];
   return [
@@ -118,12 +77,14 @@ const toCsv = (rows) => {
         p.id,
         p.title,
         p.sku,
-        p.status,
+        statusInfo(p.status).label,
         p.category?.name,
         p.brand?.name,
+        p.variants.length,
         p.price,
         p.specialPrice,
         p.quantity,
+        p.publishedAt ? formatDate(p.publishedAt) : '',
         p.tags.join(' '),
       ]
         .map(cell)
@@ -132,22 +93,41 @@ const toCsv = (rows) => {
   ].join('\n');
 };
 
+// eslint-disable-next-line react/prop-types
+const Inventory = ({ p }) => {
+  if (!p.trackInventory)
+    return <Typography variant="body2">Not tracked</Typography>;
+  return (
+    <Stack direction="row" spacing={1} alignItems="center">
+      <Typography
+        variant="body2"
+        sx={{ fontVariantNumeric: 'tabular-nums', minWidth: 24 }}
+      >
+        {String(p.quantity).padStart(2, '0')}
+      </Typography>
+      {!p.inStock ? (
+        <Pill label="Out" tone="error" />
+      ) : p.lowStock ? (
+        <Pill label="Low" tone="warning" />
+      ) : null}
+    </Stack>
+  );
+};
+
 const ProductListPage = () => {
   const { user } = useContext(AuthContext);
   const notify = useNotify();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const tab = params.get('tab') || '';
+  const get = (k) => params.get(k) || '';
   const page = Number(params.get('page') || 0);
   const [rowsPerPage, setRowsPerPage] = useState(PAGE_SIZE);
-  const [search, setSearch] = useState(params.get('search') || '');
-  const [categoryId, setCategoryId] = useState(params.get('category') || '');
-  const [brandId, setBrandId] = useState(params.get('brand') || '');
+  const [search, setSearch] = useState(get('search'));
   const [categories, setCategories] = useState([]);
   const [brands, setBrands] = useState([]);
+  const [tags, setTags] = useState([]);
   const [data, setData] = useState(null);
   const [selected, setSelected] = useState([]);
-  const [menu, setMenu] = useState(null); // { anchor, product }
   const [confirm, setConfirm] = useState(null); // ids to delete
   const [busy, setBusy] = useState(false);
 
@@ -160,6 +140,7 @@ const ProductListPage = () => {
     Object.entries(changes).forEach(([k, v]) =>
       v || v === 0 ? next.set(k, v) : next.delete(k)
     );
+    if (!('page' in changes)) next.delete('page');
     setParams(next, { replace: true });
   };
 
@@ -172,20 +153,24 @@ const ProductListPage = () => {
       .brands()
       .then(setBrands)
       .catch(() => {});
+    adminCatalog
+      .tags()
+      .then((t) => setTags(t.map((x) => x.tag)))
+      .catch(() => {});
   }, []);
 
   const load = useCallback(async () => {
     setData(null);
     try {
-      const status = ['published', 'draft'].includes(tab) ? tab : undefined;
-      const stock = ['low', 'out'].includes(tab) ? tab : undefined;
       setData(
         await adminCatalog.listProducts({
-          status,
-          stock,
-          search: params.get('search') || undefined,
-          categoryId: categoryId || undefined,
-          brandIds: brandId ? [brandId] : undefined,
+          status: get('status') || undefined,
+          stock: get('stock') || undefined,
+          search: get('search') || undefined,
+          categoryId: get('category') || undefined,
+          brandIds: get('brand') ? [get('brand')] : undefined,
+          tag: get('tag') || undefined,
+          sort: get('sort') || undefined,
           limit: rowsPerPage,
           page: page + 1,
         })
@@ -194,17 +179,13 @@ const ProductListPage = () => {
       notify.error(error, 'We couldn’t load products.');
       setData({ products: [], total: 0, counts: {} });
     }
-  }, [tab, params, categoryId, brandId, rowsPerPage, page, notify]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params, rowsPerPage, page, notify]);
 
   useEffect(() => {
     load();
     setSelected([]);
   }, [load]);
-
-  const submitSearch = (e) => {
-    e.preventDefault();
-    setParam({ search: search.trim(), page: null });
-  };
 
   const setStatus = async (ids, status) => {
     setBusy(true);
@@ -214,7 +195,7 @@ const ProductListPage = () => {
         await adminCatalog.patchProduct(id, { status });
       }
       notify.success(
-        `${ids.length} product${ids.length === 1 ? '' : 's'} ${status === 'published' ? 'published' : 'moved to drafts'}.`
+        `${ids.length} product${ids.length === 1 ? '' : 's'} set to ${statusInfo(status).label}.`
       );
       load();
     } catch (error) {
@@ -243,9 +224,14 @@ const ProductListPage = () => {
     }
   };
 
+  const rows = data?.products || [];
   const exportCsv = () => {
-    const blob = new Blob([toCsv(data?.products || [])], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
+    const chosen = selected.length
+      ? rows.filter((p) => selected.includes(p.id))
+      : rows;
+    const url = URL.createObjectURL(
+      new Blob([toCsv(chosen)], { type: 'text/csv' })
+    );
     const a = document.createElement('a');
     a.href = url;
     a.download = 'products.csv';
@@ -253,8 +239,16 @@ const ProductListPage = () => {
     URL.revokeObjectURL(url);
   };
 
-  const rows = data?.products || [];
   const allChecked = rows.length > 0 && selected.length === rows.length;
+  const counts = data?.counts || {};
+  const filtered = [
+    'status',
+    'brand',
+    'tag',
+    'category',
+    'stock',
+    'search',
+  ].some((k) => get(k));
 
   return (
     <Stack spacing={3}>
@@ -264,6 +258,11 @@ const ProductListPage = () => {
           { label: 'Products', to: '/admin/products' },
         ]}
         title="Product list"
+        subtitle={
+          counts.all !== undefined
+            ? `${counts.all} products · ${counts.published} active`
+            : undefined
+        }
         actions={
           <>
             <Button
@@ -272,7 +271,7 @@ const ProductListPage = () => {
               disabled={!rows.length}
               sx={{ bgcolor: 'background.neutral' }}
             >
-              Export
+              {selected.length ? `Export ${selected.length}` : 'Export'}
             </Button>
             {canCreate && (
               <Button
@@ -289,100 +288,111 @@ const ProductListPage = () => {
       />
 
       <TablePanel>
-        <Tabs
-          value={tab}
-          onChange={(_, v) => setParam({ tab: v, page: null })}
-          variant="scrollable"
-          sx={{ px: 2, borderBottom: 1, borderColor: 'divider' }}
-        >
-          {TABS.map((t) => (
-            <Tab
-              key={t.value}
-              value={t.value}
-              label={
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <span>{t.label}</span>
-                  {data?.counts?.[t.count] !== undefined && (
-                    <Chip
-                      size="small"
-                      label={data.counts[t.count]}
-                      sx={{ height: 20 }}
-                    />
-                  )}
-                </Stack>
-              }
-            />
-          ))}
-        </Tabs>
-
+        <PanelToolbar>
+          <SearchField
+            value={search}
+            onChange={setSearch}
+            onSubmit={() => setParam({ search: search.trim() })}
+            placeholder="Search by name, SKU, vendor or tag"
+            label="Search products"
+          />
+        </PanelToolbar>
         <Stack
-          direction={{ xs: 'column', md: 'row' }}
-          spacing={1.5}
-          sx={{ p: 2 }}
-          alignItems={{ md: 'center' }}
+          direction="row"
+          spacing={0.5}
+          flexWrap="wrap"
+          useFlexGap
+          sx={{ px: 2, pb: 1.5 }}
         >
-          <Box
-            component="form"
-            onSubmit={submitSearch}
-            sx={{ flex: 1, maxWidth: { md: 420 } }}
-          >
-            <TextField
+          <FilterMenu
+            label="Vendor"
+            value={get('brand')}
+            onChange={(v) => setParam({ brand: v })}
+            options={[
+              { value: '', label: 'All' },
+              ...brands.map((b) => ({ value: String(b.id), label: b.name })),
+            ]}
+          />
+          <FilterMenu
+            label="Tagged with"
+            value={get('tag')}
+            onChange={(v) => setParam({ tag: v })}
+            options={[
+              { value: '', label: 'All' },
+              ...tags.map((t) => ({ value: t, label: `#${t}` })),
+            ]}
+          />
+          <FilterMenu
+            label="Status"
+            value={get('status')}
+            onChange={(v) => setParam({ status: v })}
+            options={[
+              {
+                value: '',
+                label: `All${counts.all !== undefined ? ` (${counts.all})` : ''}`,
+              },
+              ...PRODUCT_STATUSES.map((s) => ({
+                value: s.value,
+                label: `${s.label}${counts[s.value] !== undefined ? ` (${counts[s.value]})` : ''}`,
+              })),
+            ]}
+          />
+          <FilterMenu
+            label="Category"
+            value={get('category')}
+            onChange={(v) => setParam({ category: v })}
+            options={[
+              { value: '', label: 'All' },
+              ...categories.flatMap((c) => [
+                { value: String(c.id), label: c.name },
+                ...(c.subcategories || []).map((s) => ({
+                  value: String(s.id),
+                  label: `— ${s.name}`,
+                })),
+              ]),
+            ]}
+          />
+          <FilterMenu
+            label="Inventory"
+            value={get('stock')}
+            onChange={(v) => setParam({ stock: v })}
+            options={[
+              { value: '', label: 'All' },
+              { value: 'in', label: 'In stock' },
+              {
+                value: 'low',
+                label: `Low stock${counts.low !== undefined ? ` (${counts.low})` : ''}`,
+              },
+              {
+                value: 'out',
+                label: `Out of stock${counts.out !== undefined ? ` (${counts.out})` : ''}`,
+              },
+            ]}
+          />
+          <FilterMenu
+            label="Sort"
+            value={get('sort')}
+            onChange={(v) => setParam({ sort: v })}
+            options={[
+              { value: '', label: 'Newest' },
+              { value: 'published', label: 'Recently published' },
+              { value: 'name', label: 'Name A–Z' },
+              { value: 'price_asc', label: 'Price: low to high' },
+              { value: 'price_desc', label: 'Price: high to low' },
+              { value: 'stock_asc', label: 'Inventory: low to high' },
+            ]}
+          />
+          {filtered && (
+            <Button
               size="small"
-              fullWidth
-              placeholder="Search by name, SKU, brand or tag"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              inputProps={{ 'aria-label': 'Search products' }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <FiSearch />
-                  </InputAdornment>
-                ),
+              onClick={() => {
+                setSearch('');
+                setParams({}, { replace: true });
               }}
-            />
-          </Box>
-          <Select
-            size="small"
-            value={categoryId}
-            displayEmpty
-            onChange={(e) => {
-              setCategoryId(e.target.value);
-              setParam({ page: null });
-            }}
-            inputProps={{ 'aria-label': 'Category' }}
-            sx={{ minWidth: 180 }}
-          >
-            <MenuItem value="">All categories</MenuItem>
-            {categories.flatMap((c) => [
-              <MenuItem key={c.id} value={c.id}>
-                {c.name}
-              </MenuItem>,
-              ...(c.subcategories || []).map((s) => (
-                <MenuItem key={s.id} value={s.id} sx={{ pl: 4 }}>
-                  {s.name}
-                </MenuItem>
-              )),
-            ])}
-          </Select>
-          <Select
-            size="small"
-            value={brandId}
-            displayEmpty
-            onChange={(e) => {
-              setBrandId(e.target.value);
-              setParam({ page: null });
-            }}
-            inputProps={{ 'aria-label': 'Brand' }}
-            sx={{ minWidth: 160 }}
-          >
-            <MenuItem value="">All brands</MenuItem>
-            {brands.map((b) => (
-              <MenuItem key={b.id} value={b.id}>
-                {b.name}
-              </MenuItem>
-            ))}
-          </Select>
+            >
+              Clear filters
+            </Button>
+          )}
         </Stack>
 
         {selected.length > 0 && (
@@ -390,6 +400,8 @@ const ProductListPage = () => {
             direction="row"
             spacing={1}
             alignItems="center"
+            flexWrap="wrap"
+            useFlexGap
             sx={{ px: 2, py: 1, bgcolor: 'primary.light' }}
             role="region"
             aria-label="Bulk actions"
@@ -397,24 +409,17 @@ const ProductListPage = () => {
             <Typography variant="subtitle2" sx={{ flex: 1 }}>
               {selected.length} selected
             </Typography>
-            {canUpdate && (
-              <>
+            {canUpdate &&
+              PRODUCT_STATUSES.map((s) => (
                 <Button
+                  key={s.value}
                   size="small"
                   disabled={busy}
-                  onClick={() => setStatus(selected, 'published')}
+                  onClick={() => setStatus(selected, s.value)}
                 >
-                  Publish
+                  Set {s.label}
                 </Button>
-                <Button
-                  size="small"
-                  disabled={busy}
-                  onClick={() => setStatus(selected, 'draft')}
-                >
-                  Move to drafts
-                </Button>
-              </>
-            )}
+              ))}
             {canDelete && (
               <Button
                 size="small"
@@ -429,7 +434,7 @@ const ProductListPage = () => {
         )}
 
         <TableContainer>
-          <Table aria-label="Products" sx={{ minWidth: 760 }}>
+          <Table aria-label="Products" sx={{ minWidth: 1080 }}>
             <TableHead>
               <TableRow>
                 <TableCell padding="checkbox">
@@ -444,174 +449,169 @@ const ProductListPage = () => {
                     }}
                   />
                 </TableCell>
-                <TableCell sx={{ minWidth: 260 }}>Product</TableCell>
+                <TableCell sx={{ minWidth: 240 }}>Name</TableCell>
+                <TableCell>SKU</TableCell>
                 <TableCell>Category</TableCell>
-                <TableCell sx={HIDE_LG}>Brand</TableCell>
-                <TableCell sx={HIDE_LG}>Tags</TableCell>
+                <TableCell>Vendor</TableCell>
+                <TableCell align="right">Variants</TableCell>
                 <TableCell align="right">Price</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Inventory</TableCell>
-                <TableCell sx={HIDE_LG}>Updated</TableCell>
+                <TableCell>Published on</TableCell>
                 <TableCell align="right" />
               </TableRow>
             </TableHead>
             <TableBody>
-              {!data &&
-                [0, 1, 2, 3, 4].map((i) => (
-                  <TableRow key={i}>
-                    <TableCell colSpan={10}>
-                      <Skeleton height={40} />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              {rows.map((p) => (
-                <TableRow
-                  key={p.id}
-                  hover
-                  selected={selected.includes(p.id)}
-                  data-testid={`product-row-${p.id}`}
-                >
-                  <TableCell padding="checkbox">
-                    <Checkbox
-                      checked={selected.includes(p.id)}
-                      onChange={() =>
-                        setSelected((s) =>
-                          s.includes(p.id)
-                            ? s.filter((x) => x !== p.id)
-                            : [...s, p.id]
-                        )
-                      }
-                      inputProps={{ 'aria-label': `Select ${p.title}` }}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Stack direction="row" spacing={1.5} alignItems="center">
-                      <Avatar
-                        variant="rounded"
-                        src={p.images[0]}
-                        alt=""
-                        sx={{ width: 44, height: 44, borderRadius: '8px' }}
+              {!data && <LoadingRows cols={11} />}
+              {data && !rows.length && (
+                <EmptyRow cols={11}>
+                  {filtered
+                    ? 'No products match these filters.'
+                    : 'No products yet.'}
+                </EmptyRow>
+              )}
+              {rows.map((p) => {
+                const st = statusInfo(p.status);
+                return (
+                  <TableRow
+                    key={p.id}
+                    hover
+                    selected={selected.includes(p.id)}
+                    data-testid={`product-row-${p.id}`}
+                  >
+                    <TableCell padding="checkbox">
+                      <Checkbox
+                        checked={selected.includes(p.id)}
+                        onChange={() =>
+                          setSelected((s) =>
+                            s.includes(p.id)
+                              ? s.filter((x) => x !== p.id)
+                              : [...s, p.id]
+                          )
+                        }
+                        inputProps={{ 'aria-label': `Select ${p.title}` }}
                       />
-                      <Box sx={{ minWidth: 0 }}>
+                    </TableCell>
+                    <TableCell>
+                      <Stack direction="row" spacing={1.5} alignItems="center">
+                        <Avatar
+                          variant="rounded"
+                          src={p.images[0]}
+                          alt=""
+                          sx={{ width: 44, height: 44, borderRadius: '8px' }}
+                        />
                         <Link
                           component={RouterLink}
                           to={`/admin/products/${p.id}`}
                           underline="hover"
-                          sx={{ fontWeight: 600, display: 'block' }}
+                          sx={{ fontWeight: 600 }}
                         >
                           {p.title}
                         </Link>
-                        {p.sku && (
-                          <Typography variant="caption">SKU {p.sku}</Typography>
-                        )}
-                      </Box>
-                    </Stack>
-                  </TableCell>
-                  <TableCell>
-                    {p.category ? (
-                      <Chip
-                        size="small"
-                        label={p.category.name}
-                        sx={{ bgcolor: 'background.neutralDeep' }}
-                      />
-                    ) : (
-                      '—'
-                    )}
-                  </TableCell>
-                  <TableCell sx={HIDE_LG}>
-                    <Typography variant="body2">
-                      {p.brand?.name || '—'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell sx={HIDE_LG}>
-                    <Stack
-                      direction="row"
-                      spacing={0.5}
-                      flexWrap="wrap"
-                      useFlexGap
-                    >
-                      {p.tags.slice(0, 2).map((t) => (
-                        <Chip
-                          key={t}
-                          size="small"
-                          variant="outlined"
-                          label={t}
-                        />
-                      ))}
-                      {p.tags.length > 2 && (
-                        <Typography variant="caption">
-                          +{p.tags.length - 2}
+                      </Stack>
+                    </TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                      <Typography
+                        variant="body2"
+                        sx={{ fontFamily: 'monospace' }}
+                      >
+                        {p.sku || '—'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      {p.category ? <Pill label={p.category.name} /> : '—'}
+                    </TableCell>
+                    <TableCell>
+                      {p.brand ? (
+                        <Link
+                          component={RouterLink}
+                          to={`/admin/products?brand=${p.brand.id}`}
+                          underline="hover"
+                        >
+                          {p.brand.name}
+                        </Link>
+                      ) : (
+                        '—'
+                      )}
+                    </TableCell>
+                    <TableCell align="right">
+                      {p.variants.length || '—'}
+                    </TableCell>
+                    <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                      <Typography variant="body2">{priceText(p)}</Typography>
+                      {p.specialPrice !== null && p.minPrice === p.maxPrice && (
+                        <Typography
+                          variant="caption"
+                          sx={{ textDecoration: 'line-through' }}
+                        >
+                          {formatMoney(p.price)}
                         </Typography>
                       )}
-                    </Stack>
-                  </TableCell>
-                  <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                    <Typography variant="body2">{priceText(p)}</Typography>
-                    {p.specialPrice !== null && p.minPrice === p.maxPrice && (
+                    </TableCell>
+                    <TableCell>
+                      <Pill label={st.label} tone={st.tone} />
+                    </TableCell>
+                    <TableCell>
+                      <Inventory p={p} />
+                    </TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
                       <Typography
-                        variant="caption"
-                        sx={{ textDecoration: 'line-through' }}
+                        variant="body2"
+                        color={
+                          p.publishedAt ? 'text.primary' : 'text.secondary'
+                        }
                       >
-                        {formatMoney(p.price)}
+                        {p.publishedAt ? formatDate(p.publishedAt) : 'Not yet'}
                       </Typography>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      size="small"
-                      label={p.status === 'published' ? 'Published' : 'Draft'}
-                      color={p.status === 'published' ? 'success' : 'warning'}
-                      variant="outlined"
-                    />
-                    {p.featured && (
-                      <Chip size="small" label="Featured" sx={{ ml: 0.5 }} />
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <StockCell p={p} />
-                  </TableCell>
-                  <TableCell sx={{ whiteSpace: 'nowrap', ...HIDE_LG }}>
-                    <Typography variant="body2">
-                      {formatDate(p.updatedAt)}
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="right">
-                    <IconButton
-                      aria-label={`Actions for ${p.title}`}
-                      onClick={(e) =>
-                        setMenu({ anchor: e.currentTarget, product: p })
-                      }
-                    >
-                      <FiMoreVertical />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+                    <TableCell align="right">
+                      <RowActions
+                        label={`Actions for ${p.title}`}
+                        items={[
+                          {
+                            label: canUpdate ? 'Edit' : 'View',
+                            icon: <FiEdit2 />,
+                            onClick: () => navigate(`/admin/products/${p.id}`),
+                          },
+                          {
+                            label: 'View in shop',
+                            icon: <FiExternalLink />,
+                            hidden: p.status !== 'published',
+                            onClick: () =>
+                              window.open(
+                                `/products/${p.id}`,
+                                '_blank',
+                                'noopener'
+                              ),
+                          },
+                          ...PRODUCT_STATUSES.filter(
+                            (s) => s.value !== p.status
+                          ).map((s) => ({
+                            label: `Set ${s.label}`,
+                            hidden: !canUpdate,
+                            onClick: () => setStatus([p.id], s.value),
+                          })),
+                          {
+                            label: 'Delete',
+                            icon: <FiTrash2 />,
+                            color: 'error',
+                            hidden: !canDelete,
+                            onClick: () => setConfirm([p.id]),
+                          },
+                        ]}
+                      />
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </TableContainer>
-        {data && !rows.length && (
-          <EmptyState
-            title="No products here"
-            action={
-              canCreate && (
-                <Button
-                  variant="contained"
-                  component={RouterLink}
-                  to="/admin/products/new"
-                >
-                  Add product
-                </Button>
-              )
-            }
-          >
-            Try another tab, search or filter.
-          </EmptyState>
-        )}
         <StandardPagination
           count={data?.total || 0}
           page={page}
           rowsPerPage={rowsPerPage}
+          label="products"
           onPageChange={(_, p) => setParam({ page: p || null })}
           onRowsPerPageChange={(e) => {
             setRowsPerPage(Number(e.target.value));
@@ -620,73 +620,10 @@ const ProductListPage = () => {
         />
       </TablePanel>
 
-      <Menu
-        anchorEl={menu?.anchor}
-        open={Boolean(menu)}
-        onClose={() => setMenu(null)}
-      >
-        <MenuItem
-          onClick={() => {
-            navigate(`/admin/products/${menu.product.id}`);
-            setMenu(null);
-          }}
-        >
-          <ListItemIcon>
-            <FiEdit2 />
-          </ListItemIcon>
-          {canUpdate ? 'Edit' : 'View'}
-        </MenuItem>
-        {menu?.product.status === 'published' && (
-          <MenuItem
-            component="a"
-            href={`/products/${menu?.product.id}`}
-            target="_blank"
-            onClick={() => setMenu(null)}
-          >
-            <ListItemIcon>
-              <FiExternalLink />
-            </ListItemIcon>
-            View in shop
-          </MenuItem>
-        )}
-        {canUpdate && (
-          <MenuItem
-            onClick={() => {
-              setStatus(
-                [menu.product.id],
-                menu.product.status === 'published' ? 'draft' : 'published'
-              );
-              setMenu(null);
-            }}
-          >
-            <ListItemIcon>
-              {menu?.product.status === 'published' ? <FiEyeOff /> : <FiEye />}
-            </ListItemIcon>
-            {menu?.product.status === 'published'
-              ? 'Move to drafts'
-              : 'Publish'}
-          </MenuItem>
-        )}
-        {canDelete && (
-          <MenuItem
-            sx={{ color: 'error.main' }}
-            onClick={() => {
-              setConfirm([menu.product.id]);
-              setMenu(null);
-            }}
-          >
-            <ListItemIcon sx={{ color: 'error.main' }}>
-              <FiTrash2 />
-            </ListItemIcon>
-            Delete
-          </MenuItem>
-        )}
-      </Menu>
-
       <ConfirmationDialog
         open={Boolean(confirm)}
         title={`Delete ${confirm?.length === 1 ? 'this product' : `${confirm?.length} products`}?`}
-        content="Past orders keep their details, but the product leaves the shop and carts for good."
+        content="Past orders keep their details, but the product leaves the shop and carts for good. To keep it on record, set it to Archive instead."
         confirmText="Delete"
         loading={busy}
         onConfirm={remove}

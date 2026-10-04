@@ -12,7 +12,6 @@ import {
   Drawer,
   IconButton,
   MenuItem,
-  Pagination,
   Select,
   Skeleton,
   Stack,
@@ -28,6 +27,7 @@ import ProductFilters, {
   useProductQuery,
 } from '../components/products/ProductFilters';
 import { EmptyState } from '../components/ui';
+import { StandardPagination } from '../components/admin/DataTable';
 import { fetchCategories } from '../redux/categoriesSlice';
 import { catalog } from '../api';
 import { friendlyError } from '../utils/friendlyError';
@@ -193,7 +193,6 @@ const ProductsPage = () => {
       clearAll={clearAll}
     />
   );
-  const pages = Math.ceil(result.total / PAGE_SIZE);
 
   return (
     <Container maxWidth="xl" sx={{ pb: 6 }}>
@@ -336,18 +335,29 @@ const ProductsPage = () => {
               )}
             </Box>
           )}
-          {pages > 1 && (
-            <Stack alignItems="center" sx={{ mt: 4 }}>
-              <Pagination
-                count={pages}
-                page={filters.page}
-                onChange={(_, page) => {
-                  update({ page }, { keepPage: true });
+          {result.total > 0 && (
+            <Box
+              sx={{
+                mt: 4,
+                borderRadius: 1,
+                overflow: 'hidden',
+                border: 1,
+                borderColor: 'divider',
+              }}
+            >
+              <StandardPagination
+                count={result.total}
+                page={filters.page - 1}
+                rowsPerPage={PAGE_SIZE}
+                label="products"
+                maxShowAll={0}
+                onRowsPerPageChange={() => {}}
+                onPageChange={(_, p) => {
+                  update({ page: p + 1 }, { keepPage: true });
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
-                shape="rounded"
               />
-            </Stack>
+            </Box>
           )}
         </Box>
       </Box>

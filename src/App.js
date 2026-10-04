@@ -56,7 +56,6 @@ import {
 } from './pages/admin/AdminOrderPages';
 import AdminRolesPage from './pages/admin/AdminRolesPage';
 import UsersSection from './components/profile/users/UsersSection';
-import ProductsAdminLayout from './pages/admin/products/ProductsAdminLayout';
 import ProductListPage from './pages/admin/products/ProductListPage';
 import ProductFormPage from './pages/admin/products/ProductFormPage';
 import BrandsPage from './pages/admin/products/BrandsPage';
@@ -64,6 +63,8 @@ import CategoriesPage from './pages/admin/products/CategoriesPage';
 import StaffProfilePage from './pages/admin/StaffProfilePage';
 import SecuritySettingsPage from './pages/admin/SecuritySettingsPage';
 import AuditLogPage from './pages/admin/AuditLogPage';
+import StoreSettingsPage from './pages/admin/StoreSettingsPage';
+import { StoreProvider } from './context/StoreContext';
 import UserAccountPage from './pages/admin/UserAccountPage';
 import StaffNotice from './components/StaffNotice';
 
@@ -122,225 +123,272 @@ const App = () => (
       <PersistGate loading={null} persistor={persistor}>
         <NotificationProvider>
           <AuthProvider>
-            <Router>
-              <ScrollToTop />
-              <Routes>
-                <Route element={<StorefrontLayout />}>
-                  <Route path="/" element={<HomePage />} />
-                  <Route path="/products" element={<ProductsPage />} />
+            <StoreProvider>
+              <Router>
+                <ScrollToTop />
+                <Routes>
+                  <Route element={<StorefrontLayout />}>
+                    <Route path="/" element={<HomePage />} />
+                    <Route path="/products" element={<ProductsPage />} />
+                    <Route
+                      path="/products/:id"
+                      element={<ProductDetailsPage />}
+                    />
+                    <Route
+                      path="/cart"
+                      element={
+                        <ShopperOnly>
+                          <CartPage />
+                        </ShopperOnly>
+                      }
+                    />
+                    <Route
+                      path="/wishlist"
+                      element={
+                        <ShopperOnly>
+                          <WishlistPage />
+                        </ShopperOnly>
+                      }
+                    />
+                    <Route path="/login" element={<LoginPage />} />
+                    <Route path="/register" element={<SignupPage />} />
+                    <Route path="/reset-password" element={<ResetPassword />} />
+                    <Route
+                      path="/information/:slug"
+                      element={<InformationPage />}
+                    />
+                    <Route
+                      path="/checkout"
+                      element={
+                        <Private>
+                          <ShopperOnly>
+                            <CheckoutPage />
+                          </ShopperOnly>
+                        </Private>
+                      }
+                    />
+
+                    <Route
+                      path="/account"
+                      element={
+                        <Account>
+                          <AccountOverviewPage />
+                        </Account>
+                      }
+                    />
+                    <Route
+                      path="/account/profile"
+                      element={
+                        <Account>
+                          <ProfilePage />
+                        </Account>
+                      }
+                    />
+                    <Route
+                      path="/account/security"
+                      element={
+                        <Account>
+                          <SecurityPage />
+                        </Account>
+                      }
+                    />
+                    <Route
+                      path="/account/addresses"
+                      element={
+                        <Account>
+                          <AddressesPage />
+                        </Account>
+                      }
+                    />
+                    <Route
+                      path="/account/orders"
+                      element={
+                        <Account>
+                          <OrdersPage />
+                        </Account>
+                      }
+                    />
+                    <Route
+                      path="/account/orders/:id"
+                      element={
+                        <Account>
+                          <OrderDetailPage />
+                        </Account>
+                      }
+                    />
+                    <Route
+                      path="/account/returns"
+                      element={
+                        <Account>
+                          <ReturnsPage />
+                        </Account>
+                      }
+                    />
+
+                    <Route path="*" element={<NotFoundPage />} />
+                  </Route>
+
                   <Route
-                    path="/products/:id"
-                    element={<ProductDetailsPage />}
-                  />
-                  <Route
-                    path="/cart"
-                    element={
-                      <ShopperOnly>
-                        <CartPage />
-                      </ShopperOnly>
-                    }
-                  />
-                  <Route
-                    path="/wishlist"
-                    element={
-                      <ShopperOnly>
-                        <WishlistPage />
-                      </ShopperOnly>
-                    }
-                  />
-                  <Route path="/login" element={<LoginPage />} />
-                  <Route path="/register" element={<SignupPage />} />
-                  <Route path="/reset-password" element={<ResetPassword />} />
-                  <Route
-                    path="/information/:slug"
-                    element={<InformationPage />}
-                  />
-                  <Route
-                    path="/checkout"
+                    path="/admin"
                     element={
                       <Private>
-                        <ShopperOnly>
-                          <CheckoutPage />
-                        </ShopperOnly>
+                        <AdminRoute>
+                          <AdminLayout />
+                        </AdminRoute>
+                      </Private>
+                    }
+                  >
+                    <Route index element={<AdminHome />} />
+                    <Route
+                      path="orders"
+                      element={
+                        <AdminRoute permissions={ORDERS_VIEW}>
+                          <AdminOrdersPage />
+                        </AdminRoute>
+                      }
+                    />
+                    <Route
+                      path="orders/:id"
+                      element={
+                        <AdminRoute permissions={ORDERS_VIEW}>
+                          <AdminOrderDetailPage />
+                        </AdminRoute>
+                      }
+                    />
+                    <Route
+                      path="returns"
+                      element={
+                        <AdminRoute permissions={['orders.returns.view']}>
+                          <AdminReturnsPage />
+                        </AdminRoute>
+                      }
+                    />
+                    <Route
+                      path="products"
+                      element={
+                        <AdminRoute permissions={['catalog.products.view']}>
+                          <ProductListPage />
+                        </AdminRoute>
+                      }
+                    />
+                    <Route
+                      path="products/new"
+                      element={
+                        <AdminRoute permissions={['catalog.products.create']}>
+                          <ProductFormPage />
+                        </AdminRoute>
+                      }
+                    />
+                    <Route
+                      path="products/:id"
+                      element={
+                        <AdminRoute permissions={['catalog.products.view']}>
+                          <ProductFormPage />
+                        </AdminRoute>
+                      }
+                    />
+                    <Route
+                      path="categories"
+                      element={
+                        <AdminRoute prefix="catalog.categories.">
+                          <CategoriesPage />
+                        </AdminRoute>
+                      }
+                    />
+                    <Route
+                      path="brands"
+                      element={
+                        <AdminRoute prefix="catalog.brands.">
+                          <BrandsPage />
+                        </AdminRoute>
+                      }
+                    />
+                    <Route
+                      path="products/categories"
+                      element={<Navigate to="/admin/categories" replace />}
+                    />
+                    <Route
+                      path="products/brands"
+                      element={<Navigate to="/admin/brands" replace />}
+                    />
+                    <Route path="profile" element={<StaffProfilePage />} />
+                    <Route
+                      path="security"
+                      element={
+                        <AdminRoute permissions={['admin.security.view']}>
+                          <SecuritySettingsPage />
+                        </AdminRoute>
+                      }
+                    />
+                    <Route
+                      path="settings"
+                      element={
+                        <AdminRoute permissions={['admin.settings.manage']}>
+                          <StoreSettingsPage />
+                        </AdminRoute>
+                      }
+                    />
+                    <Route
+                      path="audit"
+                      element={
+                        <AdminRoute permissions={['admin.audit.view']}>
+                          <AuditLogPage />
+                        </AdminRoute>
+                      }
+                    />
+                    <Route
+                      path="users"
+                      element={
+                        <AdminRoute permissions={USERS_VIEW}>
+                          <UsersSection />
+                        </AdminRoute>
+                      }
+                    />
+                    <Route
+                      path="users/:id"
+                      element={
+                        <AdminRoute permissions={USERS_VIEW}>
+                          <UserAccountPage />
+                        </AdminRoute>
+                      }
+                    />
+                    <Route
+                      path="roles"
+                      element={
+                        <AdminRoute permissions={['admin.roles.view']}>
+                          <AdminRolesPage />
+                        </AdminRoute>
+                      }
+                    />
+                    <Route
+                      path="dashboard"
+                      element={<Navigate to="/admin" replace />}
+                    />
+                    <Route
+                      path="*"
+                      element={<Navigate to="/admin" replace />}
+                    />
+                  </Route>
+
+                  <Route
+                    path="/profile"
+                    element={
+                      <Private>
+                        <LegacyProfileRedirect />
                       </Private>
                     }
                   />
-
                   <Route
-                    path="/account"
+                    path="/dashboard"
                     element={
-                      <Account>
-                        <AccountOverviewPage />
-                      </Account>
+                      <Private>
+                        <LegacyProfileRedirect />
+                      </Private>
                     }
                   />
-                  <Route
-                    path="/account/profile"
-                    element={
-                      <Account>
-                        <ProfilePage />
-                      </Account>
-                    }
-                  />
-                  <Route
-                    path="/account/security"
-                    element={
-                      <Account>
-                        <SecurityPage />
-                      </Account>
-                    }
-                  />
-                  <Route
-                    path="/account/addresses"
-                    element={
-                      <Account>
-                        <AddressesPage />
-                      </Account>
-                    }
-                  />
-                  <Route
-                    path="/account/orders"
-                    element={
-                      <Account>
-                        <OrdersPage />
-                      </Account>
-                    }
-                  />
-                  <Route
-                    path="/account/orders/:id"
-                    element={
-                      <Account>
-                        <OrderDetailPage />
-                      </Account>
-                    }
-                  />
-                  <Route
-                    path="/account/returns"
-                    element={
-                      <Account>
-                        <ReturnsPage />
-                      </Account>
-                    }
-                  />
-
-                  <Route path="*" element={<NotFoundPage />} />
-                </Route>
-
-                <Route
-                  path="/admin"
-                  element={
-                    <Private>
-                      <AdminRoute>
-                        <AdminLayout />
-                      </AdminRoute>
-                    </Private>
-                  }
-                >
-                  <Route index element={<AdminHome />} />
-                  <Route
-                    path="orders"
-                    element={
-                      <AdminRoute permissions={ORDERS_VIEW}>
-                        <AdminOrdersPage />
-                      </AdminRoute>
-                    }
-                  />
-                  <Route
-                    path="orders/:id"
-                    element={
-                      <AdminRoute permissions={ORDERS_VIEW}>
-                        <AdminOrderDetailPage />
-                      </AdminRoute>
-                    }
-                  />
-                  <Route
-                    path="returns"
-                    element={
-                      <AdminRoute permissions={['orders.returns.view']}>
-                        <AdminReturnsPage />
-                      </AdminRoute>
-                    }
-                  />
-                  <Route
-                    path="products"
-                    element={
-                      <AdminRoute prefix="catalog.">
-                        <ProductsAdminLayout />
-                      </AdminRoute>
-                    }
-                  >
-                    <Route index element={<ProductListPage />} />
-                    <Route path="new" element={<ProductFormPage />} />
-                    <Route path="categories" element={<CategoriesPage />} />
-                    <Route path="brands" element={<BrandsPage />} />
-                    <Route path=":id" element={<ProductFormPage />} />
-                  </Route>
-                  <Route path="profile" element={<StaffProfilePage />} />
-                  <Route
-                    path="security"
-                    element={
-                      <AdminRoute permissions={['admin.security.view']}>
-                        <SecuritySettingsPage />
-                      </AdminRoute>
-                    }
-                  />
-                  <Route
-                    path="audit"
-                    element={
-                      <AdminRoute permissions={['admin.audit.view']}>
-                        <AuditLogPage />
-                      </AdminRoute>
-                    }
-                  />
-                  <Route
-                    path="users"
-                    element={
-                      <AdminRoute permissions={USERS_VIEW}>
-                        <UsersSection />
-                      </AdminRoute>
-                    }
-                  />
-                  <Route
-                    path="users/:id"
-                    element={
-                      <AdminRoute permissions={USERS_VIEW}>
-                        <UserAccountPage />
-                      </AdminRoute>
-                    }
-                  />
-                  <Route
-                    path="roles"
-                    element={
-                      <AdminRoute permissions={['admin.roles.view']}>
-                        <AdminRolesPage />
-                      </AdminRoute>
-                    }
-                  />
-                  <Route
-                    path="dashboard"
-                    element={<Navigate to="/admin" replace />}
-                  />
-                  <Route path="*" element={<Navigate to="/admin" replace />} />
-                </Route>
-
-                <Route
-                  path="/profile"
-                  element={
-                    <Private>
-                      <LegacyProfileRedirect />
-                    </Private>
-                  }
-                />
-                <Route
-                  path="/dashboard"
-                  element={
-                    <Private>
-                      <LegacyProfileRedirect />
-                    </Private>
-                  }
-                />
-              </Routes>
-            </Router>
+                </Routes>
+              </Router>
+            </StoreProvider>
           </AuthProvider>
         </NotificationProvider>
       </PersistGate>

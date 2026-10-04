@@ -398,6 +398,55 @@ export const adminUsers = {
   },
 };
 
+const storeFromApi = (d) => ({
+  name: d.name,
+  tagline: d.tagline || '',
+  logo: d.logo || '',
+  favicon: d.favicon || '',
+  email: d.email || '',
+  phone: d.phone || '',
+  address: d.address || '',
+  footerText: d.footer_text || '',
+  announcement: d.announcement || '',
+  social: d.social || {},
+});
+
+const storeToApi = (s) => ({
+  name: s.name,
+  tagline: s.tagline,
+  logo: s.logo,
+  favicon: s.favicon,
+  email: s.email,
+  phone: s.phone,
+  address: s.address,
+  footer_text: s.footerText,
+  announcement: s.announcement,
+  social: s.social,
+});
+
+/** The shop's name, logo, favicon and contact details. */
+export const store = {
+  async get() {
+    const { data } = await http().get('/rest/store');
+    return storeFromApi(data);
+  },
+  async adminGet() {
+    const { data } = await http().get('/admin/store-settings');
+    return {
+      settings: storeFromApi(data.settings),
+      updatedAt: data.updated_at,
+      updatedBy: data.updated_by,
+    };
+  },
+  async save(settings) {
+    const { data } = await http().put(
+      '/admin/store-settings',
+      storeToApi(settings)
+    );
+    return storeFromApi(data.settings);
+  },
+};
+
 export const newsletter = {
   async subscribe(email) {
     await http().put('/rest/newsletter/subscribe', {
@@ -598,13 +647,27 @@ export const orders = {
 };
 
 export const adminOrders = {
-  async list({ page = 1, limit = 20, status, search } = {}) {
+  /** Filters: status, search, paymentStatus, shippingMethod, paymentMethod, days. */
+  async list({
+    page = 1,
+    limit = 10,
+    status,
+    search,
+    paymentStatus,
+    shippingMethod,
+    paymentMethod,
+    days,
+  } = {}) {
     const { data, headers } = await http().get('/admin/orders', {
       params: {
         page,
         limit,
         ...(status ? { status } : {}),
         ...(search ? { search } : {}),
+        ...(paymentStatus ? { payment_status: paymentStatus } : {}),
+        ...(shippingMethod ? { shipping_method: shippingMethod } : {}),
+        ...(paymentMethod ? { payment_method: paymentMethod } : {}),
+        ...(days ? { days } : {}),
       },
     });
     return {

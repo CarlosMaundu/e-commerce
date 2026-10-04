@@ -6,7 +6,7 @@ import { query, transaction } from '../db';
 import { audit } from '../lib/audit';
 import { fail, handler, ok, parse } from '../lib/http';
 import { singleImage, uploadedUrl } from '../lib/uploads';
-import { authenticate, requirePermission } from '../middleware/auth';
+import { authenticate, requireAnyPermission, requirePermission } from '../middleware/auth';
 import {
   buildWhere,
   hydrate,
@@ -15,6 +15,7 @@ import {
   ProductFilters,
   ProductRow,
   SORTS,
+  PRODUCT_STATUSES,
   syncProductQuantity,
 } from '../lib/products';
 import { filterQuery, loadCategoryTree, PRODUCT_FROM } from './catalog';
@@ -63,7 +64,7 @@ const productBody = z.object({
   brand_id: z.coerce.number().int().positive().nullable().optional(),
   images: z.array(imageUrl).max(10, 'You can add up to 10 images.').default([]),
   sku: optionalText(64),
-  status: z.enum(['published', 'draft']).default('published'),
+  status: z.enum(PRODUCT_STATUSES).default('published'),
   featured: z.boolean().default(false),
   tags: z
     .array(z.string().trim().min(1).max(40, 'Tags can be up to 40 characters.'))
@@ -145,16 +146,18 @@ const saveProduct = async (b: ProductInput, id: number | null) => {
       if (productId === null) {
         const { rows } = await db.query(
           `INSERT INTO products (name, description, price, special, quantity, category_id, brand_id, images, sku,
-             status, featured, tags, attributes, track_inventory, low_stock_threshold)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING id`,
+             status, featured, tags, attributes, track_inventory, low_stock_threshold, published_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::text, $11, $12, $13, $14, $15,
+             CASE WHEN $10::text = 'published' THEN now() END) RETURNING id`,
           values
         );
         productId = rows[0].id as number;
       } else {
         await db.query(
           `UPDATE products SET name=$1, description=$2, price=$3, special=$4, quantity=$5, category_id=$6, brand_id=$7,
-             images=$8, sku=$9, status=$10, featured=$11, tags=$12, attributes=$13, track_inventory=$14,
-             low_stock_threshold=$15, updated_at=now() WHERE id=$16`,
+             images=$8, sku=$9, status=$10::text, featured=$11, tags=$12, attributes=$13, track_inventory=$14,
+             low_stock_threshold=$15, updated_at=now(),
+             published_at = COALESCE(published_at, CASE WHEN $10::text = 'published' THEN now() END) WHERE id=$16`,
           [...values, productId]
         );
       }
@@ -194,7 +197,10 @@ const saveProduct = async (b: ProductInput, id: number | null) => {
 };
 
 const adminListQuery = filterQuery.extend({
-  status: z.enum(['published', 'draft']).optional(),
+  status: z
+    .string()
+    .optional()
+    .transform((v) => (v ? v.split(',').filter((x) => (PRODUCT_STATUSES as readonly string[]).includes(x)) : undefined)),
   stock: z.enum(['in', 'low', 'out']).optional(),
 });
 
@@ -216,7 +222,11 @@ export const adminCatalogRoutes = () => {
         out: 'p.track_inventory AND p.quantity <= 0',
       };
       const params: unknown[] = [];
-      let whereSql = buildWhere({ ...(q as ProductFilters), status: q.status }, params);
+      let whereSql = buildWhere({ ...(q as ProductFilters), status: undefined }, params);
+      if (q.status?.length) {
+        params.push(q.status);
+        whereSql += `${whereSql ? ' AND' : 'WHERE'} p.status = ANY($${params.length}::text[])`;
+      }
       if (q.stock) whereSql += `${whereSql ? ' AND' : 'WHERE'} (${stockFilter[q.stock]})`;
       const total = Number((await query(`SELECT count(*) ${PRODUCT_FROM} ${whereSql}`, params)).rows[0].count);
       const limit = q.limit || 20;
@@ -230,7 +240,9 @@ export const adminCatalogRoutes = () => {
       const counts = (
         await query(
           `SELECT count(*)::int AS all, count(*) FILTER (WHERE status = 'published')::int AS published,
+             count(*) FILTER (WHERE status = 'inactive')::int AS inactive,
              count(*) FILTER (WHERE status = 'draft')::int AS draft,
+             count(*) FILTER (WHERE status = 'archived')::int AS archived,
              count(*) FILTER (WHERE track_inventory AND quantity > 0 AND quantity <= low_stock_threshold)::int AS low,
              count(*) FILTER (WHERE track_inventory AND quantity <= 0)::int AS out
            FROM products`
@@ -449,7 +461,7 @@ export const adminCatalogRoutes = () => {
   // ---------- files ----------
   router.post(
     '/files',
-    requirePermission('catalog.files.upload'),
+    requireAnyPermission('catalog.files.upload', 'admin.settings.manage'),
     singleImage,
     handler(async (req, res) => {
       if (!req.file) fail(400, 'Please choose a file to upload.');

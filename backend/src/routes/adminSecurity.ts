@@ -9,6 +9,7 @@ import { audit } from '../lib/audit';
 import { fail, handler, ok, parse } from '../lib/http';
 import { IMPERSONATION_MINUTES, revokeAllSessions, revokeSession, startImpersonation } from '../lib/sessions';
 import { getSettings, saveSettings, settingsSchema } from '../lib/settings';
+import { getStore, saveStore, storeSchema } from '../lib/store';
 import { findUserById, permissionsForRole, UserRow } from '../lib/users';
 import { authenticate, notWhileImpersonating, requirePermission } from '../middleware/auth';
 
@@ -66,6 +67,7 @@ const ACTION_NAMES: Record<string, string> = {
   'admin.impersonation_started': 'Started acting as a customer',
   'admin.impersonation_ended': 'Stopped acting as a customer',
   'admin.security_settings_updated': 'Changed security settings',
+  'admin.store_settings_updated': 'Changed store settings',
   'admin.session_revoked': 'Ended a sign-in session',
   'admin.role_created': 'Created a role',
   'admin.role_updated': 'Changed a role',
@@ -305,6 +307,40 @@ export const adminSecurityRoutes = () => {
       });
       await saveSettings(merged, req.auth!.userId);
       audit(req, 'admin.security_settings_updated', 'security_settings', { sections: Object.keys(body) });
+      ok(res, { settings: merged });
+    })
+  );
+
+  // ---------- store settings (Pages settings) ----------
+  router.get(
+    '/store-settings',
+    authenticate,
+    requirePermission('admin.settings.manage'),
+    handler(async (_req, res) => {
+      const row = (
+        await query(
+          `SELECT s.updated_at, u.firstname, u.lastname FROM store_settings s
+           LEFT JOIN users u ON u.id = s.updated_by WHERE s.id = 1`
+        )
+      ).rows[0];
+      ok(res, {
+        settings: await getStore(),
+        updated_at: row?.updated_at ?? null,
+        updated_by: row?.firstname ? `${row.firstname} ${row.lastname}`.trim() : null,
+      });
+    })
+  );
+
+  router.put(
+    '/store-settings',
+    authenticate,
+    requirePermission('admin.settings.manage'),
+    handler(async (req, res) => {
+      const current = await getStore();
+      const body = req.body || {};
+      const merged = parse(storeSchema, { ...current, ...body, social: { ...current.social, ...(body.social || {}) } });
+      await saveStore(merged, req.auth!.userId);
+      audit(req, 'admin.store_settings_updated', 'store_settings', { fields: Object.keys(body) });
       ok(res, { settings: merged });
     })
   );

@@ -11,6 +11,7 @@ import {
   Button,
   Container,
   IconButton,
+  Skeleton,
   Stack,
   Typography,
 } from '@mui/material';
@@ -19,8 +20,12 @@ import { catalog } from '../../api';
 
 let cache = null; // one request per page load
 
-export const usePromotions = () => {
-  const [promos, setPromos] = useState(cache || []);
+/** Current offers; `loaded` is false until the first answer arrives. */
+export const usePromotionsState = () => {
+  const [state, setState] = useState({
+    promos: cache || [],
+    loaded: Boolean(cache),
+  });
   useEffect(() => {
     if (cache) return undefined;
     let active = true;
@@ -28,15 +33,17 @@ export const usePromotions = () => {
       .promotions()
       .then((list) => {
         cache = list;
-        if (active) setPromos(list);
+        if (active) setState({ promos: list, loaded: true });
       })
-      .catch(() => {});
+      .catch(() => active && setState({ promos: [], loaded: true }));
     return () => {
       active = false;
     };
   }, []);
-  return promos;
+  return state;
 };
+
+export const usePromotions = () => usePromotionsState().promos;
 
 /** Rotates through items every `ms` (paused while hovered). */
 const useRotation = (count, ms = 6000) => {
@@ -199,8 +206,17 @@ PromoStrip.propTypes = { onClose: PropTypes.func.isRequired };
  */
 export const PromoBanner = () => {
   const navigate = useNavigate();
-  const promos = usePromotions();
+  const { promos, loaded } = usePromotionsState();
   const { index, setIndex, pause } = useRotation(promos.length, 7000);
+  if (!loaded) {
+    return (
+      <Skeleton
+        variant="rounded"
+        data-testid="promo-banner-loading"
+        sx={{ height: { xs: 260, sm: 200 } }}
+      />
+    );
+  }
   if (!promos.length) return null;
   const step = (d) => setIndex((i) => (i + d + promos.length) % promos.length);
   const arrow = (side) => ({
@@ -307,15 +323,7 @@ export const PromoBanner = () => {
                   )}
                 </Typography>
               </Box>
-              <Stack
-                spacing={0.5}
-                alignItems={{ xs: 'flex-start', md: 'center' }}
-              >
-                <Typography variant="caption" sx={{ color: 'promo.text' }}>
-                  {promo.daily ? 'Today only — ends in' : 'Ends in'}
-                </Typography>
-                <Countdown endsAt={promo.endsAt} size="large" />
-              </Stack>
+              <Countdown endsAt={promo.endsAt} size="large" />
               <Button
                 variant="contained"
                 color="warning"

@@ -84,8 +84,8 @@ const BrandsPage = () => {
     <Stack spacing={3}>
       <PageHeader
         crumbs={[
-          { label: 'Products', to: '/admin/products' },
-          { label: 'Brands', to: '/admin/products/brands' },
+          { label: 'Home', to: '/admin' },
+          { label: 'Brands', to: '/admin/brands' },
         ]}
         title="Brands"
         subtitle="Shoppers can filter by brand; logos scroll across the home page and appear on product pages."

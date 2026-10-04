@@ -29,11 +29,14 @@ import {
   FiMenu,
   FiPackage,
   FiRotateCcw,
+  FiSettings,
   FiShield,
   FiUser,
   FiUsers,
   FiLock,
   FiActivity,
+  FiFolder,
+  FiTag,
 } from 'react-icons/fi';
 import { AuthContext } from '../context/AuthContext';
 import {
@@ -42,7 +45,7 @@ import {
   PERMISSIONS,
   roleLabel,
 } from '../auth/permissions';
-import logo from '../images/logo.png';
+import { useStore } from '../context/StoreContext';
 
 const RAIL_WIDTH = 264;
 
@@ -84,7 +87,19 @@ export const adminNav = (user) =>
           label: 'Products',
           to: '/admin/products',
           icon: <FiBox />,
-          show: hasPermissionPrefix(user, 'catalog.'),
+          show: hasPermission(user, 'catalog.products.view'),
+        },
+        {
+          label: 'Categories',
+          to: '/admin/categories',
+          icon: <FiFolder />,
+          show: hasPermissionPrefix(user, 'catalog.categories.'),
+        },
+        {
+          label: 'Brands',
+          to: '/admin/brands',
+          icon: <FiTag />,
+          show: hasPermissionPrefix(user, 'catalog.brands.'),
         },
       ],
     },
@@ -109,6 +124,12 @@ export const adminNav = (user) =>
       heading: 'System',
       items: [
         {
+          label: 'Store settings',
+          to: '/admin/settings',
+          icon: <FiSettings />,
+          show: hasPermission(user, PERMISSIONS.settingsManage),
+        },
+        {
           label: 'Security',
           to: '/admin/security',
           icon: <FiLock />,
@@ -127,6 +148,7 @@ export const adminNav = (user) =>
     .filter((g) => g.items.length);
 
 const Rail = ({ onNavigate }) => {
+  const shop = useStore();
   const { user } = useContext(AuthContext);
   const theme = useTheme();
   return (
@@ -143,9 +165,14 @@ const Rail = ({ onNavigate }) => {
           px: 1,
         }}
       >
-        <Box component="img" src={logo} alt="" sx={{ height: 32 }} />
+        <Box
+          component="img"
+          src={shop.logoUrl}
+          alt=""
+          sx={{ height: 32, maxWidth: 120, objectFit: 'contain' }}
+        />
         <Typography sx={{ fontWeight: 800, fontSize: '1.1rem' }}>
-          Carlos Shop
+          {shop.name}
         </Typography>
       </Box>
       <Box

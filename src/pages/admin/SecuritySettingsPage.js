@@ -4,7 +4,6 @@
 import React, { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import {
-  Alert,
   Box,
   Button,
   FormControlLabel,
@@ -33,6 +32,7 @@ import { useNotify } from '../../notification/NotificationProvider';
 import { SectionCard, StatTile } from '../../components/ui';
 import { SessionsTable } from '../../components/security/SecurityWidgets';
 import { formatDateTime } from '../../utils/format';
+import PageSkeleton from '../../components/common/PageSkeleton';
 
 const NumberField = ({ label, value, onChange, unit, helperText, min = 0 }) => (
   <TextField
@@ -276,9 +276,7 @@ const SecuritySettingsPage = () => {
       </Tabs>
 
       {tab === 'sessions' && <ActiveSessions />}
-      {tab !== 'sessions' && !settings && (
-        <Alert severity="info">Loading settings…</Alert>
-      )}
+      {tab !== 'sessions' && !settings && <PageSkeleton variant="form" />}
 
       {tab === 'password' && settings && (
         <PolicyForm

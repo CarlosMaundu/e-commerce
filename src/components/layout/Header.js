@@ -20,6 +20,7 @@ import {
   Menu,
   MenuItem,
   Select,
+  Skeleton,
   Stack,
   Toolbar,
   Typography,
@@ -45,7 +46,7 @@ import { canShop, isStaff } from '../../auth/permissions';
 import { PromoStrip } from '../promotions/Promotions';
 import { useNotify } from '../../notification/NotificationProvider';
 import { MESSAGES } from '../../notification/messages';
-import logo from '../../images/logo.png';
+import { useStore } from '../../context/StoreContext';
 
 const LINKS = [
   { label: 'Orders', to: '/account/orders', auth: true, shopper: true },
@@ -55,6 +56,7 @@ const LINKS = [
 ];
 
 const Header = () => {
+  const shop = useStore();
   const { user, loading, logout } = useContext(AuthContext);
   const notify = useNotify();
   const theme = useTheme();
@@ -219,7 +221,7 @@ const Header = () => {
           <Box
             component={RouterLink}
             to="/"
-            aria-label="Carlos Shop home"
+            aria-label={`${shop.name} home`}
             sx={{
               display: 'flex',
               alignItems: 'center',
@@ -228,7 +230,12 @@ const Header = () => {
               color: 'inherit',
             }}
           >
-            <Box component="img" src={logo} alt="" sx={{ height: 36 }} />
+            <Box
+              component="img"
+              src={shop.logoUrl}
+              alt=""
+              sx={{ height: 36, maxWidth: 140, objectFit: 'contain' }}
+            />
             {!isMobile && (
               <Typography
                 sx={{
@@ -237,7 +244,7 @@ const Header = () => {
                   letterSpacing: '-0.02em',
                 }}
               >
-                Carlos Shop
+                {shop.name}
               </Typography>
             )}
           </Box>
@@ -306,7 +313,9 @@ const Header = () => {
                 </Badge>
               </IconButton>
             )}
-            {loading ? null : user ? (
+            {loading ? (
+              <Skeleton variant="circular" width={36} height={36} />
+            ) : user ? (
               <>
                 {!isMobile && (
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>
@@ -460,7 +469,7 @@ const Header = () => {
             justifyContent="space-between"
             alignItems="center"
           >
-            <Typography sx={{ fontWeight: 800 }}>Carlos Shop</Typography>
+            <Typography sx={{ fontWeight: 800 }}>{shop.name}</Typography>
             <IconButton
               aria-label="Close menu"
               onClick={() => setDrawerOpen(false)}

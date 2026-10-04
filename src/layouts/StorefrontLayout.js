@@ -7,10 +7,33 @@ import PageBreadcrumbs from '../components/common/PageBreadcrumbs';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
 import ImpersonationBanner from '../components/ImpersonationBanner';
+import { useStore } from '../context/StoreContext';
+
+const AnnouncementBar = () => {
+  const { announcement } = useStore();
+  if (!announcement) return null;
+  return (
+    <Box
+      role="note"
+      sx={{
+        bgcolor: 'primary.main',
+        color: 'primary.contrastText',
+        textAlign: 'center',
+        px: 2,
+        py: 0.75,
+        fontSize: 14,
+        fontWeight: 500,
+      }}
+    >
+      {announcement}
+    </Box>
+  );
+};
 
 const StorefrontLayout = () => (
   <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
     <ImpersonationBanner />
+    <AnnouncementBar />
     <Header />
     <Box component="main" sx={{ flex: 1 }}>
       <Outlet />

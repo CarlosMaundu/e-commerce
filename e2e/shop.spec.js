@@ -9,7 +9,7 @@ test('product list shows the catalog and search really filters it', async ({
   page,
 }) => {
   await page.goto('/products');
-  await expect(page.getByText('31 results')).toBeVisible();
+  await expect(page.getByText('33 results')).toBeVisible();
   await expect(page.getByTestId('product-card')).toHaveCount(24); // first page
 
   const search = page.getByRole('textbox', { name: 'Search products' });

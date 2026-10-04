@@ -12,15 +12,15 @@ describe('storefront catalog', () => {
   test('lists, searches, filters by category tree and paginates', async () => {
     const all = await request(app).get('/api/rest/products');
     expect(all.body.success).toBe(1);
-    expect(all.body.data.length).toBe(31);
-    expect(all.headers['x-total-count']).toBe('31');
+    expect(all.body.data.length).toBe(33);
+    expect(all.headers['x-total-count']).toBe('33');
 
     const dresses = await request(app).get('/api/rest/products').query({ search: 'dress' });
     expect(dresses.body.data.map((p: { name: string }) => p.name).sort()).toEqual(['Linen summer dress', 'Wrap midi dress']);
 
     const page2 = await request(app).get('/api/rest/products').query({ limit: 5, page: 2 });
     expect(page2.body.data.length).toBe(5);
-    expect(page2.headers['x-total-count']).toBe('31');
+    expect(page2.headers['x-total-count']).toBe('33');
 
     const cats = await request(app).get('/api/rest/categories');
     const men = cats.body.data.find((c: { name: string }) => c.name === 'Men');
@@ -36,7 +36,7 @@ describe('storefront catalog', () => {
     expect(ikea).toMatchObject({ count: 3, logo: expect.stringMatching(/^\/uploads\/demo-brand-/) });
     // Only browsing attributes are filters; product-page choices aren't.
     expect(facets.attributes.map((a: any) => a.name).sort()).toEqual(['Color', 'Material', 'Size']);
-    expect(facets.price).toEqual({ min: 15, max: 249 });
+    expect(facets.price).toEqual({ min: 15, max: 799 });
     expect(facets.attributes.find((a: any) => a.name === 'Size').values.map((v: any) => v.value)).toEqual(
       expect.arrayContaining(['S', 'M', '30 ml', '42'])
     );
@@ -89,6 +89,29 @@ describe('storefront catalog', () => {
     const black = tee.variants.find((v: any) => v.options.Color === 'Black');
     expect(black.images[0]).toMatch(/demo-tee-black\.jpg$/);
     expect(tee.quantity).toBe(tee.variants.reduce((s: number, v: any) => s + v.quantity, 0));
+  });
+
+  test('phones: each model, colour and storage has its own price and photos', async () => {
+    const phone = (await request(app).get('/api/rest/products').query({ search: 'iPhone 14' })).body.data[0];
+    const pick = (o: Record<string, string>) =>
+      phone.variants.find((v: any) => Object.entries(o).every(([k, val]) => v.options[k] === val));
+    expect(pick({ Model: 'iPhone 14', Color: 'Blue', Storage: '128GB' }).price).toBe(799);
+    expect(pick({ Model: 'iPhone 14 Pro', Color: 'Gold', Storage: '256GB' }).price).toBe(1099);
+    const goldMax = pick({ Model: 'iPhone 14 Pro Max', Color: 'Gold', Storage: '512GB' });
+    expect(goldMax.price).toBe(1399);
+    expect(goldMax.images).toEqual(['/uploads/demo-iphone14promax-gold-1.jpg']);
+    // The base model doesn't come in Gold, and the Pro models aren't Blue.
+    expect(pick({ Model: 'iPhone 14', Color: 'Gold' })).toBeUndefined();
+    expect(pick({ Model: 'iPhone 14 Pro', Color: 'Blue' })).toBeUndefined();
+    expect(new Set(phone.variants.map((v: any) => v.sku)).size).toBe(phone.variants.length);
+  });
+
+  test('a subcategory shows only its own products', async () => {
+    const cats = (await request(app).get('/api/rest/categories')).body.data;
+    const electronics = cats.find((c: any) => c.name === 'Electronics');
+    const phones = electronics.categories.find((c: any) => c.name === 'Phones');
+    const res = await request(app).get('/api/rest/products').query({ category: phones.category_id });
+    expect(res.body.data.map((p: any) => p.name).sort()).toEqual(['Apple iPhone 14', 'Samsung Galaxy S23']);
   });
 
   test('reviews: summary, sign-in to write, one each, rating kept up to date', async () => {
@@ -249,7 +272,7 @@ describe('admin catalog permissions', () => {
 
     const list = await request(app).get('/api/admin/products').set(bearer(token)).query({ status: 'draft' });
     expect(list.body.data.products.map((p: any) => p.name)).toEqual(['Secret launch']);
-    expect(list.body.data.counts).toMatchObject({ all: 32, published: 31, draft: 1, out: 2 });
+    expect(list.body.data.counts).toMatchObject({ all: 34, published: 33, draft: 1, out: 2 });
     const out = await request(app).get('/api/admin/products').set(bearer(token)).query({ stock: 'out' });
     expect(out.body.data.products.map((p: any) => p.name)).toContain('Ceramic table lamp');
     const tags = await request(app).get('/api/admin/product_tags').set(bearer(token));

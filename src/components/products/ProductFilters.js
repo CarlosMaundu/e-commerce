@@ -257,6 +257,20 @@ const ProductFilters = ({ facets, categories, filters, update, clearAll }) => {
   const toggle = (list, value) =>
     list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
   const cats = filters.categoryIds;
+  // A parent already includes its subcategories, so picking one replaces the
+  // other: a subcategory then shows only its own products.
+  const pickParent = (c) => {
+    const subs = (c.subcategories || []).map((s) => String(s.id));
+    return toggle(
+      cats.filter((v) => !subs.includes(v)),
+      String(c.id)
+    );
+  };
+  const pickSub = (c, s) =>
+    toggle(
+      cats.filter((v) => v !== String(c.id)),
+      String(s.id)
+    );
 
   return (
     <Box aria-label="Filters" component="aside">
@@ -285,9 +299,7 @@ const ProductFilters = ({ facets, categories, filters, update, clearAll }) => {
               <React.Fragment key={c.id}>
                 <CheckRow
                   checked={cats.includes(String(c.id))}
-                  onChange={() =>
-                    update({ category: toggle(cats, String(c.id)) })
-                  }
+                  onChange={() => update({ category: pickParent(c) })}
                   label={c.name}
                 />
                 {open &&
@@ -296,9 +308,7 @@ const ProductFilters = ({ facets, categories, filters, update, clearAll }) => {
                       key={s.id}
                       indent
                       checked={cats.includes(String(s.id))}
-                      onChange={() =>
-                        update({ category: toggle(cats, String(s.id)) })
-                      }
+                      onChange={() => update({ category: pickSub(c, s) })}
                       label={s.name}
                     />
                   ))}

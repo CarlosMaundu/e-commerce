@@ -1,5 +1,6 @@
 // src/pages/CartPage.js
 import React, { useContext, useState } from 'react';
+import PageSkeleton from '../components/common/PageSkeleton';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import {
@@ -79,6 +80,8 @@ const CartPage = () => {
     if (!user) navigate('/login', { state: { from: '/checkout' } });
     else navigate('/checkout');
   };
+
+  if (!cart.items.length && busy) return <PageSkeleton variant="cart" />;
 
   if (!cart.items.length) {
     return (

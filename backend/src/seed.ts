@@ -44,6 +44,7 @@ export const PERMISSION_CATALOG: { code: string; description: string; implied?: 
   { code: 'admin.security.view', description: 'View sign-in sessions and security settings', implied: ['admin.security.manage'] },
   { code: 'admin.security.manage', description: 'Change security settings and end sessions' },
   { code: 'admin.audit.view', description: 'View the audit log' },
+  { code: 'admin.settings.manage', description: 'Change the shop’s name, logo, favicon and contact details', implied: ['admin.security.manage'] },
 ];
 
 export const PERMISSIONS: Record<string, string> = Object.fromEntries(

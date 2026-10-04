@@ -184,6 +184,35 @@ describe('security settings', () => {
     expect(closed.status).toBe(403);
   });
 
+  test('store settings: public read, admin-only edits, validated links', async () => {
+    const defaults = await request(app).get('/api/rest/store');
+    expect(defaults.body.data).toMatchObject({ name: 'Carlos Shop', logo: '', social: { instagram: '' } });
+
+    await createUser('jane@example.com');
+    const jane = await signIn('jane@example.com');
+    expect((await request(app).put('/api/admin/store-settings').set(bearer(jane.token)).send({ name: 'Mine' })).status).toBe(403);
+
+    await createUser('boss@example.com', 'admin');
+    const admin = await signIn('boss@example.com');
+    const bad = await request(app).put('/api/admin/store-settings').set(bearer(admin.token))
+      .send({ logo: 'javascript:alert(1)', social: { x: 'http://x.com/a' } });
+    expect(bad.status).toBe(400);
+    expect(bad.body.field_errors).toMatchObject({ logo: expect.any(String), 'social.x': expect.any(String) });
+
+    await request(app).put('/api/admin/store-settings').set(bearer(admin.token))
+      .send({ name: 'Nyota Market', social: { instagram: 'https://instagram.com/nyota' } }).expect(200);
+    await request(app).put('/api/admin/store-settings').set(bearer(admin.token))
+      .send({ social: { x: 'https://x.com/nyota' } }).expect(200);
+    const after = await request(app).get('/api/rest/store');
+    expect(after.body.data).toMatchObject({
+      name: 'Nyota Market',
+      tagline: 'Everyday things, chosen with care.',
+      social: { instagram: 'https://instagram.com/nyota', x: 'https://x.com/nyota' },
+    });
+    const log = await query("SELECT action FROM audit_logs WHERE action = 'admin.store_settings_updated'");
+    expect(log.rowCount).toBe(2);
+  });
+
   test('back-office sessions end after the idle timeout; customers’ don’t', async () => {
     await createUser('boss@example.com', 'admin');
     await createUser('jane@example.com');

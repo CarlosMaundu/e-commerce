@@ -234,7 +234,7 @@ test('categories and brands are tables with add dialogs; variation photos stay l
   page,
 }) => {
   await signInAdmin(page);
-  await page.goto('/admin/products/categories');
+  await page.goto('/admin/categories');
   await page.getByRole('button', { name: 'Add category' }).click();
   const dialog = page.getByRole('dialog');
   await dialog.getByLabel('Category name').fill('Garden');
@@ -246,7 +246,7 @@ test('categories and brands are tables with add dialogs; variation photos stay l
     .fill('Garden');
   await expect(page.getByTestId('category-row-Garden')).toBeVisible();
 
-  await page.goto('/admin/products/brands');
+  await page.goto('/admin/brands');
   await expect(
     page.getByRole('table', { name: 'Brands' }).locator('tbody tr')
   ).toHaveCount(10); // first page
@@ -270,4 +270,27 @@ test('categories and brands are tables with add dialogs; variation photos stay l
     'Photos for Color: White'
   );
   await expect(page.getByRole('dialog').getByText('1 selected')).toBeVisible();
+});
+
+test('store settings rename the shop everywhere and add an announcement', async ({
+  page,
+}) => {
+  await signInAdmin(page);
+  await page.goto('/admin/settings');
+  await page.getByLabel('Shop name').fill('Nyota Market');
+  await page.getByLabel('Announcement bar').fill('Free delivery this week');
+  await page.getByLabel('Instagram').fill('https://instagram.com/nyotamarket');
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  await expect(toast(page)).toHaveText('Store settings saved.');
+
+  await page.goto('/');
+  await expect(
+    page.getByRole('link', { name: 'Nyota Market home' })
+  ).toBeVisible();
+  await expect(page.getByText('Free delivery this week')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Instagram' })).toHaveAttribute(
+    'href',
+    'https://instagram.com/nyotamarket'
+  );
+  await expect(page).toHaveTitle(/Nyota Market/);
 });

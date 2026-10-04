@@ -36,7 +36,8 @@ export interface ProductRow {
   images: string[];
   attributes: Attribute[];
   sku: string | null;
-  status: 'published' | 'draft';
+  status: ProductStatus;
+  published_at: Date | null;
   featured: boolean;
   tags: string[];
   track_inventory: boolean;
@@ -46,6 +47,10 @@ export interface ProductRow {
   created_at: Date;
   updated_at: Date;
 }
+
+/** published = Active (in the shop); the others are hidden from shoppers. */
+export const PRODUCT_STATUSES = ['published', 'inactive', 'draft', 'archived'] as const;
+export type ProductStatus = (typeof PRODUCT_STATUSES)[number];
 
 export const PRODUCT_SELECT = `
   SELECT p.*, c.name AS category_name, b.name AS brand_name, b.logo AS brand_logo
@@ -92,6 +97,7 @@ export const toContractProduct = (p: ProductRow, variants: VariantRow[] = []) =>
     manufacturer: p.brand_name || '',
     sku: p.sku,
     status: p.status,
+    published_at: p.published_at,
     featured: p.featured,
     tags: p.tags,
     attributes: p.attributes,
@@ -155,7 +161,7 @@ export interface ProductFilters {
   featured?: boolean;
   tag?: string[];
   attr?: Record<string, string[]>;
-  status?: 'published' | 'draft';
+  status?: ProductStatus;
 }
 
 export const SORTS: Record<string, string> = {
@@ -170,6 +176,7 @@ export const SORTS: Record<string, string> = {
             p.rating DESC, p.id DESC`,
   stock_asc: 'p.quantity ASC, p.id',
   stock_desc: 'p.quantity DESC, p.id',
+  published: 'p.published_at DESC NULLS LAST, p.id DESC',
 };
 
 /** Builds a WHERE clause; `params` is filled in place. */
