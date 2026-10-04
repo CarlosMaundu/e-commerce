@@ -56,6 +56,7 @@ module.exports = defineConfig({
         STANDARD_SHIPPING: '10',
         EXPRESS_SHIPPING: '25',
         FREE_SHIPPING_OVER: '150',
+        GIFT_BOX_PRICE: '5',
       },
     },
     {

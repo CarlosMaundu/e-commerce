@@ -16,7 +16,14 @@ import {
   Typography,
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
-import { FiEdit2, FiMapPin, FiSave, FiTruck, FiZap } from 'react-icons/fi';
+import {
+  FiEdit2,
+  FiGift,
+  FiMapPin,
+  FiSave,
+  FiTruck,
+  FiZap,
+} from 'react-icons/fi';
 import { delivery as deliveryApi } from '../../api';
 import { useNotify } from '../../notification/NotificationProvider';
 import { PageHeader, Pill } from '../../components/admin/DataTable';
@@ -213,6 +220,112 @@ OptionCard.propTypes = {
   editing: PropTypes.bool,
 };
 
+// Gift options shoppers can pick per cart item: a free message and a paid box.
+const GiftCard = ({ value, onChange, errors, editing }) => {
+  const set = (key) => (e) => onChange({ ...value, [key]: e.target.value });
+  return (
+    <Box
+      sx={{
+        bgcolor: 'background.paper',
+        border: 1,
+        borderColor: 'divider',
+        borderRadius: 1,
+        p: { xs: 2.5, md: 3 },
+      }}
+    >
+      <Stack
+        direction="row"
+        spacing={2}
+        alignItems="flex-start"
+        sx={{ mb: value.enabled ? 2.5 : 0 }}
+      >
+        <Box
+          sx={{
+            width: 44,
+            height: 44,
+            borderRadius: '8px',
+            display: 'grid',
+            placeItems: 'center',
+            fontSize: 20,
+            color: 'secondary.main',
+            bgcolor: (t) => alpha(t.palette.secondary.main, 0.12),
+            flexShrink: 0,
+          }}
+        >
+          <FiGift />
+        </Box>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Typography variant="h6" component="h2">
+              Gift options
+            </Typography>
+            <Pill
+              label={value.enabled ? 'On' : 'Off'}
+              tone={value.enabled ? 'success' : 'default'}
+            />
+          </Stack>
+          <Typography variant="body2" color="text.secondary">
+            Shoppers can send an item as a gift with a free message on the
+            packing slip and an optional gift box. Staff tick each gift off
+            before the order ships.
+          </Typography>
+        </Box>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={value.enabled}
+              onChange={(e) =>
+                onChange({ ...value, enabled: e.target.checked })
+              }
+              disabled={!editing}
+            />
+          }
+          label={value.enabled ? 'Offered' : 'Not offered'}
+          labelPlacement="start"
+          sx={{ m: 0, gap: 1 }}
+        />
+      </Stack>
+      {value.enabled && (
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+          <TextField
+            label="Gift box price"
+            type="number"
+            value={value.box_price}
+            onChange={set('box_price')}
+            error={!!errors['gift.box_price']}
+            helperText={errors['gift.box_price'] || 'Charged per item boxed.'}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  {getCurrency()}
+                </InputAdornment>
+              ),
+            }}
+            inputProps={{ min: 0, step: '0.01' }}
+            sx={{ minWidth: { sm: 220 } }}
+          />
+          <TextField
+            label="Gift box description"
+            value={value.box_description}
+            onChange={set('box_description')}
+            inputProps={{ maxLength: 160 }}
+            helperText={
+              errors['gift.box_description'] || 'Shown in the gift window.'
+            }
+            fullWidth
+          />
+        </Stack>
+      )}
+    </Box>
+  );
+};
+GiftCard.propTypes = {
+  value: PropTypes.object.isRequired,
+  onChange: PropTypes.func.isRequired,
+  errors: PropTypes.object.isRequired,
+  editing: PropTypes.bool,
+};
+
 const DeliverySettingsPage = () => {
   const notify = useNotify();
   const [form, setForm] = useState(null);
@@ -321,6 +434,14 @@ const DeliverySettingsPage = () => {
                 onChange={(v) => setForm((f) => ({ ...f, [option.code]: v }))}
               />
             ))}
+            {form.gift && (
+              <GiftCard
+                value={form.gift}
+                editing={editing}
+                errors={errors}
+                onChange={(v) => setForm((f) => ({ ...f, gift: v }))}
+              />
+            )}
           </Stack>
         </Box>
       )}

@@ -27,6 +27,7 @@ import {
   FiEdit2,
   FiExternalLink,
   FiFileText,
+  FiGift,
   FiMail,
   FiMapPin,
   FiPhone,
@@ -41,6 +42,7 @@ import { useNotify } from '../../../notification/NotificationProvider';
 import { SectionCard, StatusChip } from '../../../components/ui';
 import { PageHeader, Pill } from '../../../components/admin/DataTable';
 import OptionRows from '../../../components/common/OptionRows';
+import GiftNote from '../../../components/common/GiftNote';
 import { initialsOf } from '../../../components/common/BrandMark';
 import { countryName } from '../../../components/account/AddressForm';
 import { formatDate, formatDateTime, formatMoney } from '../../../utils/format';
@@ -131,6 +133,19 @@ const AdminOrderDetail = () => {
     load();
   }, [load]);
 
+  // Gift instructions are ticked off before the order can be dispatched.
+  const [giftBusy, setGiftBusy] = useState(null);
+  const markGift = async (item, done) => {
+    setGiftBusy(item.id);
+    try {
+      setOrder(await adminOrders.giftDone(id, item.id, done));
+    } catch (error) {
+      notify.error(error, 'We couldn’t update the gift.');
+    } finally {
+      setGiftBusy(null);
+    }
+  };
+
   const save = async (e) => {
     e.preventDefault();
     setSaving(true);
@@ -179,6 +194,8 @@ const AdminOrderDetail = () => {
   const ledgerRows = [
     ...(money?.payments || []).map((p) => ({ ...p, date: p.received_at })),
   ].sort((a, b) => new Date(a.date) - new Date(b.date));
+  const gifts = order.items.filter((i) => i.gift);
+  const openGifts = gifts.filter((i) => !i.gift.done).length;
   const pendingRefunds = (money?.refunds || []).filter(
     (r) => r.status === 'pending_approval'
   );
@@ -258,6 +275,97 @@ const AdminOrderDetail = () => {
       <Grid container spacing={3}>
         <Grid item xs={12} lg={8}>
           <Stack spacing={3}>
+            {gifts.length > 0 && (
+              <SectionCard
+                title="Before dispatch"
+                sx={{
+                  borderColor: openGifts ? 'warning.main' : 'success.main',
+                  bgcolor: (t) =>
+                    alpha(
+                      openGifts
+                        ? t.palette.warning.main
+                        : t.palette.success.main,
+                      0.06
+                    ),
+                }}
+              >
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ mb: 1.5 }}
+                >
+                  {openGifts
+                    ? `Special instructions: ${openGifts} gift${
+                        openGifts > 1 ? 's' : ''
+                      } to prepare. The order can’t be marked shipped until each one is ticked off.`
+                    : 'All gift instructions are done. The order is ready to dispatch.'}
+                </Typography>
+                <Stack spacing={1.5}>
+                  {gifts.map((item) => (
+                    <Stack
+                      key={item.id}
+                      direction="row"
+                      spacing={1.5}
+                      alignItems="flex-start"
+                      sx={{
+                        p: 1.5,
+                        borderRadius: '8px',
+                        bgcolor: 'background.paper',
+                      }}
+                    >
+                      <Checkbox
+                        checked={!!item.gift.done}
+                        disabled={
+                          giftBusy === item.id || !can(PERMISSIONS.ordersUpdate)
+                        }
+                        onChange={(e) => markGift(item, e.target.checked)}
+                        inputProps={{
+                          'aria-label': `Gift prepared: ${item.title}`,
+                        }}
+                        sx={{ mt: -0.75 }}
+                      />
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography sx={{ fontWeight: 600 }}>
+                          <FiGift
+                            style={{ verticalAlign: '-2px', marginRight: 6 }}
+                          />
+                          {item.title} × {item.quantity}
+                        </Typography>
+                        <Box component="ul" sx={{ m: 0, mt: 0.5, pl: 2.5 }}>
+                          <Typography component="li" variant="body2">
+                            Label it to <strong>{item.gift.to}</strong> from{' '}
+                            <strong>{item.gift.from}</strong>.
+                          </Typography>
+                          {item.gift.message && (
+                            <Typography component="li" variant="body2">
+                              Print on the packing slip: “{item.gift.message}”
+                            </Typography>
+                          )}
+                          {item.gift.giftBox && (
+                            <Typography component="li" variant="body2">
+                              Wrap it in a gift box.
+                            </Typography>
+                          )}
+                          <Typography component="li" variant="body2">
+                            Leave prices off the packing slip.
+                          </Typography>
+                        </Box>
+                        {item.gift.done && (
+                          <Typography variant="caption" color="success.main">
+                            Done
+                            {item.gift.doneBy ? ` by ${item.gift.doneBy}` : ''}
+                            {item.gift.doneAt
+                              ? ` · ${formatDateTime(item.gift.doneAt)}`
+                              : ''}
+                          </Typography>
+                        )}
+                      </Box>
+                    </Stack>
+                  ))}
+                </Stack>
+              </SectionCard>
+            )}
+
             <SectionCard title={`Items (${order.items.length})`}>
               <Stack divider={<Divider />}>
                 {order.items.map((item) => (
@@ -306,6 +414,7 @@ const AdminOrderDetail = () => {
                         {item.sku ? ` · SKU ${item.sku}` : ''}
                       </Typography>
                       <OptionRows options={item.options} dense />
+                      <GiftNote gift={item.gift} />
                     </Box>
                     <Typography sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>
                       {formatMoney(item.total, order.currency)}
@@ -320,6 +429,7 @@ const AdminOrderDetail = () => {
                   order.totals.discount
                     ? [`Promo ${order.coupon || ''}`, -order.totals.discount]
                     : null,
+                  order.totals.gift ? ['Gift boxes', order.totals.gift] : null,
                   [
                     DELIVERY_NAMES[order.shippingMethod] || 'Delivery',
                     order.totals.shipping,

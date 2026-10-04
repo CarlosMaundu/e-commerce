@@ -105,6 +105,12 @@ export const removeFromCart = createAsyncThunk(
   })
 );
 
+/** Gift details for a line (signed-in carts only). */
+export const setCartGift = createAsyncThunk(
+  'cart/setGift',
+  run(({ key, gift }) => cartApi.setGift(key, gift))
+);
+
 export const applyCoupon = createAsyncThunk(
   'cart/applyCoupon',
   run((code) => cartApi.applyCoupon(code))
@@ -181,6 +187,9 @@ const cartSlice = createSlice({
         if (server) return setServer(state, server);
         state.guestItems = state.guestItems.filter((i) => i.key !== guest.key);
       })
+      .addCase(setCartGift.fulfilled, (state, action) =>
+        setServer(state, action.payload)
+      )
       .addCase(applyCoupon.fulfilled, (state, action) =>
         setServer(state, action.payload)
       )

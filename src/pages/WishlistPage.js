@@ -28,6 +28,7 @@ import { useNotify } from '../notification/NotificationProvider';
 import { EmptyState } from '../components/ui';
 import { AccountPage } from '../layouts/StorefrontLayout';
 import { formatMoney } from '../utils/format';
+import { PAGE_SIZE, StandardPagination } from '../components/admin/DataTable';
 
 const WishlistItem = ({
   product: p,
@@ -232,6 +233,10 @@ const WishlistList = ({ items, canShop }) => {
       ),
     [items, q]
   );
+  const [page, setPage] = useState(0);
+  const pageCount = Math.max(1, Math.ceil(shown.length / PAGE_SIZE));
+  const current = Math.min(page, pageCount - 1);
+  const onPage = shown.slice(current * PAGE_SIZE, (current + 1) * PAGE_SIZE);
   const chosen = items.filter((p) => selected.includes(p.id));
   const allOn = shown.length > 0 && shown.every((p) => selected.includes(p.id));
 
@@ -372,7 +377,7 @@ const WishlistList = ({ items, canShop }) => {
           }}
         />
       </Stack>
-      {shown.map((p) => (
+      {onPage.map((p) => (
         <WishlistItem
           key={p.id}
           product={p}
@@ -396,6 +401,26 @@ const WishlistList = ({ items, canShop }) => {
         <Typography color="text.secondary" sx={{ px: 1 }}>
           Nothing in your wishlist matches “{q.trim()}”.
         </Typography>
+      )}
+      {shown.length > PAGE_SIZE && (
+        <Box
+          sx={{
+            borderRadius: 1,
+            overflow: 'hidden',
+            border: 1,
+            borderColor: 'divider',
+          }}
+        >
+          <StandardPagination
+            count={shown.length}
+            page={current}
+            rowsPerPage={PAGE_SIZE}
+            label="items"
+            maxShowAll={0}
+            onRowsPerPageChange={() => {}}
+            onPageChange={(_, p) => setPage(p)}
+          />
+        </Box>
       )}
     </Stack>
   );

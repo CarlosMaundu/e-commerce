@@ -312,6 +312,34 @@ export const userToApi = ({ name, email, role, avatar } = {}) => {
 
 // ---------- Cart ----------
 
+/** A line sent as a gift (cart or order); staff also get done/doneAt/doneBy. */
+export const giftFromApi = (g) =>
+  g
+    ? {
+        to: g.to,
+        from: g.from,
+        message: g.message || '',
+        giftBox: !!g.gift_box,
+        ...(g.done !== undefined
+          ? {
+              done: !!g.done,
+              doneAt: g.done_at || null,
+              doneBy: g.done_by || null,
+            }
+          : {}),
+      }
+    : null;
+
+export const giftToApi = (g) =>
+  g
+    ? {
+        to: g.to,
+        from: g.from,
+        message: g.message || '',
+        gift_box: !!g.giftBox,
+      }
+    : null;
+
 export const cartFromApi = (c) => ({
   items: (c?.products || []).map((p) => ({
     key: p.key,
@@ -326,7 +354,15 @@ export const cartFromApi = (c) => ({
     total: Number(p.total),
     stock: p.stock,
     inStock: p.in_stock,
+    gift: giftFromApi(p.gift),
   })),
+  giftOptions: c?.gift_options
+    ? {
+        enabled: c.gift_options.enabled,
+        boxPrice: Number(c.gift_options.box_price),
+        boxDescription: c.gift_options.box_description,
+      }
+    : null,
   itemCount: c?.item_count || 0,
   coupon: c?.coupon || null,
   couponProblem: c?.coupon_problem || null,
@@ -419,6 +455,7 @@ export const orderFromApi = (o) =>
       image: p.image,
       options: p.options || {},
       sku: p.sku || '',
+      gift: giftFromApi(p.gift),
       quantity: p.quantity,
       price: Number(p.price),
       total: Number(p.total),
@@ -449,7 +486,19 @@ export function returnFromApi(r) {
       opened: r.opened,
       comment: r.comment,
       status: r.status,
+      statusName: r.status_name || r.status,
+      amount: r.amount,
+      receivedAt: r.received_at || null,
+      refund: r.refund
+        ? {
+            id: r.refund.refund_id,
+            status: r.refund.status,
+            amount: Number(r.refund.amount),
+            method: r.refund.method,
+          }
+        : null,
       date: r.date_added,
+      updated: r.date_modified,
       customer: r.customer || null,
     }
   );

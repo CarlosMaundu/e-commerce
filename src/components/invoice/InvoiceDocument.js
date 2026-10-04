@@ -80,6 +80,7 @@ const InvoiceDocument = ({ order }) => {
           ],
         ]
       : []),
+    ...(t.gift ? [['Gift boxes', money(t.gift)]] : []),
     ['Delivery', t.shipping ? money(t.shipping) : 'Free'],
     ...(tax.pricesIncludeTax
       ? []
@@ -235,6 +236,12 @@ const InvoiceDocument = ({ order }) => {
                   {optionText(item.options) && (
                     <Typography variant="caption">
                       {optionText(item.options)}
+                    </Typography>
+                  )}
+                  {item.gift && (
+                    <Typography variant="caption" sx={{ display: 'block' }}>
+                      Gift for {item.gift.to} from {item.gift.from}
+                      {item.gift.giftBox ? ' · gift box' : ''}
                     </Typography>
                   )}
                 </td>

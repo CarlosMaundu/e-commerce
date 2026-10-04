@@ -55,6 +55,31 @@ export const formatDate = (value, options = {}) =>
       }).format(new Date(value))
     : '';
 
+/** Compact table dates: dd-mm-yy (full time is on the detail view). */
+export const formatShortDate = (value) => {
+  if (!value) return '';
+  const d = new Date(value);
+  const two = (n) => String(n).padStart(2, '0');
+  return `${two(d.getDate())}-${two(d.getMonth() + 1)}-${two(
+    d.getFullYear() % 100
+  )}`;
+};
+
+/** Saves rows as a CSV file (header row first). */
+export const downloadCsv = (filename, header, rows) => {
+  const cell = (v) => {
+    const t = v === null || v === undefined ? '' : String(v);
+    return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+  };
+  const text = [header, ...rows].map((r) => r.map(cell).join(',')).join('\n');
+  const url = URL.createObjectURL(new Blob([text], { type: 'text/csv' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
 export const formatDateTime = (value) =>
   formatDate(value, { hour: 'numeric', minute: '2-digit' });
 

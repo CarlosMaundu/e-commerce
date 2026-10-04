@@ -12,6 +12,7 @@ process.env.PRICES_INCLUDE_TAX = 'false';
 process.env.STANDARD_SHIPPING = '10';
 process.env.EXPRESS_SHIPPING = '25';
 process.env.FREE_SHIPPING_OVER = '150';
+process.env.GIFT_BOX_PRICE = '5';
 process.env.FRONTEND_URL = 'http://shop.test';
 // Offers card payments; the gateway itself is a fake (tests/helpers.ts).
 process.env.STRIPE_SECRET_KEY = 'sk_test_fake';

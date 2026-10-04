@@ -34,6 +34,12 @@ export const deliverySchema = z
       location: text(300),
       hours: text(160),
     }),
+    // Sending an item as a gift: a free message, and an optional paid box.
+    gift: z.object({
+      enabled: z.boolean(),
+      box_price: price,
+      box_description: text(160),
+    }),
   })
   .refine((d) => d.standard.enabled || d.express.enabled || d.pickup.enabled, {
     message: 'Keep at least one delivery option switched on.',
@@ -68,6 +74,11 @@ export const defaultDelivery = (): Delivery => ({
     location: '',
     hours: 'Mon–Sat, 9am–6pm',
   },
+  gift: {
+    enabled: true,
+    box_price: config.shop.giftBoxPrice,
+    box_description: 'We’ll wrap your gift in a silver box with ribbons.',
+  },
 });
 
 let current: Delivery = defaultDelivery();
@@ -79,6 +90,7 @@ const merge = (base: Delivery, saved: any = {}) => ({
   standard: { ...base.standard, ...(saved.standard || {}) },
   express: { ...base.express, ...(saved.express || {}) },
   pickup: { ...base.pickup, ...(saved.pickup || {}) },
+  gift: { ...base.gift, ...(saved.gift || {}) },
 });
 
 export const mergeDelivery = merge;

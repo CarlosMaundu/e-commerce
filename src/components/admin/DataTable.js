@@ -317,6 +317,40 @@ PanelTabs.propTypes = {
   ).isRequired,
 };
 
+/** Any list shown 10 at a time with the standard paginator, in a bordered box. */
+export const PagedList = ({ rows, label, padded = false, children }) => {
+  const paging = usePaging();
+  return (
+    <Box
+      sx={{
+        border: 1,
+        borderColor: 'divider',
+        borderRadius: 1,
+        overflow: 'hidden',
+        bgcolor: 'background.paper',
+      }}
+    >
+      <Box sx={padded ? { px: 2, py: 0.5 } : undefined}>
+        {children(rows ? paging.slice(rows) : rows)}
+      </Box>
+      {rows && rows.length > 0 && (
+        <StandardPagination
+          count={rows.length}
+          {...paging.props}
+          maxShowAll={0}
+          label={label}
+        />
+      )}
+    </Box>
+  );
+};
+PagedList.propTypes = {
+  rows: PropTypes.array,
+  label: PropTypes.string.isRequired,
+  padded: PropTypes.bool,
+  children: PropTypes.func.isRequired,
+};
+
 /** Search box and filters above the table. */
 export const PanelToolbar = ({ children }) => (
   <Stack
@@ -526,6 +560,7 @@ export const Pill = ({ label, tone = 'default' }) => {
     warning: ['warning.light', 'warning.main'],
     error: ['error.light', 'error.main'],
     info: ['info.light', 'info.main'],
+    primary: ['primary.light', 'primary.main'],
     default: ['background.neutralDeep', 'text.primary'],
   };
   const [bg, fg] = tones[tone] || tones.default;

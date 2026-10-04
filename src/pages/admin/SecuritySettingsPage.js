@@ -31,6 +31,7 @@ import { adminSecurity } from '../../api';
 import { useNotify } from '../../notification/NotificationProvider';
 import { SectionCard, StatTile } from '../../components/ui';
 import { SessionsTable } from '../../components/security/SecurityWidgets';
+import { PagedList } from '../../components/admin/DataTable';
 import { formatDateTime } from '../../utils/format';
 import PageSkeleton from '../../components/common/PageSkeleton';
 
@@ -197,12 +198,16 @@ const ActiveSessions = () => {
           </ToggleButtonGroup>
         }
       >
-        <SessionsTable
-          sessions={data ? shown : null}
-          onEnd={end}
-          busyId={busyId}
-          showUser
-        />
+        <PagedList rows={data ? shown : null} label="sessions">
+          {(rows) => (
+            <SessionsTable
+              sessions={rows}
+              onEnd={end}
+              busyId={busyId}
+              showUser
+            />
+          )}
+        </PagedList>
       </SectionCard>
     </Stack>
   );

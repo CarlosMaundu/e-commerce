@@ -43,6 +43,7 @@ import {
 } from 'react-icons/fi';
 import OrderTracker from '../../components/account/OrderTracker';
 import OptionRows from '../../components/common/OptionRows';
+import GiftNote from '../../components/common/GiftNote';
 import { useStore } from '../../context/StoreContext';
 import { orders as ordersApi } from '../../api';
 import { StandardPagination } from '../../components/admin/DataTable';
@@ -804,6 +805,9 @@ export const OrderDetailPage = () => {
                       >
                         <OptionRows options={item.options} />
                       </Box>
+                      <Box>
+                        <GiftNote gift={item.gift} />
+                      </Box>
                     </Box>
                     <Stack alignItems="flex-end" spacing={1}>
                       <Typography variant="subtitle1">
@@ -891,6 +895,7 @@ export const OrderDetailPage = () => {
                         -order.totals.discount,
                       ]
                     : null,
+                  order.totals.gift ? ['Gift boxes', order.totals.gift] : null,
                   ['Delivery', order.totals.shipping],
                   [
                     finance.pricesIncludeTax
@@ -965,9 +970,64 @@ export const OrderDetailPage = () => {
   );
 };
 
+// Where a return is, in the shopper's words.
+const RETURN_STEPS = ['requested', 'approved', 'received', 'refunded'];
+const RETURN_STEP_NAMES = {
+  requested: 'Requested',
+  approved: 'Approved',
+  received: 'Received',
+  refunded: 'Refunded',
+};
+const RETURN_HINTS = {
+  requested: 'We’re reviewing your request.',
+  approved: 'Approved. Please send the item back to us.',
+  received: 'We’ve received the item and will refund you shortly.',
+  refunded: 'Refunded.',
+  rejected: 'This return wasn’t accepted. Contact us if you have questions.',
+};
+const RETURNS_PAGE_SIZE = 10;
+
+const ReturnSteps = ({ status }) => {
+  const at = RETURN_STEPS.indexOf(status);
+  return (
+    <Stack
+      direction="row"
+      spacing={0.5}
+      alignItems="center"
+      flexWrap="wrap"
+      useFlexGap
+    >
+      {RETURN_STEPS.map((step, i) => (
+        <React.Fragment key={step}>
+          {i > 0 && (
+            <Box
+              sx={{
+                width: 16,
+                height: 2,
+                bgcolor: i <= at ? 'primary.main' : 'divider',
+              }}
+            />
+          )}
+          <Typography
+            variant="caption"
+            sx={{
+              fontWeight: i === at ? 700 : 500,
+              color: i <= at ? 'primary.main' : 'text.disabled',
+            }}
+          >
+            {RETURN_STEP_NAMES[step]}
+          </Typography>
+        </React.Fragment>
+      ))}
+    </Stack>
+  );
+};
+ReturnSteps.propTypes = { status: PropTypes.string.isRequired };
+
 export const ReturnsPage = () => {
   const notify = useNotify();
   const [list, setList] = useState(null);
+  const [page, setPage] = useState(0);
   useEffect(() => {
     ordersApi
       .listReturns()
@@ -977,6 +1037,10 @@ export const ReturnsPage = () => {
         setList([]);
       });
   }, [notify]);
+  const shown = (list || []).slice(
+    page * RETURNS_PAGE_SIZE,
+    (page + 1) * RETURNS_PAGE_SIZE
+  );
   return (
     <AccountPage
       title="Returns"
@@ -993,12 +1057,13 @@ export const ReturnsPage = () => {
         </SectionCard>
       ) : (
         <Stack spacing={2}>
-          {list.map((r) => (
+          {shown.map((r) => (
             <Stack
               key={r.id}
-              direction="row"
+              direction={{ xs: 'column', sm: 'row' }}
               spacing={2}
-              alignItems="center"
+              alignItems={{ sm: 'center' }}
+              data-testid={`return-${r.id}`}
               sx={{ bgcolor: 'background.neutral', borderRadius: 1, p: 2.5 }}
             >
               <Box
@@ -1011,14 +1076,16 @@ export const ReturnsPage = () => {
                   objectFit: 'contain',
                   borderRadius: 1,
                   bgcolor: 'background.paper',
+                  flexShrink: 0,
                 }}
               />
-              <Box sx={{ flex: 1 }}>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography variant="subtitle1">
                   {r.quantity} × {r.product}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {r.reasonName} · requested {formatDate(r.date)} ·{' '}
+                  Return #{r.id} · {r.reasonName} · requested{' '}
+                  {formatDate(r.date)} ·{' '}
                   <Typography
                     component={RouterLink}
                     to={`/account/orders/${r.orderId}`}
@@ -1028,10 +1095,49 @@ export const ReturnsPage = () => {
                     Order #{r.orderId}
                   </Typography>
                 </Typography>
+                <Box sx={{ mt: 1 }}>
+                  {r.status === 'rejected' ? null : (
+                    <ReturnSteps status={r.status} />
+                  )}
+                  <Typography variant="body2" sx={{ mt: 0.5 }}>
+                    {RETURN_HINTS[r.status]}
+                    {r.refund && r.refund.status === 'processed'
+                      ? ` ${formatMoney(r.refund.amount)} paid back${
+                          r.refund.method === 'stripe' ? ' to your card' : ''
+                        }.`
+                      : ''}
+                    {r.refund && r.refund.status === 'pending_approval'
+                      ? ' Your refund is being approved.'
+                      : ''}
+                  </Typography>
+                </Box>
               </Box>
-              <StatusChip status={r.status} label={r.status} />
+              <StatusChip
+                status={r.status}
+                label={RETURN_STEP_NAMES[r.status] || 'Rejected'}
+              />
             </Stack>
           ))}
+          {list.length > RETURNS_PAGE_SIZE && (
+            <Box
+              sx={{
+                borderRadius: 1,
+                overflow: 'hidden',
+                border: 1,
+                borderColor: 'divider',
+              }}
+            >
+              <StandardPagination
+                count={list.length}
+                page={page}
+                rowsPerPage={RETURNS_PAGE_SIZE}
+                label="returns"
+                maxShowAll={0}
+                onRowsPerPageChange={() => {}}
+                onPageChange={(_, p) => setPage(p)}
+              />
+            </Box>
+          )}
         </Stack>
       )}
     </AccountPage>

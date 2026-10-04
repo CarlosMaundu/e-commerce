@@ -205,11 +205,91 @@ test('an order moves through fulfilment and a delivered item can be returned', a
 
   await admin.goto('/admin/returns');
   await admin.getByRole('button', { name: /^Actions for return of/ }).click();
-  await admin.getByRole('menuitem', { name: 'Approve' }).click();
-  await expect(toast(admin)).toHaveText('Return marked approved.');
+  await admin.getByRole('menuitem', { name: /^Approve/ }).click();
+  await expect(toast(admin)).toHaveText(
+    'Return approved. The customer can send the item back.'
+  );
 
   await page.goto('/account/returns');
-  await expect(page.getByText('approved').first()).toBeVisible();
+  await expect(
+    page.getByText('Approved. Please send the item back to us.')
+  ).toBeVisible();
+
+  // The item comes back: checked in, then refunded (linked to the refund).
+  await admin.getByRole('tab', { name: /Awaiting item/ }).click();
+  await admin.getByRole('button', { name: /^Actions for return of/ }).click();
+  await admin
+    .getByRole('menuitem', { name: 'Item received — back in stock' })
+    .click();
+  await expect(toast(admin)).toHaveText('Item received.');
+  await admin.getByRole('tab', { name: /Received/ }).click();
+  await admin.getByRole('button', { name: /^Actions for return of/ }).click();
+  await admin.getByRole('menuitem', { name: 'Refund the customer' }).click();
+  await expect(toast(admin)).toHaveText(/Return refunded/);
+  await admin.getByRole('tab', { name: /Refunded/ }).click();
+  await expect(admin.getByRole('link', { name: /Refund #\d+/ })).toBeVisible();
+
+  await page.goto('/account/returns');
+  await expect(
+    page.getByText('Refunded', { exact: true }).first()
+  ).toBeVisible();
+});
+
+test('an item sent as a gift is charged for its box and prepared before dispatch', async ({
+  page,
+  freshPage,
+}) => {
+  await customer();
+  await login(page, 'cam@example.com', 'Hi, Cam Customer');
+  await addToCart(page, 'Canvas tote bag');
+  await page.goto('/cart');
+  // Ticking the box opens the gift details; it stays ticked once saved.
+  await page
+    .getByRole('checkbox', { name: 'Send Canvas tote bag as a gift' })
+    .click();
+  const gift = page.getByRole('dialog', {
+    name: 'Gift this item to a loved one?',
+  });
+  await gift.getByRole('button', { name: 'Save' }).click();
+  await expect(gift.getByText('Who is the gift for?')).toBeVisible();
+  await gift.getByLabel('To').fill('Amina');
+  await gift.getByLabel('From').fill('Cam');
+  await gift.getByRole('checkbox', { name: 'Gift message' }).check();
+  await gift.getByLabel('Message (optional)').fill('Happy birthday!');
+  await gift.getByRole('checkbox', { name: 'Gift box' }).check();
+  await gift.getByRole('button', { name: 'Save' }).click();
+  await expect(toast(page)).toHaveText('Gift details saved.');
+  await expect(page.getByText('To Amina · From Cam')).toBeVisible();
+  const id = await checkout(page);
+  await expect(page.getByTestId('gift-note')).toContainText('Amina');
+  await expect(page.getByText('Gift boxes')).toBeVisible();
+
+  await createUser({
+    email: 'ops@example.com',
+    firstname: 'Ola',
+    lastname: 'Orders',
+    role: 'order_manager',
+  });
+  const admin = await freshPage();
+  await login(admin, 'ops@example.com', 'Hi, Ola Orders');
+  await admin.goto(`/admin/orders/${id}`);
+  await expect(admin.getByText('Before dispatch')).toBeVisible();
+  await expect(
+    admin.getByText('Print on the packing slip: “Happy birthday!”')
+  ).toBeVisible();
+  await setStatus(admin, 'Processing');
+  // Shipping is blocked until the gift is ticked off.
+  await admin.getByRole('combobox', { name: 'Status' }).click();
+  await admin.getByRole('option', { name: 'Shipped', exact: true }).click();
+  await admin.getByRole('button', { name: 'Save' }).click();
+  await expect(toast(admin)).toContainText('Prepare the gift');
+  const prepared = admin.getByRole('checkbox', {
+    name: 'Gift prepared: Canvas tote bag',
+  });
+  await prepared.click(); // ticks once the server has saved it
+  await expect(prepared).toBeChecked();
+  await expect(admin.getByText(/Done by ops@example.com/)).toBeVisible();
+  await setStatus(admin, 'Shipped');
 });
 
 test('back-office pages follow the role’s permissions', async ({ page }) => {

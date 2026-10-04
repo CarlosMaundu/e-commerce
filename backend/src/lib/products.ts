@@ -348,6 +348,18 @@ export const takeStock = async (db: Db, item: { product_id: number; variant_id: 
   return true;
 };
 
+/** Puts back some of one order line (a received return). */
+export const putBack = async (db: Db, item: { product_id: number; variant_id: number | null }, quantity: number) => {
+  const product = (await db.query('SELECT track_inventory FROM products WHERE id = $1', [item.product_id])).rows[0];
+  if (!product?.track_inventory) return;
+  if (item.variant_id) {
+    await db.query('UPDATE product_variants SET quantity = quantity + $2 WHERE id = $1', [item.variant_id, quantity]);
+    await syncProductQuantity(db, item.product_id);
+  } else {
+    await db.query('UPDATE products SET quantity = quantity + $2, updated_at = now() WHERE id = $1', [item.product_id, quantity]);
+  }
+};
+
 /** Puts stock back for every line of an order (cancellations). */
 export const returnStock = async (db: Db, orderId: number) => {
   const items = (

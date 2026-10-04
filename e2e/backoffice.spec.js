@@ -251,9 +251,9 @@ test('staff open a customer’s account read-only', async ({ page }) => {
   await expect(
     page.getByText('You’re viewing this account read-only.')
   ).toBeVisible();
-  await expect(
-    page.getByRole('table', { name: 'Recent orders' })
-  ).toContainText('No orders yet.');
+  await expect(page.getByRole('table', { name: 'Orders' })).toContainText(
+    'No orders yet.'
+  );
   // Viewing isn't acting: no banner, still the admin.
   await expect(page.getByTestId('impersonation-banner')).toHaveCount(0);
   await page.getByRole('link', { name: 'Users' }).first().click();

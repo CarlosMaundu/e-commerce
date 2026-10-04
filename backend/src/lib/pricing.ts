@@ -22,6 +22,15 @@ export interface CartLine {
   unit_price: number;
   total: number;
   stock: number;
+  gift?: GiftChoice | null;
+}
+
+/** Sending a line as a gift: who it's to and from, a message, a gift box. */
+export interface GiftChoice {
+  to: string;
+  from: string;
+  message: string;
+  gift_box: boolean;
 }
 
 export interface Coupon {
@@ -103,7 +112,7 @@ type Db = { query: (text: string, params?: unknown[]) => Promise<{ rows: any[] }
 
 export const loadCartLines = async (userId: number, db: Db = { query: (t, p) => query(t, p) }): Promise<CartLine[]> => {
   const { rows } = await db.query(
-    `SELECT ci.id AS key, ci.product_id, ci.variant_id, ci.quantity, ci.options,
+    `SELECT ci.id AS key, ci.product_id, ci.variant_id, ci.quantity, ci.options, ci.gift,
             p.name, p.images, p.price, p.special, p.quantity AS product_stock, p.track_inventory,
             v.price AS v_price, v.special AS v_special, v.quantity AS v_stock, v.images AS v_images
      FROM cart_items ci
@@ -133,6 +142,7 @@ export const loadCartLines = async (userId: number, db: Db = { query: (t, p) => 
       unit_price: unit,
       total: round2(unit * r.quantity),
       stock: stockOf(r.track_inventory, stock),
+      gift: r.gift || null,
     };
   });
 };
@@ -159,6 +169,7 @@ export interface Totals {
   subtotal: number;
   discount: number;
   shipping: number;
+  gift: number;
   tax: number;
   total: number;
   coupon: { code: string; description: string } | null;
@@ -181,16 +192,20 @@ export const computeTotals = (
         ? round2((subtotal * Number(usable.value)) / 100)
         : Math.min(round2(Number(usable.value)), subtotal);
   }
-  const goods = round2(subtotal - discount);
+  // A gift box per line sent in one (taxed like the goods).
+  const giftBoxes = lines.filter((l) => l.gift?.gift_box).length;
+  const gift = round2(giftBoxes * delivery().gift.box_price);
+  const goods = round2(subtotal - discount + gift);
   const method = SHIPPING_METHODS().find((m) => m.code === shippingMethod);
   let shipping = method ? method.cost : 0;
   const freeOver = delivery().standard.free_over;
-  if (method?.code === 'standard' && freeOver > 0 && goods >= freeOver) shipping = 0;
+  if (method?.code === 'standard' && freeOver > 0 && goods - gift >= freeOver) shipping = 0;
   if (!lines.length) shipping = 0;
   const { tax, total } = applyTax(goods, shipping);
 
   const out: Totals['lines'] = [{ code: 'sub_total', title: 'Subtotal', value: subtotal }];
   if (discount) out.push({ code: 'coupon', title: `Promo code (${usable!.code})`, value: -discount });
+  if (gift) out.push({ code: 'gift_wrap', title: `Gift box${giftBoxes > 1 ? `es (${giftBoxes})` : ''}`, value: gift });
   if (method) out.push({ code: 'shipping', title: method.title, value: shipping });
   out.push({ code: 'tax', title: taxTitle(), value: tax });
   out.push({ code: 'total', title: 'Total', value: total });
@@ -199,6 +214,7 @@ export const computeTotals = (
     subtotal,
     discount,
     shipping,
+    gift,
     tax,
     total,
     coupon: usable ? { code: usable.code, description: usable.description } : null,

@@ -20,6 +20,7 @@ import {
 import {
   FiChevronLeft,
   FiEdit2,
+  FiGift,
   FiHeart,
   FiMinus,
   FiPlus,
@@ -31,11 +32,13 @@ import { alpha } from '@mui/material/styles';
 import { AuthContext } from '../context/AuthContext';
 import { canShop } from '../auth/permissions';
 import OptionRows from '../components/common/OptionRows';
+import GiftDialog from '../components/cart/GiftDialog';
 import {
   applyCoupon,
   removeCoupon,
   removeFromCart,
   selectCart,
+  setCartGift,
   setCartQuantity,
 } from '../redux/cartSlice';
 import { addToWishlist } from '../redux/wishlistSlice';
@@ -44,9 +47,10 @@ import { EmptyState, SectionCard } from '../components/ui';
 import { formatMoney } from '../utils/format';
 
 const qtyButtonSx = {
-  width: 44,
-  height: 44,
-  borderRadius: '8px',
+  width: 30,
+  height: 30,
+  borderRadius: '6px',
+  fontSize: '0.9rem',
   bgcolor: 'background.neutralDeep',
   '&:hover': { bgcolor: 'divider' },
 };
@@ -99,6 +103,25 @@ const CartPage = () => {
     setSelected([]);
     notify.success('Removed the selected items.');
   };
+
+  // Gifts: ticking the box opens the details; unticking stops the gift.
+  const [giftFor, setGiftFor] = useState(null);
+  const giftsOn = cart.mode !== 'server' || cart.giftOptions?.enabled;
+  const toggleGift = (item, on) => {
+    if (cart.mode !== 'server') {
+      notify.info('Sign in to send items as gifts.');
+      navigate('/login', { state: { from: '/cart' } });
+      return;
+    }
+    if (on) setGiftFor(item.key);
+    else act(setCartGift({ key: item.key, gift: null }), 'No longer a gift.');
+  };
+  const saveGift = async (gift) => {
+    if (await act(setCartGift({ key: giftFor, gift }), 'Gift details saved.')) {
+      setGiftFor(null);
+    }
+  };
+  const giftItem = cart.items.find((i) => i.key === giftFor);
 
   const submitCoupon = async (e) => {
     e.preventDefault();
@@ -358,8 +381,14 @@ const CartPage = () => {
                           {formatMoney(item.total)}
                         </Typography>
                       </Stack>
-                      <Typography color="text.secondary">Quantity:</Typography>
-                      <Stack direction="row" spacing={1} alignItems="center">
+                      <Stack direction="row" spacing={0.75} alignItems="center">
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ mr: 0.5 }}
+                        >
+                          Quantity:
+                        </Typography>
                         <IconButton
                           aria-label={`Decrease quantity of ${item.title}`}
                           disabled={busy || item.quantity <= 1}
@@ -378,9 +407,10 @@ const CartPage = () => {
                         <Box
                           aria-label="Quantity"
                           sx={{
-                            width: 64,
-                            height: 44,
-                            borderRadius: '8px',
+                            width: 40,
+                            height: 30,
+                            borderRadius: '6px',
+                            fontSize: '0.9rem',
                             bgcolor: 'background.neutralDeep',
                             display: 'grid',
                             placeItems: 'center',
@@ -407,6 +437,60 @@ const CartPage = () => {
                       </Stack>
                     </Stack>
                   </Box>
+
+                  {giftsOn && (
+                    <Stack
+                      direction="row"
+                      alignItems="center"
+                      flexWrap="wrap"
+                      useFlexGap
+                      spacing={1}
+                      sx={{
+                        mt: 2,
+                        px: 1.5,
+                        py: 0.75,
+                        borderRadius: '8px',
+                        bgcolor: 'background.paper',
+                      }}
+                    >
+                      <Checkbox
+                        size="small"
+                        checked={!!item.gift}
+                        onChange={(e) => toggleGift(item, e.target.checked)}
+                        disabled={busy}
+                        inputProps={{
+                          'aria-label': `Send ${item.title} as a gift`,
+                        }}
+                        sx={{ ml: -1 }}
+                      />
+                      <FiGift />
+                      <Typography sx={{ fontWeight: 600 }}>
+                        Send as a gift
+                      </Typography>
+                      {item.gift && (
+                        <>
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ minWidth: 0 }}
+                            noWrap
+                          >
+                            To {item.gift.to} · From {item.gift.from}
+                            {item.gift.giftBox ? ' · Gift box' : ''}
+                            {item.gift.message ? ' · Message' : ''}
+                          </Typography>
+                          <Button
+                            size="small"
+                            onClick={() => setGiftFor(item.key)}
+                            aria-label={`Gift details for ${item.title}`}
+                            sx={{ ml: 'auto' }}
+                          >
+                            Details
+                          </Button>
+                        </>
+                      )}
+                    </Stack>
+                  )}
 
                   <Stack
                     direction="row"
@@ -593,6 +677,14 @@ const CartPage = () => {
           </SectionCard>
         </Grid>
       </Grid>
+      <GiftDialog
+        open={!!giftItem}
+        item={giftItem}
+        options={cart.giftOptions}
+        onClose={() => setGiftFor(null)}
+        onSave={saveGift}
+        saving={busy}
+      />
     </Container>
   );
 };

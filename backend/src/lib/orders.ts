@@ -69,6 +69,7 @@ export const toContractOrder = (o: any, items: any[] = [], history: any[] = [], 
     subtotal: n(o.subtotal),
     discount: n(o.discount),
     shipping: n(o.shipping_total),
+    gift: n(o.gift_total || 0),
     tax: n(o.tax_total),
     total: n(o.total),
   },
@@ -87,6 +88,16 @@ export const toContractOrder = (o: any, items: any[] = [], history: any[] = [], 
     quantity: i.quantity,
     price: n(i.unit_price),
     total: n(i.total),
+    // Sent as a gift: staff also see whether it's been prepared for dispatch.
+    gift: i.gift
+      ? {
+          to: i.gift.to,
+          from: i.gift.from,
+          message: i.gift.message || '',
+          gift_box: !!i.gift.gift_box,
+          ...(admin ? { done: !!i.gift.done, done_at: i.gift.done_at || null, done_by: i.gift.done_by || null } : {}),
+        }
+      : null,
   })),
   ...(admin ? { next_statuses: NEXT_STATUSES[o.status] || [] } : {}),
   history: history

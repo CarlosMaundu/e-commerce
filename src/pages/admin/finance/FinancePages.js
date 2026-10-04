@@ -41,6 +41,7 @@ import {
   FiCheckCircle,
   FiCreditCard,
   FiDollarSign,
+  FiDownload,
   FiEdit2,
   FiFileText,
   FiPlus,
@@ -59,6 +60,7 @@ import {
   LoadingRows,
   PAGE_SIZE,
   PageHeader,
+  PanelTabs,
   PanelToolbar,
   Pill,
   SearchField,
@@ -69,10 +71,12 @@ import InvoiceDocument from '../../../components/invoice/InvoiceDocument';
 import { initialsOf } from '../../../components/common/BrandMark';
 import { useHideHelpWhile } from '../../../layouts/AdminLayout';
 import {
+  downloadCsv,
   formatDate,
   formatDateTime,
   formatMoney,
   formatMoneyCompact,
+  formatShortDate,
   getCurrency,
 } from '../../../utils/format';
 import { METHOD_NAMES, RecordPaymentDialog } from '../orders/OrderDialogs';
@@ -160,7 +164,7 @@ const Tiles = ({ children }) => (
 );
 Tiles.propTypes = { children: PropTypes.node };
 
-const Customer = ({ c }) =>
+const Customer = ({ c, email = true }) =>
   c ? (
     <Stack direction="row" spacing={1.25} alignItems="center">
       <Avatar
@@ -191,7 +195,7 @@ const Customer = ({ c }) =>
             {c.name || c.email}
           </Typography>
         )}
-        {c.email && (
+        {email && c.email && (
           <Typography variant="caption" noWrap component="div">
             {c.email}
           </Typography>
@@ -201,7 +205,7 @@ const Customer = ({ c }) =>
   ) : (
     '—'
   );
-Customer.propTypes = { c: PropTypes.object };
+Customer.propTypes = { c: PropTypes.object, email: PropTypes.bool };
 
 /** Search box that updates the list a moment after typing stops. */
 const Search = ({ value, onChange, placeholder }) => {
@@ -419,7 +423,7 @@ export const InvoicesPage = () => {
                         </Link>
                       </TableCell>
                       <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                        {formatDate(i.issued_at)}
+                        {formatShortDate(i.issued_at)}
                       </TableCell>
                       <TableCell
                         sx={{
@@ -427,7 +431,9 @@ export const InvoicesPage = () => {
                           color: overdue ? 'error.main' : 'text.secondary',
                         }}
                       >
-                        {i.balance > 0 && i.due_at ? formatDate(i.due_at) : '—'}
+                        {i.balance > 0 && i.due_at
+                          ? formatShortDate(i.due_at)
+                          : '—'}
                       </TableCell>
                       <TableCell
                         align="right"
@@ -805,11 +811,14 @@ export const PaymentsPage = () => {
                     >
                       {p.reference || `#${p.payment_id}`}
                     </TableCell>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                      {formatDateTime(p.received_at)}
+                    <TableCell
+                      sx={{ whiteSpace: 'nowrap' }}
+                      title={formatDateTime(p.received_at)}
+                    >
+                      {formatShortDate(p.received_at)}
                     </TableCell>
                     <TableCell>
-                      <Customer c={p.customer} />
+                      <Customer c={p.customer} email={false} />
                     </TableCell>
                     <TableCell>
                       {p.invoice_id ? (
@@ -891,28 +900,50 @@ const REFUND_STATES = {
   failed: ['Failed', 'error'],
 };
 
+const REFUND_TABS = [
+  { value: 'pending', label: 'Pending approval', status: 'pending_approval' },
+  { value: 'approved', label: 'Approved', status: 'processed,failed' },
+  { value: 'rejected', label: 'Rejected', status: 'rejected' },
+];
+
+const refundFilters = (get) => ({
+  ...(get('search') ? { search: get('search') } : {}),
+  ...(get('method') ? { method: get('method') } : {}),
+  ...(get('days') ? { days: get('days') } : {}),
+  ...(get('customer') ? { customer: get('customer') } : {}),
+});
+
 export const RefundsPage = () => {
   const { user } = useContext(AuthContext);
   const notify = useNotify();
-  const { get, set } = useListParams();
-  const status = get('status');
+  const { params, get, set, page } = useListParams();
+  const tab = REFUND_TABS.find((t) => t.value === get('tab')) || REFUND_TABS[0];
   const canApprove = hasPermission(user, PERMISSIONS.refundsApprove);
-  const [list, setList] = useState(null);
+  const [data, setData] = useState(null);
   const [busy, setBusy] = useState(null);
+  const [exporting, setExporting] = useState(false);
 
   const load = useCallback(() => {
-    setList(null);
+    let active = true;
+    setData(null);
     adminFinance
-      .refunds(status || undefined)
-      .then(setList)
+      .refunds({
+        status: tab.status,
+        page: page + 1,
+        limit: PAGE_SIZE,
+        ...refundFilters(get),
+      })
+      .then((d) => active && setData(d))
       .catch((e) => {
         notify.error(e, 'We couldn’t load refunds.');
-        setList([]);
+        if (active) setData({ refunds: [], total: 0, counts: {} });
       });
-  }, [status, notify]);
-  useEffect(() => {
-    load();
-  }, [load]);
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params, notify]);
+  useEffect(load, [load]);
 
   const decide = async (r, action) => {
     setBusy(r.refund_id);
@@ -931,33 +962,136 @@ export const RefundsPage = () => {
     }
   };
 
+  // Everything matching the tab and filters, not just this page.
+  const exportCsv = async () => {
+    setExporting(true);
+    try {
+      const all = [];
+      for (let p = 1; ; p += 1) {
+        // eslint-disable-next-line no-await-in-loop
+        const d = await adminFinance.refunds({
+          status: tab.status,
+          page: p,
+          limit: 100,
+          ...refundFilters(get),
+        });
+        all.push(...d.refunds);
+        if (all.length >= d.total || !d.refunds.length) break;
+      }
+      downloadCsv(
+        `refunds-${tab.value}.csv`,
+        [
+          'Refund',
+          'Date',
+          'Order',
+          'Invoice',
+          'Customer',
+          'Reason',
+          'Method',
+          'Reference',
+          'Amount',
+          'Restocking fee',
+          'Status',
+          'Requested by',
+          'Approved by',
+        ],
+        all.map((r) => [
+          r.refund_id,
+          formatShortDate(r.date_added),
+          r.order_id,
+          r.invoice_number || '',
+          r.customer?.name || '',
+          r.reason,
+          METHOD_NAMES[r.method] || r.method,
+          r.reference || '',
+          r.amount,
+          r.restocking_fee,
+          (REFUND_STATES[r.status] || [r.status])[0],
+          r.requested_by || '',
+          r.approved_by || '',
+        ])
+      );
+    } catch (e) {
+      notify.error(e, 'We couldn’t export refunds.');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const counts = data?.counts || {};
+  const countOf = (t) =>
+    t.status.split(',').reduce((n, s) => n + (counts[s] || 0), 0);
+  const cols = 9;
+
   return (
     <Stack spacing={3}>
       <PageHeader
         crumbs={[{ label: 'Home', to: '/admin' }, { label: 'Refunds' }]}
         title="Refunds"
         subtitle="Money paid back to customers, and refunds waiting for approval."
+        actions={
+          <Button
+            variant="outlined"
+            startIcon={<FiDownload />}
+            onClick={exportCsv}
+            disabled={exporting || !data?.total}
+            sx={{ bgcolor: 'background.paper' }}
+          >
+            {exporting ? 'Exporting…' : 'Export'}
+          </Button>
+        }
       />
       <TablePanel>
+        <PanelTabs
+          value={tab.value}
+          onChange={(v) => set('tab', v)}
+          tabs={REFUND_TABS.map((t) => ({
+            value: t.value,
+            label: t.label,
+            count: data ? countOf(t) : undefined,
+          }))}
+        />
         <PanelToolbar>
+          <Search
+            value={get('search')}
+            onChange={(v) => set('search', v)}
+            placeholder="Search refund reason, order, invoice, customer"
+          />
+          <Box sx={{ flex: 1 }} />
           <FilterMenu
-            label="Status"
-            value={status}
-            onChange={(v) => set('status', v)}
+            label="Method"
+            value={get('method')}
+            onChange={(v) => set('method', v)}
             options={[
               { value: '', label: 'All' },
-              ...Object.entries(REFUND_STATES).map(([value, [label]]) => ({
-                value,
-                label,
+              ...['stripe', 'cod', 'cash', 'mpesa', 'bank'].map((m) => ({
+                value: m,
+                label: METHOD_NAMES[m],
               })),
             ]}
           />
+          <TextField
+            select
+            size="small"
+            value={get('days')}
+            onChange={(e) => set('days', e.target.value)}
+            SelectProps={{ displayEmpty: true }}
+            sx={{ minWidth: 160 }}
+            inputProps={{ 'aria-label': 'Date range' }}
+          >
+            {PERIODS.map((p) => (
+              <MenuItem key={p.label} value={p.value}>
+                {p.label}
+              </MenuItem>
+            ))}
+          </TextField>
         </PanelToolbar>
         <TableContainer>
           <Table>
             <TableHead sx={headSx}>
               <TableRow>
                 <TableCell>Refund</TableCell>
+                <TableCell>Date</TableCell>
                 <TableCell>Order</TableCell>
                 <TableCell>Customer</TableCell>
                 <TableCell>Reason</TableCell>
@@ -968,10 +1102,10 @@ export const RefundsPage = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {!list ? (
-                <LoadingRows cols={8} rows={5} />
-              ) : list.length ? (
-                list.map((r) => {
+              {!data ? (
+                <LoadingRows cols={cols} rows={PAGE_SIZE} />
+              ) : data.refunds.length ? (
+                data.refunds.map((r) => {
                   const [label, tone] = REFUND_STATES[r.status] || [
                     r.status,
                     'default',
@@ -982,13 +1116,11 @@ export const RefundsPage = () => {
                       hover
                       data-testid={`refund-${r.refund_id}`}
                     >
+                      <TableCell sx={{ fontWeight: 700 }}>
+                        #{r.refund_id}
+                      </TableCell>
                       <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                        <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                          #{r.refund_id}
-                        </Typography>
-                        <Typography variant="caption">
-                          {formatDate(r.date_added)}
-                        </Typography>
+                        {formatShortDate(r.date_added)}
                       </TableCell>
                       <TableCell>
                         <Link
@@ -1006,10 +1138,20 @@ export const RefundsPage = () => {
                         <Typography variant="body2" noWrap title={r.reason}>
                           {r.reason}
                         </Typography>
-                        <Typography variant="caption">
+                        <Typography variant="caption" component="div">
+                          {r.return_id && (
+                            <Link
+                              component={RouterLink}
+                              to={`/admin/returns?search=${r.return_id}`}
+                              underline="hover"
+                            >
+                              Return #{r.return_id}
+                            </Link>
+                          )}
+                          {r.return_id && r.requested_by ? ' · ' : ''}
                           {r.requested_by ? `By ${r.requested_by}` : ''}
                           {r.approved_by && r.status !== 'pending_approval'
-                            ? ` · approved by ${r.approved_by}`
+                            ? ` · ${r.status === 'rejected' ? 'rejected' : 'approved'} by ${r.approved_by}`
                             : ''}
                         </Typography>
                       </TableCell>
@@ -1061,11 +1203,26 @@ export const RefundsPage = () => {
                   );
                 })
               ) : (
-                <EmptyRow cols={8}>No refunds here.</EmptyRow>
+                <EmptyRow cols={cols}>
+                  {tab.value === 'pending'
+                    ? 'No refunds are waiting for approval.'
+                    : 'No refunds match.'}
+                </EmptyRow>
               )}
             </TableBody>
           </Table>
         </TableContainer>
+        {data && data.total > 0 && (
+          <StandardPagination
+            count={data.total}
+            page={page}
+            rowsPerPage={PAGE_SIZE}
+            onPageChange={(_, p) => set('page', String(p + 1))}
+            onRowsPerPageChange={() => {}}
+            maxShowAll={0}
+            label="refunds"
+          />
+        )}
       </TablePanel>
     </Stack>
   );
@@ -1316,6 +1473,14 @@ const TYPE_NAMES = {
   contra: 'Contra-income',
 };
 
+const JOURNAL_KINDS = {
+  sale: ['Sale', 'primary'],
+  payment: ['Payment', 'success'],
+  refund: ['Refund', 'warning'],
+  void: ['Cancelled invoice', 'default'],
+  adjustment: ['Adjustment', 'default'],
+};
+
 export const LedgerPage = () => {
   const notify = useNotify();
   const { params, get, set, page } = useListParams();
@@ -1330,6 +1495,8 @@ export const LedgerPage = () => {
         limit: PAGE_SIZE,
         ...(get('days') ? { days: get('days') } : {}),
         ...(get('account') ? { account: get('account') } : {}),
+        ...(get('kind') ? { kind: get('kind') } : {}),
+        ...(get('search') ? { search: get('search') } : {}),
       })
       .then((d) => active && setData(d))
       .catch((e) => notify.error(e, 'We couldn’t load the ledger.'));
@@ -1344,7 +1511,7 @@ export const LedgerPage = () => {
       <PageHeader
         crumbs={[{ label: 'Home', to: '/admin' }, { label: 'Ledger' }]}
         title="Ledger"
-        subtitle="Every sale, payment and refund as balanced double-entry journals."
+        subtitle="Every sale, payment and refund, kept as balanced double entries."
         actions={
           <TextField
             select
@@ -1442,100 +1609,180 @@ export const LedgerPage = () => {
         )}
       </SectionCard>
 
-      <SectionCard
-        title="Journals"
-        subtitle={
-          get('account')
-            ? `Showing journals that touch ${data?.accounts.find((a) => a.account === get('account'))?.name || get('account')}`
-            : 'Newest first. Click an account above to filter.'
-        }
-      >
-        {!data ? (
-          <Skeleton variant="rounded" height={320} />
-        ) : !data.journals.length ? (
-          <Typography color="text.secondary">
-            No journals in this period.
-          </Typography>
-        ) : (
-          <Stack spacing={1.5}>
-            {data.journals.map((j) => (
-              <Box
-                key={j.journal_id}
-                sx={{
-                  border: 1,
-                  borderColor: 'divider',
-                  borderRadius: '8px',
-                  overflow: 'hidden',
-                }}
-              >
-                <Stack
-                  direction="row"
-                  spacing={2}
-                  alignItems="center"
-                  sx={{ px: 2, py: 1.25, bgcolor: 'background.neutral' }}
-                  flexWrap="wrap"
-                  useFlexGap
-                >
-                  <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                    J{j.journal_id}
-                  </Typography>
-                  <Typography variant="body2" sx={{ flex: 1 }}>
-                    {j.memo}
-                  </Typography>
-                  {j.order_id && (
-                    <Link
-                      component={RouterLink}
-                      to={`/admin/orders/${j.order_id}`}
-                      variant="body2"
-                      underline="hover"
+      <Box>
+        <Typography variant="h5" component="h2">
+          Everyday Business Language
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+          Each entry in the books, in plain words: what happened, who it was
+          with, and which accounts it moved.
+        </Typography>
+      </Box>
+      <TablePanel>
+        <PanelToolbar>
+          <Search
+            value={get('search')}
+            onChange={(v) => set('search', v)}
+            placeholder="Search customer, order, invoice"
+          />
+          <Box sx={{ flex: 1 }} />
+          <FilterMenu
+            label="Type"
+            value={get('kind')}
+            onChange={(v) => set('kind', v)}
+            options={[
+              { value: '', label: 'All' },
+              ...Object.entries(JOURNAL_KINDS).map(([value, [label]]) => ({
+                value,
+                label,
+              })),
+            ]}
+          />
+          <FilterMenu
+            label="Account"
+            value={get('account')}
+            onChange={(v) => set('account', v)}
+            options={[
+              { value: '', label: 'All' },
+              ...(data?.accounts || []).map((a) => ({
+                value: a.account,
+                label: a.name,
+              })),
+            ]}
+          />
+        </PanelToolbar>
+        <TableContainer>
+          <Table>
+            <TableHead sx={headSx}>
+              <TableRow>
+                <TableCell>Date</TableCell>
+                <TableCell>Type</TableCell>
+                <TableCell>What happened</TableCell>
+                <TableCell>Accounts</TableCell>
+                <TableCell align="right">Amount</TableCell>
+                <TableCell>Reference</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {!data ? (
+                <LoadingRows cols={6} rows={PAGE_SIZE} />
+              ) : data.journals.length ? (
+                data.journals.map((j) => {
+                  const [kindLabel, tone] = JOURNAL_KINDS[j.kind] || [
+                    j.kind_name,
+                    'default',
+                  ];
+                  return (
+                    <TableRow
+                      key={j.journal_id}
+                      hover
+                      data-testid={`journal-${j.journal_id}`}
                     >
-                      Order #{j.order_id}
-                    </Link>
-                  )}
-                  <Typography variant="caption">
-                    {formatDateTime(j.occurred_at)}
-                  </Typography>
-                </Stack>
-                <Table size="small">
-                  <TableBody>
-                    {j.lines.map((l, i) => (
-                      <TableRow key={i}>
-                        <TableCell sx={{ pl: l.credit ? 5 : 2, width: '50%' }}>
-                          {l.name}
-                        </TableCell>
-                        <TableCell align="right">
-                          {l.debit ? formatMoney(l.debit, j.currency) : ''}
-                        </TableCell>
-                        <TableCell align="right">
-                          {l.credit ? formatMoney(l.credit, j.currency) : ''}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </Box>
-            ))}
-            <Box
-              sx={{
-                border: 1,
-                borderColor: 'divider',
-                borderRadius: '8px',
-                overflow: 'hidden',
-              }}
-            >
-              <StandardPagination
-                count={data.total_journals}
-                page={page}
-                rowsPerPage={PAGE_SIZE}
-                onPageChange={(_, p) => set('page', String(p + 1))}
-                onRowsPerPageChange={() => {}}
-                maxShowAll={0}
-                label="journals"
-              />
-            </Box>
-          </Stack>
+                      <TableCell
+                        sx={{ whiteSpace: 'nowrap' }}
+                        title={formatDateTime(j.occurred_at)}
+                      >
+                        {formatShortDate(j.occurred_at)}
+                      </TableCell>
+                      <TableCell>
+                        <Pill label={kindLabel} tone={tone} />
+                      </TableCell>
+                      <TableCell sx={{ minWidth: 240 }}>
+                        <Typography variant="body2">{j.description}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          J{j.journal_id} · {j.memo}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ minWidth: 220 }}>
+                        {j.lines.map((l, i) => (
+                          <Stack
+                            key={i}
+                            direction="row"
+                            spacing={1}
+                            justifyContent="space-between"
+                          >
+                            <Typography variant="caption" noWrap>
+                              <Box
+                                component="span"
+                                sx={{
+                                  fontWeight: 700,
+                                  color: l.debit
+                                    ? 'success.main'
+                                    : 'text.secondary',
+                                  mr: 0.5,
+                                }}
+                              >
+                                {l.debit ? 'Dr' : 'Cr'}
+                              </Box>
+                              {l.name}
+                            </Typography>
+                            <Typography variant="caption" noWrap>
+                              {formatMoney(l.debit || l.credit, j.currency)}
+                            </Typography>
+                          </Stack>
+                        ))}
+                      </TableCell>
+                      <TableCell
+                        align="right"
+                        sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}
+                      >
+                        {formatMoney(j.amount, j.currency)}
+                      </TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                        <Stack spacing={0.25}>
+                          {j.order_id && (
+                            <Link
+                              component={RouterLink}
+                              to={`/admin/orders/${j.order_id}`}
+                              variant="body2"
+                              underline="hover"
+                            >
+                              Order #{j.order_id}
+                            </Link>
+                          )}
+                          {j.invoice_id && (
+                            <Link
+                              component={RouterLink}
+                              to={`/admin/invoices/${j.invoice_id}`}
+                              variant="body2"
+                              underline="hover"
+                            >
+                              {j.invoice_number}
+                            </Link>
+                          )}
+                          {j.refund_id && (
+                            <Link
+                              component={RouterLink}
+                              to={`/admin/refunds?tab=approved&search=${j.order_id || ''}`}
+                              variant="body2"
+                              underline="hover"
+                            >
+                              Refund #{j.refund_id}
+                            </Link>
+                          )}
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              ) : (
+                <EmptyRow cols={6}>Nothing matches.</EmptyRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+        {data && data.total_journals > 0 && (
+          <StandardPagination
+            count={data.total_journals}
+            page={page}
+            rowsPerPage={PAGE_SIZE}
+            onPageChange={(_, p) => set('page', String(p + 1))}
+            onRowsPerPageChange={() => {}}
+            maxShowAll={0}
+            label="entries"
+          />
         )}
-      </SectionCard>
+      </TablePanel>
     </Stack>
   );
 };

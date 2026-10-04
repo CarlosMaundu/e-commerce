@@ -232,7 +232,7 @@ describe('checkout', () => {
     const jacket = await productId('Denim jacket');
     const confirm = await prepareCheckout(token);
     expect(confirm.status).toBe(200);
-    expect(confirm.body.data.order.totals).toEqual({ subtotal: 118, discount: 0, shipping: 10, tax: 9.44, total: 137.44 });
+    expect(confirm.body.data.order.totals).toEqual({ subtotal: 118, discount: 0, shipping: 10, gift: 0, tax: 9.44, total: 137.44 });
     expect(confirm.body.data.payment).toEqual({ method: 'cod' });
 
     const placed = await request(app).put('/api/rest/confirm').set(bearer(token));
@@ -254,7 +254,7 @@ describe('checkout', () => {
     await request(app).post('/api/rest/cart').set(bearer(token)).send({ product_id: await productId('Wool overshirt'), quantity: 2, option: CAMEL_M }); // 190
     await request(app).post('/api/rest/coupon').set(bearer(token)).send({ coupon: 'FRIDAY35' });
     const confirm = await prepareCheckout(token, { items: [] });
-    expect(confirm.body.data.order.totals).toEqual({ subtotal: 190, discount: 66.5, shipping: 10, tax: 9.88, total: 143.38 });
+    expect(confirm.body.data.order.totals).toEqual({ subtotal: 190, discount: 66.5, shipping: 10, gift: 0, tax: 9.88, total: 143.38 });
     await request(app).put('/api/rest/confirm').set(bearer(token)).expect(200);
     expect((await query("SELECT uses_count FROM coupons WHERE code = 'FRIDAY35'")).rows[0].uses_count).toBe(1);
   });
@@ -597,5 +597,70 @@ describe('invoices, payments, refunds and the ledger', () => {
       order_id: order.order_id, order_product_id: order.products[0].order_product_id, quantity: 1, reason: 'damaged',
     });
     expect(late.body.error).toEqual(['Returns are accepted within 14 days of delivery.']);
+  });
+
+  test('gifts: chosen in the cart, charged for the box, and prepared before dispatch', async () => {
+    const token = await shopper();
+    await request(app).post('/api/rest/cart').set(bearer(token))
+      .send({ product_id: await productId('Denim jacket'), quantity: 1, option: M }).expect(200);
+    const key = (await request(app).get('/api/rest/cart').set(bearer(token))).body.data.products[0].key;
+    const long = await request(app).put(`/api/rest/cart/${key}/gift`).set(bearer(token))
+      .send({ gift: { to: 'Amina', from: 'Jane', message: 'x'.repeat(61), gift_box: true } });
+    expect(long.status).toBe(400);
+    const cart = (await request(app).put(`/api/rest/cart/${key}/gift`).set(bearer(token))
+      .send({ gift: { to: 'Amina', from: 'Jane', message: 'Happy birthday!', gift_box: true } })).body.data;
+    expect(cart.products[0].gift).toMatchObject({ to: 'Amina', gift_box: true });
+    expect(cart.totals.find((t: any) => t.code === 'gift_wrap')).toMatchObject({ value: 5 });
+
+    await prepareCheckout(token, { items: [] });
+    const order = (await request(app).put('/api/rest/confirm').set(bearer(token))).body.data;
+    expect(order.totals.gift).toBe(5);
+    expect(order.products[0].gift).toEqual({ to: 'Amina', from: 'Jane', message: 'Happy birthday!', gift_box: true });
+
+    const admin = await staffUser('admin', 'boss@example.com');
+    await request(app).put(`/api/admin/orderhistory/${order.order_id}`).set(bearer(admin)).send({ order_status: 'processing' }).expect(200);
+    const blocked = await request(app).put(`/api/admin/orderhistory/${order.order_id}`).set(bearer(admin)).send({ order_status: 'shipped' });
+    expect(blocked.status).toBe(400);
+    expect(blocked.body.error[0]).toMatch(/Prepare the gift/);
+    const item = order.products[0].order_product_id;
+    const ticked = await request(app).put(`/api/admin/orders/${order.order_id}/items/${item}/gift`).set(bearer(admin)).send({ done: true });
+    expect(ticked.body.data.products[0].gift).toMatchObject({ done: true, done_by: 'boss@example.com' });
+    await request(app).put(`/api/admin/orderhistory/${order.order_id}`).set(bearer(admin)).send({ order_status: 'shipped' }).expect(200);
+    await ledgerBalanced();
+  });
+
+  test('returns: approved, received back into stock, then refunded and linked to the refund', async () => {
+    const token = await shopper();
+    const admin = await staffUser('admin', 'boss@example.com');
+    const order = await placeOrder(token);
+    for (const s of ['processing', 'shipped', 'delivered']) {
+      await request(app).put(`/api/admin/orderhistory/${order.order_id}`).set(bearer(admin)).send({ order_status: s }).expect(200);
+    }
+    const ret = (await request(app).post('/api/rest/returns').set(bearer(token)).send({
+      order_id: order.order_id, order_product_id: order.products[0].order_product_id, quantity: 1, reason: 'damaged',
+    })).body.data;
+    const update = (status: string) => request(app).put(`/api/admin/returns/${ret.return_id}`).set(bearer(admin)).send({ status });
+    expect((await update('refunded')).status).toBe(400); // not before the item is back
+    await update('approved').expect(200);
+    const before = await variantStock('Denim jacket', M);
+    const received = await update('received');
+    expect(received.body.data).toMatchObject({ status: 'received', status_name: 'Item received' });
+    expect(await variantStock('Denim jacket', M)).toBe(before + 1);
+    const refunded = (await update('refunded')).body.data;
+    expect(refunded.refund).toMatchObject({ status: 'processed', amount: order.products[0].price });
+
+    const list = (await request(app).get('/api/admin/returns?page=1&limit=10&search=denim').set(bearer(admin))).body.data;
+    expect(list).toMatchObject({ total: 1, counts: { refunded: 1 } });
+    const refunds = (await request(app).get('/api/admin/refunds?status=processed&page=1').set(bearer(admin))).body.data;
+    expect(refunds.refunds[0]).toMatchObject({ return_id: ret.return_id });
+    expect(refunds.counts).toMatchObject({ processed: 1 });
+    const mine = (await request(app).get('/api/rest/returns').set(bearer(token))).body.data;
+    expect(mine[0].refund).toMatchObject({ status: 'processed' });
+
+    const ledger = (await request(app).get('/api/admin/ledger?kind=refund').set(bearer(admin))).body.data;
+    expect(ledger.total_journals).toBe(1);
+    expect(ledger.journals[0]).toMatchObject({ kind: 'refund', kind_name: 'Refund' });
+    expect(ledger.journals[0].description).toMatch(/Gave money back to/);
+    await ledgerBalanced();
   });
 });

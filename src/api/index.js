@@ -8,6 +8,7 @@ import {
   addressFromApi,
   addressToApi,
   cartFromApi,
+  giftToApi,
   cartItemToApi,
   orderFromApi,
   returnFromApi,
@@ -545,6 +546,13 @@ export const cart = {
     const { data } = await http().put('/rest/cart', { key, quantity });
     return cartFromApi(data);
   },
+  /** Sends a line as a gift, or stops (gift = null). */
+  async setGift(key, gift) {
+    const { data } = await http().put(`/rest/cart/${key}/gift`, {
+      gift: giftToApi(gift),
+    });
+    return cartFromApi(data);
+  },
   async remove(key) {
     const { data } = await http().delete(`/rest/cart/${key}`);
     return cartFromApi(data);
@@ -762,6 +770,14 @@ export const adminOrders = {
     });
     return orderFromApi(data);
   },
+  /** Ticks a gift line's instructions off (or reopens them). */
+  async giftDone(orderId, itemId, done) {
+    const { data } = await http().put(
+      `/admin/orders/${orderId}/items/${itemId}/gift`,
+      { done }
+    );
+    return orderFromApi(data);
+  },
   async listReturns(status, customer) {
     const { data } = await http().get('/admin/returns', {
       params: {
@@ -771,8 +787,19 @@ export const adminOrders = {
     });
     return data.map(returnFromApi);
   },
-  async updateReturn(id, status) {
-    const { data } = await http().put(`/admin/returns/${id}`, { status });
+  /** Paged: { page, limit, status, search, days, customer } → { returns, total, counts } */
+  async returnsPage(params = {}) {
+    const clean = Object.fromEntries(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== '')
+    );
+    const { data } = await http().get('/admin/returns', { params: clean });
+    return { ...data, returns: data.returns.map(returnFromApi) };
+  },
+  async updateReturn(id, status, { restock } = {}) {
+    const { data } = await http().put(`/admin/returns/${id}`, {
+      status,
+      ...(restock === false ? { restock: false } : {}),
+    });
     return returnFromApi(data);
   },
   /** Store overview for the last `days` (7, 30 or 90), raw API shape. */
@@ -826,10 +853,9 @@ export const adminFinance = {
     const { data } = await http().get('/admin/payments', { params });
     return data;
   },
-  async refunds(status) {
-    const { data } = await http().get('/admin/refunds', {
-      params: status ? { status } : {},
-    });
+  /** { status, search, method, days, customer, page, limit } → { refunds, total, counts } */
+  async refunds(params = {}) {
+    const { data } = await http().get('/admin/refunds', { params });
     return data;
   },
   async refund(orderId, body) {

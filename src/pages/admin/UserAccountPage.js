@@ -40,33 +40,50 @@ import {
   FiArrowUpRight,
 } from 'react-icons/fi';
 import { AuthContext } from '../../context/AuthContext';
-import { adminSecurity, adminUsers } from '../../api';
+import { adminOrders, adminSecurity, adminUsers } from '../../api';
 import { formatAddress } from '../../api/mappers';
 import { hasPermission, PERMISSIONS, roleLabel } from '../../auth/permissions';
 import { useNotify } from '../../notification/NotificationProvider';
 import { SectionCard, StatusChip } from '../../components/ui';
-import { PageHeader, EmptyRow } from '../../components/admin/DataTable';
+import {
+  EmptyRow,
+  LoadingRows,
+  PageHeader,
+  PagedList,
+  Pill,
+  StandardPagination,
+  TablePanel,
+  usePaging,
+} from '../../components/admin/DataTable';
 import {
   ActivityList,
   SessionsTable,
   timeAgo,
 } from '../../components/security/SecurityWidgets';
 import ConfirmationDialog from '../../components/common/ConfirmationDialog';
-import { formatDate, formatDateTime, formatMoney } from '../../utils/format';
+import {
+  formatDate,
+  formatDateTime,
+  formatMoney,
+  formatShortDate,
+} from '../../utils/format';
 
-/** White stat card: icon square, small caps label, big value; a link when it has details. */
+/** Compact white stat card: icon square, small caps label and value; a link when it has details. */
 const CustomerStat = ({ label, value, icon, color, to }) => {
   const theme = useTheme();
   const main = theme.palette[color].main;
   return (
-    <Box
+    <Stack
+      direction="row"
+      spacing={1.5}
+      alignItems="center"
       component={to ? RouterLink : 'div'}
       to={to || undefined}
       aria-label={to ? `${label}: ${value}. View details` : undefined}
       data-testid={`customer-stat-${label.toLowerCase().replace(/\s+/g, '-')}`}
       sx={{
-        display: 'block',
-        p: 3,
+        px: 2,
+        py: 1.5,
         borderRadius: 1,
         border: 1,
         borderColor: 'divider',
@@ -77,59 +94,49 @@ const CustomerStat = ({ label, value, icon, color, to }) => {
         ...(to && {
           '&:hover': {
             borderColor: alpha(main, 0.5),
-            boxShadow: `0 8px 24px ${alpha(main, 0.12)}`,
+            boxShadow: `0 6px 18px ${alpha(main, 0.1)}`,
           },
         }),
       }}
     >
-      <Stack
-        direction="row"
-        justifyContent="space-between"
-        alignItems="flex-start"
+      <Box
+        sx={{
+          width: 34,
+          height: 34,
+          borderRadius: '8px',
+          display: 'grid',
+          placeItems: 'center',
+          fontSize: 16,
+          flexShrink: 0,
+          color: main,
+          bgcolor: alpha(main, 0.12),
+        }}
       >
-        <Box
+        {icon}
+      </Box>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography
+          noWrap
           sx={{
-            width: 44,
-            height: 44,
-            borderRadius: '8px',
-            display: 'grid',
-            placeItems: 'center',
-            fontSize: 20,
-            color: main,
-            bgcolor: alpha(main, 0.12),
+            fontSize: '0.68rem',
+            fontWeight: 700,
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+            color: 'text.secondary',
           }}
         >
-          {icon}
+          {label}
+        </Typography>
+        <Typography noWrap sx={{ fontWeight: 800, fontSize: '1.1rem' }}>
+          {value}
+        </Typography>
+      </Box>
+      {to && (
+        <Box sx={{ color: 'text.disabled', fontSize: 16, flexShrink: 0 }}>
+          <FiArrowUpRight />
         </Box>
-        {to && (
-          <Box sx={{ color: 'text.disabled', fontSize: 18 }}>
-            <FiArrowUpRight />
-          </Box>
-        )}
-      </Stack>
-      <Typography
-        sx={{
-          mt: 2.5,
-          fontSize: '0.72rem',
-          fontWeight: 700,
-          letterSpacing: '0.12em',
-          textTransform: 'uppercase',
-          color: 'text.secondary',
-        }}
-      >
-        {label}
-      </Typography>
-      <Typography
-        sx={{
-          mt: 0.5,
-          fontWeight: 800,
-          fontSize: '1.6rem',
-          letterSpacing: '-0.02em',
-        }}
-      >
-        {value}
-      </Typography>
-    </Box>
+      )}
+    </Stack>
   );
 };
 CustomerStat.propTypes = {
@@ -139,6 +146,105 @@ CustomerStat.propTypes = {
   color: PropTypes.string.isRequired,
   to: PropTypes.string,
 };
+
+const PAYMENT_PILLS = {
+  paid: ['Paid', 'success'],
+  pending: ['Due', 'warning'],
+  failed: ['Failed', 'error'],
+  refunded: ['Refunded', 'default'],
+};
+
+/** The customer's orders in the standard table, paged on the server. */
+const CustomerOrders = ({ customerId }) => {
+  const notify = useNotify();
+  const paging = usePaging();
+  const [data, setData] = useState(null);
+  const { page, rowsPerPage } = paging;
+  useEffect(() => {
+    let active = true;
+    setData(null);
+    adminOrders
+      .list({ customer: customerId, page: page + 1, limit: rowsPerPage })
+      .then((d) => active && setData(d))
+      .catch((error) => {
+        notify.error(error, 'We couldn’t load orders.');
+        if (active) setData({ orders: [], total: 0 });
+      });
+    return () => {
+      active = false;
+    };
+  }, [customerId, page, rowsPerPage, notify]);
+
+  return (
+    <TablePanel>
+      <TableContainer>
+        <Table aria-label="Orders">
+          <TableHead sx={{ bgcolor: 'background.neutral' }}>
+            <TableRow>
+              <TableCell>Order</TableCell>
+              <TableCell>Date</TableCell>
+              <TableCell>Items</TableCell>
+              <TableCell>Payment</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell align="right">Total</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {!data && <LoadingRows cols={6} rows={rowsPerPage} />}
+            {data && !data.orders.length && (
+              <EmptyRow cols={6}>No orders yet.</EmptyRow>
+            )}
+            {data?.orders.map((o) => {
+              const [payLabel, payTone] = PAYMENT_PILLS[o.paymentStatus] || [
+                o.paymentStatus || '—',
+                'default',
+              ];
+              return (
+                <TableRow
+                  key={o.id}
+                  hover
+                  data-testid={`customer-order-${o.id}`}
+                >
+                  <TableCell>
+                    <Link
+                      component={RouterLink}
+                      to={`/admin/orders/${o.id}`}
+                      underline="hover"
+                      sx={{ fontWeight: 700 }}
+                    >
+                      #{o.id}
+                    </Link>
+                  </TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                    {formatShortDate(o.placedAt)}
+                  </TableCell>
+                  <TableCell>{o.itemCount}</TableCell>
+                  <TableCell>
+                    <Pill label={payLabel} tone={payTone} />
+                  </TableCell>
+                  <TableCell>
+                    <StatusChip status={o.status} label={o.statusName} />
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700 }}>
+                    {formatMoney(o.total)}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </TableContainer>
+      {data && data.total > 0 && (
+        <StandardPagination
+          count={data.total}
+          {...paging.props}
+          label="orders"
+        />
+      )}
+    </TablePanel>
+  );
+};
+CustomerOrders.propTypes = { customerId: PropTypes.number.isRequired };
 
 const UserAccountPage = () => {
   const { id } = useParams();
@@ -322,27 +428,29 @@ const UserAccountPage = () => {
 
       <Grid container spacing={3}>
         <Grid item xs={12} lg={4}>
-          <SectionCard sx={{ height: '100%' }}>
+          <SectionCard sx={{ height: '100%', p: { xs: 2, md: 2.5 } }}>
             <Stack
               direction="row"
               spacing={2}
               alignItems="center"
-              sx={{ pb: 2.5, mb: 2.5, borderBottom: 1, borderColor: 'divider' }}
+              sx={{ pb: 1.5, mb: 1.5, borderBottom: 1, borderColor: 'divider' }}
             >
               <Avatar
                 src={user.avatar || undefined}
                 alt=""
                 sx={{
-                  width: 72,
-                  height: 72,
-                  fontSize: '1.8rem',
+                  width: 48,
+                  height: 48,
+                  fontSize: '1.2rem',
                   bgcolor: 'primary.main',
                 }}
               >
                 {user.name.charAt(0)}
               </Avatar>
-              <Box>
-                <Typography variant="h5">{user.name}</Typography>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography variant="h6" noWrap>
+                  {user.name}
+                </Typography>
                 <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
                   <Chip
                     size="small"
@@ -361,7 +469,17 @@ const UserAccountPage = () => {
                 </Stack>
               </Box>
             </Stack>
-            <Stack spacing={2.25}>
+            <Box
+              component="dl"
+              sx={{
+                m: 0,
+                display: 'grid',
+                gridTemplateColumns: 'auto minmax(0, 1fr)',
+                columnGap: 2,
+                rowGap: 1,
+                alignItems: 'baseline',
+              }}
+            >
               {[
                 ['Email', user.email],
                 ['Joined', formatDate(user.creationAt)],
@@ -391,27 +509,30 @@ const UserAccountPage = () => {
                       ],
                     ]),
               ].map(([label, value]) => (
-                <Box key={label}>
+                <React.Fragment key={label}>
                   <Typography
-                    component="div"
+                    component="dt"
                     sx={{
-                      fontSize: '0.72rem',
+                      fontSize: '0.68rem',
                       fontWeight: 700,
-                      letterSpacing: '0.12em',
+                      letterSpacing: '0.1em',
                       textTransform: 'uppercase',
                       color: 'text.secondary',
+                      whiteSpace: 'nowrap',
                     }}
                   >
                     {label}
                   </Typography>
                   <Typography
-                    sx={{ fontWeight: 500, mt: 0.5, overflowWrap: 'anywhere' }}
+                    component="dd"
+                    variant="body2"
+                    sx={{ m: 0, fontWeight: 500, overflowWrap: 'anywhere' }}
                   >
                     {value}
                   </Typography>
-                </Box>
+                </React.Fragment>
               ))}
-            </Stack>
+            </Box>
           </SectionCard>
         </Grid>
         <Grid item xs={12} lg={8}>
@@ -437,7 +558,7 @@ const UserAccountPage = () => {
             <Box
               sx={{
                 display: 'grid',
-                gap: 2,
+                gap: 1.5,
                 gridTemplateColumns: {
                   xs: 'repeat(2, minmax(0, 1fr))',
                   md: 'repeat(3, minmax(0, 1fr))',
@@ -482,65 +603,7 @@ const UserAccountPage = () => {
               You don’t have permission to see orders.
             </Alert>
           ) : (
-            <Box
-              sx={{
-                border: 1,
-                borderColor: 'divider',
-                borderRadius: 1,
-                overflow: 'hidden',
-              }}
-            >
-              <TableContainer>
-                <Table aria-label="Recent orders">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Order</TableCell>
-                      <TableCell>Placed</TableCell>
-                      <TableCell>Status</TableCell>
-                      <TableCell>Items</TableCell>
-                      <TableCell align="right">Total</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {!data.orders.length && (
-                      <EmptyRow cols={5}>No orders yet.</EmptyRow>
-                    )}
-                    {data.orders.map((o) => (
-                      <TableRow key={o.id} hover>
-                        <TableCell>
-                          <Link
-                            component={RouterLink}
-                            to={`/admin/orders/${o.id}`}
-                            underline="hover"
-                            sx={{ fontWeight: 600 }}
-                          >
-                            #{o.id}
-                          </Link>
-                        </TableCell>
-                        <TableCell>{formatDateTime(o.placedAt)}</TableCell>
-                        <TableCell>
-                          <StatusChip status={o.status} label={o.statusName} />
-                        </TableCell>
-                        <TableCell>{o.itemCount}</TableCell>
-                        <TableCell align="right">
-                          {formatMoney(o.total)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-              {stats.orders > data.orders.length && (
-                <Box sx={{ p: 1.5, borderTop: 1, borderColor: 'divider' }}>
-                  <Button
-                    component={RouterLink}
-                    to={`/admin/orders?search=${encodeURIComponent(user.email)}`}
-                  >
-                    See all {stats.orders} orders
-                  </Button>
-                </Box>
-              )}
-            </Box>
+            <CustomerOrders customerId={user.id} />
           ))}
 
         {current === 'addresses' && (
@@ -576,13 +639,19 @@ const UserAccountPage = () => {
         )}
 
         {current === 'sessions' && (
-          <SessionsTable
-            sessions={activity?.sessions}
-            emptyText="Not signed in anywhere."
-          />
+          <PagedList rows={activity?.sessions} label="sessions">
+            {(rows) => (
+              <SessionsTable
+                sessions={rows}
+                emptyText="Not signed in anywhere."
+              />
+            )}
+          </PagedList>
         )}
         {current === 'activity' && (
-          <ActivityList activity={activity?.activity} />
+          <PagedList rows={activity?.activity} label="events" padded>
+            {(rows) => <ActivityList activity={rows} />}
+          </PagedList>
         )}
       </Box>
 

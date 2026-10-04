@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { query } from '../db';
 import { fail, handler, ok, parse } from '../lib/http';
 import { computeTotals, couponProblem, findCoupon, loadCartLines } from '../lib/pricing';
+import { delivery } from '../lib/delivery';
 import { authenticate, customersOnly } from '../middleware/auth';
 import { hydrate, PRODUCT_SELECT, ProductRow, resolveItem } from '../lib/products';
 
@@ -36,10 +37,25 @@ export const buildCart = async (userId: number) => {
     coupon: totals.coupon,
     coupon_problem: totals.coupon_problem,
     shipping_method: state.shipping_method || null,
+    gift_options: giftOptions(),
     totals: totals.lines,
     total: totals.total,
   };
 };
+
+const giftOptions = () => {
+  const g = delivery().gift;
+  return { enabled: g.enabled, box_price: g.box_price, box_description: g.box_description };
+};
+
+const giftSchema = z
+  .object({
+    to: z.string().trim().min(1, 'Please say who the gift is for.').max(60, 'Keep the name under 60 characters.'),
+    from: z.string().trim().min(1, 'Please say who the gift is from.').max(60, 'Keep the name under 60 characters.'),
+    message: z.string().trim().max(60, 'Gift messages can be up to 60 characters.').default(''),
+    gift_box: z.coerce.boolean().default(false),
+  })
+  .nullable();
 
 const addToCart = async (userId: number, item: z.infer<typeof itemSchema>, { merge = false } = {}) => {
   let resolved;
@@ -107,6 +123,20 @@ export const cartRoutes = () => {
       if (!line) fail(404, 'That item is no longer in your cart.');
       if (b.quantity > line!.stock) fail(409, `Only ${line!.stock} of “${line!.name}” left.`);
       await query('UPDATE cart_items SET quantity = $1 WHERE id = $2', [b.quantity, b.key]);
+      ok(res, await buildCart(req.auth!.userId));
+    })
+  );
+
+  // Send a line as a gift (or stop: gift = null).
+  router.put(
+    '/cart/:key/gift',
+    handler(async (req, res) => {
+      const gift = parse(giftSchema, req.body?.gift ?? null);
+      if (gift && !delivery().gift.enabled) fail(400, 'Gift options aren’t available right now.');
+      const { rowCount } = await query('UPDATE cart_items SET gift = $3::jsonb WHERE id = $1 AND user_id = $2', [
+        Number(req.params.key), req.auth!.userId, gift ? JSON.stringify(gift) : null,
+      ]) as any;
+      if (!rowCount) fail(404, 'That item is no longer in your cart.');
       ok(res, await buildCart(req.auth!.userId));
     })
   );

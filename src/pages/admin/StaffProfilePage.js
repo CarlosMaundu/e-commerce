@@ -40,6 +40,7 @@ import {
   timeAgo,
 } from '../../components/security/SecurityWidgets';
 import { formatDate } from '../../utils/format';
+import { PagedList } from '../../components/admin/DataTable';
 
 const PasswordDialog = ({ open, onClose }) => {
   const { changePassword } = useContext(AuthContext);
@@ -427,14 +428,20 @@ const StaffProfilePage = () => {
           )
         }
       >
-        <SessionsTable sessions={sessions} onEnd={endSession} busyId={busyId} />
+        <PagedList rows={sessions} label="sessions">
+          {(rows) => (
+            <SessionsTable sessions={rows} onEnd={endSession} busyId={busyId} />
+          )}
+        </PagedList>
       </SectionCard>
 
       <SectionCard
         title="Recent activity"
         subtitle="Your last 50 sign-ins and changes."
       >
-        <ActivityList activity={activity} />
+        <PagedList rows={activity} label="events" padded>
+          {(rows) => <ActivityList activity={rows} />}
+        </PagedList>
       </SectionCard>
 
       <Box>

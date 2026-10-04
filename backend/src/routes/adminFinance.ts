@@ -94,9 +94,10 @@ const insertItems = async (db: Db, orderId: number, lines: any[]) => {
     const ok2 = await takeStock(db, { product_id: l.product_id, variant_id: l.variant_id, quantity: l.quantity });
     if (!ok2) fail(409, `There isn’t enough stock of “${l.name}”${Object.keys(l.options).length ? ` (${Object.values(l.options).join(' / ')})` : ''}.`);
     await db.query(
-      `INSERT INTO order_items (order_id, product_id, variant_id, name, image, options, unit_price, quantity, total)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-      [orderId, l.product_id, l.variant_id, l.name, l.image, JSON.stringify(l.options), l.unit_price, l.quantity, l.total]
+      `INSERT INTO order_items (order_id, product_id, variant_id, name, image, options, unit_price, quantity, total, gift)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [orderId, l.product_id, l.variant_id, l.name, l.image, JSON.stringify(l.options), l.unit_price, l.quantity, l.total,
+        l.gift ? JSON.stringify(l.gift) : null]
     );
   }
 };
@@ -175,6 +176,27 @@ const toContractPayment = (p: any) => ({
   recorded_by: p.recorded_by_name || null,
   received_at: p.received_at,
 });
+
+const JOURNAL_KINDS = { sale: 'Sale', payment: 'Payment', refund: 'Refund', void: 'Cancelled invoice', adjustment: 'Adjustment' };
+const METHOD_WORDS: Record<string, string> = { stripe: 'card', cod: 'cash on delivery', cash: 'cash', mpesa: 'M-Pesa', bank: 'bank transfer' };
+
+/** What a journal means, in words anyone can follow. */
+const describeJournal = (j: any) => {
+  const who = j.customer_name || 'a customer';
+  const order = j.order_id ? ` (order #${j.order_id})` : '';
+  switch (j.kind) {
+    case 'sale':
+      return `Sold goods to ${who}${order}; they now owe us for invoice ${j.invoice_number || ''}`.trim();
+    case 'payment':
+      return `${who} paid${j.payment_method ? ` by ${METHOD_WORDS[j.payment_method] || j.payment_method}` : ''}${order}`;
+    case 'refund':
+      return `Gave money back to ${who}${j.refund_method ? ` by ${METHOD_WORDS[j.refund_method] || j.refund_method}` : ''}${order}`;
+    case 'void':
+      return `Cancelled invoice ${j.invoice_number || ''}${order}; nothing is owed any more`;
+    default:
+      return j.memo || 'Adjustment';
+  }
+};
 
 const listQuery = z.object({
   search: z.string().trim().max(100).optional(),
@@ -284,9 +306,14 @@ export const adminFinanceRoutes = ({ payments }: { payments: PaymentGateway | nu
       if (changesMoney) {
         let lines;
         if (b.items) {
+          // Keep gift instructions on lines that stay in the order.
+          const gifts = new Map(
+            (await db.query('SELECT product_id, variant_id, gift FROM order_items WHERE order_id = $1 AND gift IS NOT NULL', [id]))
+              .rows.map((r: any) => [`${r.product_id}:${r.variant_id}`, r.gift])
+          );
           await restock(db, id);
           await db.query('DELETE FROM order_items WHERE order_id = $1', [id]);
-          lines = await priceItems(db, b.items);
+          lines = (await priceItems(db, b.items)).map((l: any) => ({ ...l, gift: gifts.get(`${l.product_id}:${l.variant_id}`) || null }));
           await insertItems(db, id, lines);
         } else {
           lines = (await db.query('SELECT * FROM order_items WHERE order_id = $1', [id])).rows.map((r: any) => ({
@@ -300,6 +327,7 @@ export const adminFinanceRoutes = ({ payments }: { payments: PaymentGateway | nu
         set('subtotal', t.subtotal);
         set('discount', t.discount);
         set('shipping_total', t.shipping);
+        set('gift_total', t.gift);
         set('tax_total', t.tax);
         set('total', t.total);
       }
@@ -493,19 +521,53 @@ export const adminFinanceRoutes = ({ payments }: { payments: PaymentGateway | nu
     ok(res, toContractRefund(refund), 201);
   }));
 
+  // GET /refunds?status=&search=&method=&days=&page=&limit= → { refunds, total, counts }
   router.get('/refunds', requirePermission('orders.invoices.view'), handler(async (req, res) => {
-    const status = typeof req.query.status === 'string' ? req.query.status : '';
+    const q = parse(listQuery.extend({ method: z.string().optional() }), req.query);
+    const params: unknown[] = [];
+    const where: string[] = [];
+    if (q.method) {
+      params.push(q.method.split(','));
+      where.push(`r.method = ANY($${params.length}::text[])`);
+    }
+    if (q.customer) {
+      params.push(q.customer);
+      where.push(`o.user_id = $${params.length}`);
+    }
+    if (q.days) {
+      params.push(q.days);
+      where.push(`r.created_at >= now() - make_interval(days => $${params.length})`);
+    }
+    if (q.search) {
+      params.push(`%${q.search.replace(/^#/, '')}%`);
+      where.push(`(i.number ILIKE $${params.length} OR o.id::text ILIKE $${params.length} OR r.reference ILIKE $${params.length}
+        OR r.reason ILIKE $${params.length} OR (u.firstname || ' ' || u.lastname) ILIKE $${params.length})`);
+    }
+    const from = `FROM refunds r JOIN orders o ON o.id = r.order_id LEFT JOIN invoices i ON i.id = r.invoice_id
+       LEFT JOIN users u ON u.id = o.user_id`;
+    // Counts per status (for the tabs) ignore the status filter itself.
+    const counts = Object.fromEntries((await query(
+      `SELECT r.status, count(*)::int AS n ${from} ${where.length ? `WHERE ${where.join(' AND ')}` : ''} GROUP BY r.status`,
+      params
+    )).rows.map((r) => [r.status, r.n]));
+    if (q.status) {
+      params.push(q.status.split(','));
+      where.push(`r.status = ANY($${params.length}::text[])`);
+    }
+    const w = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    const total = (await query(`SELECT count(*)::int AS n ${from} ${w}`, params)).rows[0].n;
+    params.push(q.limit, (q.page - 1) * q.limit);
     const rows = (await query(
       `SELECT r.*, i.number AS invoice_number, o.user_id,
          TRIM(COALESCE(u.firstname, '') || ' ' || COALESCE(u.lastname, '')) AS customer_name,
          NULLIF(TRIM(COALESCE(q.firstname, '') || ' ' || COALESCE(q.lastname, '')), '') AS requested_by_name,
          NULLIF(TRIM(COALESCE(a.firstname, '') || ' ' || COALESCE(a.lastname, '')), '') AS approved_by_name
-       FROM refunds r JOIN orders o ON o.id = r.order_id LEFT JOIN invoices i ON i.id = r.invoice_id
-       LEFT JOIN users u ON u.id = o.user_id LEFT JOIN users q ON q.id = r.requested_by LEFT JOIN users a ON a.id = r.approved_by
-       ${status ? 'WHERE r.status = $1' : ''} ORDER BY r.created_at DESC LIMIT 200`,
-      status ? [status] : []
+       ${from} LEFT JOIN users q ON q.id = r.requested_by LEFT JOIN users a ON a.id = r.approved_by
+       ${w} ORDER BY r.created_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
+      params
     )).rows;
-    ok(res, rows.map(toContractRefund));
+    res.set('X-Total-Count', String(total));
+    ok(res, { refunds: rows.map(toContractRefund), total, counts });
   }));
 
   router.put('/refunds/:id', requirePermission('admin.refunds.approve'), handler(async (req, res) => {
@@ -545,7 +607,9 @@ export const adminFinanceRoutes = ({ payments }: { payments: PaymentGateway | nu
       z.object({
         days: z.coerce.number().int().min(1).max(3660).optional(),
         account: z.string().optional(),
-        limit: z.coerce.number().int().min(1).max(100).default(20),
+        kind: z.string().optional(),
+        search: z.string().trim().max(100).optional(),
+        limit: z.coerce.number().int().min(1).max(100).default(10),
         page: z.coerce.number().int().min(1).default(1),
       }),
       req.query
@@ -570,39 +634,67 @@ export const adminFinanceRoutes = ({ payments }: { payments: PaymentGateway | nu
       const balance = ['asset', 'contra'].includes(a.type) ? round2(debit - credit) : round2(credit - debit);
       return { account: code, name: a.name, type: a.type, debit, credit, balance };
     });
-    const entryWhere = [...where];
-    const entryParams = [...params];
-    if (q.account) {
-      entryParams.push(q.account);
-      entryWhere.push(`journal_id IN (SELECT journal_id FROM ledger_entries WHERE account = $${entryParams.length})`);
+    // Every journal as one plain-language row ("Everyday business language").
+    const jWhere: string[] = [];
+    const jParams: unknown[] = [];
+    if (q.days) {
+      jParams.push(q.days);
+      jWhere.push(`j.occurred_at >= now() - make_interval(days => $${jParams.length})`);
     }
-    const ew = entryWhere.length ? `WHERE ${entryWhere.join(' AND ')}` : '';
-    const totalJournals = (await query(`SELECT count(DISTINCT journal_id)::int AS n FROM ledger_entries ${ew}`, entryParams)).rows[0].n;
-    entryParams.push(q.limit, (q.page - 1) * q.limit);
-    const journals = (await query(
-      `SELECT journal_id FROM ledger_entries ${ew} GROUP BY journal_id
-       ORDER BY max(occurred_at) DESC, journal_id DESC LIMIT $${entryParams.length - 1} OFFSET $${entryParams.length}`,
-      entryParams
-    )).rows.map((r) => r.journal_id);
-    const lines = journals.length
-      ? (await query(
-          `SELECT l.*, i.number AS invoice_number FROM ledger_entries l LEFT JOIN invoices i ON i.id = l.invoice_id
-           WHERE l.journal_id = ANY($1::int[]) ORDER BY l.occurred_at DESC, l.journal_id DESC, l.debit DESC, l.id`,
-          [journals]
-        )).rows
+    if (q.account) {
+      jParams.push(q.account);
+      jWhere.push(`$${jParams.length} = ANY(j.accounts)`);
+    }
+    if (q.kind) {
+      jParams.push(q.kind.split(','));
+      jWhere.push(`j.kind = ANY($${jParams.length}::text[])`);
+    }
+    if (q.search) {
+      jParams.push(`%${q.search.replace(/^#/, '')}%`);
+      jWhere.push(`(j.memo ILIKE $${jParams.length} OR j.order_id::text ILIKE $${jParams.length}
+        OR (u.firstname || ' ' || u.lastname) ILIKE $${jParams.length} OR u.email ILIKE $${jParams.length})`);
+    }
+    const jw = jWhere.length ? `WHERE ${jWhere.join(' AND ')}` : '';
+    const journalsFrom = `FROM (
+        SELECT journal_id, max(occurred_at) AS occurred_at, max(memo) AS memo, max(order_id) AS order_id,
+          max(invoice_id) AS invoice_id, max(payment_id) AS payment_id, max(refund_id) AS refund_id,
+          max(currency) AS currency, sum(debit) AS amount, array_agg(DISTINCT account) AS accounts,
+          CASE WHEN max(memo) LIKE 'Invoice %' THEN 'sale' WHEN max(memo) LIKE 'Payment %' THEN 'payment'
+            WHEN max(memo) LIKE 'Refund %' THEN 'refund' WHEN max(memo) LIKE 'Void %' THEN 'void'
+            ELSE 'adjustment' END AS kind
+        FROM ledger_entries GROUP BY journal_id
+      ) j LEFT JOIN orders o ON o.id = j.order_id LEFT JOIN users u ON u.id = o.user_id`;
+    const totalJournals = (await query(`SELECT count(*)::int AS n ${journalsFrom} ${jw}`, jParams)).rows[0].n;
+    jParams.push(q.limit, (q.page - 1) * q.limit);
+    const rows = (await query(
+      `SELECT j.*, i.number AS invoice_number, p.method AS payment_method, rf.method AS refund_method,
+         NULLIF(TRIM(COALESCE(u.firstname, '') || ' ' || COALESCE(u.lastname, '')), '') AS customer_name, u.id AS customer_id
+       ${journalsFrom} LEFT JOIN invoices i ON i.id = j.invoice_id LEFT JOIN payments p ON p.id = j.payment_id
+       LEFT JOIN refunds rf ON rf.id = j.refund_id
+       ${jw} ORDER BY j.occurred_at DESC, j.journal_id DESC LIMIT $${jParams.length - 1} OFFSET $${jParams.length}`,
+      jParams
+    )).rows;
+    const lines = rows.length
+      ? (await query('SELECT * FROM ledger_entries WHERE journal_id = ANY($1::int[]) ORDER BY debit DESC, id', [rows.map((r) => r.journal_id)])).rows
       : [];
-    const grouped = journals.map((j) => {
-      const ls = lines.filter((l) => l.journal_id === j);
-      return {
-        journal_id: j,
-        occurred_at: ls[0]?.occurred_at,
-        memo: ls[0]?.memo,
-        order_id: ls[0]?.order_id,
-        invoice_number: ls[0]?.invoice_number,
-        currency: ls[0]?.currency,
-        lines: ls.map((l) => ({ account: l.account, name: ACCOUNTS[l.account]?.name || l.account, debit: Number(l.debit), credit: Number(l.credit) })),
-      };
-    });
+    const grouped = rows.map((j) => ({
+      journal_id: j.journal_id,
+      kind: j.kind,
+      kind_name: JOURNAL_KINDS[j.kind as keyof typeof JOURNAL_KINDS],
+      description: describeJournal(j),
+      occurred_at: j.occurred_at,
+      memo: j.memo,
+      amount: round2(Number(j.amount)),
+      currency: j.currency,
+      order_id: j.order_id,
+      invoice_id: j.invoice_id,
+      invoice_number: j.invoice_number,
+      refund_id: j.refund_id,
+      customer: j.customer_id ? { customer_id: j.customer_id, name: j.customer_name } : null,
+      lines: lines
+        .filter((l) => l.journal_id === j.journal_id)
+        .map((l) => ({ account: l.account, name: ACCOUNTS[l.account]?.name || l.account, debit: Number(l.debit), credit: Number(l.credit) })),
+    }));
     const totalDebit = round2(accounts.reduce((s, a) => s + a.debit, 0));
     const totalCredit = round2(accounts.reduce((s, a) => s + a.credit, 0));
     ok(res, { accounts, journals: grouped, total_journals: totalJournals, totals: { debit: totalDebit, credit: totalCredit, balanced: Math.abs(totalDebit - totalCredit) < 0.01 } });

@@ -29,7 +29,6 @@ import { AuthContext } from '../../context/AuthContext';
 import { adminOrders } from '../../api';
 import { hasPermission } from '../../auth/permissions';
 import { useNotify } from '../../notification/NotificationProvider';
-import { StatusChip } from '../../components/ui';
 import {
   EmptyRow,
   FilterMenu,
@@ -43,9 +42,12 @@ import {
   SearchField,
   StandardPagination,
   TablePanel,
-  usePaging,
 } from '../../components/admin/DataTable';
-import { formatDateTime, formatMoney } from '../../utils/format';
+import {
+  formatDateTime,
+  formatMoney,
+  formatShortDate,
+} from '../../utils/format';
 
 const PAYMENT = {
   paid: ['Paid', 'success'],
@@ -485,48 +487,119 @@ export const AdminOrdersPage = () => {
 // The order page lives in ./orders/AdminOrderDetail.
 export { default as AdminOrderDetailPage } from './orders/AdminOrderDetail';
 
+// Returns: requested → approved (customer sends it back) → received (checked
+// in, optionally back on sale) → refunded (creates the refund). Rejection is
+// possible until it's refunded.
+export const RETURN_STATES = {
+  requested: ['Requested', 'warning'],
+  approved: ['Awaiting item', 'info'],
+  received: ['Item received', 'primary'],
+  refunded: ['Refunded', 'success'],
+  rejected: ['Rejected', 'default'],
+};
+const RETURN_TABS = [
+  { value: 'requested', label: 'Requested' },
+  { value: 'approved', label: 'Awaiting item' },
+  { value: 'received', label: 'Received' },
+  { value: 'refunded', label: 'Refunded' },
+  { value: 'rejected', label: 'Rejected' },
+  { value: 'all', label: 'All' },
+];
+const REFUND_PILL = {
+  pending_approval: ['Refund awaiting approval', 'warning'],
+  processed: ['Paid back', 'success'],
+  rejected: ['Refund rejected', 'default'],
+  failed: ['Refund failed', 'error'],
+};
+const RETURN_ACTIONS = {
+  requested: [
+    { status: 'approved', label: 'Approve — ask for the item back' },
+    { status: 'rejected', label: 'Reject', color: 'error' },
+  ],
+  approved: [
+    { status: 'received', label: 'Item received — back in stock' },
+    {
+      status: 'received',
+      restock: false,
+      label: 'Item received — don’t restock',
+    },
+    { status: 'rejected', label: 'Reject', color: 'error' },
+  ],
+  received: [
+    { status: 'refunded', label: 'Refund the customer' },
+    { status: 'rejected', label: 'Reject', color: 'error' },
+  ],
+};
+const DONE = {
+  approved: 'Return approved. The customer can send the item back.',
+  received: 'Item received.',
+  refunded: 'Return refunded.',
+  rejected: 'Return rejected.',
+};
+
 export const AdminReturnsPage = () => {
   const { user } = useContext(AuthContext);
   const notify = useNotify();
   const [params, setParams] = useSearchParams();
-  const customer = params.get('customer') || '';
+  const get = (k) => params.get(k) || '';
+  const set = (k, v) => {
+    const next = new URLSearchParams(params);
+    if (v) next.set(k, v);
+    else next.delete(k);
+    if (k !== 'page') next.delete('page');
+    setParams(next, { replace: true });
+  };
+  const customer = get('customer');
+  // A customer's returns, or a search: show every status by default.
+  const tab = get('tab') || (customer || get('search') ? 'all' : 'requested');
+  const page = Number(get('page') || 1) - 1;
   const canUpdate = hasPermission(user, 'orders.returns.update');
-  // A customer's returns: show all of them, not only open requests.
-  const [status, setStatus] = useState(customer ? '' : 'requested');
-  const [list, setList] = useState(null);
-  const paging = usePaging();
+  const [data, setData] = useState(null);
 
   const load = useCallback(() => {
-    setList(null);
+    let active = true;
+    setData(null);
     adminOrders
-      .listReturns(status || undefined, customer || undefined)
-      .then(setList)
+      .returnsPage({
+        page: page + 1,
+        limit: PAGE_SIZE,
+        status: tab === 'all' ? undefined : tab,
+        search: get('search') || undefined,
+        days: get('days') || undefined,
+        customer: customer || undefined,
+      })
+      .then((d) => active && setData(d))
       .catch((error) => {
         notify.error(error, 'We couldn’t load returns.');
-        setList([]);
+        if (active) setData({ returns: [], total: 0, counts: {} });
       });
-  }, [status, customer, notify]);
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params, notify]);
+  useEffect(load, [load]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  const update = async (r, next) => {
+  const update = async (r, action) => {
     try {
-      await adminOrders.updateReturn(r.id, next);
-      notify.success(`Return marked ${next}.`);
+      const next = await adminOrders.updateReturn(r.id, action.status, {
+        restock: action.restock,
+      });
+      notify.success(
+        action.status === 'refunded' &&
+          next.refund?.status === 'pending_approval'
+          ? 'Return refunded. The refund is waiting for approval.'
+          : DONE[action.status]
+      );
       load();
     } catch (error) {
       notify.error(error, 'We couldn’t update the return.');
     }
   };
 
-  const actions = {
-    requested: ['approved', 'rejected'],
-    approved: ['refunded'],
-  };
-
-  const shown = paging.slice(list || []);
+  const counts = data?.counts || {};
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  const cols = 9;
 
   return (
     <Stack spacing={3}>
@@ -540,100 +613,193 @@ export const AdminReturnsPage = () => {
           customer ? (
             <Chip
               size="small"
-              label={`Customer: ${params.get('customerName') || `#${customer}`}`}
+              label={`Customer: ${get('customerName') || `#${customer}`}`}
               onDelete={() => setParams({}, { replace: true })}
               color="primary"
               variant="outlined"
             />
-          ) : undefined
+          ) : (
+            'Approve requests, check items in when they arrive, then refund.'
+          )
         }
       />
       <TablePanel>
         <PanelTabs
-          value={status}
-          onChange={(v) => {
-            setStatus(v);
-            paging.reset();
-          }}
-          tabs={[
-            { value: 'requested', label: 'Requested' },
-            { value: 'approved', label: 'Approved' },
-            { value: 'refunded', label: 'Refunded' },
-            { value: 'rejected', label: 'Rejected' },
-            { value: '', label: 'All' },
-          ]}
+          value={tab}
+          onChange={(v) => set('tab', v)}
+          tabs={RETURN_TABS.map((t) => ({
+            value: t.value,
+            label: t.label,
+            count: data
+              ? t.value === 'all'
+                ? total
+                : counts[t.value] || 0
+              : undefined,
+          }))}
         />
+        <PanelToolbar>
+          <SearchField
+            value={get('search')}
+            onChange={(v) => set('search', v)}
+            placeholder="Search item, order, return or customer"
+          />
+          <Box sx={{ flex: 1 }} />
+          <TextField
+            select
+            size="small"
+            value={get('days')}
+            onChange={(e) => set('days', e.target.value)}
+            SelectProps={{ displayEmpty: true }}
+            sx={{ minWidth: 160 }}
+            inputProps={{ 'aria-label': 'Date range' }}
+          >
+            {DATE_RANGES.map((d) => (
+              <MenuItem key={d.label} value={d.value}>
+                {d.label}
+              </MenuItem>
+            ))}
+          </TextField>
+        </PanelToolbar>
         <TableContainer>
           <Table aria-label="Returns">
-            <TableHead>
+            <TableHead sx={{ bgcolor: 'background.neutral' }}>
               <TableRow>
+                <TableCell>Return</TableCell>
+                <TableCell>Date</TableCell>
                 <TableCell>Item</TableCell>
                 <TableCell>Customer</TableCell>
                 <TableCell>Reason</TableCell>
+                <TableCell align="right">Value</TableCell>
                 <TableCell>Status</TableCell>
+                <TableCell>Refund</TableCell>
                 <TableCell align="right" />
               </TableRow>
             </TableHead>
             <TableBody>
-              {!list && <LoadingRows cols={5} />}
-              {shown.map((r) => (
-                <TableRow key={r.id} hover data-testid={`return-row-${r.id}`}>
-                  <TableCell>
-                    <Typography variant="subtitle2">
-                      {r.quantity} × {r.product}
-                    </Typography>
-                    <Typography
-                      variant="caption"
-                      component={RouterLink}
-                      to={`/admin/orders/${r.orderId}`}
-                    >
-                      Order #{r.orderId}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">{r.customer?.name}</Typography>
-                    <Typography variant="caption">
-                      {r.customer?.email}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">
-                      {r.reasonName}
-                      {r.opened ? ' · opened' : ''}
-                    </Typography>
-                    {r.comment && (
-                      <Typography variant="caption">{r.comment}</Typography>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <StatusChip status={r.status} label={r.status} />
-                  </TableCell>
-                  <TableCell align="right">
-                    <RowActions
-                      label={`Actions for return of ${r.product}`}
-                      items={(canUpdate ? actions[r.status] || [] : []).map(
-                        (next) => ({
-                          label:
-                            next === 'approved'
-                              ? 'Approve'
-                              : next === 'rejected'
-                                ? 'Reject'
-                                : 'Mark refunded',
-                          color: next === 'rejected' ? 'error' : undefined,
-                          onClick: () => update(r, next),
-                        })
+              {!data && <LoadingRows cols={cols} rows={PAGE_SIZE} />}
+              {data?.returns.map((r) => {
+                const [label, tone] = RETURN_STATES[r.status] || [
+                  r.status,
+                  'default',
+                ];
+                const [refundLabel, refundTone] = r.refund
+                  ? REFUND_PILL[r.refund.status] || [r.refund.status, 'default']
+                  : [];
+                const actions = canUpdate ? RETURN_ACTIONS[r.status] || [] : [];
+                return (
+                  <TableRow key={r.id} hover data-testid={`return-row-${r.id}`}>
+                    <TableCell sx={{ fontWeight: 700 }}>#{r.id}</TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                      {formatShortDate(r.date)}
+                    </TableCell>
+                    <TableCell>
+                      <Stack direction="row" spacing={1.5} alignItems="center">
+                        <Box
+                          component="img"
+                          src={r.image}
+                          alt=""
+                          sx={{
+                            width: 40,
+                            height: 40,
+                            objectFit: 'contain',
+                            borderRadius: '8px',
+                            bgcolor: 'background.neutral',
+                            flexShrink: 0,
+                          }}
+                        />
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography variant="subtitle2" noWrap>
+                            {r.quantity} × {r.product}
+                          </Typography>
+                          <Link
+                            component={RouterLink}
+                            to={`/admin/orders/${r.orderId}`}
+                            variant="caption"
+                            underline="hover"
+                          >
+                            Order #{r.orderId}
+                          </Link>
+                        </Box>
+                      </Stack>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">
+                        {r.customer?.name || r.customer?.email}
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={{ maxWidth: 220 }}>
+                      <Typography variant="body2">
+                        {r.reasonName}
+                        {r.opened ? ' · opened' : ''}
+                      </Typography>
+                      {r.comment && (
+                        <Typography variant="caption" noWrap component="div">
+                          {r.comment}
+                        </Typography>
                       )}
-                    />
-                  </TableCell>
-                </TableRow>
-              ))}
-              {list && !list.length && (
-                <EmptyRow cols={5}>No returns here.</EmptyRow>
+                    </TableCell>
+                    <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                      {r.amount !== undefined ? formatMoney(r.amount) : '—'}
+                    </TableCell>
+                    <TableCell>
+                      <Pill label={label} tone={tone} />
+                    </TableCell>
+                    <TableCell>
+                      {r.refund ? (
+                        <Stack spacing={0.25} alignItems="flex-start">
+                          <Pill label={refundLabel} tone={refundTone} />
+                          <Link
+                            component={RouterLink}
+                            to={`/admin/refunds?tab=${
+                              r.refund.status === 'pending_approval'
+                                ? 'pending'
+                                : r.refund.status === 'rejected'
+                                  ? 'rejected'
+                                  : 'approved'
+                            }&search=${r.orderId}`}
+                            variant="caption"
+                            underline="hover"
+                          >
+                            Refund #{r.refund.id} ·{' '}
+                            {formatMoney(r.refund.amount)}
+                          </Link>
+                        </Stack>
+                      ) : (
+                        '—'
+                      )}
+                    </TableCell>
+                    <TableCell align="right">
+                      {actions.length > 0 && (
+                        <RowActions
+                          label={`Actions for return of ${r.product}`}
+                          items={actions.map((a) => ({
+                            label: a.label,
+                            color: a.color,
+                            onClick: () => update(r, a),
+                          }))}
+                        />
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              {data && !data.returns.length && (
+                <EmptyRow cols={cols}>No returns here.</EmptyRow>
               )}
             </TableBody>
           </Table>
         </TableContainer>
-        <StandardPagination count={list?.length || 0} {...paging.props} />
+        {data && data.total > 0 && (
+          <StandardPagination
+            count={data.total}
+            page={page}
+            rowsPerPage={PAGE_SIZE}
+            onPageChange={(_, p) => set('page', String(p + 1))}
+            onRowsPerPageChange={() => {}}
+            maxShowAll={0}
+            label="returns"
+          />
+        )}
       </TablePanel>
     </Stack>
   );

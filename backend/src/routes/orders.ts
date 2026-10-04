@@ -23,13 +23,33 @@ export const toContractReturn = (r: any) => ({
   opened: r.opened,
   comment: r.comment,
   status: r.status,
+  status_name: RETURN_STATUS_NAMES[r.status] || r.status,
+  amount: r.unit_price !== undefined ? Number(r.unit_price) * r.quantity : undefined,
+  received_at: r.received_at || null,
+  // The refund it led to, if any.
+  refund: r.refund_id
+    ? { refund_id: r.refund_id, status: r.refund_status, amount: Number(r.refund_amount), method: r.refund_method }
+    : null,
   date_added: r.created_at,
+  date_modified: r.updated_at,
   ...(r.customer_email ? { customer: { email: r.customer_email, name: r.customer_name } } : {}),
 });
 
+export const RETURN_STATUS_NAMES: Record<string, string> = {
+  requested: 'Requested',
+  approved: 'Approved — awaiting the item',
+  received: 'Item received',
+  rejected: 'Rejected',
+  refunded: 'Refunded',
+};
+
 export const RETURN_SELECT = `
-  SELECT r.*, oi.name AS product_name, oi.image
-  FROM returns r JOIN order_items oi ON oi.id = r.order_item_id`;
+  SELECT r.*, oi.name AS product_name, oi.image, oi.unit_price, oi.options,
+    rf.id AS refund_id, rf.status AS refund_status, rf.amount AS refund_amount, rf.method AS refund_method
+  FROM returns r JOIN order_items oi ON oi.id = r.order_item_id
+  LEFT JOIN LATERAL (
+    SELECT id, status, amount, method FROM refunds WHERE return_id = r.id ORDER BY id DESC LIMIT 1
+  ) rf ON true`;
 
 export const orderRoutes = () => {
   const router = Router();

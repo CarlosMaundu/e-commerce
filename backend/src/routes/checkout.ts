@@ -218,19 +218,20 @@ export const checkoutRoutes = ({ payments }: { payments: PaymentGateway | null }
       }
       const { rows } = await db.query(
         `INSERT INTO orders (user_id, email, status, payment_method, shipping_method, shipping_address, payment_address,
-           coupon_code, subtotal, discount, shipping_total, tax_total, total, currency, comment)
-         VALUES ($1, $2, 'awaiting_payment', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id`,
+           coupon_code, subtotal, discount, shipping_total, tax_total, total, currency, comment, gift_total)
+         VALUES ($1, $2, 'awaiting_payment', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING id`,
         [userId, req.auth!.user.email, state.payment_method, state.shipping_method,
           JSON.stringify(toContractAddress(shipping)), JSON.stringify(toContractAddress(billing)),
           totals.coupon?.code ?? null, totals.subtotal, totals.discount, totals.shipping, totals.tax, totals.total,
-          finance().currency, state.comment || '']
+          finance().currency, state.comment || '', totals.gift]
       );
       const id = rows[0].id as number;
       for (const l of lines) {
         await db.query(
-          `INSERT INTO order_items (order_id, product_id, variant_id, name, image, options, unit_price, quantity, total)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-          [id, l.product_id, l.variant_id, l.name, l.image, JSON.stringify(l.options), l.unit_price, l.quantity, l.total]
+          `INSERT INTO order_items (order_id, product_id, variant_id, name, image, options, unit_price, quantity, total, gift)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+          [id, l.product_id, l.variant_id, l.name, l.image, JSON.stringify(l.options), l.unit_price, l.quantity, l.total,
+            l.gift ? JSON.stringify({ ...l.gift, done: false }) : null]
         );
       }
       await db.query('UPDATE checkout_state SET pending_order_id = $2 WHERE user_id = $1', [userId, id]);

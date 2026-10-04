@@ -14,6 +14,7 @@ import { createRefund } from '../lib/refunds';
 import { hasPermission } from '../lib/users';
 import { authenticate, requirePermission } from '../middleware/auth';
 import { RETURN_SELECT, toContractReturn } from './orders';
+import { putBack } from '../lib/products';
 
 export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null }) => {
   const router = Router();
@@ -99,6 +100,13 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
     }
     const changing = b.order_status !== order.status;
     if (!changing && !b.comment) fail(400, 'Choose a new status or add a comment.');
+    // Gift instructions must be carried out before an order leaves.
+    if (changing && b.order_status === 'shipped') {
+      const open = loaded!.items.filter((i: any) => i.gift && !i.gift.done);
+      if (open.length) {
+        fail(400, `Prepare the gift${open.length > 1 ? 's' : ''} for ${open.map((i: any) => `“${i.name}”`).join(', ')} and tick ${open.length > 1 ? 'them' : 'it'} off before dispatch.`);
+      }
+    }
     if (changing && b.order_status === 'refunded' && !hasPermission(req.auth!.permissions, 'orders.orders.refund')) {
       fail(403, 'You don’t have permission to refund orders.');
     }
@@ -146,37 +154,91 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
     ok(res, (await loadOrder(order.id, { admin: true }))!.contract);
   }));
 
+  // Tick off (or reopen) a gift line's instructions: wrapped, message printed.
+  router.put('/orders/:id/items/:itemId/gift', requirePermission('orders.orders.update'), handler(async (req, res) => {
+    const { done } = parse(z.object({ done: z.coerce.boolean() }), req.body);
+    const item = (await query('SELECT * FROM order_items WHERE id = $1 AND order_id = $2', [
+      Number(req.params.itemId), Number(req.params.id),
+    ])).rows[0];
+    if (!item?.gift) fail(404, 'That item isn’t being sent as a gift.');
+    const gift = done
+      ? { ...item.gift, done: true, done_at: new Date().toISOString(), done_by: req.auth!.user.email }
+      : { ...item.gift, done: false, done_at: null, done_by: null };
+    await query('UPDATE order_items SET gift = $2::jsonb WHERE id = $1', [item.id, JSON.stringify(gift)]);
+    audit(req, done ? 'order.gift_prepared' : 'order.gift_reopened', `order:${item.order_id}`, { item: item.id });
+    ok(res, (await loadOrder(item.order_id, { admin: true }))!.contract);
+  }));
+
+  // Returns: GET /returns?status=&search=&customer=&days=&page=&limit=
   router.get('/returns', requirePermission('orders.returns.view'), handler(async (req, res) => {
-    const status = typeof req.query.status === 'string' ? req.query.status : '';
-    const customer = Number(req.query.customer) || 0;
+    const q = parse(
+      z.object({
+        status: z.string().optional(),
+        search: z.string().trim().max(100).optional(),
+        customer: z.coerce.number().int().positive().optional(),
+        days: z.coerce.number().int().min(1).max(3660).optional(),
+        limit: z.coerce.number().int().min(1).max(200).default(200),
+        page: z.coerce.number().int().min(1).default(1),
+      }),
+      req.query
+    );
     const params: unknown[] = [];
     const where: string[] = [];
-    if (status) {
-      params.push(status);
-      where.push(`r.status = $${params.length}`);
+    if (q.status) {
+      params.push(q.status.split(','));
+      where.push(`r.status = ANY($${params.length}::text[])`);
     }
-    if (customer) {
-      params.push(customer);
+    if (q.customer) {
+      params.push(q.customer);
       where.push(`r.user_id = $${params.length}`);
     }
+    if (q.days) {
+      params.push(q.days);
+      where.push(`r.created_at >= now() - make_interval(days => $${params.length})`);
+    }
+    if (q.search) {
+      params.push(`%${q.search.replace(/^#/, '')}%`);
+      where.push(`(oi.name ILIKE $${params.length} OR u.email ILIKE $${params.length} OR r.order_id::text ILIKE $${params.length}
+        OR r.id::text ILIKE $${params.length} OR (u.firstname || ' ' || u.lastname) ILIKE $${params.length})`);
+    }
+    const w = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    const from = `FROM returns r JOIN order_items oi ON oi.id = r.order_item_id LEFT JOIN users u ON u.id = r.user_id`;
+    const total = (await query(`SELECT count(*)::int AS n ${from} ${w}`, params)).rows[0].n;
+    const counts = Object.fromEntries((await query(
+      `SELECT r.status, count(*)::int AS n ${from} ${where.filter((x) => !x.startsWith('r.status')).length
+        ? `WHERE ${where.filter((x) => !x.startsWith('r.status')).join(' AND ')}` : ''} GROUP BY r.status`,
+      q.status ? params.slice(1) : params
+    )).rows.map((r) => [r.status, r.n]));
+    params.push(q.limit, (q.page - 1) * q.limit);
     const { rows } = await query(
-      `SELECT r.*, oi.name AS product_name, oi.image, u.email AS customer_email,
-         TRIM(COALESCE(u.firstname, '') || ' ' || COALESCE(u.lastname, '')) AS customer_name
-       FROM returns r JOIN order_items oi ON oi.id = r.order_item_id LEFT JOIN users u ON u.id = r.user_id
-       ${where.length ? `WHERE ${where.join(' AND ')}` : ''} ORDER BY r.created_at DESC LIMIT 200`,
+      `${RETURN_SELECT.replace('FROM returns r', `, u.email AS customer_email,
+         TRIM(COALESCE(u.firstname, '') || ' ' || COALESCE(u.lastname, '')) AS customer_name FROM returns r`)}
+       LEFT JOIN users u ON u.id = r.user_id
+       ${w} ORDER BY r.created_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
       params
     );
+    res.set('X-Total-Count', String(total));
+    if (req.query.page) return ok(res, { returns: rows.map(toContractReturn), total, counts });
     ok(res, rows.map(toContractReturn));
   }));
 
   router.put('/returns/:id', requirePermission('orders.returns.update'), handler(async (req, res) => {
-    const { status } = parse(
-      z.object({ status: z.enum(['approved', 'rejected', 'refunded'], { errorMap: () => ({ message: 'Please choose a valid status.' }) }) }),
+    const { status, restock } = parse(
+      z.object({
+        status: z.enum(['approved', 'received', 'rejected', 'refunded'], { errorMap: () => ({ message: 'Please choose a valid status.' }) }),
+        // On receipt: whether the item goes back on sale.
+        restock: z.coerce.boolean().default(true),
+      }),
       req.body
     );
     const row = (await query(`${RETURN_SELECT} WHERE r.id = $1`, [Number(req.params.id)])).rows[0];
     if (!row) fail(404, 'Return not found.');
-    const allowed: Record<string, string[]> = { requested: ['approved', 'rejected'], approved: ['refunded'] };
+    // requested → approved (send it back) → received (checked in) → refunded.
+    const allowed: Record<string, string[]> = {
+      requested: ['approved', 'rejected'],
+      approved: ['received', 'rejected'],
+      received: ['refunded', 'rejected'],
+    };
     if (!(allowed[row.status] || []).includes(status)) fail(400, `A ${row.status} return can’t be marked ${status}.`);
     if (status === 'refunded') {
       // Pay back the returned items (less any restocking fee) and post it.
@@ -198,10 +260,18 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
         });
         await db.query('UPDATE returns SET status = $2, updated_at = now() WHERE id = $1', [row.id, status]);
       });
+    } else if (status === 'received') {
+      await transaction(async (db) => {
+        if (restock) {
+          const item = (await db.query('SELECT * FROM order_items WHERE id = $1', [row.order_item_id])).rows[0];
+          await putBack(db, item, row.quantity);
+        }
+        await db.query(`UPDATE returns SET status = 'received', received_at = now(), updated_at = now() WHERE id = $1`, [row.id]);
+      });
     } else {
       await query('UPDATE returns SET status = $2, updated_at = now() WHERE id = $1', [row.id, status]);
     }
-    audit(req, 'order.return_updated', `return:${row.id}`, { status });
+    audit(req, 'order.return_updated', `return:${row.id}`, { status, ...(status === 'received' ? { restock } : {}) });
     ok(res, toContractReturn((await query(`${RETURN_SELECT} WHERE r.id = $1`, [row.id])).rows[0]));
   }));
 

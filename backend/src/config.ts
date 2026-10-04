@@ -49,6 +49,7 @@ export const config = {
     freeShippingOver: Number(env('FREE_SHIPPING_OVER', '10000')),
     standardShipping: Number(env('STANDARD_SHIPPING', '300')),
     expressShipping: Number(env('EXPRESS_SHIPPING', '650')),
+    giftBoxPrice: Number(env('GIFT_BOX_PRICE', '500')),
   },
   stripe: {
     secretKey: process.env.STRIPE_SECRET_KEY || '',
