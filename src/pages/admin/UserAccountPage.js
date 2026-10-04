@@ -34,7 +34,7 @@ import {
   FiLogOut,
   FiPackage,
   FiRotateCcw,
-  FiShoppingCart,
+  FiCornerUpLeft,
   FiStar,
   FiUnlock,
   FiArrowUpRight,
@@ -334,7 +334,13 @@ const UserAccountPage = () => {
           'success',
           `/admin/soon/customer-revenue?${who}&name=${encodeURIComponent(user.name)}`,
         ],
-        ['In cart', stats.cart, <FiShoppingCart key="c" />, 'info', null],
+        [
+          'Refunds',
+          formatMoney(stats.refunded || 0),
+          <FiCornerUpLeft key="f" />,
+          'info',
+          `/admin/refunds?tab=approved&${who}`,
+        ],
         [
           'Wishlist',
           stats.wishlist,

@@ -35,6 +35,7 @@ import SignupPage from './pages/SignupPage';
 import ResetPassword from './components/password/ResetPassword';
 import VerifyEmailPage from './pages/VerifyEmailPage';
 import PolicyPage from './pages/PolicyPage';
+import CustomerRefundsPage from './pages/account/RefundsPage';
 import InformationPage from './pages/InformationPage';
 import NotFoundPage from './pages/NotFoundPage';
 
@@ -217,6 +218,7 @@ const App = () => (
                       <Route path="invoices" element={<InvoicesPage />} />
                       <Route path="invoices/:id" element={<InvoicePage />} />
                       <Route path="returns" element={<ReturnsPage />} />
+                      <Route path="refunds" element={<CustomerRefundsPage />} />
                       <Route
                         path="wishlist"
                         element={<AccountWishlistPage />}

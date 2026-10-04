@@ -675,6 +675,18 @@ describe('invoices, payments, refunds and the ledger', () => {
     const mine = (await request(app).get('/api/rest/returns').set(bearer(token))).body.data;
     expect(mine[0].refund).toMatchObject({ status: 'processed' });
 
+    // The customer sees the refund, and staff see it on the customer's account.
+    const myRefunds = (await request(app).get('/api/rest/refunds').set(bearer(token))).body.data;
+    expect(myRefunds).toHaveLength(1);
+    expect(myRefunds[0]).toMatchObject({
+      status: 'refunded', amount: order.products[0].price, order_number: order.order_number,
+      return_id: ret.return_id, product: 'Denim jacket',
+    });
+    const customerId = (await query("SELECT id FROM users WHERE email = 'jane@example.com'")).rows[0].id;
+    const account = (await request(app).get(`/api/admin/users/${customerId}/account`).set(bearer(admin))).body.data;
+    expect(account.stats).toMatchObject({ refunds: 1, refunded: order.products[0].price });
+    expect(account.stats.cart).toBeDefined();
+
     const ledger = (await request(app).get('/api/admin/ledger?kind=refund').set(bearer(admin))).body.data;
     expect(ledger.total_journals).toBe(1);
     expect(ledger.journals[0]).toMatchObject({ kind: 'refund', kind_name: 'Refund' });

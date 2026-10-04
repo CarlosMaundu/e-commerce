@@ -401,6 +401,8 @@ export const adminUsers = {
         wishlist: data.stats.wishlist,
         cart: data.stats.cart,
         returns: data.stats.returns,
+        refunds: data.stats.refunds,
+        refunded: Number(data.stats.refunded || 0),
         reviews: data.stats.reviews,
         sessions: data.stats.sessions,
       },
@@ -740,6 +742,26 @@ export const orders = {
   async listReturns() {
     const { data } = await http().get('/rest/returns');
     return data.map(returnFromApi);
+  },
+  /** The customer's refunds, newest first. */
+  async refunds() {
+    const { data } = await http().get('/rest/refunds');
+    return data.map((r) => ({
+      id: r.refund_id,
+      orderId: r.order_id,
+      orderNumber: r.order_number,
+      invoiceNumber: r.invoice_number,
+      returnId: r.return_id,
+      product: r.product,
+      image: r.image,
+      status: r.status,
+      amount: Number(r.amount),
+      method: r.method,
+      reference: r.reference,
+      currency: r.currency,
+      date: r.date_added,
+      processedAt: r.date_processed,
+    }));
   },
 };
 

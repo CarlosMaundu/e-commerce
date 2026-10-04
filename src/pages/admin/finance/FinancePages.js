@@ -791,7 +791,6 @@ export const PaymentsPage = () => {
                 <TableCell>Date</TableCell>
                 <TableCell>Customer</TableCell>
                 <TableCell>Invoice</TableCell>
-                <TableCell>Order</TableCell>
                 <TableCell>Method</TableCell>
                 <TableCell>Type</TableCell>
                 <TableCell align="right">Amount</TableCell>
@@ -799,7 +798,7 @@ export const PaymentsPage = () => {
             </TableHead>
             <TableBody>
               {!data ? (
-                <LoadingRows cols={8} rows={PAGE_SIZE} />
+                <LoadingRows cols={7} rows={PAGE_SIZE} />
               ) : data.payments.length ? (
                 data.payments.map((p) => (
                   <TableRow
@@ -837,19 +836,6 @@ export const PaymentsPage = () => {
                         '—'
                       )}
                     </TableCell>
-                    <TableCell>
-                      {p.order_id ? (
-                        <Link
-                          component={RouterLink}
-                          to={`/admin/orders/${p.order_id}`}
-                          underline="hover"
-                        >
-                          {p.order_number || `#${p.order_id}`}
-                        </Link>
-                      ) : (
-                        '—'
-                      )}
-                    </TableCell>
                     <TableCell sx={{ whiteSpace: 'nowrap' }}>
                       {METHOD_NAMES[p.method] || p.method}
                     </TableCell>
@@ -874,7 +860,7 @@ export const PaymentsPage = () => {
                   </TableRow>
                 ))
               ) : (
-                <EmptyRow cols={8}>No payments match.</EmptyRow>
+                <EmptyRow cols={7}>No payments match.</EmptyRow>
               )}
             </TableBody>
           </Table>
@@ -1032,7 +1018,22 @@ export const RefundsPage = () => {
       <PageHeader
         crumbs={[{ label: 'Home', to: '/admin' }, { label: 'Refunds' }]}
         title="Refunds"
-        subtitle="Money paid back to customers, and refunds waiting for approval."
+        subtitle={
+          get('customer') ? (
+            <Chip
+              size="small"
+              label={`Customer: ${get('customerName') || `#${get('customer')}`}`}
+              onDelete={() => {
+                set('customer', '');
+              }}
+              color="primary"
+              variant="outlined"
+              sx={{ mt: 0.5 }}
+            />
+          ) : (
+            'Money paid back to customers, and refunds waiting for approval.'
+          )
+        }
         actions={
           <Button
             variant="outlined"

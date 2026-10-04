@@ -111,6 +111,10 @@ export const adminUserRoutes = () => {
           `SELECT (SELECT count(*)::int FROM wishlist_items WHERE user_id = $1) AS wishlist,
              (SELECT COALESCE(sum(quantity), 0)::int FROM cart_items WHERE user_id = $1) AS cart,
              (SELECT count(*)::int FROM returns WHERE user_id = $1) AS returns,
+             (SELECT count(*)::int FROM refunds r JOIN orders o ON o.id = r.order_id
+                WHERE o.user_id = $1 AND r.status = 'processed') AS refunds,
+             (SELECT COALESCE(sum(r.amount), 0) FROM refunds r JOIN orders o ON o.id = r.order_id
+                WHERE o.user_id = $1 AND r.status = 'processed') AS refunded,
              (SELECT count(*)::int FROM product_reviews WHERE user_id = $1) AS reviews,
              (SELECT count(*)::int FROM sessions WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > now()) AS sessions`,
           [id]
@@ -138,6 +142,7 @@ export const adminUserRoutes = () => {
           spent: Number(stats.spent),
           last_order: stats.last_order,
           ...counts,
+          refunded: Number(counts.refunded),
         },
         addresses,
         orders,

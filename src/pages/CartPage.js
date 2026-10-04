@@ -423,9 +423,7 @@ const CartPage = () => {
                             {formatMoney(item.price * item.quantity)}
                           </Typography>
                         )}
-                        <Typography
-                          sx={{ fontWeight: 800, fontSize: '1.2rem' }}
-                        >
+                        <Typography sx={{ fontWeight: 700, fontSize: '1rem' }}>
                           {formatMoney(item.total)}
                         </Typography>
                       </Stack>
@@ -556,7 +554,7 @@ const CartPage = () => {
               </Typography>
               <Stack direction="row" spacing={2} alignItems="baseline">
                 <Typography color="text.secondary">total</Typography>
-                <Typography sx={{ fontWeight: 800, fontSize: '1.5rem' }}>
+                <Typography sx={{ fontWeight: 700, fontSize: '1.05rem' }}>
                   {formatMoney(cart.items.reduce((sum, i) => sum + i.total, 0))}
                 </Typography>
               </Stack>
