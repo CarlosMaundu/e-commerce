@@ -4,6 +4,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import SignupPage from '../pages/SignupPage';
 import { AuthContext } from '../context/AuthContext';
+import { NotificationProvider } from '../notification/NotificationProvider';
 
 // Create mocks for AuthContext functions
 const mockSignUp = jest.fn();
@@ -24,19 +25,21 @@ jest.mock('react-router-dom', () => {
 
 const renderWithProviders = (ui) => {
   return render(
-    <AuthContext.Provider
-      value={{
-        signUp: mockSignUp,
-        signInWithGoogle: mockSignInWithGoogle,
-        sendSignInLink: mockSendSignInLink,
-      }}
-    >
-      <MemoryRouter initialEntries={['/register']}>
-        <Routes>
-          <Route path="/register" element={ui} />
-        </Routes>
-      </MemoryRouter>
-    </AuthContext.Provider>
+    <NotificationProvider>
+      <AuthContext.Provider
+        value={{
+          signUp: mockSignUp,
+          signInWithGoogle: mockSignInWithGoogle,
+          sendSignInLink: mockSendSignInLink,
+        }}
+      >
+        <MemoryRouter initialEntries={['/register']}>
+          <Routes>
+            <Route path="/register" element={ui} />
+          </Routes>
+        </MemoryRouter>
+      </AuthContext.Provider>
+    </NotificationProvider>
   );
 };
 
@@ -156,14 +159,48 @@ describe('SignupPage', () => {
     });
   });
 
-  test('allows user to sign up with Google', async () => {
-    renderWithProviders(<SignupPage />);
-    fireEvent.click(
-      screen.getByRole('button', { name: /sign up with google/i })
+  test('shows a friendly message instead of a raw Firebase error', async () => {
+    mockSignUp.mockRejectedValueOnce(
+      Object.assign(new Error('Firebase: Error (auth/email-already-in-use).'), {
+        code: 'auth/email-already-in-use',
+      })
     );
-    await waitFor(() => {
-      expect(mockSignInWithGoogle).toHaveBeenCalled();
+    renderWithProviders(<SignupPage />);
+    fireEvent.change(screen.getByLabelText(/first name/i), {
+      target: { value: 'John' },
     });
+    fireEvent.change(screen.getByLabelText(/last name/i), {
+      target: { value: 'Doe' },
+    });
+    fireEvent.change(screen.getByLabelText(/email address/i), {
+      target: { value: 'test@example.com' },
+    });
+    const byName = (name) =>
+      screen.getByLabelText(
+        (content, element) =>
+          element.tagName.toLowerCase() === 'input' && element.name === name
+      );
+    fireEvent.change(byName('password'), { target: { value: 'password123' } });
+    fireEvent.change(byName('confirmPassword'), {
+      target: { value: 'password123' },
+    });
+    fireEvent.click(
+      screen.getByRole('checkbox', {
+        name: /i accept the terms and conditions/i,
+      })
+    );
+    fireEvent.click(screen.getByRole('button', { name: /create account/i }));
+
+    expect(
+      await screen.findByText(/an account with this email already exists/i)
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/firebase/i)).not.toBeInTheDocument();
+  });
+
+  test('hides Google sign-up when no Google client ID is configured', () => {
+    renderWithProviders(<SignupPage />);
+    expect(screen.queryByTestId('google-signin')).not.toBeInTheDocument();
+    expect(screen.queryByText(/^OR$/)).not.toBeInTheDocument();
   });
 
   test('navigates to login page', () => {

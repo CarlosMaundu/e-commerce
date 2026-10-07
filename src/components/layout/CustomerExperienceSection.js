@@ -1,160 +1,116 @@
-// src/components/layout/CustomerExperienceSection.js
-import React, { useState, useEffect } from 'react';
-import { Box, Typography, Button, Grid, Skeleton } from '@mui/material';
-import TrendingUpIcon from '@mui/icons-material/TrendingUp';
-import NewReleasesIcon from '@mui/icons-material/NewReleases';
-import InsightsIcon from '@mui/icons-material/Insights';
+// src/components/layout/CustomerExperienceSection.js — "why shop with us",
+// full content width like the other home sections.
+import React from 'react';
+import { Link as RouterLink } from 'react-router-dom';
+import { Box, Button, Grid, Stack, Typography } from '@mui/material';
+import { alpha } from '@mui/material/styles';
+import { FiArrowRight, FiStar, FiTrendingUp, FiZap } from 'react-icons/fi';
 
-const CustomerExperienceSection = () => {
-  const [loading, setLoading] = useState(true);
+const FEATURES = [
+  {
+    icon: <FiStar />,
+    color: '#E5484D',
+    title: 'Fresh insights',
+    text: 'Stay updated with the latest trends and collections, carefully selected by our team.',
+    to: '/products?tag=new-season',
+  },
+  {
+    icon: <FiTrendingUp />,
+    color: '#2F7CF6',
+    title: 'Trending now',
+    text: 'The most in-demand products this week, so you’re always ahead in style and function.',
+    to: '/products?sort=popular',
+  },
+  {
+    icon: <FiZap />,
+    color: '#12A150',
+    title: 'Daily highlights',
+    text: 'New arrivals and daily specials that bring something new to every visit.',
+    to: '/products?on_sale=1',
+  },
+];
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 1000); // Load after 1 second
-    return () => clearTimeout(timer);
-  }, []);
-
-  const topHeading =
-    'Innovative Solutions for Modern Challenges, Your Success, Our Commitment';
-  const topParagraph1 =
-    'We curate top-notch products to meet your everyday needs. Discover a range of quality items tailored for your comfort, style, and convenience.';
-  const topParagraph2 =
-    'From fast shipping to exceptional after-sales support, we ensure you have the best shopping experience. Start exploring and elevate your lifestyle with us.';
-
-  const features = [
-    {
-      icon: <InsightsIcon sx={{ fontSize: 32, color: '#ff405c' }} />,
-      title: 'Fresh Insights',
-      description:
-        'Stay updated with the latest trends and collections carefully selected by our experts.',
-    },
-    {
-      icon: <TrendingUpIcon sx={{ fontSize: 32, color: '#1f95f8' }} />,
-      title: 'Trending Now',
-      description:
-        'Our store features the most in-demand products that keep you ahead in style and functionality.',
-    },
-    {
-      icon: <NewReleasesIcon sx={{ fontSize: 32, color: '#008000' }} />,
-      title: 'Daily Highlights',
-      description:
-        'Explore new arrivals and daily specials that bring excitement to your shopping journey.',
-    },
-  ];
-
-  return (
-    <Box sx={{ fontFamily: 'sans-serif', p: 4, mb: 8 }}>
-      <Box sx={{ maxWidth: { md: '1000px', xs: '300px' }, mx: 'auto' }}>
-        {/* Top section: Heading and paragraphs */}
-        <Grid container spacing={3}>
-          <Grid item md={6} xs={12}>
-            {loading ? (
-              <>
-                <Skeleton variant="text" width="80%" height={40} />
-                <Skeleton variant="text" width="90%" height={40} />
-              </>
-            ) : (
-              <Typography
-                sx={{
-                  color: 'gray.600',
-                  fontSize: { xs: '1.5rem', md: '2rem' },
-                  fontWeight: '600',
-                  mb: 2,
-                  lineHeight: 1.4,
-                }}
-              >
-                {topHeading}
-              </Typography>
-            )}
-          </Grid>
-          <Grid item md={6} xs={12}>
-            {loading ? (
-              <>
-                <Skeleton variant="text" width="100%" />
-                <Skeleton variant="text" width="90%" />
-                <Skeleton variant="text" width="80%" />
-                <Skeleton
-                  variant="rectangular"
-                  width={100}
-                  height={35}
-                  sx={{ mt: 2, borderRadius: '4px' }}
-                />
-              </>
-            ) : (
-              <Box textAlign="left">
-                <Typography
-                  sx={{ mb: 2, fontSize: '0.9rem', color: 'gray.500' }}
-                >
-                  {topParagraph1}
-                </Typography>
-                <Typography sx={{ fontSize: '0.9rem', color: 'gray.500' }}>
-                  {topParagraph2}
-                </Typography>
-                <Button
-                  type="button"
-                  sx={{
-                    mt: 3,
-                    px: 3,
-                    py: 1,
-                    borderRadius: '4px',
-                    textTransform: 'none',
-                    fontSize: '0.9rem',
-                    fontWeight: '500',
-                    color: '#fff',
-                    backgroundColor: '#007bff',
-                    '&:hover': { backgroundColor: '#0056b3' },
-                  }}
-                  href="/products"
-                >
-                  Get started
-                </Button>
-              </Box>
-            )}
-          </Grid>
-        </Grid>
-
-        {/* Features section */}
-        <Grid
-          container
-          spacing={3}
-          sx={{ mt: 8 }}
-          columns={{ xs: 1, sm: 2, md: 3 }}
+const CustomerExperienceSection = () => (
+  <Box component="section" aria-labelledby="experience-title">
+    <Grid container spacing={{ xs: 2, md: 6 }} alignItems="center">
+      <Grid item xs={12} md={6}>
+        <Typography
+          variant="h3"
+          component="h2"
+          id="experience-title"
+          sx={{ lineHeight: 1.3 }}
         >
-          {features.map((feat, idx) => (
-            <Grid item xs={1} sm={1} md={1} key={idx}>
-              {loading ? (
-                <>
-                  <Skeleton variant="circular" width={40} height={40} />
-                  <Skeleton variant="text" width="60%" sx={{ mt: 2 }} />
-                  <Skeleton variant="text" width="80%" />
-                </>
-              ) : (
-                <Box>
-                  {feat.icon}
-                  <Box sx={{ mt: 2 }}>
-                    <Typography
-                      sx={{
-                        fontSize: '1rem',
-                        fontWeight: 'bold',
-                        color: 'gray.600',
-                        mb: 1,
-                      }}
-                    >
-                      {feat.title}
-                    </Typography>
-                    <Typography sx={{ color: 'gray.500', fontSize: '0.9rem' }}>
-                      {feat.description}
-                    </Typography>
-                  </Box>
-                </Box>
-              )}
-            </Grid>
-          ))}
-        </Grid>
-      </Box>
+          Innovative solutions for modern challenges. Your success, our
+          commitment.
+        </Typography>
+      </Grid>
+      <Grid item xs={12} md={6}>
+        <Typography color="text.secondary" sx={{ mb: 1.5 }}>
+          We curate top-notch products for your everyday needs, chosen for
+          comfort, style and convenience.
+        </Typography>
+        <Typography color="text.secondary" sx={{ mb: 2.5 }}>
+          From fast delivery to helpful after-sales support, we make shopping
+          easy. Start exploring.
+        </Typography>
+        <Button
+          variant="contained"
+          component={RouterLink}
+          to="/products"
+          endIcon={<FiArrowRight />}
+        >
+          Get started
+        </Button>
+      </Grid>
+    </Grid>
+    <Box
+      sx={{
+        mt: { xs: 4, md: 5 },
+        display: 'grid',
+        gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' },
+        gap: 2,
+      }}
+    >
+      {FEATURES.map((f) => (
+        <Stack
+          key={f.title}
+          component={RouterLink}
+          to={f.to}
+          spacing={1.25}
+          sx={{
+            p: 3,
+            borderRadius: 1,
+            bgcolor: 'background.neutral',
+            color: 'text.primary',
+            textDecoration: 'none',
+            transition: 'background-color .15s',
+            '&:hover': { bgcolor: 'background.neutralDeep' },
+          }}
+        >
+          <Box
+            sx={{
+              width: 44,
+              height: 44,
+              borderRadius: '8px',
+              display: 'grid',
+              placeItems: 'center',
+              fontSize: 22,
+              color: f.color,
+              bgcolor: alpha(f.color, 0.12),
+            }}
+          >
+            {f.icon}
+          </Box>
+          <Typography variant="h6" component="h3">
+            {f.title}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {f.text}
+          </Typography>
+        </Stack>
+      ))}
     </Box>
-  );
-};
+  </Box>
+);
 
 export default CustomerExperienceSection;

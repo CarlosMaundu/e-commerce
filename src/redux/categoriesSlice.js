@@ -1,14 +1,12 @@
 // categoriesSlice.js
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import {
-  fetchCategories as fetchCategoriesAPI,
-  createCategory,
-  updateCategory,
-  deleteCategory as deleteCategoryAPI,
-} from '../services/categoryService';
+import { catalog, adminCatalog } from '../api';
 
 // IMPORT my placeholder
 import placeholderImage from '../images/placeholder.jpg';
+import { friendlyError } from '../utils/friendlyError';
+
+export const NOT_FOUND = 'NOT_FOUND';
 
 /**
  * Async thunk to fetch all categories.
@@ -17,10 +15,10 @@ export const fetchCategories = createAsyncThunk(
   'categories/fetchCategories',
   async (_, { rejectWithValue }) => {
     try {
-      const categories = await fetchCategoriesAPI();
+      const categories = await catalog.getCategories();
       return categories;
     } catch (error) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(friendlyError(error));
     }
   }
 );
@@ -33,11 +31,11 @@ export const createCategoryThunk = createAsyncThunk(
   'categories/createCategory',
   async (categoryData, { dispatch, rejectWithValue }) => {
     try {
-      const newCategory = await createCategory(categoryData);
+      const newCategory = await adminCatalog.createCategory(categoryData);
       dispatch(fetchCategories()); // Refresh categories list
       return newCategory;
     } catch (error) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(friendlyError(error));
     }
   }
 );
@@ -50,11 +48,11 @@ export const updateCategoryThunk = createAsyncThunk(
   'categories/updateCategory',
   async ({ id, updateData }, { dispatch, rejectWithValue }) => {
     try {
-      const updatedCategory = await updateCategory(id, updateData);
+      const updatedCategory = await adminCatalog.updateCategory(id, updateData);
       dispatch(fetchCategories()); // Refresh categories list
       return updatedCategory;
     } catch (error) {
-      return rejectWithValue(error.message);
+      return rejectWithValue(friendlyError(error));
     }
   }
 );
@@ -67,11 +65,12 @@ export const deleteCategoryThunk = createAsyncThunk(
   'categories/deleteCategory',
   async (id, { dispatch, rejectWithValue }) => {
     try {
-      await deleteCategoryAPI(id);
+      await adminCatalog.deleteCategory(id);
       dispatch(fetchCategories()); // Refresh categories list
       return id;
     } catch (error) {
-      return rejectWithValue(error.message);
+      if (error.response?.status === 404) return rejectWithValue(NOT_FOUND);
+      return rejectWithValue(friendlyError(error));
     }
   }
 );

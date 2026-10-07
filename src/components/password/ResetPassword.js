@@ -1,5 +1,5 @@
 //src/components/password/ResetPassword.js
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   Button,
@@ -19,16 +19,20 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  CircularProgress,
 } from '@mui/material';
 import { styled } from '@mui/system';
 import { MdLock, MdCheckCircle } from 'react-icons/md';
 import { AiOutlineEye, AiOutlineEyeInvisible } from 'react-icons/ai';
 import { BsCheckCircle, BsXCircle } from 'react-icons/bs';
-import { useSearchParams, useNavigate } from 'react-router-dom';
-import { confirmPasswordReset } from 'firebase/auth';
-import { auth } from '../../firebase';
-import { friendlyError } from '../../utils/friendlyError';
-import Notification from '../../notification/notification';
+import {
+  Link as RouterLink,
+  useSearchParams,
+  useNavigate,
+} from 'react-router-dom';
+import { auth } from '../../api';
+import { useNotify } from '../../notification/NotificationProvider';
+import { MESSAGES } from '../../notification/messages';
 
 const StyledContainer = styled(Container)(({ theme }) => ({
   display: 'flex',
@@ -47,7 +51,7 @@ const StyledPaper = styled(Paper)(({ theme }) => ({
   maxWidth: 450,
   width: '100%',
   backgroundColor: '#ffffff',
-  borderRadius: 16,
+  borderRadius: 12,
 }));
 
 const StyledButton = styled(Button)(({ theme }) => ({
@@ -82,9 +86,30 @@ const StyledDialogTitle = styled(DialogTitle)(({ theme }) => ({
 
 const ResetPassword = () => {
   const [searchParams] = useSearchParams();
-  const code = searchParams.get('oobCode');
-  const mode = searchParams.get('mode');
+  const token = searchParams.get('token');
   const navigate = useNavigate();
+  // 'checking' | 'valid' | 'invalid'; purpose is 'reset' or 'setup'
+  const [link, setLink] = useState({
+    state: token ? 'checking' : 'invalid',
+    purpose: 'reset',
+    email: '',
+  });
+
+  useEffect(() => {
+    if (!token) return undefined;
+    let active = true;
+    auth
+      .checkResetToken(token)
+      .then((info) => {
+        if (active) setLink({ state: 'valid', ...info });
+      })
+      .catch(() => {
+        if (active) setLink((prev) => ({ ...prev, state: 'invalid' }));
+      });
+    return () => {
+      active = false;
+    };
+  }, [token]);
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -92,28 +117,40 @@ const ResetPassword = () => {
     password: '',
     confirmPassword: '',
   });
-  const [notification, setNotification] = useState({
-    open: false,
-    severity: 'success',
-    message: '',
-  });
+  const notify = useNotify();
   const [successModalOpen, setSuccessModalOpen] = useState(false);
 
-  if (mode !== 'resetPassword' || !code) {
+  if (link.state === 'checking') {
     return (
       <StyledContainer>
         <StyledPaper elevation={3}>
-          <Typography variant="h4" gutterBottom>
-            Invalid Reset Link
-          </Typography>
-          <Typography variant="body1">
-            The reset link is invalid or has expired. Please try resetting your
-            password again.
-          </Typography>
+          <CircularProgress />
+          <Typography sx={{ mt: 2 }}>Checking your link…</Typography>
         </StyledPaper>
       </StyledContainer>
     );
   }
+
+  if (link.state === 'invalid') {
+    return (
+      <StyledContainer>
+        <StyledPaper elevation={3}>
+          <Typography variant="h4" gutterBottom>
+            This link isn’t valid
+          </Typography>
+          <Typography variant="body1" sx={{ mb: 3 }}>
+            The link is invalid, has expired or has already been used. Please
+            request a new one.
+          </Typography>
+          <Button component={RouterLink} to="/login" variant="contained">
+            Back to sign in
+          </Button>
+        </StyledPaper>
+      </StyledContainer>
+    );
+  }
+
+  const isSetup = link.purpose === 'setup';
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -175,24 +212,15 @@ const ResetPassword = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (formData.password !== formData.confirmPassword) {
-      setNotification({
-        open: true,
-        severity: 'error',
-        message: 'Passwords do not match!',
-      });
+      notify.error(MESSAGES.auth.passwordsDoNotMatch);
       return;
     }
 
     try {
-      await confirmPasswordReset(auth, code, formData.password);
+      await auth.resetPassword(token, formData.password);
       setSuccessModalOpen(true);
     } catch (error) {
-      const errorMessage = friendlyError(error);
-      setNotification({
-        open: true,
-        severity: 'error',
-        message: errorMessage,
-      });
+      notify.error(error, MESSAGES.auth.resetFailed);
     }
   };
 
@@ -203,8 +231,13 @@ const ResetPassword = () => {
       <StyledContainer>
         <StyledPaper elevation={3}>
           <Typography variant="h4" gutterBottom>
-            Reset Password
+            {isSetup ? 'Set your password' : 'Reset Password'}
           </Typography>
+          {link.email && (
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              for {link.email}
+            </Typography>
+          )}
 
           <Box component="form" onSubmit={handleSubmit} width="100%">
             <Tooltip title={<PasswordTooltip />} placement="top" arrow>
@@ -287,7 +320,7 @@ const ResetPassword = () => {
                 value={passwordStrength}
                 sx={{
                   height: 8,
-                  borderRadius: 5,
+                  borderRadius: 1,
                   backgroundColor: '#e0e0e0',
                   '& .MuiLinearProgress-bar': {
                     backgroundColor:
@@ -317,7 +350,7 @@ const ResetPassword = () => {
                 formData.password !== formData.confirmPassword
               }
             >
-              Reset Password
+              {isSetup ? 'Set password' : 'Reset Password'}
             </StyledButton>
           </Box>
         </StyledPaper>
@@ -344,7 +377,9 @@ const ResetPassword = () => {
         </StyledDialogTitle>
         <DialogContent sx={{ textAlign: 'center', py: 1 }}>
           <Typography variant="body2" color="text.secondary">
-            Your password has been successfully reset.
+            {isSetup
+              ? 'Your password is set. You can now sign in.'
+              : MESSAGES.auth.passwordReset}
           </Typography>
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'center', pb: 2 }}>
@@ -364,14 +399,6 @@ const ResetPassword = () => {
           </StyledButton>
         </DialogActions>
       </StyledDialog>
-
-      {/* Notification */}
-      <Notification
-        open={notification.open}
-        onClose={() => setNotification({ ...notification, open: false })}
-        severity={notification.severity}
-        message={notification.message}
-      />
     </>
   );
 };

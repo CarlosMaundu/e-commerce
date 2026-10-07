@@ -1,0 +1,364 @@
+// e2e/commerce.spec.js — cart, checkout, orders, returns and roles against
+// the real backend (see playwright.config.js).
+const { test: base, expect } = require('@playwright/test');
+const {
+  PASSWORD,
+  createUser,
+  linkFromLatestEmail,
+  resetUsers,
+} = require('./backend');
+
+const test = base.extend({
+  // Each call returns a page in a fresh browser context (= signed out).
+  freshPage: async ({ browser }, use) => {
+    const contexts = [];
+    await use(async () => {
+      const context = await browser.newContext();
+      contexts.push(context);
+      return context.newPage();
+    });
+    await Promise.all(contexts.map((c) => c.close()));
+  },
+});
+
+test.beforeEach(async () => {
+  await resetUsers();
+});
+
+const toast = (page) => page.getByTestId('app-notification');
+
+async function login(page, email, greeting) {
+  await page.goto('/login');
+  await page.getByLabel('Email Address').fill(email);
+  await page.locator('input[name="password"]').fill(PASSWORD);
+  await page.getByRole('button', { name: /^sign in$/i }).click();
+  await expect(page).not.toHaveURL(/\/login/);
+  // Customers see "Hi, First" in the shop; staff see their name in the
+  // back office. Either way the first name shows.
+  await expect(
+    page.getByText(greeting.replace(/^Hi, /, '').split(' ')[0]).first()
+  ).toBeVisible();
+}
+
+async function addToCart(page, title) {
+  await page.goto(`/products?search=${encodeURIComponent(title)}`);
+  await page.getByRole('button', { name: `Add ${title} to cart` }).click();
+  await expect(toast(page)).toHaveText(`${title} added to your cart.`);
+}
+
+/** Checks out the current cart with a new address and cash on delivery. */
+async function checkout(page) {
+  await page.goto('/cart');
+  await page.getByRole('button', { name: 'Checkout' }).click();
+  await expect(page.getByText('Where should we deliver?')).toBeVisible();
+  // Signed in: the recipient is filled in from the profile.
+  await expect(page.getByText('Delivering to')).toContainText('Cam Customer');
+  await page.getByLabel('Street address').fill('12 Moi Avenue');
+  await page.getByLabel('City or town').fill('Nairobi');
+  await page.getByLabel('Phone (for delivery updates)').fill('+254700000000');
+  await page.getByRole('button', { name: 'Use this address' }).click();
+  await page.getByRole('button', { name: 'Deliver here' }).click();
+  await page.getByTestId('shipping-standard').click();
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await page.getByTestId('payment-cod').click();
+  await page.getByRole('checkbox', { name: /terms and conditions/i }).check();
+  await page.getByRole('button', { name: /Place order/ }).click();
+  await expect(page.getByText('Your order is confirmed')).toBeVisible();
+  const [, id] = page.url().match(/\/account\/orders\/(\d+)/);
+  return id;
+}
+
+async function setStatus(page, status) {
+  await page.getByRole('combobox', { name: 'Status' }).click();
+  await page.getByRole('option', { name: status, exact: true }).click();
+  await page.getByRole('button', { name: 'Save' }).click();
+  await expect(toast(page)).toHaveText(
+    'Order updated and the customer was emailed.'
+  );
+}
+
+const customer = () =>
+  createUser({
+    email: 'cam@example.com',
+    firstname: 'Cam',
+    lastname: 'Customer',
+  });
+
+test('a guest cart is kept when the shopper signs in', async ({ page }) => {
+  await customer();
+  await addToCart(page, 'Nourishing body lotion');
+  await page.goto('/cart');
+  await expect(page.getByTestId('cart-line')).toHaveCount(1);
+  await expect(
+    page.getByText('Sign in at checkout to use a promo code.')
+  ).toBeVisible();
+
+  await login(page, 'cam@example.com', 'Hi, Cam Customer');
+  await page.goto('/cart');
+  await expect(page.getByTestId('cart-line')).toHaveCount(1);
+  await expect(page.getByTestId('cart-line')).toContainText(
+    'Nourishing body lotion'
+  );
+  // Signed in, the cart lives on the server, so promo codes are offered.
+  await expect(page.getByLabel('Promo code')).toBeVisible();
+});
+
+test('promo codes are checked by the server', async ({ page }) => {
+  await customer();
+  await login(page, 'cam@example.com', 'Hi, Cam Customer');
+  await addToCart(page, 'Canvas tote bag'); // $15
+  await page.goto('/cart');
+
+  await page.getByLabel('Promo code').fill('NOPE');
+  await page.getByRole('button', { name: 'Apply' }).click();
+  await expect(toast(page)).toContainText(/isn’t valid|not valid/i);
+
+  // FRIDAY35 needs $50 or more.
+  await page.getByLabel('Promo code').fill('FRIDAY35');
+  await page.getByRole('button', { name: 'Apply' }).click();
+  await expect(toast(page)).toContainText('$50');
+
+  await page.getByLabel('Promo code').fill('welcome10');
+  await page.getByRole('button', { name: 'Apply' }).click();
+  await expect(page.getByText('WELCOME10 applied')).toBeVisible();
+  // $15 − 10% = $13.50, plus 8% tax = $14.58
+  await expect(page.getByTestId('cart-total')).toHaveText('$14.58');
+});
+
+test('checkout places an order the customer can see, and emails them', async ({
+  page,
+}) => {
+  await customer();
+  await login(page, 'cam@example.com', 'Hi, Cam Customer');
+  await addToCart(page, 'Nourishing body lotion');
+  const id = await checkout(page);
+
+  await expect(
+    page.getByRole('heading', { name: /^Order WEB-[0-9A-Z]{8}$/ })
+  ).toBeVisible();
+  const { subject } = await linkFromLatestEmail('cam@example.com');
+  expect(subject).toMatch(/order WEB-[0-9A-Z]{8}$/);
+
+  // The cart was emptied and the order is listed.
+  await page.goto('/cart');
+  await expect(page.getByText('Your cart is empty')).toBeVisible();
+  await page.goto('/account/orders');
+  await expect(page.getByTestId(`order-${id}`)).toContainText('Pending');
+
+  // Account pages: progress, the invoice, tracking and the product link.
+  await page.goto(`/account/orders/${id}`);
+  await expect(page.getByTestId('order-tracker')).toContainText('Order placed');
+  await page.getByRole('link', { name: 'Invoice', exact: true }).click();
+  const invoice = page.getByTestId('invoice-document');
+  await expect(invoice).toContainText(/INV-\d{8}-\d{6}-[0-9A-Z]{4}/);
+  await expect(invoice).toContainText('Nourishing body lotion');
+  await expect(invoice).toContainText('Due');
+  await page.goto('/account/track');
+  await page.getByLabel('Order number').fill(String(id));
+  await page.getByRole('button', { name: 'Track', exact: true }).click();
+  await expect(page.getByTestId('order-tracker')).toBeVisible();
+  await page.goto(`/account/orders/${id}`);
+  await page.getByTestId('order-item-link').click();
+  await expect(
+    page.getByRole('heading', { name: 'Nourishing body lotion', level: 1 })
+  ).toBeVisible();
+});
+
+test('an order moves through fulfilment and a delivered item can be returned', async ({
+  page,
+  freshPage,
+}) => {
+  await customer();
+  await login(page, 'cam@example.com', 'Hi, Cam Customer');
+  await addToCart(page, 'Canvas tote bag');
+  const id = await checkout(page);
+
+  await createUser({
+    email: 'ops@example.com',
+    firstname: 'Ola',
+    lastname: 'Orders',
+    role: 'order_manager',
+  });
+  const admin = await freshPage();
+  await login(admin, 'ops@example.com', 'Hi, Ola Orders');
+  await admin.goto('/admin/orders');
+  await admin.getByTestId(`admin-order-${id}`).click();
+  await expect(admin).toHaveURL(new RegExp(`/admin/orders/${id}$`));
+  await setStatus(admin, 'Processing');
+  await setStatus(admin, 'Shipped');
+  await setStatus(admin, 'Delivered');
+  await expect(admin.getByRole('combobox', { name: 'Status' })).toContainText(
+    'Delivered (current)'
+  );
+
+  // The customer sees the new status and asks to return the item.
+  await page.goto(`/account/orders/${id}`);
+  await expect(page.getByText('Delivered').first()).toBeVisible();
+  await page.getByRole('button', { name: 'Return', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByRole('combobox', { name: /reason/i }).click();
+  await page.getByRole('option', { name: 'Arrived damaged' }).click();
+  await dialog.getByRole('button', { name: 'Request return' }).click();
+  await expect(toast(page)).toHaveText(
+    'Return requested. We’ll email you when it’s reviewed.'
+  );
+
+  await admin.goto('/admin/returns');
+  await admin.getByRole('button', { name: /^Actions for return of/ }).click();
+  await admin.getByRole('menuitem', { name: /^Approve/ }).click();
+  await expect(toast(admin)).toHaveText(
+    'Return approved. The customer can send the item back.'
+  );
+
+  await page.goto('/account/returns');
+  await expect(
+    page.getByText('Approved. Please send the item back to us.')
+  ).toBeVisible();
+
+  // The item comes back: checked in, then refunded (linked to the refund).
+  await admin.getByRole('tab', { name: /Awaiting item/ }).click();
+  await admin.getByRole('button', { name: /^Actions for return of/ }).click();
+  await admin
+    .getByRole('menuitem', { name: 'Item received — back in stock' })
+    .click();
+  await expect(toast(admin)).toHaveText('Item received.');
+  await admin.getByRole('tab', { name: /Received/ }).click();
+  await admin.getByRole('button', { name: /^Actions for return of/ }).click();
+  await admin.getByRole('menuitem', { name: 'Refund the customer' }).click();
+  await expect(toast(admin)).toHaveText(/Return refunded/);
+  await admin.getByRole('tab', { name: /Refunded/ }).click();
+  await expect(admin.getByRole('link', { name: /Refund #\d+/ })).toBeVisible();
+
+  await page.goto('/account/returns');
+  await expect(
+    page.getByText('Refunded', { exact: true }).first()
+  ).toBeVisible();
+});
+
+test('an item sent as a gift is charged for its box and prepared before dispatch', async ({
+  page,
+  freshPage,
+}) => {
+  await customer();
+  await login(page, 'cam@example.com', 'Hi, Cam Customer');
+  await addToCart(page, 'Canvas tote bag');
+  await page.goto('/cart');
+  // Ticking the box opens the gift details; it stays ticked once saved.
+  await page
+    .getByRole('checkbox', { name: 'Send Canvas tote bag as a gift' })
+    .click();
+  const gift = page.getByRole('dialog', {
+    name: 'Gift this item to a loved one?',
+  });
+  await gift.getByRole('button', { name: 'Save' }).click();
+  await expect(gift.getByText('Who is the gift for?')).toBeVisible();
+  await gift.getByLabel('To').fill('Amina');
+  await gift.getByLabel('From').fill('Cam');
+  await gift.getByRole('checkbox', { name: 'Gift message' }).check();
+  await gift.getByLabel('Message (optional)').fill('Happy birthday!');
+  await gift.getByRole('radio', { name: /^Silver box/ }).click();
+  await gift.getByRole('button', { name: 'Save' }).click();
+  await expect(toast(page)).toHaveText('Gift details saved.');
+  await expect(
+    page.getByText('To Amina · From Cam · Silver box')
+  ).toBeVisible();
+  const id = await checkout(page);
+  await expect(page.getByTestId('gift-note')).toContainText('Amina');
+  await expect(page.getByText('Gift boxes')).toBeVisible();
+
+  await createUser({
+    email: 'ops@example.com',
+    firstname: 'Ola',
+    lastname: 'Orders',
+    role: 'order_manager',
+  });
+  const admin = await freshPage();
+  await login(admin, 'ops@example.com', 'Hi, Ola Orders');
+  await admin.goto(`/admin/orders/${id}`);
+  await expect(admin.getByText('Before dispatch')).toBeVisible();
+  await expect(
+    admin.getByText('Print on the packing slip: “Happy birthday!”')
+  ).toBeVisible();
+  await setStatus(admin, 'Processing');
+  // Shipping is blocked until the gift is ticked off.
+  await admin.getByRole('combobox', { name: 'Status' }).click();
+  await admin.getByRole('option', { name: 'Shipped', exact: true }).click();
+  await admin.getByRole('button', { name: 'Save' }).click();
+  await expect(toast(admin)).toContainText('Prepare the gift');
+  const prepared = admin.getByRole('checkbox', {
+    name: 'Gift prepared: Canvas tote bag',
+  });
+  await prepared.click(); // ticks once the server has saved it
+  await expect(prepared).toBeChecked();
+  await expect(admin.getByText(/Done by ops@example.com/)).toBeVisible();
+  await setStatus(admin, 'Shipped');
+});
+
+test('back-office pages follow the role’s permissions', async ({ page }) => {
+  await createUser({
+    email: 'cat@example.com',
+    firstname: 'Cat',
+    lastname: 'Alog',
+    role: 'catalog_manager',
+  });
+  await login(page, 'cat@example.com', 'Hi, Cat Alog');
+  await page.goto('/admin/products');
+  await expect(page).toHaveURL(/\/admin\/products$/);
+  await expect(page.getByRole('link', { name: 'Orders' })).toHaveCount(0);
+
+  await page.goto('/admin/orders');
+  await expect(page).toHaveURL(/\/$/);
+  await page.goto('/admin/roles');
+  await expect(page).toHaveURL(/\/$/);
+});
+
+test('a super admin creates, then deletes, a custom role', async ({ page }) => {
+  await createUser({
+    email: 'root@example.com',
+    firstname: 'Sue',
+    lastname: 'Per',
+    role: 'super_admin',
+  });
+  await login(page, 'root@example.com', 'Hi, Sue Per');
+  await page.goto('/admin/roles');
+  // Built-in roles can be viewed and duplicated, never deleted.
+  await page.getByRole('button', { name: 'Actions for Super admin' }).click();
+  await expect(
+    page.getByRole('menuitem', { name: 'View permissions' })
+  ).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: 'Delete' })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+
+  await page.getByRole('button', { name: 'New role' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Role name').fill('Stock clerk');
+  await dialog.getByLabel('What is this role for?').fill('Keeps stock up');
+  await dialog.getByRole('checkbox', { name: /^Edit products/ }).check();
+  await dialog
+    .getByRole('checkbox', { name: 'View products, including drafts' })
+    .check();
+  await dialog.getByRole('button', { name: 'Save role' }).click();
+  await expect(toast(page)).toHaveText('Role created.');
+  const row = page.getByTestId('role-row-stock_clerk');
+  await expect(row).toContainText('Keeps stock up');
+  await expect(row).toContainText('2 of 39');
+
+  // The Permissions tab lists who holds each permission.
+  await page.getByRole('tab', { name: /Permissions/ }).click();
+  await page
+    .getByRole('textbox', { name: 'Search permissions' })
+    .fill('drafts');
+  await expect(page.getByRole('table', { name: 'Permissions' })).toContainText(
+    'Stock clerk'
+  );
+  await page.getByRole('tab', { name: /Roles/ }).click();
+
+  await page.getByRole('button', { name: 'Actions for Stock clerk' }).click();
+  await page.getByRole('menuitem', { name: 'Delete' }).click();
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: /delete/i })
+    .click();
+  await expect(toast(page)).toHaveText('Role deleted.');
+  await expect(page.getByText('Keeps stock up')).toHaveCount(0);
+});

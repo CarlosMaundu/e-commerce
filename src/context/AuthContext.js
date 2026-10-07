@@ -1,141 +1,179 @@
 // src/context/AuthContext.js
-import React, { createContext, useState, useEffect } from 'react';
+//
+// Sessions come from our backend (backend/src/routes/auth.ts): email and
+// password, or Google via Google Identity Services. The access token is kept
+// in memory by src/api; a reload restores it from the httpOnly refresh cookie.
+import React, {
+  createContext,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
+import { useDispatch } from 'react-redux';
 import PropTypes from 'prop-types';
 import {
-  GoogleAuthProvider,
-  signInWithPopup,
-  signInWithEmailAndPassword,
-  sendSignInLinkToEmail,
-  sendPasswordResetEmail,
-  createUserWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-  updateProfile, // Import updateProfile for setting displayName
-} from 'firebase/auth';
-import { logEvent } from 'firebase/analytics';
-import { auth, analytics } from '../firebase';
-
-// Import required API service methods
+  account,
+  adminUsers,
+  auth,
+  impersonation,
+  onSessionExpired,
+} from '../api';
+import { canShop } from '../auth/permissions';
+import { useNotify } from '../notification/NotificationProvider';
+import { MESSAGES } from '../notification/messages';
+import { resetToGuest, syncCartAfterSignIn } from '../redux/cartSlice';
 import {
-  createUser as createUserInAPI,
-  getAllUsers,
-} from '../services/userService';
+  resetWishlistToGuest,
+  syncWishlistAfterSignIn,
+} from '../redux/wishlistSlice';
 
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null); // API user profile with role, etc.
-  const [firebaseUser, setFirebaseUser] = useState(null); // Firebase user object
-  const [loading, setLoading] = useState(true); // Loading indicator for initial auth check
+  const notify = useNotify();
+  const [user, setUser] = useState(null); // profile incl. role + permissions
+  const [loading, setLoading] = useState(true); // initial session restore
+  const dispatch = useDispatch();
+  const syncedFor = useRef(null);
 
-  // Helper function to get a user by email using existing API services
-  const getUserByEmail = async (email) => {
-    const allUsers = await getAllUsers();
-    return allUsers.find((u) => u.email === email);
-  };
-
-  // Initialize Firebase Auth state change listener
+  // Cart and wishlist follow the session: merge the guest copies into the
+  // account on sign-in, and start a fresh guest cart after sign-out.
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-      setFirebaseUser(fbUser);
-      if (fbUser) {
-        // Log successful sign in event
-        logEvent(analytics, 'login_success', { userId: fbUser.uid });
+    if (loading) return;
+    const id = user?.id ?? null;
+    if (id === syncedFor.current) return;
+    const wasSignedIn = syncedFor.current !== null;
+    syncedFor.current = id;
+    if (id !== null && canShop(user)) {
+      dispatch(syncCartAfterSignIn());
+      dispatch(syncWishlistAfterSignIn());
+    } else if (wasSignedIn || id !== null) {
+      // Signed out, or a back-office account (they don't shop).
+      dispatch(resetToGuest());
+      dispatch(resetWishlistToGuest());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, loading, dispatch]);
 
-        // Synchronize with external API profile using email
-        try {
-          let profile = await getUserByEmail(fbUser.email);
-          if (!profile) {
-            // Create new user profile in API if it doesn't exist
-            profile = await createUserInAPI({
-              name: fbUser.displayName || 'New User',
-              email: fbUser.email,
-              password: 'temporary', // You may omit or handle password differently
-              avatar: fbUser.photoURL || '',
-            });
-          }
-          setUser(profile);
-        } catch (apiError) {
-          console.error('API error:', apiError);
-          setUser(null);
-        }
-      } else {
-        // User signed out
-        setUser(null);
-      }
-      setLoading(false);
+  useEffect(() => {
+    let active = true;
+    auth
+      .restore()
+      .then((restored) => {
+        if (active) setUser(restored);
+      })
+      .catch((error) => {
+        // Server unreachable etc. The shop still works signed out.
+        console.error('Session restore failed:', error);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    const stop = onSessionExpired(() => {
+      setUser((current) => {
+        if (current) notify.info(MESSAGES.auth.sessionExpired);
+        return null;
+      });
     });
-
-    return () => unsubscribe();
+    return () => {
+      active = false;
+      stop();
+    };
+    // notify is stable for the app's lifetime.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Firebase-based authentication functions
-  const signInWithGoogle = async () => {
-    logEvent(analytics, 'login_attempt', { method: 'google' });
-    const provider = new GoogleAuthProvider();
-    const result = await signInWithPopup(auth, provider);
-    // onAuthStateChanged will handle subsequent profile sync
-    return result.user;
+  const signInWithPassword = async (email, password, options) => {
+    const signedIn = await auth.login(email.trim(), password, options);
+    setUser(signedIn);
+    return signedIn;
   };
 
-  const signInWithPassword = async (email, password) => {
-    logEvent(analytics, 'login_attempt', { method: 'email_password' });
-    try {
-      const result = await signInWithEmailAndPassword(auth, email, password);
-      return result.user;
-    } catch (error) {
-      // Firebase error: Likely due to user not registered with Firebase
-      throw new Error(error.message || 'Email/Password sign-in failed.');
-    }
-  };
-
-  const sendSignInLink = async (email) => {
-    const actionCodeSettings = {
-      url: window.location.origin + '/finishSignIn', // Adjust redirect URL as necessary
-      handleCodeInApp: true,
-    };
-    await sendSignInLinkToEmail(auth, email, actionCodeSettings);
-    window.localStorage.setItem('emailForSignIn', email);
-  };
-
-  const resetPassword = async (email) => {
-    await sendPasswordResetEmail(auth, email);
+  /** `credential` comes from the Google button (GoogleSignInButton). */
+  const signInWithGoogle = async (credential) => {
+    const signedIn = await auth.loginWithGoogle(credential);
+    setUser(signedIn);
+    return signedIn;
   };
 
   const signUp = async ({ firstName, lastName, email, password }) => {
-    const result = await createUserWithEmailAndPassword(auth, email, password);
-    const user = result.user;
-    // Update Firebase profile with display name
-    await updateProfile(user, {
-      displayName: `${firstName} ${lastName}`,
+    const created = await auth.register({
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      email: email.trim(),
+      password,
     });
-    // onAuthStateChanged will handle profile sync
-    return user;
+    if (!created.verificationRequired) setUser(created);
+    return created;
   };
 
   const logout = async () => {
-    await signOut(auth);
-    setUser(null);
-    setFirebaseUser(null);
+    try {
+      await auth.logout();
+    } finally {
+      setUser(null);
+    }
   };
 
-  // Added updateUser function to update local user state
+  /** Emails a reset link. Resolves the same whether or not the email exists. */
+  const resetPassword = (email) => auth.requestPasswordReset(email);
+
+  const confirmPasswordReset = (token, password) =>
+    auth.resetPassword(token, password);
+
+  const changePassword = (currentPassword, newPassword) =>
+    account.changePassword(currentPassword, newPassword);
+
+  /** Admin: the backend creates the user and emails a password-setup link. */
+  const adminCreateUser = (input) => adminUsers.create(input);
+
+  /** Admin: emails a reset (or first-time setup) link to the user. */
+  const adminSendPasswordReset = (target) =>
+    adminUsers.sendPasswordReset(target.id);
+
+  /** Staff: start acting as a customer (their cart, orders and account). */
+  const startImpersonation = async (customerId) => {
+    const customer = await impersonation.start(customerId);
+    setUser(customer);
+    return customer;
+  };
+
+  /** Back to the staff member's own session (null if it had ended). */
+  const stopImpersonation = async () => {
+    const staff = await impersonation.stop();
+    setUser(staff);
+    return staff;
+  };
+
+  const refreshUser = useCallback(async () => {
+    const fresh = await account.getProfile();
+    setUser(fresh);
+    return fresh;
+  }, []);
+
+  // Profile screens replace the user after saving.
   const updateUser = (updatedUser) => {
-    setUser(updatedUser);
+    setUser((current) => ({ ...current, ...updatedUser }));
   };
 
-  // The context value provided to descendants
   const value = {
-    user, // User profile from API
-    firebaseUser, // Raw Firebase user object
+    user,
     loading,
     signInWithGoogle,
     signInWithPassword,
-    sendSignInLink,
     resetPassword,
+    confirmPasswordReset,
     signUp,
+    changePassword,
+    adminCreateUser,
+    adminSendPasswordReset,
+    refreshUser,
+    startImpersonation,
+    stopImpersonation,
     logout,
-    updateUser, // Include the new updateUser function
+    updateUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

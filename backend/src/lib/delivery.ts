@@ -1,0 +1,162 @@
+// src/lib/delivery.ts — the delivery options shoppers choose from at
+// checkout: standard (with an optional free-delivery threshold), express and
+// pick up. Each can be switched off, renamed and priced in Back office →
+// Delivery options. Kept in memory like the financial settings.
+import { z } from 'zod';
+import { config } from '../config';
+import { query } from '../db';
+
+export const DELIVERY_CODES = ['standard', 'express', 'pickup'] as const;
+export type DeliveryCode = (typeof DELIVERY_CODES)[number];
+
+const price = z.coerce
+  .number({ invalid_type_error: 'Please enter a price.' })
+  .min(0, 'Prices can’t be negative.');
+const name = z.string().trim().min(1, 'Please give this option a name.').max(60);
+const text = (max: number) => z.string().trim().max(max).default('');
+
+const giftBoxSchema = z.object({
+  id: z.string().trim().min(1).max(40).regex(/^[a-z0-9-]+$/, 'Use lowercase letters, numbers and dashes.'),
+  name: z.string().trim().min(1, 'Please name the gift box.').max(60),
+  price,
+  image: z.string().trim().max(500).default(''),
+  description: text(160),
+  enabled: z.boolean().default(true),
+});
+export type GiftBox = z.output<typeof giftBoxSchema>;
+
+export const deliverySchema = z
+  .object({
+    standard: z.object({
+      enabled: z.boolean(),
+      title: name,
+      description: text(160),
+      price,
+      // 0: never free.
+      free_over: price,
+    }),
+    express: z.object({ enabled: z.boolean(), title: name, description: text(160), price }),
+    pickup: z.object({
+      enabled: z.boolean(),
+      title: name,
+      description: text(160),
+      price,
+      location: text(300),
+      hours: text(160),
+    }),
+    // Sending an item as a gift: a free message, and a choice of paid boxes.
+    gift: z.object({
+      enabled: z.boolean(),
+      boxes: z.array(giftBoxSchema).max(12, 'Offer up to 12 gift boxes.'),
+    }),
+  })
+  .refine((d) => d.standard.enabled || d.express.enabled || d.pickup.enabled, {
+    message: 'Keep at least one delivery option switched on.',
+    path: ['standard', 'enabled'],
+  })
+  .refine((d) => !d.pickup.enabled || d.pickup.location.length > 0, {
+    message: 'Tell shoppers where to pick up their order.',
+    path: ['pickup', 'location'],
+  });
+
+export type Delivery = z.output<typeof deliverySchema>;
+
+export const defaultDelivery = (): Delivery => ({
+  standard: {
+    enabled: true,
+    title: 'Standard delivery',
+    description: '3–5 business days.',
+    price: config.shop.standardShipping,
+    free_over: config.shop.freeShippingOver,
+  },
+  express: {
+    enabled: true,
+    title: 'Express delivery',
+    description: '1–2 business days.',
+    price: config.shop.expressShipping,
+  },
+  pickup: {
+    enabled: false,
+    title: 'Pick up in store',
+    description: 'Ready within 24 hours. Bring your order number.',
+    price: 0,
+    location: '',
+    hours: 'Mon–Sat, 9am–6pm',
+  },
+  gift: {
+    enabled: true,
+    boxes: [
+      {
+        id: 'silver',
+        name: 'Silver box',
+        price: config.shop.giftBoxPrice,
+        image: '/images/gift-boxes/silver.svg',
+        description: 'A silver box tied with a satin ribbon.',
+        enabled: true,
+      },
+      {
+        id: 'kraft',
+        name: 'Kraft paper wrap',
+        price: Math.round(config.shop.giftBoxPrice * 0.6 * 100) / 100,
+        image: '/images/gift-boxes/kraft.svg',
+        description: 'Recycled brown paper with twine and a tag.',
+        enabled: true,
+      },
+      {
+        id: 'luxury',
+        name: 'Luxury keepsake box',
+        price: Math.round(config.shop.giftBoxPrice * 3 * 100) / 100,
+        image: '/images/gift-boxes/luxury.svg',
+        description: 'A rigid black box with gold ribbon, to keep.',
+        enabled: true,
+      },
+    ],
+  },
+});
+
+/** Gift boxes shoppers can choose now. */
+export const giftBoxes = () => (current.gift.enabled ? current.gift.boxes.filter((b) => b.enabled) : []);
+export const findGiftBox = (id: string | null | undefined) =>
+  id ? current.gift.boxes.find((b) => b.id === id) || null : null;
+
+let current: Delivery = defaultDelivery();
+
+export const delivery = () => current;
+
+/** Saved values over the defaults, section by section. */
+const merge = (base: Delivery, saved: any = {}) => ({
+  standard: { ...base.standard, ...(saved.standard || {}) },
+  express: { ...base.express, ...(saved.express || {}) },
+  pickup: { ...base.pickup, ...(saved.pickup || {}) },
+  gift: mergeGift(base.gift, saved.gift),
+});
+
+// Settings saved before gift box types existed had one box price.
+const mergeGift = (base: Delivery['gift'], saved: any) => {
+  if (!saved) return base;
+  const boxes = Array.isArray(saved.boxes)
+    ? saved.boxes
+    : saved.box_price !== undefined
+      ? [{ ...base.boxes[0], price: saved.box_price, description: saved.box_description || base.boxes[0].description },
+        ...base.boxes.slice(1)]
+      : base.boxes;
+  return { enabled: saved.enabled ?? base.enabled, boxes };
+};
+
+export const mergeDelivery = merge;
+
+export const loadDelivery = async () => {
+  const row = (await query('SELECT settings FROM delivery_settings WHERE id = 1')).rows[0];
+  const parsed = deliverySchema.safeParse(merge(defaultDelivery(), row?.settings));
+  current = parsed.success ? parsed.data : defaultDelivery();
+  return current;
+};
+
+export const saveDelivery = async (settings: Delivery, userId: number) => {
+  await query(
+    `INSERT INTO delivery_settings (id, settings, updated_by, updated_at) VALUES (1, $1, $2, now())
+     ON CONFLICT (id) DO UPDATE SET settings = EXCLUDED.settings, updated_by = EXCLUDED.updated_by, updated_at = now()`,
+    [JSON.stringify(settings), userId]
+  );
+  current = settings;
+};

@@ -2,21 +2,30 @@
 
 import { configureStore } from '@reduxjs/toolkit';
 import cartReducer from './cartSlice';
-import productsReducer from './productsSlice';
 import wishlistReducer from './wishlistSlice';
 import categoriesReducer from './categoriesSlice';
 import fileReducer from './fileSlice';
 import { persistStore, persistReducer } from 'redux-persist';
 import storage from 'redux-persist/lib/storage'; // defaults to localStorage for web
 
+// Only guest data is kept in the browser; signed-in carts and wishlists are
+// reloaded from the server. Version 2 = new cart shape (old data is dropped).
 const cartPersistConfig = {
   key: 'cart',
+  version: 2,
   storage,
+  whitelist: ['guestItems'],
+  migrate: (state) =>
+    Promise.resolve(state && state._persist?.version === 2 ? state : undefined),
 };
 
 const wishlistPersistConfig = {
   key: 'wishlist',
+  version: 2,
   storage,
+  whitelist: ['items'],
+  migrate: (state) =>
+    Promise.resolve(state && state._persist?.version === 2 ? state : undefined),
 };
 
 const persistedCartReducer = persistReducer(cartPersistConfig, cartReducer);
@@ -28,7 +37,6 @@ const persistedWishlistReducer = persistReducer(
 const store = configureStore({
   reducer: {
     cart: persistedCartReducer,
-    products: productsReducer,
     wishlist: persistedWishlistReducer,
     categories: categoriesReducer,
     files: fileReducer,

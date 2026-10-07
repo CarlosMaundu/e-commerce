@@ -1,4 +1,4 @@
-// src/pages/WishlistPage.js
+// src/pages/LoginPage.js
 import React, { useContext, useState, useEffect } from 'react';
 import {
   Box,
@@ -9,19 +9,20 @@ import {
   IconButton,
   InputAdornment,
   Paper,
-  Alert,
-  Snackbar,
   Fade,
 } from '@mui/material';
-import { styled } from '@mui/system';
-import { FcGoogle } from 'react-icons/fc';
+import { styled } from '@mui/material/styles';
 import { MdEmail, MdLock } from 'react-icons/md';
 import { AiOutlineEye, AiOutlineEyeInvisible } from 'react-icons/ai';
 import { AuthContext } from '../context/AuthContext';
+import { isStaff } from '../auth/permissions';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import { friendlyError } from '../utils/friendlyError';
+import { useNotify } from '../notification/NotificationProvider';
+import { MESSAGES } from '../notification/messages';
+import GoogleSignInButton from '../components/auth/GoogleSignInButton';
+import { GOOGLE_CLIENT_ID } from '../api/config';
 
 const StyledContainer = styled(Container)(({ theme }) => ({
   display: 'flex',
@@ -39,8 +40,9 @@ const StyledPaper = styled(Paper)(({ theme }) => ({
   alignItems: 'center',
   maxWidth: 450,
   width: '100%',
-  backgroundColor: '#ffffff',
-  borderRadius: 16,
+  backgroundColor: theme.palette.background.paper,
+  border: `1px solid ${theme.palette.divider}`,
+  borderRadius: 12,
 }));
 
 const StyledButton = styled(Button)(({ theme }) => ({
@@ -50,48 +52,34 @@ const StyledButton = styled(Button)(({ theme }) => ({
 }));
 
 const LoginPage = () => {
-  const {
-    user,
-    signInWithGoogle,
-    signInWithPassword,
-    sendSignInLink,
-    resetPassword,
-  } = useContext(AuthContext);
+  const { user, signInWithGoogle, signInWithPassword, resetPassword } =
+    useContext(AuthContext);
   const navigate = useNavigate();
   const location = useLocation();
-  const from = location.state?.from || '/';
+  const from = location.state?.from;
+  // Back-office users start in the back office; customers where they were.
+  const destination = (signedIn) =>
+    from || (isStaff(signedIn) ? '/admin' : '/');
 
   useEffect(() => {
     if (user) {
-      navigate(from, { replace: true });
+      navigate(destination(user), { replace: true });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, navigate, from]);
 
   const [showPassword, setShowPassword] = useState(false);
-  const [showEmailLinkForm, setShowEmailLinkForm] = useState(false);
   const [showMainForm, setShowMainForm] = useState(true);
   const [showForgotPasswordForm, setShowForgotPasswordForm] = useState(false);
-  const [notification, setNotification] = useState({
-    open: false,
-    severity: '',
-    message: '',
-  });
+  const notify = useNotify();
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleCredential = async (credential) => {
     try {
-      await signInWithGoogle();
-      setNotification({
-        open: true,
-        severity: 'success',
-        message: 'Logged in with Google successfully!',
-      });
-      navigate(from, { replace: true });
+      const signedIn = await signInWithGoogle(credential);
+      notify.success(MESSAGES.auth.signedInGoogle);
+      navigate(destination(signedIn), { replace: true });
     } catch (err) {
-      setNotification({
-        open: true,
-        severity: 'error',
-        message: friendlyError(err),
-      });
+      notify.error(err, MESSAGES.auth.signInFailed);
     }
   };
 
@@ -106,19 +94,21 @@ const LoginPage = () => {
     }),
     onSubmit: async (values) => {
       try {
-        await signInWithPassword(values.email, values.password);
-        setNotification({
-          open: true,
-          severity: 'success',
-          message: 'Logged in successfully!',
-        });
-        navigate(from, { replace: true });
+        const signedIn = await signInWithPassword(
+          values.email,
+          values.password
+        );
+        notify.success(MESSAGES.auth.signedIn);
+        navigate(destination(signedIn), { replace: true });
       } catch (error) {
-        setNotification({
-          open: true,
-          severity: 'error',
-          message: friendlyError(error),
-        });
+        // Unconfirmed email: a new link was sent; offer to send another.
+        if (/confirm your email/i.test(String(error?.message || ''))) {
+          navigate(
+            `/verify-email?sent=${encodeURIComponent(values.email.trim())}`
+          );
+          return;
+        }
+        notify.error(error, MESSAGES.auth.signInFailed);
       }
     },
   });
@@ -133,45 +123,15 @@ const LoginPage = () => {
     onSubmit: async (values) => {
       try {
         await resetPassword(values.email);
-        setNotification({
-          open: true,
-          severity: 'info',
-          message: `Password reset link sent to ${values.email}. Check your inbox.`,
-        });
+        notify.info(MESSAGES.auth.resetLinkSent(values.email));
         forgotPasswordFormik.resetForm();
         setShowForgotPasswordForm(false);
         setShowMainForm(true);
       } catch (error) {
-        setNotification({
-          open: true,
-          severity: 'error',
-          message: friendlyError(error),
-        });
+        notify.error(error, MESSAGES.auth.linkFailed);
       }
     },
   });
-
-  const handleEmailLinkSubmit = async (e) => {
-    e.preventDefault();
-    if (!loginFormik.values.email) return;
-    try {
-      await sendSignInLink(loginFormik.values.email);
-      setNotification({
-        open: true,
-        severity: 'info',
-        message: `We sent a link to ${loginFormik.values.email}. Check your inbox to complete sign-in.`,
-      });
-      loginFormik.resetForm();
-      setShowEmailLinkForm(false);
-      setShowMainForm(true);
-    } catch (error) {
-      setNotification({
-        open: true,
-        severity: 'error',
-        message: friendlyError(error),
-      });
-    }
-  };
 
   if (user) {
     return null;
@@ -180,37 +140,26 @@ const LoginPage = () => {
   return (
     <StyledContainer>
       <Fade in={true} timeout={1000}>
-        <StyledPaper elevation={3}>
+        <StyledPaper>
           <Typography variant="h4" gutterBottom>
             Welcome Back
           </Typography>
 
           {showMainForm && (
             <>
-              <StyledButton
-                variant="outlined"
-                fullWidth
-                startIcon={<FcGoogle />}
-                onClick={handleGoogleLogin}
-              >
-                Sign in with Google
-              </StyledButton>
-
-              <StyledButton
-                variant="outlined"
-                fullWidth
-                startIcon={<MdEmail />}
-                onClick={() => {
-                  setShowEmailLinkForm(true);
-                  setShowMainForm(false);
-                }}
-              >
-                Sign in with Email Link
-              </StyledButton>
-
-              <Typography variant="body1" sx={{ my: 2 }}>
-                OR
-              </Typography>
+              {GOOGLE_CLIENT_ID && (
+                <>
+                  <GoogleSignInButton
+                    onCredential={handleGoogleCredential}
+                    onError={(error) =>
+                      notify.error(error, MESSAGES.auth.googleUnavailable)
+                    }
+                  />
+                  <Typography variant="body1" sx={{ my: 2 }}>
+                    OR
+                  </Typography>
+                </>
+              )}
 
               <Box
                 component="form"
@@ -300,8 +249,9 @@ const LoginPage = () => {
                   fullWidth
                   variant="contained"
                   sx={{ mt: 3 }}
+                  disabled={loginFormik.isSubmitting}
                 >
-                  Sign In
+                  {loginFormik.isSubmitting ? 'Signing in…' : 'Sign In'}
                 </StyledButton>
 
                 <Button
@@ -313,48 +263,6 @@ const LoginPage = () => {
                 </Button>
               </Box>
             </>
-          )}
-
-          {showEmailLinkForm && (
-            <Box sx={{ width: '100%', mt: 2 }}>
-              <Typography variant="body1" sx={{ mb: 2 }}>
-                Enter your email, we'll send you a login link:
-              </Typography>
-              <TextField
-                fullWidth
-                label="Email Address"
-                name="email"
-                type="email"
-                value={loginFormik.values.email}
-                onChange={loginFormik.handleChange}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <MdEmail />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-              <StyledButton
-                variant="contained"
-                fullWidth
-                sx={{ mt: 2 }}
-                onClick={handleEmailLinkSubmit}
-              >
-                Send Login Link
-              </StyledButton>
-              <Button
-                onClick={() => {
-                  setShowEmailLinkForm(false);
-                  setShowMainForm(true);
-                }}
-                sx={{ mt: 2 }}
-                fullWidth
-                variant="text"
-              >
-                Back to Sign In with Password
-              </Button>
-            </Box>
           )}
 
           {showForgotPasswordForm && (
@@ -396,6 +304,7 @@ const LoginPage = () => {
                   variant="contained"
                   fullWidth
                   sx={{ mt: 2 }}
+                  disabled={forgotPasswordFormik.isSubmitting}
                 >
                   Send Reset Link
                 </StyledButton>
@@ -415,21 +324,6 @@ const LoginPage = () => {
           )}
         </StyledPaper>
       </Fade>
-
-      <Snackbar
-        open={notification.open}
-        autoHideDuration={6000}
-        onClose={() => setNotification({ ...notification, open: false })}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert
-          onClose={() => setNotification({ ...notification, open: false })}
-          severity={notification.severity}
-          sx={{ width: '100%' }}
-        >
-          {notification.message}
-        </Alert>
-      </Snackbar>
     </StyledContainer>
   );
 };
