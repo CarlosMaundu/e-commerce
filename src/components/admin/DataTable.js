@@ -2,7 +2,7 @@
 // taken from the Product list: a page header with breadcrumb and actions, a
 // bordered panel with optional status tabs and a toolbar, loading and empty
 // rows, a row-actions menu, and one pagination (10 rows by default).
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import {
   Box,
@@ -14,6 +14,8 @@ import {
   ListItemIcon,
   Menu,
   MenuItem,
+  Paper,
+  Popper,
   Skeleton,
   Stack,
   Tab,
@@ -32,8 +34,9 @@ import {
   FiChevronsRight,
   FiMoreVertical,
   FiSearch,
+  FiX,
 } from 'react-icons/fi';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import PageBreadcrumbs from '../common/PageBreadcrumbs';
 
 export const PAGE_SIZE = 10;
@@ -383,45 +386,207 @@ export const PanelToolbar = ({ children }) => (
 
 PanelToolbar.propTypes = { children: PropTypes.node.isRequired };
 
-/** Search that applies on Enter (server lists) or as you type (onChange only). */
+/**
+ * Search box for lists. Typing updates the list a moment after you stop
+ * (no Enter needed); clearing it restores the full list at once. With
+ * `suggest(q)` it also shows predictive suggestions as you type:
+ * [{ key, label, secondary, image, to }].
+ */
 export const SearchField = ({
   value,
   onChange,
   onSubmit,
   placeholder,
   label,
+  suggest,
+  delay = 300,
 }) => {
-  const field = (
-    <TextField
-      size="small"
-      fullWidth
-      placeholder={placeholder}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      inputProps={{ 'aria-label': label || placeholder }}
-      InputProps={{
-        startAdornment: (
-          <InputAdornment position="start">
-            <FiSearch />
-          </InputAdornment>
-        ),
-      }}
-    />
-  );
+  const navigate = useNavigate();
+  const submitRef = useRef(onSubmit);
+  submitRef.current = onSubmit;
+  const anchorRef = useRef(null);
+  const [suggestions, setSuggestions] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(-1);
+  const first = useRef(true);
+
+  // Server lists: apply after a short pause, or straight away when cleared.
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return undefined;
+    }
+    if (!submitRef.current) return undefined;
+    if (!value.trim()) {
+      submitRef.current('');
+      return undefined;
+    }
+    const t = setTimeout(() => submitRef.current(value.trim()), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+
+  // Predictive suggestions.
+  useEffect(() => {
+    if (!suggest) return undefined;
+    const q = value.trim();
+    if (q.length < 2) {
+      setSuggestions([]);
+      return undefined;
+    }
+    let live = true;
+    const t = setTimeout(() => {
+      suggest(q)
+        .then((list) => {
+          if (!live) return;
+          setSuggestions(list || []);
+          setActive(-1);
+        })
+        .catch(() => live && setSuggestions([]));
+    }, 150);
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  const go = (item) => {
+    setOpen(false);
+    navigate(item.to);
+  };
+  const showList = open && suggestions.length > 0;
+
   return (
     <Box
-      component={onSubmit ? 'form' : 'div'}
-      onSubmit={
-        onSubmit
-          ? (e) => {
-              e.preventDefault();
-              onSubmit();
-            }
-          : undefined
-      }
-      sx={{ flex: 1, maxWidth: { md: 420 } }}
+      component="form"
+      role="search"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (showList && active >= 0) go(suggestions[active]);
+        else {
+          setOpen(false);
+          submitRef.current?.(value.trim());
+        }
+      }}
+      sx={{ flex: 1, maxWidth: { md: 420 }, position: 'relative' }}
+      ref={anchorRef}
     >
-      {field}
+      <TextField
+        size="small"
+        fullWidth
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onKeyDown={(e) => {
+          if (!showList) return;
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setActive((a) => Math.min(a + 1, suggestions.length - 1));
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setActive((a) => Math.max(a - 1, -1));
+          } else if (e.key === 'Escape') {
+            setOpen(false);
+          }
+        }}
+        inputProps={{
+          'aria-label': label || placeholder,
+          role: suggest ? 'combobox' : undefined,
+          'aria-expanded': suggest ? showList : undefined,
+          'aria-autocomplete': suggest ? 'list' : undefined,
+        }}
+        InputProps={{
+          startAdornment: (
+            <InputAdornment position="start">
+              <FiSearch />
+            </InputAdornment>
+          ),
+          endAdornment: value ? (
+            <InputAdornment position="end">
+              <IconButton
+                size="small"
+                aria-label="Clear search"
+                onClick={() => onChange('')}
+                edge="end"
+              >
+                <FiX />
+              </IconButton>
+            </InputAdornment>
+          ) : null,
+        }}
+      />
+      <Popper
+        open={showList}
+        anchorEl={anchorRef.current}
+        placement="bottom-start"
+        sx={{ zIndex: 1300, width: anchorRef.current?.offsetWidth }}
+      >
+        <Paper
+          role="listbox"
+          aria-label="Suggestions"
+          sx={{
+            mt: 0.5,
+            border: 1,
+            borderColor: 'divider',
+            borderRadius: '8px',
+            boxShadow: '0 16px 32px rgba(27,33,36,0.12)',
+            overflow: 'hidden',
+          }}
+        >
+          {suggestions.map((item, i) => (
+            <Stack
+              key={item.key}
+              role="option"
+              aria-selected={i === active}
+              direction="row"
+              spacing={1.5}
+              alignItems="center"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                go(item);
+              }}
+              onMouseEnter={() => setActive(i)}
+              sx={{
+                px: 1.5,
+                py: 1,
+                cursor: 'pointer',
+                bgcolor: i === active ? 'background.neutral' : 'transparent',
+              }}
+            >
+              {item.image !== undefined && (
+                <Box
+                  component={item.image ? 'img' : 'div'}
+                  src={item.image || undefined}
+                  alt=""
+                  sx={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: '6px',
+                    objectFit: 'contain',
+                    bgcolor: 'background.neutral',
+                    flexShrink: 0,
+                  }}
+                />
+              )}
+              <Box sx={{ minWidth: 0 }}>
+                <Typography variant="body2" noWrap sx={{ fontWeight: 600 }}>
+                  {item.label}
+                </Typography>
+                {item.secondary && (
+                  <Typography variant="caption" noWrap component="div">
+                    {item.secondary}
+                  </Typography>
+                )}
+              </Box>
+            </Stack>
+          ))}
+        </Paper>
+      </Popper>
     </Box>
   );
 };
@@ -432,6 +597,8 @@ SearchField.propTypes = {
   onSubmit: PropTypes.func,
   placeholder: PropTypes.string,
   label: PropTypes.string,
+  suggest: PropTypes.func,
+  delay: PropTypes.number,
 };
 
 export const LoadingRows = ({ cols, rows = 5 }) =>

@@ -93,8 +93,8 @@ const ProductsPage = () => {
     catalog
       .listProducts({ ...filters, limit: PAGE_SIZE, page: filters.page })
       .then(
-        ({ products, total }) =>
-          active && setResult({ products, total, error: null })
+        ({ products, total, match }) =>
+          active && setResult({ products, total, match, error: null })
       )
       .catch(
         (error) =>
@@ -347,6 +347,12 @@ const ProductsPage = () => {
             </Stack>
           )}
           {result.error && <Alert severity="error">{result.error}</Alert>}
+          {result.match === 'related' && filters.search && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              No exact match for “{filters.search}”. Here are the closest
+              matches.
+            </Alert>
+          )}
           {result.products && !result.products.length && !result.error ? (
             <EmptyState
               title="No products match"

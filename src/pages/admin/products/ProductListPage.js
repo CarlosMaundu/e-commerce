@@ -8,6 +8,7 @@ import {
   useSearchParams,
 } from 'react-router-dom';
 import {
+  Alert,
   Avatar,
   Button,
   Checkbox,
@@ -292,11 +293,17 @@ const ProductListPage = () => {
           <SearchField
             value={search}
             onChange={setSearch}
-            onSubmit={() => setParam({ search: search.trim() })}
+            onSubmit={(q) => setParam({ search: q })}
+            suggest={(q) => adminCatalog.suggestProducts(q)}
             placeholder="Search by name, SKU, vendor or tag"
             label="Search products"
           />
         </PanelToolbar>
+        {data?.match === 'related' && get('search') && (
+          <Alert severity="info" sx={{ mx: 2, mb: 1.5 }}>
+            No exact match for “{get('search')}”. Showing the closest matches.
+          </Alert>
+        )}
         <Stack
           direction="row"
           spacing={0.5}

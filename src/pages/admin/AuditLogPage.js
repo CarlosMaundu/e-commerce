@@ -101,7 +101,7 @@ const AuditLogPage = () => {
           <SearchField
             value={search}
             onChange={setSearch}
-            onSubmit={() => set({ search: search.trim() })}
+            onSubmit={(q) => set({ search: q })}
             placeholder="Search by person or target"
             label="Search the audit log"
           />

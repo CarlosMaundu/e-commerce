@@ -464,3 +464,34 @@ test('staff create an order for a customer, invoice it, take an M-Pesa payment a
     page.getByRole('table', { name: 'Notifications' })
   ).toContainText('You’re all caught up.');
 });
+
+test('product search updates as you type, suggests matches and falls back to close matches', async ({
+  page,
+}) => {
+  await signInAdmin(page);
+  await page.goto('/admin/products');
+  const rows = page.locator('[data-testid^="product-row-"]');
+  await expect(rows).toHaveCount(10);
+  const box = page.getByRole('combobox', { name: 'Search products' });
+
+  // No Enter: the list and the suggestions follow the typing.
+  await box.fill('Canvas low');
+  await expect(
+    page.getByRole('listbox', { name: 'Suggestions' }).getByRole('option', {
+      name: /Canvas low-top sneakers/,
+    })
+  ).toBeVisible();
+  await expect(rows).toHaveCount(1);
+
+  // A SKU that doesn't exist shows its product family instead of nothing.
+  await box.fill('ST-CNV-LOW-WHI-99');
+  await expect(
+    page.getByText('No exact match for “ST-CNV-LOW-WHI-99”')
+  ).toBeVisible();
+  await expect(rows.first()).toContainText('Canvas low-top sneakers');
+
+  // Clearing brings the full list straight back.
+  await page.getByRole('button', { name: 'Clear search' }).click();
+  await expect(rows).toHaveCount(10);
+  await expect(page).not.toHaveURL(/search=/);
+});

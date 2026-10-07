@@ -218,7 +218,8 @@ export const buildWhere = (f: ProductFilters, params: unknown[]) => {
     const s = bind(`%${f.search}%`);
     const exact = bind(f.search.toLowerCase());
     where.push(`(p.name ILIKE ${s} OR p.description ILIKE ${s} OR p.sku ILIKE ${s}
-      OR b.name ILIKE ${s} OR ${exact} = ANY(SELECT lower(t) FROM unnest(p.tags) t))`);
+      OR b.name ILIKE ${s} OR c.name ILIKE ${s} OR ${exact} = ANY(SELECT lower(t) FROM unnest(p.tags) t)
+      OR EXISTS (SELECT 1 FROM product_variants sv WHERE sv.product_id = p.id AND sv.sku ILIKE ${s}))`);
   }
   if (f.category?.length) {
     where.push(`p.category_id IN (WITH RECURSIVE tree AS (
