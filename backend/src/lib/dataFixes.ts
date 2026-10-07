@@ -8,6 +8,7 @@
 import { transaction } from '../db';
 import { accountFor, backfillPayment } from './accounting';
 import { cashReceipt, invoiceNumber, orderNumber, stripeLikeRef } from './numbers';
+import { demoStageChain } from './demoHistory';
 
 type Db = { query: (text: string, params?: unknown[]) => Promise<{ rows: any[] }> };
 
@@ -63,6 +64,25 @@ export const fixLegacyData = async () =>
       const reference = r.method === 'stripe' ? stripeLikeRef('re') : cashReceipt(r.processed_at || r.created_at);
       await db.query('UPDATE refunds SET reference = $2 WHERE id = $1', [r.id, reference]);
       await db.query(`UPDATE payments SET reference = $2 WHERE refund_id = $1 AND kind = 'refund'`, [r.id, reference]);
+      changed += 1;
+    }
+    // Demo orders with a single history row get a full stage history.
+    const demo = (
+      await db.query(
+        `SELECT o.id, o.status, o.placed_at, o.shipping_method FROM orders o
+         WHERE o.email LIKE 'demo.buyer%' AND o.placed_at IS NOT NULL
+           AND (SELECT count(*) FROM order_history h WHERE h.order_id = o.id) = 1
+           AND EXISTS (SELECT 1 FROM order_history h WHERE h.order_id = o.id AND h.comment = 'Demo order')`
+      )
+    ).rows;
+    for (const o of demo) {
+      await db.query('DELETE FROM order_history WHERE order_id = $1', [o.id]);
+      await db.query(`INSERT INTO order_history (order_id, status, comment, created_at) VALUES ($1, 'pending', 'Demo order', $2)`,
+        [o.id, o.placed_at]);
+      for (const step of demoStageChain(o.status, new Date(o.placed_at), o.shipping_method)) {
+        await db.query(`INSERT INTO order_history (order_id, status, comment, created_at) VALUES ($1, $2, 'Demo order', $3)`,
+          [o.id, step.status, step.at]);
+      }
       changed += 1;
     }
     return changed;

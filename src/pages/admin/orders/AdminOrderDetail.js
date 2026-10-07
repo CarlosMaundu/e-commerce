@@ -43,6 +43,7 @@ import { SectionCard, StatusChip } from '../../../components/ui';
 import { PageHeader, Pill } from '../../../components/admin/DataTable';
 import OptionRows from '../../../components/common/OptionRows';
 import GiftNote from '../../../components/common/GiftNote';
+import { daysText, slaState } from '../../../components/admin/Sla';
 import { initialsOf } from '../../../components/common/BrandMark';
 import { countryName } from '../../../components/account/AddressForm';
 import { formatDate, formatDateTime, formatMoney } from '../../../utils/format';
@@ -275,6 +276,53 @@ const AdminOrderDetail = () => {
       <Grid container spacing={3}>
         <Grid item xs={12} lg={8}>
           <Stack spacing={3}>
+            {order.sla && order.sla.state !== 'not_tracked' && (
+              <Box
+                data-testid="order-sla"
+                sx={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 1.5,
+                  alignItems: 'center',
+                  p: 2,
+                  borderRadius: 1,
+                  border: 1,
+                  borderColor: 'divider',
+                  bgcolor: 'background.paper',
+                }}
+              >
+                <Typography sx={{ fontWeight: 700 }}>Fulfilment SLA</Typography>
+                <Pill
+                  label={slaState(order.sla.state)[0]}
+                  tone={slaState(order.sla.state)[1]}
+                />
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ flex: 1 }}
+                >
+                  {daysText(order.sla.days)}{' '}
+                  {order.sla.done ? 'taken' : 'so far'} of a{' '}
+                  {order.sla.targetDays}-day target
+                  {order.sla.stages
+                    .filter((st) => st.state === 'breached')
+                    .map((st) => st.name).length
+                    ? ` · late: ${order.sla.stages
+                        .filter((st) => st.state === 'breached')
+                        .map((st) => st.name)
+                        .join(', ')}`
+                    : ''}
+                </Typography>
+                <Button
+                  size="small"
+                  component={RouterLink}
+                  to={`/admin/reports/sla/${order.id}`}
+                >
+                  Stage breakdown
+                </Button>
+              </Box>
+            )}
+
             {gifts.length > 0 && (
               <SectionCard
                 title="Before dispatch"

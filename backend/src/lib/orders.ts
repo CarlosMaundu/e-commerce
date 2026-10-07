@@ -1,4 +1,5 @@
 // src/lib/orders.ts — order statuses, loading and contract shapes.
+import { orderSla } from './sla';
 import { config } from '../config';
 import { query } from '../db';
 import { returnStock } from './products';
@@ -149,9 +150,16 @@ export const loadOrder = async (
     )
   ).rows;
   const history = (
-    await query('SELECT * FROM order_history WHERE order_id = $1 ORDER BY created_at, id', [order.id])
+    await query(
+      `SELECT h.*, NULLIF(TRIM(COALESCE(u.firstname, '') || ' ' || COALESCE(u.lastname, '')), '') AS user_name
+       FROM order_history h LEFT JOIN users u ON u.id = h.user_id
+       WHERE h.order_id = $1 ORDER BY h.created_at, h.id`,
+      [order.id]
+    )
   ).rows;
-  return { order, items, history, contract: toContractOrder(order, items, history, { admin }) };
+  const contract = toContractOrder(order, items, history, { admin });
+  // Staff see how the order is doing against the fulfilment targets.
+  return { order, items, history, contract: admin ? { ...contract, sla: orderSla(order, history) } : contract };
 };
 
 /** Puts stock back for every line of an order (cancellations). */

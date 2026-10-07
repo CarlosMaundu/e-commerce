@@ -8,6 +8,7 @@
 //   node dist/demoOrders.js --remove   delete demo shoppers and their orders
 //
 // Deterministic (seeded random), so runs give the same shape of data.
+import { demoStageChain } from './lib/demoHistory';
 import { orderNumber } from './lib/numbers';
 import { pool, query, transaction } from './db';
 import { delivery, loadDelivery } from './lib/delivery';
@@ -157,11 +158,18 @@ export const seedDemoOrders = async () => {
             [l.p.id, day, 25 + Math.floor(rand() * 11)]
           );
         }
+        // Placed, then each stage at a believable time (for the SLA report).
+        const placedAt = new Date(Date.now() - hoursAgo * 3600000);
         await db.query(
-          `INSERT INTO order_history (order_id, status, comment, created_at)
-           VALUES ($1, $2, 'Demo order', now() - make_interval(hours => $3))`,
-          [orderId, status, hoursAgo]
+          `INSERT INTO order_history (order_id, status, comment, created_at) VALUES ($1, 'pending', 'Demo order', $2)`,
+          [orderId, placedAt]
         );
+        for (const step of demoStageChain(status, placedAt, express ? 'express' : 'standard')) {
+          await db.query(
+            `INSERT INTO order_history (order_id, status, comment, created_at) VALUES ($1, $2, 'Demo order', $3)`,
+            [orderId, step.status, step.at]
+          );
+        }
         count += 1;
       }
     }

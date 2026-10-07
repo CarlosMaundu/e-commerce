@@ -815,6 +815,8 @@ export const adminOrders = {
     shippingMethod,
     paymentMethod,
     days,
+    dateFrom,
+    dateTo,
     customer,
   } = {}) {
     const { data, headers } = await http().get('/admin/orders', {
@@ -827,6 +829,8 @@ export const adminOrders = {
         ...(shippingMethod ? { shipping_method: shippingMethod } : {}),
         ...(paymentMethod ? { payment_method: paymentMethod } : {}),
         ...(days ? { days } : {}),
+        ...(dateFrom ? { date_from: dateFrom } : {}),
+        ...(dateTo ? { date_to: dateTo } : {}),
         ...(customer ? { customer } : {}),
       },
     });
@@ -971,6 +975,27 @@ export const adminFinance = {
   async ledger(params = {}) {
     const { data } = await http().get('/admin/ledger', { params });
     return data;
+  },
+};
+
+/** Fulfilment SLA: settings and the performance report (raw API shapes). */
+export const adminReports = {
+  async slaSettings() {
+    const { data } = await http().get('/admin/sla-settings');
+    return data;
+  },
+  async saveSlaSettings(settings) {
+    const { data } = await http().put('/admin/sla-settings', settings);
+    return data.settings;
+  },
+  /** { days | date_from, date_to, state, shipping_method, search, page, limit } */
+  async sla(params = {}) {
+    const { data } = await http().get('/admin/reports/sla', { params });
+    return data;
+  },
+  async slaOrder(id) {
+    const { data } = await http().get(`/admin/reports/sla/${id}`);
+    return { ...data, order: orderFromApi(data.order) };
   },
 };
 

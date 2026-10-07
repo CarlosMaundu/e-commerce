@@ -5,6 +5,7 @@ import { runMigrations } from './migrate';
 import { runSeed } from './seed';
 import { loadFinance } from './lib/finance';
 import { loadDelivery } from './lib/delivery';
+import { loadSla } from './lib/sla';
 import { backfillAccounting } from './lib/accounting';
 import { fixLegacyData } from './lib/dataFixes';
 
@@ -12,6 +13,7 @@ const main = async () => {
   await runMigrations();
   await loadFinance(); // seeding prices demo data in the shop's currency
   await loadDelivery();
+  await loadSla();
   await runSeed();
   // Invoices and ledger entries for orders placed before accounting existed.
   const backfilled = await backfillAccounting();

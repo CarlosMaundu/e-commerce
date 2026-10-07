@@ -43,6 +43,7 @@ import {
   StandardPagination,
   TablePanel,
 } from '../../components/admin/DataTable';
+import { SlaCell, slaState } from '../../components/admin/Sla';
 import {
   formatDateTime,
   formatMoney,
@@ -88,6 +89,8 @@ const ordersCsv = (rows) => {
       'Payment',
       'Fulfilment',
       'Shipping',
+      'SLA (days)',
+      'SLA status',
       'Total',
     ]
       .map(cell)
@@ -101,6 +104,8 @@ const ordersCsv = (rows) => {
         PAYMENT[o.paymentStatus]?.[0],
         FULFILMENT[o.status]?.[0],
         SHIPPING[o.shippingMethod]?.[0],
+        o.sla?.days ?? '',
+        o.sla ? slaState(o.sla.state)[0] : '',
         o.total,
       ]
         .map(cell)
@@ -143,6 +148,8 @@ export const AdminOrdersPage = () => {
         shippingMethod: get('shipping') || undefined,
         paymentMethod: get('method') || undefined,
         days: get('days') || undefined,
+        dateFrom: get('from') || undefined,
+        dateTo: get('to') || undefined,
         customer: get('customer') || undefined,
       })
       .then((d) => active && setData(d))
@@ -218,8 +225,25 @@ export const AdminOrdersPage = () => {
           <TextField
             select
             size="small"
-            value={get('days')}
-            onChange={(e) => setFilter('days', e.target.value)}
+            value={get('from') || get('to') ? 'custom' : get('days')}
+            onChange={(e) => {
+              const v = e.target.value;
+              const next = new URLSearchParams(params);
+              next.delete('days');
+              if (v !== 'custom') {
+                next.delete('from');
+                next.delete('to');
+                if (v) next.set('days', v);
+              } else if (!get('from') && !get('to')) {
+                // Start the custom range at the last 30 days.
+                const d = new Date();
+                next.set('to', d.toISOString().slice(0, 10));
+                d.setDate(d.getDate() - 29);
+                next.set('from', d.toISOString().slice(0, 10));
+              }
+              setParams(next, { replace: true });
+              setPage(0);
+            }}
             inputProps={{ 'aria-label': 'Date range' }}
             SelectProps={{ displayEmpty: true }}
             sx={{
@@ -232,7 +256,30 @@ export const AdminOrdersPage = () => {
                 {r.label}
               </MenuItem>
             ))}
+            <MenuItem value="custom">Custom range…</MenuItem>
           </TextField>
+          {(get('from') || get('to')) && (
+            <Stack direction="row" spacing={1} alignItems="center">
+              <TextField
+                type="date"
+                size="small"
+                label="From"
+                value={get('from')}
+                onChange={(e) => setFilter('from', e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                inputProps={{ max: get('to') || undefined }}
+              />
+              <TextField
+                type="date"
+                size="small"
+                label="To"
+                value={get('to')}
+                onChange={(e) => setFilter('to', e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                inputProps={{ min: get('from') || undefined }}
+              />
+            </Stack>
+          )}
         </PanelToolbar>
         <Stack
           direction="row"
@@ -342,7 +389,7 @@ export const AdminOrdersPage = () => {
                 <TableCell>Customer</TableCell>
                 <TableCell>Payment status</TableCell>
                 <TableCell>Fulfillment status</TableCell>
-                <TableCell>Shipping method</TableCell>
+                <TableCell>SLA</TableCell>
                 <TableCell align="right">Total</TableCell>
                 <TableCell align="right" />
               </TableRow>
@@ -358,10 +405,6 @@ export const AdminOrdersPage = () => {
                   'default',
                 ];
                 const ful = FULFILMENT[o.status] || [o.statusName, 'default'];
-                const ship = SHIPPING[o.shippingMethod] || [
-                  o.shippingMethod || '—',
-                  'default',
-                ];
                 const name = o.customer?.name || o.email;
                 return (
                   <TableRow
@@ -435,7 +478,7 @@ export const AdminOrdersPage = () => {
                       <Pill label={ful[0]} tone={ful[1]} />
                     </TableCell>
                     <TableCell>
-                      <Pill label={ship[0]} tone={ship[1]} />
+                      <SlaCell sla={o.sla} />
                     </TableCell>
                     <TableCell align="right">
                       <Typography variant="subtitle2">

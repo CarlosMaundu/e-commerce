@@ -15,6 +15,7 @@ import { hasPermission } from '../lib/users';
 import { authenticate, requirePermission } from '../middleware/auth';
 import { RETURN_SELECT, toContractReturn } from './orders';
 import { putBack } from '../lib/products';
+import { DELIVERED_AT_SQL, orderSlaSummary } from '../lib/sla';
 import {
   clearNotifications,
   dismissNotification,
@@ -36,6 +37,9 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
         shipping_method: z.string().optional(),
         payment_method: z.string().optional(),
         days: z.coerce.number().int().min(1).max(3650).optional(),
+        // A date range (inclusive, East Africa Time), e.g. 2026-09-01.
+        date_from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use a date like 2026-09-01.').optional(),
+        date_to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use a date like 2026-09-30.').optional(),
         customer: z.coerce.number().int().positive().optional(),
         limit: z.coerce.number().int().min(1).max(100).default(20),
         page: z.coerce.number().int().min(1).default(1),
@@ -68,6 +72,14 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
       params.push(q.days);
       where.push(`o.placed_at >= now() - make_interval(days => $${params.length})`);
     }
+    if (q.date_from) {
+      params.push(q.date_from);
+      where.push(`o.placed_at >= ($${params.length}::date)::timestamp AT TIME ZONE 'Africa/Nairobi'`);
+    }
+    if (q.date_to) {
+      params.push(q.date_to);
+      where.push(`o.placed_at < ($${params.length}::date + 1)::timestamp AT TIME ZONE 'Africa/Nairobi'`);
+    }
     const whereSql = `WHERE ${where.join(' AND ')}`;
     const base = 'FROM orders o LEFT JOIN users u ON u.id = o.user_id';
     const total = (await query(`SELECT count(*)::int AS n ${base} ${whereSql}`, params)).rows[0].n;
@@ -75,12 +87,17 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
     const { rows } = await query(
       `SELECT o.*, (SELECT number FROM invoices WHERE order_id = o.id) AS invoice_number, TRIM(COALESCE(u.firstname, '') || ' ' || COALESCE(u.lastname, '')) AS customer_name,
          (SELECT COALESCE(sum(quantity), 0)::int FROM order_items WHERE order_id = o.id) AS item_count,
+         ${DELIVERED_AT_SQL} AS delivered_at,
          (SELECT json_agg(json_build_object('name', name, 'image', image) ORDER BY id) FROM order_items WHERE order_id = o.id) AS preview
        ${base} ${whereSql} ORDER BY o.placed_at DESC LIMIT $${params.length - 1} OFFSET $${params.length}`,
       params
     );
     res.set('X-Total-Count', String(total));
-    ok(res, rows.map((o) => ({ ...toContractOrder(o, [], [], { admin: true }), preview: (o.preview || []).slice(0, 4) })));
+    ok(res, rows.map((o) => ({
+      ...toContractOrder(o, [], [], { admin: true }),
+      preview: (o.preview || []).slice(0, 4),
+      sla: orderSlaSummary(o),
+    })));
   }));
 
   router.get('/orders/:id', requirePermission('orders.orders.view'), handler(async (req, res) => {

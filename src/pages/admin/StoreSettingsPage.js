@@ -2,6 +2,7 @@
 // favicon, tagline, contact details, footer note and social links. Every page
 // reads these from /rest/store, so nothing here is hardcoded.
 import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -25,6 +26,7 @@ import { useNotify } from '../../notification/NotificationProvider';
 import { useStore } from '../../context/StoreContext';
 import { SectionCard } from '../../components/ui';
 import { PageHeader, PanelTabs } from '../../components/admin/DataTable';
+import SlaSettingsTab from './SlaSettingsTab';
 import { useHideHelpWhile } from '../../layouts/AdminLayout';
 import ImageField from '../../components/admin/ImageField';
 import { formatDateTime } from '../../utils/format';
@@ -65,7 +67,12 @@ const StoreSettingsPage = () => {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [tab, setTab] = useState('general');
+  const [params] = useSearchParams();
+  const [tab, setTab] = useState(
+    ['general', 'home', 'sla'].includes(params.get('tab'))
+      ? params.get('tab')
+      : 'general'
+  );
   useHideHelpWhile(editing);
   const [saved, setSaved] = useState(null); // last saved copy, for Cancel
 
@@ -147,7 +154,8 @@ const StoreSettingsPage = () => {
             : 'Your shop’s name, logo and contact details, shown across every page.'
         }
         actions={
-          !editing && (
+          !editing &&
+          tab !== 'sla' && (
             <Button
               variant="contained"
               startIcon={<FiEdit2 />}
@@ -170,11 +178,14 @@ const StoreSettingsPage = () => {
               tabs={[
                 { value: 'general', label: 'General' },
                 { value: 'home', label: 'Home page' },
+                { value: 'sla', label: 'Fulfilment SLA' },
               ]}
             />
           </Box>
+          {tab === 'sla' && <SlaSettingsTab />}
           <Box
             component="fieldset"
+            hidden={tab === 'sla'}
             disabled={!editing}
             sx={{
               border: 0,
@@ -406,7 +417,7 @@ const StoreSettingsPage = () => {
           </Box>
         </>
       )}
-      {form && editing && (
+      {form && editing && tab !== 'sla' && (
         <Stack
           direction="row"
           justifyContent="flex-end"

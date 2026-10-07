@@ -722,4 +722,63 @@ describe('invoices, payments, refunds and the ledger', () => {
     feed = await bell(admin);
     expect(feed.items.filter((i: any) => i.kind === 'order')).toHaveLength(1);
   });
+
+  test('SLA: stage times, who moved each stage, targets from settings, report and date range', async () => {
+    const token = await shopper();
+    const admin = await staffUser('admin', 'boss@example.com');
+    const ops = await staffUser('order_manager', 'ops@example.com');
+    const done = await placeOrder(token);
+    const open = await placeOrder(await shopper('kim@example.com'));
+    await request(app).put(`/api/admin/orderhistory/${done.order_id}`).set(bearer(ops)).send({ order_status: 'processing' }).expect(200);
+    await request(app).put(`/api/admin/orderhistory/${done.order_id}`).set(bearer(admin)).send({ order_status: 'shipped' }).expect(200);
+    await request(app).put(`/api/admin/orderhistory/${done.order_id}`).set(bearer(admin)).send({ order_status: 'delivered' }).expect(200);
+    // Placed 6 days ago; confirmed after 30 hours (late), packed after 10,
+    // delivered 3 days later: 6 days in all, over the 5-day standard target.
+    const at = (h: number) => new Date(Date.now() - (144 - h) * 3600000);
+    await query('UPDATE orders SET placed_at = $2 WHERE id = $1', [done.order_id, at(0)]);
+    await query(`UPDATE order_history SET created_at = $2 WHERE order_id = $1 AND status = 'pending'`, [done.order_id, at(0)]);
+    await query(`UPDATE order_history SET created_at = $2 WHERE order_id = $1 AND status = 'processing'`, [done.order_id, at(30)]);
+    await query(`UPDATE order_history SET created_at = $2 WHERE order_id = $1 AND status = 'shipped'`, [done.order_id, at(40)]);
+    await query(`UPDATE order_history SET created_at = $2 WHERE order_id = $1 AND status = 'delivered'`, [done.order_id, at(144)]);
+
+    const detail = (await request(app).get(`/api/admin/reports/sla/${done.order_id}`).set(bearer(admin))).body.data;
+    expect(detail.sla).toMatchObject({ state: 'breached', done: true, days: 6, target_days: 5 });
+    expect(detail.sla.stages.map((s: any) => [s.key, s.hours, s.state, s.by])).toEqual([
+      ['confirm', 30, 'breached', 'Test User'],
+      ['pack', 10, 'met', 'Test User'],
+      ['deliver', 104, 'breached', 'Test User'],
+    ]);
+
+    // The orders list shows days taken (done) or elapsed (open).
+    const list = (await request(app).get('/api/admin/orders').set(bearer(admin))).body.data;
+    expect(list.find((o: any) => o.order_id === done.order_id).sla).toMatchObject({ days: 6, done: true, state: 'breached' });
+    expect(list.find((o: any) => o.order_id === open.order_id).sla).toMatchObject({ done: false, state: 'on_track' });
+
+    // Date range: only the order placed 6 days ago.
+    const day = (d: Date) => d.toISOString().slice(0, 10);
+    const ranged = await request(app).get('/api/admin/orders')
+      .query({ date_from: day(at(-24)), date_to: day(at(24)) }).set(bearer(admin));
+    expect(ranged.body.data.map((o: any) => o.order_id)).toEqual([done.order_id]);
+
+    let report = (await request(app).get('/api/admin/reports/sla').set(bearer(admin))).body.data;
+    expect(report.summary).toMatchObject({ total: 2, met: 0, breached: 1, pending: 1 });
+    expect(report.summary.stages[0]).toMatchObject({ key: 'confirm', average_hours: 30, breached: 1 });
+
+    // Looser targets in settings change the verdict.
+    const bad = await request(app).put('/api/admin/sla-settings').set(bearer(admin)).send({ at_risk_percent: 10 });
+    expect(bad.status).toBe(400);
+    expect((await request(app).put('/api/admin/sla-settings').set(bearer(ops)).send({ enabled: false })).status).toBe(403);
+    await request(app).put('/api/admin/sla-settings').set(bearer(admin)).send({
+      total_days: { standard: 7 },
+      stages: [
+        { key: 'confirm', name: 'Confirm order', from: 'placed', to: 'processing', target_hours: 36, tracked: true },
+        { key: 'pack', name: 'Pack and dispatch', from: 'processing', to: 'shipped', target_hours: 48, tracked: true },
+        { key: 'deliver', name: 'Deliver', from: 'shipped', to: 'delivered', target_hours: 120, tracked: true },
+      ],
+    }).expect(200);
+    report = (await request(app).get('/api/admin/reports/sla?state=met').set(bearer(admin))).body.data;
+    expect(report.summary).toMatchObject({ met: 1, breached: 0 });
+    expect(report.orders.map((o: any) => o.order_number)).toEqual([done.order_number]);
+  });
 });
+
