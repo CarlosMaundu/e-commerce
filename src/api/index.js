@@ -32,9 +32,19 @@ export { onSessionExpired } from './session';
 export const DEFAULT_AVATAR_URL = 'https://i.imgur.com/kIaFC3J.png';
 
 /** Stores the access token and returns the signed-in user. */
+const sessionLimitsFromApi = (s) =>
+  s
+    ? {
+        expiresAt: s.expires_at || null,
+        idleMinutes: s.idle_minutes ?? null,
+      }
+    : null;
+
 const acceptSession = (data) => {
   setAccessToken(data.access_token);
-  return userFromApi(data.user);
+  const user = userFromApi(data.user);
+  // When the session ends at the latest, and the back-office idle timeout.
+  return user && { ...user, session: sessionLimitsFromApi(data.session) };
 };
 
 export const auth = {
@@ -75,6 +85,11 @@ export const auth = {
     return acceptSession(data);
   },
   /** Restores the session from the refresh cookie; null when signed out. */
+  /** "Stay signed in": counts as activity; returns the session's limits. */
+  async keepAlive() {
+    const { data } = await http().post('/rest/session/keepalive');
+    return sessionLimitsFromApi(data);
+  },
   async restore() {
     try {
       return acceptSession(await http().refreshSession());
@@ -876,6 +891,8 @@ export const adminOrders = {
   async notifications({ all = false } = {}) {
     const { data } = await http().get('/admin/notifications', {
       params: all ? { all: 1 } : {},
+      // The bell's polling isn't activity: it mustn't keep a session alive.
+      headers: all ? {} : { 'X-Background': '1' },
     });
     return data;
   },

@@ -495,3 +495,25 @@ test('product search updates as you type, suggests matches and falls back to clo
   await expect(rows).toHaveCount(10);
   await expect(page).not.toHaveURL(/search=/);
 });
+
+test('idle staff are warned, can stay signed in, and are signed out at the timeout', async ({
+  page,
+}) => {
+  await page.clock.install();
+  await signInAdmin(page);
+  await page.goto('/admin/orders');
+  // Default idle timeout: 60 minutes; the warning comes 2 minutes before.
+  await page.clock.fastForward('58:30');
+  const dialog = page.getByTestId('session-timeout');
+  await expect(dialog).toContainText('Are you still there?');
+  await expect(page.getByTestId('session-countdown')).toHaveText(/^1:\d\d$/);
+  await dialog.getByRole('button', { name: 'Stay signed in' }).click();
+  await expect(dialog).toHaveCount(0);
+
+  // No activity at all this time: signed out with an explanation.
+  await page.clock.fastForward(61 * 60 * 1000);
+  await expect(page).toHaveURL(/\/login/);
+  await expect(page.getByTestId('app-notification')).toContainText(
+    'signed out after 60 minutes without activity'
+  );
+});

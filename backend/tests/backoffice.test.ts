@@ -229,6 +229,86 @@ describe('security settings', () => {
     expect(settings.status).toBe(401); // that session has ended
   });
 
+  test('idle back-office sessions end on any request; background polling isn’t activity', async () => {
+    await createUser('boss@example.com', 'admin');
+    await createUser('jane@example.com');
+    const admin = await signIn('boss@example.com');
+    const jane = await signIn('jane@example.com');
+    // Sign-in tells the browser the limits it should warn about.
+    expect(admin.user).toBeDefined();
+    const login = await request(app).post('/api/rest/login').send({ email: 'boss@example.com', password: PASSWORD });
+    expect(login.body.data.session).toMatchObject({ idle_minutes: 60, expires_at: expect.any(String) });
+    const shopper = await request(app).post('/api/rest/login').send({ email: 'jane@example.com', password: PASSWORD });
+    expect(shopper.body.data.session.idle_minutes).toBeNull();
+
+    // The bell polling doesn't keep a session alive.
+    await query("UPDATE sessions SET last_activity_at = now() - interval '30 minutes'");
+    await request(app).get('/api/admin/notifications').set(bearer(admin.token)).set('X-Background', '1').expect(200);
+    const after = (await query('SELECT last_activity_at FROM sessions ORDER BY created_at LIMIT 1')).rows[0];
+    expect(Date.now() - new Date(after.last_activity_at).getTime()).toBeGreaterThan(29 * 60000);
+
+    // "Stay signed in" does.
+    const keep = await request(app).post('/api/rest/session/keepalive').set(bearer(admin.token));
+    expect(keep.body.data).toMatchObject({ idle_minutes: 60 });
+
+    // Past the timeout, the very next request is refused (not just a refresh).
+    await query("UPDATE sessions SET last_activity_at = now() - interval '61 minutes'");
+    const late = await request(app).get('/api/admin/orders').set(bearer(admin.token));
+    expect(late.status).toBe(401);
+    expect(late.body.error[0]).toMatch(/signed out after 60 minutes without activity/);
+    expect((await request(app).get('/api/rest/customerorders').set(bearer(jane.token))).status).toBe(200);
+  });
+
+  test('session length and the number of back-office devices follow the settings', async () => {
+    await createUser('boss@example.com', 'super_admin');
+    const boss = await signIn('boss@example.com');
+    await request(app).put('/api/admin/security/settings').set(bearer(boss.token))
+      .send({ staff_sessions: { max_hours: 2, max_concurrent: 2, idle_minutes: 15 } }).expect(200);
+
+    await createUser('ops@example.com', 'order_manager');
+    const first = await signIn('ops@example.com');
+    const second = await signIn('ops@example.com');
+    const third = await request(app).post('/api/rest/login').send({ email: 'ops@example.com', password: PASSWORD });
+    const hours = (new Date(third.body.data.session.expires_at).getTime() - Date.now()) / 3600000;
+    expect(hours).toBeGreaterThan(1.9);
+    expect(hours).toBeLessThanOrEqual(2);
+    expect(third.body.data.session.idle_minutes).toBe(15);
+    // Only the newest two stay signed in.
+    expect((await request(app).get('/api/admin/orders').set(bearer(first.token))).status).toBe(401);
+    expect((await request(app).get('/api/admin/orders').set(bearer(second.token))).status).toBe(200);
+  });
+
+  test('the password policy also applies when changing a password', async () => {
+    await createUser('boss@example.com', 'admin');
+    const boss = await signIn('boss@example.com');
+    await request(app).put('/api/admin/security/settings').set(bearer(boss.token))
+      .send({ password: { min_length: 14, require_symbol: true } }).expect(200);
+    await createUser('jane@example.com');
+    const jane = await signIn('jane@example.com');
+    const short = await request(app).put('/api/rest/account/password').set(bearer(jane.token))
+      .send({ current_password: PASSWORD, password: 'Abcdefgh123' });
+    expect(short.body.error).toEqual(['Use at least 14 characters for your password.']);
+    const good = await request(app).put('/api/rest/account/password').set(bearer(jane.token))
+      .send({ current_password: PASSWORD, password: 'Abcdefgh12345!' });
+    expect(good.status).toBe(200);
+  });
+
+  test('lockout lasts the set number of minutes', async () => {
+    await createUser('boss@example.com', 'admin');
+    const boss = await signIn('boss@example.com');
+    await request(app).put('/api/admin/security/settings').set(bearer(boss.token))
+      .send({ lockout: { max_attempts: 3, minutes: 30 } }).expect(200);
+    await createUser('jane@example.com');
+    for (let i = 0; i < 3; i += 1) {
+      await request(app).post('/api/rest/login').send({ email: 'jane@example.com', password: 'nope' });
+    }
+    const locked = await request(app).post('/api/rest/login').send({ email: 'jane@example.com', password: PASSWORD });
+    expect(locked.status).toBe(423);
+    expect(locked.body.error[0]).toMatch(/wait 30 minutes/);
+    await query("UPDATE users SET locked_until = now() - interval '1 minute' WHERE email = 'jane@example.com'");
+    expect((await request(app).post('/api/rest/login').send({ email: 'jane@example.com', password: PASSWORD })).status).toBe(200);
+  });
+
   test('the audit log is searchable and shows who acted for whom', async () => {
     await createUser('boss@example.com', 'super_admin');
     await createUser('jane@example.com');

@@ -75,6 +75,7 @@ import {
 import { adminCatalog, adminOrders, adminUsers } from '../api';
 import BrandMark, { initialsOf } from '../components/common/BrandMark';
 import { kindOf, timeAgo } from '../components/admin/notificationKinds';
+import SessionTimeout from '../components/admin/SessionTimeout';
 import { formatMoney } from '../utils/format';
 
 const RAIL_WIDTH = 280;
@@ -1139,6 +1140,7 @@ const AdminLayout = () => {
             <Outlet />
           </Box>
           <HelpCard hidden={helpHidden} />
+          <SessionTimeout />
         </Box>
       </Box>
     </HelpSpaceContext.Provider>
