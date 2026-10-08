@@ -111,13 +111,25 @@ export const adminNav = (user) =>
       ],
     },
     {
-      heading: 'Reports',
+      heading: 'Catalog',
       items: [
         {
-          label: 'SLA performance',
-          icon: <FiActivity />,
-          to: '/admin/reports/sla',
-          show: hasPermission(user, PERMISSIONS.ordersView),
+          label: 'Products',
+          icon: <FiPackage />,
+          to: '/admin/products',
+          show: hasPermission(user, 'catalog.products.view'),
+        },
+        {
+          label: 'Categories',
+          icon: <FiLayers />,
+          to: '/admin/categories',
+          show: hasPermissionPrefix(user, 'catalog.categories.'),
+        },
+        {
+          label: 'Brands',
+          icon: <FiTag />,
+          to: '/admin/brands',
+          show: hasPermissionPrefix(user, 'catalog.brands.'),
         },
       ],
     },
@@ -151,25 +163,13 @@ export const adminNav = (user) =>
       ],
     },
     {
-      heading: 'Catalog',
+      heading: 'Reports',
       items: [
         {
-          label: 'Products',
-          icon: <FiPackage />,
-          to: '/admin/products',
-          show: hasPermission(user, 'catalog.products.view'),
-        },
-        {
-          label: 'Categories',
-          icon: <FiLayers />,
-          to: '/admin/categories',
-          show: hasPermissionPrefix(user, 'catalog.categories.'),
-        },
-        {
-          label: 'Brands',
-          icon: <FiTag />,
-          to: '/admin/brands',
-          show: hasPermissionPrefix(user, 'catalog.brands.'),
+          label: 'SLA performance',
+          icon: <FiActivity />,
+          to: '/admin/reports/sla',
+          show: hasPermission(user, PERMISSIONS.ordersView),
         },
       ],
     },

@@ -780,5 +780,16 @@ describe('invoices, payments, refunds and the ledger', () => {
     expect(report.summary).toMatchObject({ met: 1, breached: 0 });
     expect(report.orders.map((o: any) => o.order_number)).toEqual([done.order_number]);
   });
+
+  test('frequently bought together: products from the same orders first, topped up to three', async () => {
+    const token = await shopper();
+    await placeOrder(token, { items: [['Denim jacket', 1, M], ['Canvas tote bag', 1]] });
+    const jacket = await productId('Denim jacket');
+    const list = (await request(app).get(`/api/rest/products/${jacket}/bought-together`)).body.data;
+    expect(list).toHaveLength(3);
+    expect(list[0].name).toBe('Canvas tote bag');
+    expect(list.map((p: any) => p.product_id)).not.toContain(jacket);
+    expect((await request(app).get('/api/rest/products/999999/bought-together')).status).toBe(404);
+  });
 });
 

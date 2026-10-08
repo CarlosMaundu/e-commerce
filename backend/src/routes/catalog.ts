@@ -171,6 +171,48 @@ export const catalogRoutes = () => {
     })
   );
 
+  // Frequently bought together: products most often in the same orders,
+  // topped up from the same category, then the most viewed. Published and
+  // in stock only; at most three.
+  router.get(
+    '/products/:id/bought-together',
+    handler(async (req, res) => {
+      const id = Number(req.params.id);
+      const base = (await query('SELECT category_id FROM products WHERE id = $1', [id])).rows[0];
+      if (!base) fail(404, 'Product not found.');
+      const usable = `p.status = 'published' AND (p.quantity > 0 OR NOT p.track_inventory) AND p.id <> $1`;
+      const ids: number[] = (
+        await query(
+          `SELECT oi2.product_id AS id, count(DISTINCT oi1.order_id) AS n
+           FROM order_items oi1
+           JOIN orders o ON o.id = oi1.order_id AND o.placed_at IS NOT NULL
+           JOIN order_items oi2 ON oi2.order_id = oi1.order_id AND oi2.product_id <> oi1.product_id
+           JOIN products p ON p.id = oi2.product_id
+           WHERE oi1.product_id = $1 AND ${usable}
+           GROUP BY oi2.product_id ORDER BY n DESC, oi2.product_id LIMIT 3`,
+          [id]
+        )
+      ).rows.map((r) => r.id);
+      if (ids.length < 3) {
+        const more = (
+          await query(
+            `SELECT p.id FROM products p WHERE ${usable} AND NOT (p.id = ANY($2::int[]))
+             ORDER BY (p.category_id IS NOT DISTINCT FROM $3) DESC,
+               (SELECT COALESCE(sum(v.views), 0) FROM product_views v WHERE v.product_id = p.id AND v.day > current_date - 30) DESC,
+               p.id
+             LIMIT $4`,
+            [id, ids, base.category_id, 3 - ids.length]
+          )
+        ).rows.map((r) => r.id);
+        ids.push(...more);
+      }
+      if (!ids.length) return ok(res, []);
+      const rows = (await query<ProductRow>(`${PRODUCT_SELECT} WHERE p.id = ANY($1::int[])`, [ids])).rows;
+      const products = await hydrate(rows);
+      ok(res, ids.map((pid) => products.find((p: any) => p.product_id === pid)).filter(Boolean));
+    })
+  );
+
   router.get(
     '/products/:id',
     handler(async (req, res) => {

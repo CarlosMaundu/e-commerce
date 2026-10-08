@@ -34,6 +34,7 @@ import {
   FiShoppingCart,
   FiTruck,
 } from 'react-icons/fi';
+import BoughtTogether from '../components/product/BoughtTogether';
 import { useStore } from '../context/StoreContext';
 import { AuthContext } from '../context/AuthContext';
 import { canShop } from '../auth/permissions';
@@ -144,7 +145,7 @@ const OptionPicker = ({ attribute, selected, onSelect, available }) => {
   const value = selected[attribute.name];
   return (
     <Box>
-      <Typography variant="subtitle2" sx={{ mb: 1 }}>
+      <Typography variant="body2" sx={{ mb: 0.75, fontWeight: 600 }}>
         {attribute.name}
         {value && (
           <Typography
@@ -177,10 +178,11 @@ const OptionPicker = ({ attribute, selected, onSelect, available }) => {
                 aria-label={label}
                 onClick={() => onSelect(attribute.name, v)}
                 sx={{
-                  width: 36,
-                  height: 36,
+                  width: 30,
+                  height: 30,
                   borderRadius: '8px',
                   cursor: 'pointer',
+                  fontSize: 14,
                   background: swatchFor(v),
                   border: 2,
                   borderColor: on ? 'primary.main' : 'divider',
@@ -215,9 +217,11 @@ const OptionPicker = ({ attribute, selected, onSelect, available }) => {
               onClick={() => onSelect(attribute.name, v)}
               color={on ? 'primary' : 'default'}
               variant={on ? 'filled' : 'outlined'}
+              size="small"
               sx={{
-                minWidth: 48,
-                height: 36,
+                minWidth: 44,
+                height: 30,
+                fontSize: '0.85rem',
                 ...(ok
                   ? {}
                   : { textDecoration: 'line-through', opacity: 0.55 }),
@@ -645,7 +649,7 @@ const ProductDetailsPage = () => {
           <Gallery images={images} title={product.title} />
         </Grid>
         <Grid item xs={12} md={6} lg={7}>
-          <Stack spacing={3}>
+          <Stack spacing={2.25} sx={{ maxWidth: 640 }}>
             {/* Brand logo – product name, then rating, SKU and category. */}
             <Box>
               <Stack
@@ -663,8 +667,8 @@ const ProductDetailsPage = () => {
                       aria-label={`More from ${product.brand.name}`}
                       title={product.brand.name}
                       sx={{
-                        height: 44,
-                        minWidth: 44,
+                        height: 36,
+                        minWidth: 36,
                         px: product.brand.logo ? 1 : 1.5,
                         borderRadius: '8px',
                         border: 1,
@@ -684,8 +688,8 @@ const ProductDetailsPage = () => {
                           src={product.brand.logo}
                           alt={product.brand.name}
                           sx={{
-                            height: 24,
-                            maxWidth: 90,
+                            height: 20,
+                            maxWidth: 80,
                             objectFit: 'contain',
                           }}
                         />
@@ -697,7 +701,7 @@ const ProductDetailsPage = () => {
                       aria-hidden
                       sx={{
                         width: 2,
-                        height: 28,
+                        height: 22,
                         bgcolor: 'divider',
                         borderRadius: 1,
                       }}
@@ -705,11 +709,12 @@ const ProductDetailsPage = () => {
                   </>
                 )}
                 <Typography
-                  variant="h4"
+                  variant="h5"
                   component="h1"
                   sx={{
-                    fontWeight: 800,
-                    letterSpacing: '-0.02em',
+                    fontWeight: 700,
+                    fontSize: { xs: '1.3rem', md: '1.5rem' },
+                    letterSpacing: '-0.01em',
                     minWidth: 0,
                   }}
                 >
@@ -772,7 +777,8 @@ const ProductDetailsPage = () => {
               sx={{
                 bgcolor: 'background.neutral',
                 borderRadius: 1,
-                p: { xs: 2, md: 2.5 },
+                px: 2,
+                py: 1.5,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
@@ -792,9 +798,9 @@ const ProductDetailsPage = () => {
                   <Typography
                     component="p"
                     sx={{
-                      fontWeight: 800,
-                      fontSize: { xs: '1.6rem', md: '1.9rem' },
-                      letterSpacing: '-0.02em',
+                      fontWeight: 700,
+                      fontSize: { xs: '1.25rem', md: '1.4rem' },
+                      letterSpacing: '-0.01em',
                     }}
                   >
                     {formatMoney(special ?? price)}
@@ -825,11 +831,11 @@ const ProductDetailsPage = () => {
               <Box
                 data-testid="stock-status"
                 sx={{
-                  px: 1.5,
-                  py: 0.75,
+                  px: 1.25,
+                  py: 0.5,
                   borderRadius: 999,
                   fontWeight: 600,
-                  fontSize: '0.85rem',
+                  fontSize: '0.8rem',
                   color: needsChoice
                     ? 'text.secondary'
                     : !inStock
@@ -853,7 +859,7 @@ const ProductDetailsPage = () => {
             </Box>
 
             {product.attributes.length > 0 && (
-              <Stack spacing={2.5}>
+              <Stack spacing={1.75}>
                 {product.attributes.map((a) => (
                   <OptionPicker
                     key={a.name}
@@ -875,7 +881,7 @@ const ProductDetailsPage = () => {
                     border: 1,
                     borderColor: 'divider',
                     borderRadius: '8px',
-                    height: 48,
+                    height: 40,
                     flexShrink: 0,
                   }}
                 >
@@ -883,9 +889,9 @@ const ProductDetailsPage = () => {
                     aria-label="Decrease quantity"
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
                     disabled={quantity <= 1}
-                    sx={{ borderRadius: '8px', width: 42, height: 42 }}
+                    sx={{ borderRadius: '8px', width: 36, height: 36 }}
                   >
-                    <FiMinus size={16} />
+                    <FiMinus size={14} />
                   </IconButton>
                   <Typography
                     sx={{ minWidth: 32, textAlign: 'center', fontWeight: 600 }}
@@ -897,18 +903,17 @@ const ProductDetailsPage = () => {
                     aria-label="Increase quantity"
                     onClick={() => setQuantity(Math.min(maxQty, quantity + 1))}
                     disabled={quantity >= maxQty}
-                    sx={{ borderRadius: '8px', width: 42, height: 42 }}
+                    sx={{ borderRadius: '8px', width: 36, height: 36 }}
                   >
-                    <FiPlus size={16} />
+                    <FiPlus size={14} />
                   </IconButton>
                 </Stack>
                 <Button
                   variant="contained"
-                  size="large"
                   startIcon={<FiShoppingCart />}
                   onClick={add}
                   disabled={!needsChoice && !inStock}
-                  sx={{ flex: 1, maxWidth: 360 }}
+                  sx={{ flex: 1, maxWidth: 300, height: 40 }}
                 >
                   Add to cart
                 </Button>
@@ -921,8 +926,8 @@ const ProductDetailsPage = () => {
                       saved ? 'Remove from wishlist' : 'Add to wishlist'
                     }
                     sx={{
-                      width: 48,
-                      height: 48,
+                      width: 40,
+                      height: 40,
                       flexShrink: 0,
                       borderRadius: '8px',
                       border: 1,
@@ -943,6 +948,16 @@ const ProductDetailsPage = () => {
                 </Link>{' '}
                 and choose “View as customer”.
               </Alert>
+            )}
+
+            {shopper && (
+              <BoughtTogether
+                product={product}
+                options={selected}
+                variant={variant}
+                price={special ?? price}
+                needsChoice={needsChoice}
+              />
             )}
 
             {/* Reassurance */}
@@ -980,13 +995,13 @@ const ProductDetailsPage = () => {
                   direction="row"
                   spacing={1.5}
                   sx={{
-                    p: 1.5,
+                    p: 1.25,
                     borderRadius: '8px',
                     border: 1,
                     borderColor: 'divider',
                   }}
                 >
-                  <Box sx={{ color: 'primary.main', fontSize: 20, mt: 0.25 }}>
+                  <Box sx={{ color: 'primary.main', fontSize: 17, mt: 0.25 }}>
                     {icon}
                   </Box>
                   <Box sx={{ minWidth: 0 }}>

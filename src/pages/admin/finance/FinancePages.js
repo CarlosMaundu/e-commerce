@@ -567,6 +567,7 @@ export const InvoiceDetailPage = () => {
       <Grid container spacing={3}>
         <Grid item xs={12} lg={8.5}>
           <InvoiceDocument
+            showAmount={false}
             order={{
               ...order,
               paymentStatus:
