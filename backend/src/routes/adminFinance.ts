@@ -2,7 +2,7 @@
 // customer, order edits, invoices, payments, refunds (with approval),
 // refund settings and the ledger.
 import { Router } from 'express';
-import { orderNumber } from '../lib/numbers';
+import { insertNumbered, orderNumber } from '../lib/numbers';
 import { z } from 'zod';
 import { query, transaction } from '../db';
 import {
@@ -253,14 +253,15 @@ export const adminFinanceRoutes = ({ payments }: { payments: PaymentGateway | nu
     const orderId = await transaction(async (db) => {
       const lines = await priceItems(db, b.items);
       const totals = computeTotals(lines as any, undefined, b.shipping_method);
-      const { rows } = await db.query(
+      const rows = await insertNumbered(() => orderNumber('STF'), async (number) => (await db.query(
         `INSERT INTO orders (user_id, email, status, payment_method, payment_status, shipping_method, shipping_address,
            payment_address, subtotal, discount, shipping_total, tax_total, total, currency, comment, placed_at, created_by, number)
-         VALUES ($1, $2, 'pending', $3, 'pending', $4, $5, $5, $6, $7, $8, $9, $10, $11, $12, now(), $13, $14) RETURNING *`,
+         VALUES ($1, $2, 'pending', $3, 'pending', $4, $5, $5, $6, $7, $8, $9, $10, $11, $12, now(), $13, $14)
+         ON CONFLICT (number) DO NOTHING RETURNING *`,
         [customer.id, customer.email, b.payment_method, b.shipping_method, JSON.stringify(address), totals.subtotal,
           totals.discount, totals.shipping, totals.tax, totals.total, finance().currency, b.comment, req.auth!.userId,
-          orderNumber('STF')]
-      );
+          number]
+      )).rows);
       const order = rows[0];
       await insertItems(db, order.id, lines);
       await addHistory(db, order.id, 'pending', 'Order created by staff.', { notified: false, userId: req.auth!.userId });
@@ -584,13 +585,23 @@ export const adminFinanceRoutes = ({ payments }: { payments: PaymentGateway | nu
       const r = (await db.query('SELECT * FROM refunds WHERE id = $1 FOR UPDATE', [Number(req.params.id)])).rows[0];
       if (!r) fail(404, 'Refund not found.');
       if (r.status !== 'pending_approval') fail(400, 'This refund has already been decided.');
+      const order = (await db.query('SELECT * FROM orders WHERE id = $1', [r.order_id])).rows[0];
+      const money = `${order.currency} ${Number(r.amount).toFixed(2)}`;
       if (b.action === 'reject') {
         await db.query(`UPDATE refunds SET status = 'rejected', approved_by = $2 WHERE id = $1`, [r.id, req.auth!.userId]);
+        // The order keeps its status: no money went back.
+        if (r.closes_order) {
+          await addHistory(db, order.id, order.status, `Refund of ${money} was not approved.`, { userId: req.auth!.userId });
+        }
       } else {
         await db.query('UPDATE refunds SET approved_by = $2 WHERE id = $1', [r.id, req.auth!.userId]);
         const invoice = (await db.query('SELECT * FROM invoices WHERE id = $1 FOR UPDATE', [r.invoice_id])).rows[0];
-        const order = (await db.query('SELECT * FROM orders WHERE id = $1', [r.order_id])).rows[0];
         await payOut(db, r, invoice, order, payments, req.auth!.userId);
+        // A full refund requested by moving the order to Refunded completes it now.
+        if (r.closes_order && order.status !== 'refunded') {
+          await db.query(`UPDATE orders SET status = 'refunded', updated_at = now() WHERE id = $1`, [order.id]);
+          await addHistory(db, order.id, 'refunded', `Refund of ${money} approved and paid back.`, { userId: req.auth!.userId });
+        }
       }
       return (await db.query('SELECT * FROM refunds WHERE id = $1', [r.id])).rows[0];
     });

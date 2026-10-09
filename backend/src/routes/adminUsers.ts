@@ -100,7 +100,6 @@ export const adminUserRoutes = () => {
       const stats = (
         await query(
           `SELECT count(*)::int AS orders,
-             COALESCE(sum(total) FILTER (WHERE status NOT IN ('cancelled', 'refunded')), 0) AS spent,
              max(placed_at) AS last_order
            FROM orders WHERE user_id = $1 AND placed_at IS NOT NULL`,
           [id]
@@ -113,8 +112,6 @@ export const adminUserRoutes = () => {
              (SELECT count(*)::int FROM returns WHERE user_id = $1) AS returns,
              (SELECT count(*)::int FROM refunds r JOIN orders o ON o.id = r.order_id
                 WHERE o.user_id = $1 AND r.status = 'processed') AS refunds,
-             (SELECT COALESCE(sum(r.amount), 0) FROM refunds r JOIN orders o ON o.id = r.order_id
-                WHERE o.user_id = $1 AND r.status = 'processed') AS refunded,
              (SELECT count(*)::int FROM product_reviews WHERE user_id = $1) AS reviews,
              (SELECT count(*)::int FROM sessions WHERE user_id = $1 AND revoked_at IS NULL AND expires_at > now()) AS sessions`,
           [id]
@@ -123,6 +120,20 @@ export const adminUserRoutes = () => {
       const addresses = (
         await query('SELECT * FROM addresses WHERE user_id = $1 ORDER BY is_default DESC, id', [id])
       ).rows.map(toContractAddress);
+      // Money per currency (orders keep the currency they were placed in), and
+      // only for staff who may see invoices.
+      const canSeeMoney = hasPermission(req.auth!.permissions, 'orders.invoices.view');
+      const byCurrency = async (sql: string) =>
+        (await query(sql, [id])).rows.map((r) => ({ currency: r.currency, amount: Math.round(Number(r.amount) * 100) / 100 }));
+      const spent = canSeeMoney
+        ? await byCurrency(`SELECT currency, sum(total) AS amount FROM orders
+            WHERE user_id = $1 AND placed_at IS NOT NULL AND status NOT IN ('cancelled', 'refunded')
+            GROUP BY currency ORDER BY sum(total) DESC`)
+        : null;
+      const refunded = canSeeMoney
+        ? await byCurrency(`SELECT o.currency, sum(r.amount) AS amount FROM refunds r JOIN orders o ON o.id = r.order_id
+            WHERE o.user_id = $1 AND r.status = 'processed' GROUP BY o.currency ORDER BY sum(r.amount) DESC`)
+        : null;
       const canSeeOrders = hasPermission(req.auth!.permissions, 'orders.orders.view');
       const orders = canSeeOrders
         ? (
@@ -139,10 +150,11 @@ export const adminUserRoutes = () => {
         staff: permissions.length > 0,
         stats: {
           orders: stats.orders,
-          spent: Number(stats.spent),
           last_order: stats.last_order,
           ...counts,
-          refunded: Number(counts.refunded),
+          // [{ currency, amount }], or null without permission to see invoices.
+          spent,
+          refunded,
         },
         addresses,
         orders,

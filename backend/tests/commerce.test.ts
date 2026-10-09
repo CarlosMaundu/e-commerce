@@ -1,4 +1,5 @@
 import request from 'supertest';
+import { insertNumbered } from '../src/lib/numbers';
 import { query } from '../src/db';
 import { app, bearer, closePool, createUser, fakePayments, resetDatabase, sentEmails, signIn } from './helpers';
 
@@ -473,7 +474,7 @@ describe('invoices, payments, refunds and the ledger', () => {
     const money = (await request(app).get(`/api/admin/orders/${card.order_id}/finance`).set(bearer(admin))).body.data;
     expect(money.invoice).toMatchObject({ status: 'paid', total: 137.44, balance: 0 });
     expect(money.invoice.number).toMatch(/^INV-\d{8}-\d{6}-[0-9A-Z]{4}$/);
-    expect(card.order_number).toMatch(/^WEB-[0-9A-Z]{8}$/);
+    expect(card.order_number).toMatch(/^WEB-[0-9A-Z]{9}$/);
     expect(card.invoice_number).toBe(money.invoice.number);
     // Orders can be opened by number too.
     expect((await request(app).get(`/api/admin/orders/${card.order_number}`).set(bearer(admin))).body.data.order_id).toBe(card.order_id);
@@ -684,7 +685,19 @@ describe('invoices, payments, refunds and the ledger', () => {
     });
     const customerId = (await query("SELECT id FROM users WHERE email = 'jane@example.com'")).rows[0].id;
     const account = (await request(app).get(`/api/admin/users/${customerId}/account`).set(bearer(admin))).body.data;
-    expect(account.stats).toMatchObject({ refunds: 1, refunded: order.products[0].price });
+    expect(account.stats).toMatchObject({ refunds: 1, refunded: [{ currency: 'USD', amount: order.products[0].price }] });
+    // Without invoice access, money totals aren't shared.
+    const root = await staffUser('super_admin', 'root@example.com');
+    await request(app).post('/api/admin/roles').set(bearer(root))
+      .send({ name: 'Account Viewer', permissions: ['admin.users.view'] }).expect(201);
+    const viewer = await staffUser('account_viewer', 'viewer@example.com');
+    const limited = (await request(app).get(`/api/admin/users/${customerId}/account`).set(bearer(viewer))).body.data;
+    expect(limited.stats).toMatchObject({ spent: null, refunded: null });
+
+    // Orders in another currency are totalled separately, never added together.
+    await query(`UPDATE orders SET currency = 'KES' WHERE id = $1`, [order.order_id]);
+    const mixed = (await request(app).get(`/api/admin/users/${customerId}/account`).set(bearer(admin))).body.data;
+    expect(mixed.stats.refunded).toEqual([{ currency: 'KES', amount: order.products[0].price }]);
     expect(account.stats.cart).toBeDefined();
 
     const ledger = (await request(app).get('/api/admin/ledger?kind=refund').set(bearer(admin))).body.data;
@@ -790,6 +803,56 @@ describe('invoices, payments, refunds and the ledger', () => {
     expect(list[0].name).toBe('Canvas tote bag');
     expect(list.map((p: any) => p.product_id)).not.toContain(jacket);
     expect((await request(app).get('/api/rest/products/999999/bought-together')).status).toBe(404);
+  });
+
+  test('a taken order or invoice number is replaced, not an error', async () => {
+    const token = await shopper();
+    const order = await placeOrder(token);
+    const taken = order.order_number;
+    const makes = [taken, 'WEB-FRESH0001'];
+    const rows = await insertNumbered(() => makes.shift()!, async (number) => (await query(
+      `INSERT INTO orders (user_id, email, status, payment_method, shipping_method, shipping_address, payment_address,
+         subtotal, discount, shipping_total, tax_total, total, currency, number)
+       SELECT user_id, email, 'awaiting_payment', payment_method, shipping_method, shipping_address, payment_address,
+         0, 0, 0, 0, 0, currency, $2
+       FROM orders WHERE id = $1 ON CONFLICT (number) DO NOTHING RETURNING number`,
+      [order.order_id, number]
+    )).rows);
+    expect(rows[0].number).toBe('WEB-FRESH0001');
+    await expect(insertNumbered(() => taken, async () => [])).rejects.toThrow(/free number/);
+  });
+
+  test('moving an order to Refunded waits for approval above the limit; rejecting leaves it as it was', async () => {
+    const token = await shopper();
+    const admin = await staffUser('admin', 'boss@example.com');
+    await request(app).put('/api/admin/refund-settings').set(bearer(admin)).send({ approval_threshold: 20 }).expect(200);
+    const confirm = await prepareCheckout(token, { payment: 'stripe' });
+    fakePayments.intents.get(confirm.body.data.payment.client_secret.replace(/_secret$/, ''))!.status = 'succeeded';
+    const order = (await request(app).put('/api/rest/confirm').set(bearer(token))).body.data;
+    for (const s of ['shipped', 'delivered']) {
+      await request(app).put(`/api/admin/orderhistory/${order.order_id}`).set(bearer(admin)).send({ order_status: s }).expect(200);
+    }
+    const toRefunded = () => request(app).put(`/api/admin/orderhistory/${order.order_id}`).set(bearer(admin))
+      .send({ order_status: 'refunded', notify: true });
+
+    const first = (await toRefunded()).body.data;
+    expect(first.status).toBe('delivered');
+    expect(first.refund_pending).toMatchObject({ amount: 137.44 });
+    expect(first.history.at(-1).comment).toMatch(/waiting for approval/);
+    let money = (await request(app).get(`/api/admin/orders/${order.order_id}/finance`).set(bearer(admin))).body.data;
+    const pending = money.refunds.find((r: any) => r.status === 'pending_approval');
+    await request(app).put(`/api/admin/refunds/${pending.refund_id}`).set(bearer(admin)).send({ action: 'reject' }).expect(200);
+    let now = (await request(app).get(`/api/admin/orders/${order.order_id}`).set(bearer(admin))).body.data;
+    expect(now.status).toBe('delivered');
+    expect(now.history.at(-1).comment).toMatch(/was not approved/);
+
+    await toRefunded();
+    money = (await request(app).get(`/api/admin/orders/${order.order_id}/finance`).set(bearer(admin))).body.data;
+    const again = money.refunds.find((r: any) => r.status === 'pending_approval');
+    await request(app).put(`/api/admin/refunds/${again.refund_id}`).set(bearer(admin)).send({ action: 'approve' }).expect(200);
+    now = (await request(app).get(`/api/admin/orders/${order.order_id}`).set(bearer(admin))).body.data;
+    expect(now.status).toBe('refunded');
+    expect(now.history.at(-1)).toMatchObject({ status: 'refunded', comment: expect.stringMatching(/approved and paid back/) });
   });
 });
 

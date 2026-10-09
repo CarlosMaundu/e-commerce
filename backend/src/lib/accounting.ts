@@ -34,7 +34,7 @@ export const accountFor = (method: string) =>
   ({ stripe: 'card_clearing', cod: 'cash', cash: 'cash', mpesa: 'mobile_money', bank: 'bank' } as Record<string, string>)[method] ||
   'cash';
 
-import { cashReceipt, invoiceNumber, mpesaRef, bankRef, stripeLikeRef } from './numbers';
+import { bankRef, cashReceipt, insertNumbered, invoiceNumber, mpesaRef, stripeLikeRef } from './numbers';
 
 interface Line {
   account: string;
@@ -92,17 +92,17 @@ export const issueInvoice = async (
   if (existing) return existing;
   const s = split(order);
   const issued = at || order.placed_at || new Date();
-  const invoice = (
+  const [invoice] = await insertNumbered(() => invoiceNumber(issued), async (number) => (
     await db.query(
       `INSERT INTO invoices (number, order_id, user_id, subtotal, discount, shipping, tax, total, currency, issued_at,
          due_at, notes, created_by)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::timestamptz,
          CASE WHEN $11::int > 0 THEN $10::timestamptz + make_interval(days => $11::int) END, $12, $13)
-       RETURNING *`,
-      [invoiceNumber(issued), order.id, order.user_id, order.subtotal, order.discount || 0, s.shipping, s.tax, s.total,
+       ON CONFLICT (number) DO NOTHING RETURNING *`,
+      [number, order.id, order.user_id, order.subtotal, order.discount || 0, s.shipping, s.tax, s.total,
         order.currency, issued, dueDays, notes, by]
     )
-  ).rows[0];
+  ).rows);
   await post(
     db,
     [

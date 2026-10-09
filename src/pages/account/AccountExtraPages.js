@@ -71,7 +71,7 @@ export const TrackOrderPage = () => {
   const lookUp = async (id) => {
     const clean = String(id).trim().toUpperCase().replace(/^#/, '');
     if (!clean) {
-      setProblem('Please enter your order number, for example WEB-1FT3K9X7.');
+      setProblem('Please enter your order number, for example WEB-1FT3K9X7Q.');
       return;
     }
     setBusy(true);

@@ -160,7 +160,8 @@ const BoughtTogether = ({ product, options, variant, price, needsChoice }) => {
               <Box
                 component="img"
                 src={i.image}
-                alt={i.product.title}
+                // Decorative: the tick list below names each product.
+                alt=""
                 sx={{ width: '100%', height: '100%', objectFit: 'contain' }}
               />
             </Box>

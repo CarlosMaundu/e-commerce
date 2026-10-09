@@ -135,26 +135,19 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
       fail(403, 'You don’t have permission to refund orders.');
     }
 
+    // A paid order only becomes "Refunded" once its money has gone back:
+    // straight away, or (above the approval limit) when the refund is approved.
+    let refundPending: { amount: number } | null = null;
     await transaction(async (db) => {
+      let status = b.order_status;
+      let comment = b.comment;
       if (changing) {
-        await db.query('UPDATE orders SET status = $2, updated_at = now() WHERE id = $1', [order.id, b.order_status]);
-        if (b.order_status === 'cancelled') await restock(db, order.id);
-        // Money and the ledger follow the status.
         const invoice = (await db.query('SELECT * FROM invoices WHERE order_id = $1', [order.id])).rows[0]
           || (await issueInvoice(db, order, { by: req.auth!.userId }));
-        const outstanding = Number(invoice.total) - Number(invoice.amount_paid);
-        if (b.order_status === 'delivered' && order.payment_method === 'cod' && outstanding > 0.009) {
-          await recordPayment(db, {
-            invoice, method: 'cod', amount: outstanding, reference: cashReceipt(),
-            note: 'Cash collected on delivery', by: req.auth!.userId,
-          });
-        }
-        if (['cancelled', 'refunded'].includes(b.order_status) && Number(invoice.amount_paid) === 0) {
-          await voidInvoice(db, invoice, { by: req.auth!.userId });
-        } else if (b.order_status === 'refunded') {
+        if (b.order_status === 'refunded' && Number(invoice.amount_paid) > 0) {
           const left = await refundable(db, invoice);
           if (left.amount > 0.009) {
-            await createRefund(db, {
+            const refund = await createRefund(db, {
               order: { ...order, status: b.order_status },
               itemsAmount: Number(invoice.total) - Number(invoice.shipping),
               includeDelivery: true,
@@ -162,19 +155,44 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
               reason: b.comment || 'Order refunded',
               by: req.auth!.userId,
               gateway: payments,
+              closesOrder: true,
             });
+            if (refund.status === 'pending_approval') {
+              refundPending = { amount: Number(refund.amount) };
+              status = order.status;
+              comment = `Full refund of ${order.currency} ${Number(refund.amount).toFixed(2)} requested; waiting for approval.${
+                b.comment ? ` ${b.comment}` : ''}`;
+            }
+          }
+        }
+        if (status !== order.status) {
+          await db.query('UPDATE orders SET status = $2, updated_at = now() WHERE id = $1', [order.id, status]);
+          if (status === 'cancelled') await restock(db, order.id);
+          // Money and the ledger follow the status.
+          const outstanding = Number(invoice.total) - Number(invoice.amount_paid);
+          if (status === 'delivered' && order.payment_method === 'cod' && outstanding > 0.009) {
+            await recordPayment(db, {
+              invoice, method: 'cod', amount: outstanding, reference: cashReceipt(),
+              note: 'Cash collected on delivery', by: req.auth!.userId,
+            });
+          }
+          if (['cancelled', 'refunded'].includes(status) && Number(invoice.amount_paid) === 0) {
+            await voidInvoice(db, invoice, { by: req.auth!.userId });
           }
         }
       }
-      await addHistory(db, order.id, b.order_status, b.comment, { notified: b.notify, userId: req.auth!.userId });
+      await addHistory(db, order.id, status, comment, {
+        notified: b.notify && !refundPending, userId: req.auth!.userId,
+      });
     });
 
-    if (b.notify) {
+    if (b.notify && !refundPending) {
       sendOrderStatusEmail(order.email, order.number, statusName(b.order_status), b.comment, orderLink(order.id))
         .catch((error) => console.error('Status email failed:', error));
     }
-    audit(req, 'order.status_changed', `order:${order.id}`, { from: order.status, to: b.order_status });
-    ok(res, (await loadOrder(order.id, { admin: true }))!.contract);
+    audit(req, refundPending ? 'order.refund_requested' : 'order.status_changed', `order:${order.id}`,
+      { from: order.status, to: b.order_status });
+    ok(res, { ...(await loadOrder(order.id, { admin: true }))!.contract, refund_pending: refundPending });
   }));
 
   // Tick off (or reopen) a gift line's instructions: wrapped, message printed.
