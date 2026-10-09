@@ -1,4 +1,5 @@
 import request from 'supertest';
+import { clearSettingsCache } from '../src/lib/settings';
 import { createApp } from '../src/app';
 import { pool, query } from '../src/db';
 import { hashPassword } from '../src/lib/security';
@@ -43,6 +44,7 @@ export const app = createApp({
 export const PASSWORD = 'Str0ng!Pass1';
 
 export const resetDatabase = async () => {
+  clearSettingsCache();
   await query(
     `TRUNCATE audit_logs, auth_tokens, sessions, users, products, categories, coupons, orders,
        order_items, order_history, returns, cart_items, checkout_state, wishlist_items, addresses,

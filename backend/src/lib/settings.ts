@@ -35,10 +35,20 @@ export const DEFAULT_SETTINGS: SecuritySettings = {
   accounts: { allow_registration: true, require_email_verification: false },
 };
 
+// Read on every back-office request (idle timeout), so kept for a few seconds.
+let cache: { at: number; settings: SecuritySettings } | null = null;
+
 export const getSettings = async (): Promise<SecuritySettings> => {
+  if (cache && Date.now() - cache.at < 5000) return cache.settings;
   const row = (await query('SELECT settings FROM security_settings WHERE id = 1')).rows[0];
   const parsed = settingsSchema.safeParse(row?.settings);
-  return parsed.success ? parsed.data : DEFAULT_SETTINGS;
+  const settings = parsed.success ? parsed.data : DEFAULT_SETTINGS;
+  cache = { at: Date.now(), settings };
+  return settings;
+};
+
+export const clearSettingsCache = () => {
+  cache = null;
 };
 
 export const saveSettings = async (settings: SecuritySettings, userId: number) => {
@@ -47,7 +57,11 @@ export const saveSettings = async (settings: SecuritySettings, userId: number) =
      ON CONFLICT (id) DO UPDATE SET settings = EXCLUDED.settings, updated_by = EXCLUDED.updated_by, updated_at = now()`,
     [JSON.stringify(settings), userId]
   );
+  clearSettingsCache();
 };
+
+export const idleMessage = (minutes: number) =>
+  `You were signed out after ${minutes} minutes without activity. Please sign in again.`;
 
 /** Extra password rules from the settings, on top of passwordSchema. */
 export const enforcePasswordPolicy = async (password: string) => {

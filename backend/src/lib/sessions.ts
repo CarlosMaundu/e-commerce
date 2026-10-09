@@ -47,13 +47,27 @@ export const impersonatorOf = async (sessionId: string) => {
   return row ? { customer_id: row.id, name: `${row.firstname} ${row.lastname}`.trim(), email: row.email } : null;
 };
 
+/**
+ * When the session ends at the latest, and (back office) after how long
+ * without activity, so the browser can warn before signing someone out.
+ */
+export const sessionLimits = async (sessionId: string, staff: boolean) => {
+  const row = (await query('SELECT expires_at FROM sessions WHERE id = $1', [sessionId])).rows[0];
+  return {
+    expires_at: row?.expires_at ?? null,
+    idle_minutes: staff ? (await getSettings()).staff_sessions.idle_minutes : null,
+  };
+};
+
 /** Response body for every successful sign-in or refresh. */
 const sessionPayload = async (user: UserRow, sessionId: string) => {
   const permissions = await permissionsForRole(user.role_id);
+  const impersonator = await impersonatorOf(sessionId);
   return {
     access_token: signAccessToken({ sub: String(user.id), sid: sessionId }),
     expires_in: config.accessTokenMinutes * 60,
-    user: { ...toContractUser(user, permissions), impersonator: await impersonatorOf(sessionId) },
+    session: await sessionLimits(sessionId, permissions.length > 0 && !impersonator),
+    user: { ...toContractUser(user, permissions), impersonator },
   };
 };
 

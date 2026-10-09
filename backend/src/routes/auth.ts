@@ -10,7 +10,7 @@ import { GoogleVerifier } from '../lib/google';
 import { fail, handler, ok, parse } from '../lib/http';
 import { sendPasswordResetEmail, sendVerificationEmail } from '../lib/mailer';
 import { hashPassword, passwordSchema, randomToken, sha256, verifyPassword } from '../lib/security';
-import { enforcePasswordPolicy, getSettings } from '../lib/settings';
+import { enforcePasswordPolicy, getSettings, idleMessage } from '../lib/settings';
 import {
   clearRefreshCookie,
   findSessionByRefresh,
@@ -18,6 +18,7 @@ import {
   revokeAllSessions,
   revokeSession,
   rotateSession,
+  sessionLimits,
   startSession,
 } from '../lib/sessions';
 import { findUserByEmail, findUserById, permissionsForRole, roleIdFor, toContractUser } from '../lib/users';
@@ -240,10 +241,19 @@ export const authRoutes = ({ verifyGoogle }: { verifyGoogle: GoogleVerifier | nu
         if (Date.now() - new Date(session.last_activity_at).getTime() > limits.idle_minutes * 60000) {
           await revokeSession(session.id);
           clearRefreshCookie(res);
-          fail(401, `You were signed out after ${limits.idle_minutes} minutes without activity. Please sign in again.`);
+          fail(401, idleMessage(limits.idle_minutes));
         }
       }
       ok(res, await rotateSession(res, token, user, session.id, session.expires_at));
+    })
+  );
+
+  // "Stay signed in": counts as activity and returns the session's limits.
+  router.post(
+    '/session/keepalive',
+    authenticate,
+    handler(async (req, res) => {
+      ok(res, await sessionLimits(req.auth!.sessionId, req.auth!.permissions.length > 0 && !req.auth!.impersonatorId));
     })
   );
 

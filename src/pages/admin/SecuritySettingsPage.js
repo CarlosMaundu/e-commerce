@@ -379,6 +379,12 @@ const SecuritySettingsPage = () => {
               helperText="Signing in on another device ends the oldest."
             />
           </Stack>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+            Staff see a countdown with “Stay signed in” two minutes before an
+            idle sign-out, and a reminder five minutes before their session
+            reaches its maximum length. Changes apply from each person’s next
+            sign-in; the idle timeout applies straight away.
+          </Typography>
         </PolicyForm>
       )}
 

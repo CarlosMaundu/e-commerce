@@ -3,6 +3,7 @@
 // authenticate: requires a valid access token whose session is still active
 // (so revoking a session or suspending a user takes effect immediately).
 // requirePermission: RBAC check, as in the portal's requirePermission().
+import { getSettings, idleMessage } from '../lib/settings';
 import { NextFunction, Request, Response } from 'express';
 import { query } from '../db';
 import { fail, HttpError } from '../lib/http';
@@ -39,7 +40,7 @@ const resolve = async (req: Request): Promise<AuthContext | null> => {
   }
   const session = (
     await query(
-      `SELECT id, impersonator_id, parent_session_id FROM sessions
+      `SELECT id, impersonator_id, parent_session_id, last_activity_at FROM sessions
        WHERE id = $1 AND revoked_at IS NULL AND expires_at > now()`,
       [claims.sid]
     )
@@ -50,12 +51,25 @@ const resolve = async (req: Request): Promise<AuthContext | null> => {
   if (user.status !== 'active') {
     throw new HttpError(403, ['This account has been suspended. Please contact support.']);
   }
-  query('UPDATE sessions SET last_activity_at = now() WHERE id = $1', [claims.sid]).catch(() => {});
+  const permissions = await permissionsForRole(user.role_id);
+  // Back-office sessions end after the idle timeout on any request, not
+  // only when the session is refreshed.
+  if (permissions.length && !session.impersonator_id) {
+    const { staff_sessions: limits } = await getSettings();
+    if (Date.now() - new Date(session.last_activity_at).getTime() > limits.idle_minutes * 60000) {
+      await query('UPDATE sessions SET revoked_at = now() WHERE id = $1 AND revoked_at IS NULL', [claims.sid]);
+      throw new HttpError(401, [idleMessage(limits.idle_minutes)]);
+    }
+  }
+  // Background polling (the notification bell) isn't activity.
+  if (!req.headers['x-background']) {
+    query('UPDATE sessions SET last_activity_at = now() WHERE id = $1', [claims.sid]).catch(() => {});
+  }
   return {
     userId: user.id,
     sessionId: claims.sid,
     user,
-    permissions: await permissionsForRole(user.role_id),
+    permissions,
     impersonatorId: session.impersonator_id ?? null,
     parentSessionId: session.parent_session_id ?? null,
   };
