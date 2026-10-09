@@ -410,7 +410,7 @@ describe('custom roles', () => {
     await createUser('root@example.com', 'super_admin');
     const { token } = await signIn('root@example.com');
     const perms = await request(app).get('/api/admin/permissions').set(bearer(token));
-    expect(perms.body.data.map((g: any) => g.name)).toEqual(['Administration', 'Catalog', 'Dashboard', 'Orders']);
+    expect(perms.body.data.map((g: any) => g.name)).toEqual(['Administration', 'Catalog', 'Dashboard', 'Orders', 'Support']);
 
     const created = await request(app).post('/api/admin/roles').set(bearer(token)).send({
       name: 'Stock Clerk', description: 'Keeps stock up to date', permissions: ['catalog.products.update'],

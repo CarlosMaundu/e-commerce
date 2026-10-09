@@ -12,7 +12,7 @@ import { LEGAL_DEFAULTS } from './legalDefaults';
 import { getRefundSettings } from './refunds';
 import { getStore } from './store';
 
-export const LEGAL_SLUGS = ['terms', 'privacy', 'refunds'] as const;
+export const LEGAL_SLUGS = ['about', 'terms', 'privacy', 'refunds'] as const;
 export type LegalSlug = (typeof LEGAL_SLUGS)[number];
 
 const ALIGN = [/^left$/, /^right$/, /^center$/, /^justify$/];

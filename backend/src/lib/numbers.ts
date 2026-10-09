@@ -50,6 +50,12 @@ export const insertNumbered = async <T>(make: () => string, run: (number: string
   throw new Error('Could not find a free number after several attempts.');
 };
 
+/** Support request numbers: SUP-[time in base 36][3 random], e.g. SUP-1FT3K9X7Q. */
+export const ticketNumber = (at: Date | string = new Date()) => {
+  const secs = Math.max(0, Math.floor((new Date(at).getTime() - EPOCH) / 1000));
+  return `SUP-${secs.toString(36).toUpperCase().padStart(6, '0')}${pick(ALNUM, 3)}`;
+};
+
 /** Invoice numbers: INV-YYYYMMDD-HHMMSS-XXXX, e.g. INV-20261004-204015-X7R2. */
 export const invoiceNumber = (at: Date | string = new Date()) => {
   const p = parts(at);

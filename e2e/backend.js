@@ -19,8 +19,24 @@ const db = () => {
  * orders and returns); keeps roles and the sample catalog.
  */
 const resetUsers = async () => {
+  // CASCADE also empties tables that only note who last edited them (the
+  // FAQ), so the questions the API seeded at start are put back.
+  const faq = (
+    await db().query(
+      'SELECT id, category, question, answer, position, published FROM faq_items'
+    )
+  ).rows;
   await db().query(
     'TRUNCATE users, sessions, auth_tokens, audit_logs, newsletter_subscribers RESTART IDENTITY CASCADE'
+  );
+  for (const f of faq) {
+    await db().query(
+      'INSERT INTO faq_items (id, category, question, answer, position, published) VALUES ($1, $2, $3, $4, $5, $6)',
+      [f.id, f.category, f.question, f.answer, f.position, f.published]
+    );
+  }
+  await db().query(
+    "SELECT setval('faq_items_id_seq', GREATEST((SELECT max(id) FROM faq_items), 1))"
   );
   await db().query('UPDATE coupons SET uses_count = 0');
   // Catalog back to the demo seed: products added by tests (no SKU) go,

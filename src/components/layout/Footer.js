@@ -34,14 +34,14 @@ const COLUMNS = [
       ['All products', '/products'],
       ['Wishlist', '/wishlist'],
       ['Cart', '/cart'],
-      ['Track your order', '/account/orders'],
+      ['Track your order', '/account/track'],
     ],
   },
   {
     title: 'Help',
     links: [
-      ['Support', '/information/support'],
-      ['FAQs', '/information/faq'],
+      ['Support', '/support'],
+      ['FAQs', '/faq'],
       ['Your returns', '/account/returns'],
       ['Refund & Return Policy', '/policies/refunds'],
     ],
@@ -49,9 +49,7 @@ const COLUMNS = [
   {
     title: 'Company',
     links: [
-      ['About us', '/information/about'],
-      ['Careers', '/information/careers'],
-      ['Press', '/information/press'],
+      ['About us', '/about'],
       ['Terms and conditions', '/policies/terms'],
       ['Privacy policy', '/policies/privacy'],
     ],

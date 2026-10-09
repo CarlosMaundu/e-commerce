@@ -306,6 +306,59 @@ test('an item sent as a gift is charged for its box and prepared before dispatch
   await setStatus(admin, 'Shipped');
 });
 
+test('support end to end: a customer asks, staff reply, the customer replies back', async ({
+  page,
+  freshPage,
+}) => {
+  await customer();
+  await login(page, 'cam@example.com', 'Hi, Cam Customer');
+  await page.goto('/support');
+  await page.getByRole('combobox', { name: 'What is it about?' }).click();
+  await page.getByRole('option', { name: 'A product question' }).click();
+  await page.getByLabel('Subject').fill('Does the tote bag fit a laptop?');
+  await page
+    .getByLabel('How can we help?')
+    .fill('I have a 15 inch laptop. Will it fit in the canvas tote?');
+  await page.getByRole('button', { name: 'Send request' }).click();
+  const sent = page.getByTestId('support-sent');
+  await expect(sent).toContainText(/SUP-[0-9A-Z]{9}/);
+  const number = (await sent.textContent()).match(/SUP-[0-9A-Z]{9}/)[0];
+  const { subject } = await linkFromLatestEmail('cam@example.com');
+  expect(subject).toContain(number);
+
+  // Support staff see it in the inbox and reply.
+  await createUser({
+    email: 'help@example.com',
+    firstname: 'Hana',
+    lastname: 'Help',
+    role: 'support',
+  });
+  const staff = await freshPage();
+  await login(staff, 'help@example.com', 'Hi, Hana Help');
+  await staff.goto('/admin/support');
+  await staff.getByTestId(`support-row-${number}`).click();
+  await expect(staff.getByTestId('support-thread')).toContainText(
+    '15 inch laptop'
+  );
+  await staff.getByLabel('Reply').fill('Yes, it fits laptops up to 16 inches.');
+  await staff.getByRole('button', { name: 'Send reply' }).click();
+  await expect(toast(staff)).toHaveText('Reply sent to cam@example.com.');
+
+  // The customer sees the reply in their account and answers.
+  await page.goto('/account/support');
+  await expect(page.getByTestId(`support-request-${number}`)).toContainText(
+    'New reply'
+  );
+  await page.getByTestId(`support-request-${number}`).click();
+  await expect(page.getByTestId('support-thread')).toContainText(
+    'Yes, it fits laptops up to 16 inches.'
+  );
+  await page.getByLabel('Your reply').fill('Great, thank you!');
+  await page.getByRole('button', { name: 'Send reply' }).click();
+  await expect(toast(page)).toHaveText('Reply sent.');
+  await expect(page.getByText('Open', { exact: true }).first()).toBeVisible();
+});
+
 test('back-office pages follow the role’s permissions', async ({ page }) => {
   await createUser({
     email: 'cat@example.com',
@@ -353,7 +406,7 @@ test('a super admin creates, then deletes, a custom role', async ({ page }) => {
   await expect(toast(page)).toHaveText('Role created.');
   const row = page.getByTestId('role-row-stock_clerk');
   await expect(row).toContainText('Keeps stock up');
-  await expect(row).toContainText('2 of 39');
+  await expect(row).toContainText('2 of 41');
 
   // The Permissions tab lists who holds each permission.
   await page.getByRole('tab', { name: /Permissions/ }).click();

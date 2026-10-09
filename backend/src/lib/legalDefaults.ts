@@ -275,7 +275,26 @@ const refunds = `
 <p>{{contact_sentence}} Please include your order number so that we can help quickly.</p>
 `;
 
-export const LEGAL_DEFAULTS: Record<'terms' | 'privacy' | 'refunds', { title: string; body: string; updated: string }> = {
+const about = `
+<p><strong>{{store_name}}</strong> is an online shop that brings together everyday essentials, fresh tech and standout style, chosen with care and delivered to your door.</p>
+
+<h2>What we stand for</h2>
+<ul>
+<li><strong>Products we would buy ourselves.</strong> We check what we sell, describe it honestly and show you the real price before you pay.</li>
+<li><strong>Service that keeps its promises.</strong> We track every order from the moment you place it until it reaches you, against delivery targets we hold ourselves to.</li>
+<li><strong>Payments you can trust.</strong> Pay by card through Stripe, by M-Pesa, by bank transfer or on delivery, whichever suits you.</li>
+<li><strong>Easy returns.</strong> Changed your mind? You have {{return_window_days}} days from delivery to send most items back.</li>
+</ul>
+
+<h2>Your data, respected</h2>
+<p>We collect only what we need to serve you, never sell your data, and keep it secure. Read our <a href="/policies/privacy">Privacy Policy</a> to see exactly how.</p>
+
+<h2>Talk to us</h2>
+<p>We would love to hear from you, whether it is a question about an order, feedback on a product or an idea for something we should stock. Visit our <a href="/support">Support</a> page or browse the <a href="/faq">FAQs</a>. {{contact_sentence}}</p>
+`;
+
+export const LEGAL_DEFAULTS: Record<'about' | 'terms' | 'privacy' | 'refunds', { title: string; body: string; updated: string }> = {
+  about: { title: 'About us', body: about.trim(), updated: '2026-10-09' },
   terms: { title: 'Terms and Conditions', body: terms.trim(), updated: '2026-10-09' },
   privacy: { title: 'Privacy Policy', body: privacy.trim(), updated: '2026-10-09' },
   refunds: { title: 'Refund & Return Policy', body: refunds.trim(), updated: '2026-10-09' },

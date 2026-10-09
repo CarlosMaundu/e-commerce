@@ -8,6 +8,7 @@ import {
   FiDollarSign,
   FiFileText,
   FiGift,
+  FiLifeBuoy,
   FiRotateCcw,
   FiShoppingBag,
 } from 'react-icons/fi';
@@ -24,6 +25,7 @@ export const NOTIFICATION_KINDS = {
   },
   invoice: { icon: <FiFileText />, tone: 'error', name: 'Overdue invoice' },
   stock: { icon: <FiBox />, tone: 'warning', name: 'Stock' },
+  support: { icon: <FiLifeBuoy />, tone: 'info', name: 'Support request' },
 };
 
 export const kindOf = (kind) =>

@@ -1,5 +1,6 @@
 // src/seed.ts — idempotent: roles/permissions every start, first super admin
 // from ADMIN_EMAIL/ADMIN_PASSWORD, sample catalog only into an empty shop.
+import { seedFaq } from './routes/faq';
 import { config } from './config';
 import { demoAmount, demoMoney } from './lib/demoMoney';
 import { query, transaction } from './db';
@@ -53,6 +54,8 @@ export const PERMISSION_CATALOG: { code: string; description: string; implied?: 
   { code: 'admin.refunds.approve', description: 'Approve refunds above the approval limit', implied: ['admin.finance.manage'] },
   { code: 'admin.refunds.manage', description: 'Change refund rules', implied: ['admin.finance.manage'] },
   { code: 'admin.ledger.view', description: 'See the ledger and account balances', implied: ['admin.finance.manage'] },
+  { code: 'support.tickets.view', description: 'Read customer support requests', implied: ['admin.users.reset_password'] },
+  { code: 'support.tickets.reply', description: 'Reply to support requests and change their status', implied: ['admin.users.reset_password'] },
   { code: 'admin.delivery.manage', description: 'Change delivery options, prices and the pick-up point', implied: ['admin.finance.manage'] },
 ];
 
@@ -70,7 +73,7 @@ export const ROLES: { code: string; name: string; description: string; system: b
   { code: 'order_manager', name: 'Order manager', description: 'Orders and returns', system: false, permissions: startsWith('orders.', 'dashboard.') },
   {
     code: 'support', name: 'Support', description: 'Helps customers', system: false,
-    permissions: ['admin.users.view', 'admin.roles.view', 'admin.users.reset_password', 'admin.users.unlock', 'orders.orders.view', 'orders.returns.view', 'dashboard.overview.view'],
+    permissions: ['admin.users.view', 'admin.roles.view', 'admin.users.reset_password', 'admin.users.unlock', 'orders.orders.view', 'orders.returns.view', 'dashboard.overview.view', 'support.tickets.view', 'support.tickets.reply'],
   },
   { code: 'customer', name: 'Customer', description: 'Shops in the store', system: true, permissions: [] },
 ];
@@ -122,6 +125,18 @@ const seedRoles = () =>
         [p.code, p.implied]
       );
     }
+    // …and to built-in roles whose defaults include them, even if edited since.
+    for (const role of ROLES.filter((r) => !r.system)) {
+      const fresh = role.permissions.filter((p) => added.includes(p));
+      if (!fresh.length) continue;
+      await client.query(
+        `INSERT INTO role_permissions (role_id, permission_id)
+         SELECT r.id, p.id FROM roles r, permissions p
+         WHERE r.code = $1 AND p.code = ANY($2::text[])
+         ON CONFLICT DO NOTHING`,
+        [role.code, fresh]
+      );
+    }
   });
 
 const seedSuperAdmin = async () => {
@@ -171,4 +186,5 @@ export const runSeed = async () => {
   await seedSuperAdmin();
   await seedSampleCoupons(); // first: promotions refer to coupons
   await seedSampleCatalog();
+  await seedFaq();
 };

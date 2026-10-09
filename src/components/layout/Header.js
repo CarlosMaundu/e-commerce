@@ -644,7 +644,7 @@ const Header = () => {
               <Box sx={{ flex: 1 }} />
               <Typography
                 component={RouterLink}
-                to="/information/support"
+                to="/support"
                 sx={{
                   color: 'text.secondary',
                   textDecoration: 'none',
@@ -724,7 +724,7 @@ const Header = () => {
           <Divider />
           <Typography
             component={RouterLink}
-            to="/information/support"
+            to="/support"
             onClick={() => setDrawerOpen(false)}
             sx={{ color: 'text.secondary', textDecoration: 'none' }}
           >

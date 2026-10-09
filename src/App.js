@@ -38,6 +38,18 @@ import PolicyPage from './pages/PolicyPage';
 import CustomerRefundsPage from './pages/account/RefundsPage';
 import AdminNotificationsPage from './pages/admin/NotificationsPage';
 import { LegalPageEditor, LegalPagesPage } from './pages/admin/LegalPages';
+import {
+  SupportInboxPage,
+  SupportTicketPage,
+} from './pages/admin/SupportPages';
+import FaqAdminPage from './pages/admin/FaqAdminPage';
+import SupportPage from './pages/SupportPage';
+import FaqPage from './pages/FaqPage';
+import AboutPage from './pages/AboutPage';
+import {
+  SupportRequestPage,
+  SupportRequestsPage,
+} from './pages/account/SupportPages';
 import SlaReportPage from './pages/admin/reports/SlaReportPage';
 import SlaOrderPage from './pages/admin/reports/SlaOrderPage';
 import InformationPage from './pages/InformationPage';
@@ -181,6 +193,21 @@ const App = () => (
                     <Route path="/reset-password" element={<ResetPassword />} />
                     <Route path="/verify-email" element={<VerifyEmailPage />} />
                     <Route path="/policies/:slug" element={<PolicyPage />} />
+                    <Route path="/support" element={<SupportPage />} />
+                    <Route path="/faq" element={<FaqPage />} />
+                    <Route path="/about" element={<AboutPage />} />
+                    <Route
+                      path="/information/support"
+                      element={<Navigate to="/support" replace />}
+                    />
+                    <Route
+                      path="/information/faq"
+                      element={<Navigate to="/faq" replace />}
+                    />
+                    <Route
+                      path="/information/about"
+                      element={<Navigate to="/about" replace />}
+                    />
                     <Route
                       path="/information/terms"
                       element={<Navigate to="/policies/terms" replace />}
@@ -223,6 +250,11 @@ const App = () => (
                       <Route path="invoices/:id" element={<InvoicePage />} />
                       <Route path="returns" element={<ReturnsPage />} />
                       <Route path="refunds" element={<CustomerRefundsPage />} />
+                      <Route path="support" element={<SupportRequestsPage />} />
+                      <Route
+                        path="support/:number"
+                        element={<SupportRequestPage />}
+                      />
                       <Route
                         path="wishlist"
                         element={<AccountWishlistPage />}
@@ -408,6 +440,30 @@ const App = () => (
                     <Route
                       path="notifications"
                       element={<AdminNotificationsPage />}
+                    />
+                    <Route
+                      path="support"
+                      element={
+                        <AdminRoute permissions={['support.tickets.view']}>
+                          <SupportInboxPage />
+                        </AdminRoute>
+                      }
+                    />
+                    <Route
+                      path="support/:id"
+                      element={
+                        <AdminRoute permissions={['support.tickets.view']}>
+                          <SupportTicketPage />
+                        </AdminRoute>
+                      }
+                    />
+                    <Route
+                      path="faq"
+                      element={
+                        <AdminRoute permissions={['admin.settings.manage']}>
+                          <FaqAdminPage />
+                        </AdminRoute>
+                      }
                     />
                     <Route
                       path="legal"

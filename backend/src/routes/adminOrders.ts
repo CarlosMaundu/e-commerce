@@ -331,6 +331,10 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
     const orders = hasPermission(user, 'orders.orders.view');
     const returns = hasPermission(user, 'orders.returns.view');
     const stock = hasPermission(user, 'catalog.products.view');
+    const support = hasPermission(user, 'support.tickets.view');
+    const supportOpen = support
+      ? (await query(`SELECT count(*)::int AS n FROM support_tickets WHERE status = 'open'`)).rows[0].n
+      : null;
     ok(res, {
       ...(await staffNotifications(req.auth!.userId, user, req.query.all ? 500 : 10)),
       to_fulfil: orders ? c.to_fulfil : null,
@@ -338,6 +342,7 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
       open_returns: returns ? c.open_returns : null,
       low_stock: stock ? c.low_stock : null,
       out_of_stock: stock ? c.out_of_stock : null,
+      support_open: supportOpen,
     });
   }));
 

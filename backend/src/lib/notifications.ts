@@ -8,7 +8,7 @@ import { hasPermission } from './users';
 
 export interface StaffNotification {
   key: string;
-  kind: 'order' | 'delayed' | 'gift' | 'return' | 'refund' | 'invoice' | 'stock';
+  kind: 'order' | 'delayed' | 'gift' | 'return' | 'refund' | 'invoice' | 'stock' | 'support';
   title: string;
   body: string;
   link: string;
@@ -102,6 +102,20 @@ export const staffNotifications = async (userId: number, permissions: string[], 
     for (const i of overdue) {
       items.push({ key: `invoice:${i.id}`, kind: 'invoice', title: `Invoice ${i.number} is overdue`,
         body: `${money(i.due, i.currency)} still to pay.`, link: `/admin/invoices/${i.id}`, at: i.due_at });
+    }
+  }
+
+  if (can('support.tickets.view')) {
+    const tickets = (
+      await query(
+        `SELECT id, number, subject, name, last_message_at FROM support_tickets
+         WHERE status = 'open' AND last_from = 'customer' ORDER BY last_message_at DESC LIMIT 20`
+      )
+    ).rows;
+    for (const t of tickets) {
+      items.push({ key: `support:${t.id}:${new Date(t.last_message_at).getTime()}`, kind: 'support',
+        title: `Support request ${t.number}`, body: `${t.name}: ${t.subject}`, link: `/admin/support/${t.id}`,
+        at: t.last_message_at });
     }
   }
 
