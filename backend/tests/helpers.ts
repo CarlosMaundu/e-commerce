@@ -6,6 +6,7 @@ import { hashPassword } from '../src/lib/security';
 import { GoogleIdentity } from '../src/lib/google';
 import { loadFinance } from '../src/lib/finance';
 import { loadDelivery } from '../src/lib/delivery';
+import { loadSla } from '../src/lib/sla';
 import { runSeed } from '../src/seed';
 
 // Captured emails (the mailer is mocked in each test file).
@@ -48,10 +49,11 @@ export const resetDatabase = async () => {
   await query(
     `TRUNCATE audit_logs, auth_tokens, sessions, users, products, categories, coupons, orders,
        order_items, order_history, returns, cart_items, checkout_state, wishlist_items, addresses,
-       newsletter_subscribers, brands, promotions, role_permissions, roles, permissions RESTART IDENTITY CASCADE`
+       newsletter_subscribers, brands, promotions, role_permissions, roles, permissions, sla_settings RESTART IDENTITY CASCADE`
   );
   await loadFinance(); // before seeding, which prices in the shop's currency
   await loadDelivery();
+  await loadSla();
   await runSeed();
   sentEmails.length = 0;
   fakePayments.intents.clear();

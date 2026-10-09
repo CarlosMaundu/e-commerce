@@ -37,6 +37,8 @@ import VerifyEmailPage from './pages/VerifyEmailPage';
 import PolicyPage from './pages/PolicyPage';
 import CustomerRefundsPage from './pages/account/RefundsPage';
 import AdminNotificationsPage from './pages/admin/NotificationsPage';
+import SlaReportPage from './pages/admin/reports/SlaReportPage';
+import SlaOrderPage from './pages/admin/reports/SlaOrderPage';
 import InformationPage from './pages/InformationPage';
 import NotFoundPage from './pages/NotFoundPage';
 
@@ -405,6 +407,22 @@ const App = () => (
                     <Route
                       path="notifications"
                       element={<AdminNotificationsPage />}
+                    />
+                    <Route
+                      path="reports/sla"
+                      element={
+                        <AdminRoute permissions={['orders.orders.view']}>
+                          <SlaReportPage />
+                        </AdminRoute>
+                      }
+                    />
+                    <Route
+                      path="reports/sla/:id"
+                      element={
+                        <AdminRoute permissions={['orders.orders.view']}>
+                          <SlaOrderPage />
+                        </AdminRoute>
+                      }
                     />
                     <Route
                       path="audit"

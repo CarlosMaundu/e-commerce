@@ -64,6 +64,7 @@ import {
   FiUser,
   FiUsers,
   FiX,
+  FiActivity,
 } from 'react-icons/fi';
 import { AuthContext } from '../context/AuthContext';
 import {
@@ -106,6 +107,17 @@ export const adminNav = (user) =>
           to: '/admin/returns',
           badge: 'open_returns',
           show: hasPermission(user, PERMISSIONS.returnsView),
+        },
+      ],
+    },
+    {
+      heading: 'Reports',
+      items: [
+        {
+          label: 'SLA performance',
+          icon: <FiActivity />,
+          to: '/admin/reports/sla',
+          show: hasPermission(user, PERMISSIONS.ordersView),
         },
       ],
     },

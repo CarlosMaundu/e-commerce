@@ -433,6 +433,16 @@ export const orderFromApi = (o) =>
     id: o.order_id,
     number: o.order_number || String(o.order_id),
     invoiceNumber: o.invoice_number || null,
+    // Fulfilment SLA: days taken or elapsed against the target.
+    sla: o.sla
+      ? {
+          state: o.sla.state,
+          done: o.sla.done,
+          days: o.sla.days,
+          targetDays: o.sla.target_days,
+          stages: o.sla.stages || [],
+        }
+      : null,
     status: o.status,
     statusName: o.status_name,
     email: o.email,

@@ -463,6 +463,25 @@ test('staff create an order for a customer, invoice it, take an M-Pesa payment a
   await expect(
     page.getByRole('table', { name: 'Notifications' })
   ).toContainText('You’re all caught up.');
+
+  // SLA: the new order is open, so its time is "elapsed" and on track.
+  await page.goto('/admin/orders');
+  await expect(page.getByRole('columnheader', { name: 'SLA' })).toBeVisible();
+  await expect(page.getByTestId('sla-cell').first()).toContainText('elapsed');
+  await page.getByRole('combobox', { name: 'Date range' }).click();
+  await page.getByRole('option', { name: 'Custom range…' }).click();
+  await expect(page.getByLabel('From')).toHaveValue(/\d{4}-\d{2}-\d{2}/);
+  await expect(page.locator('[data-testid^="admin-order-"]')).toHaveCount(1);
+
+  await page.getByRole('link', { name: 'SLA performance' }).click();
+  await expect(page.getByTestId('sla-stat-pending')).toContainText('1');
+  await page.locator('[data-testid^="sla-row-"]').first().click();
+  await expect(page.getByTestId('sla-stage-row-confirm')).toContainText(
+    'In progress'
+  );
+  await expect(page.getByTestId('sla-stage-row-confirm')).toContainText(
+    'On track'
+  );
 });
 
 test('product search updates as you type, suggests matches and falls back to close matches', async ({
@@ -516,4 +535,23 @@ test('idle staff are warned, can stay signed in, and are signed out at the timeo
   await expect(page.getByTestId('app-notification')).toContainText(
     'signed out after 60 minutes without activity'
   );
+});
+
+test('SLA targets are set in Store settings and shown on the report', async ({
+  page,
+}) => {
+  await signInAdmin(page);
+  await page.goto('/admin/settings');
+  await page.getByRole('tab', { name: 'Fulfilment SLA' }).click();
+  await page.getByRole('button', { name: 'Edit SLA' }).click();
+  const confirm = page.getByTestId('sla-stage-confirm');
+  await confirm.getByLabel('Target').fill('12');
+  await page.getByRole('button', { name: 'Save SLA' }).click();
+  await expect(page.getByTestId('app-notification')).toHaveText(
+    'SLA settings saved.'
+  );
+  await expect(page.getByRole('button', { name: 'Edit SLA' })).toBeVisible();
+
+  await page.goto('/admin/reports/sla');
+  await expect(page.getByText('target 12 h')).toBeVisible();
 });
