@@ -233,6 +233,12 @@ test('an order moves through fulfilment and a delivered item can be returned', a
   await expect(
     page.getByText('Refunded', { exact: true }).first()
   ).toBeVisible();
+
+  // The refund is listed under Refunds in the customer's account.
+  await page.getByRole('link', { name: 'Refunds', exact: true }).click();
+  await expect(page).toHaveURL(/\/account\/refunds$/);
+  await expect(page.getByText('Return of Canvas tote bag')).toBeVisible();
+  await expect(page.getByText('Refunded to you')).toBeVisible();
 });
 
 test('an item sent as a gift is charged for its box and prepared before dispatch', async ({

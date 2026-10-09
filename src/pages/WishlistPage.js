@@ -143,7 +143,7 @@ const WishlistItem = ({
           useFlexGap
         >
           <Typography
-            sx={{ fontWeight: 800, fontSize: { xs: '1.2rem', md: '1.5rem' } }}
+            sx={{ fontWeight: 700, fontSize: { xs: '0.95rem', md: '1rem' } }}
           >
             {p.hasOptions && p.minPrice !== p.maxPrice ? 'From ' : ''}
             {formatMoney(p.hasOptions ? p.minPrice : price)}

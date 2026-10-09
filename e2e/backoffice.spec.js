@@ -254,6 +254,14 @@ test('staff open a customer’s account read-only', async ({ page }) => {
   await expect(page.getByRole('table', { name: 'Orders' })).toContainText(
     'No orders yet.'
   );
+  // Refunds replaced "In cart": the value, linking to their refunds.
+  await expect(page.getByTestId('customer-stat-refunds')).toHaveAttribute(
+    'href',
+    /\/admin\/refunds\?tab=approved&customer=\d+/
+  );
+  await page.getByTestId('customer-stat-refunds').click();
+  await expect(page.getByText('Customer: Cam Customer')).toBeVisible();
+  await page.goBack();
   // Viewing isn't acting: no banner, still the admin.
   await expect(page.getByTestId('impersonation-banner')).toHaveCount(0);
   await page.getByRole('link', { name: 'Users' }).first().click();

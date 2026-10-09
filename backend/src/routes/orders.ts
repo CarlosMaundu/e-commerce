@@ -59,7 +59,7 @@ export const orderRoutes = () => {
   router.get('/order_statuses', (_req, res) => ok(res, ORDER_STATUSES));
   router.get('/return_reasons', (_req, res) => ok(res, RETURN_REASONS));
 
-  router.use(['/customerorders', '/returns'], authenticate, customersOnly);
+  router.use(['/customerorders', '/returns', '/refunds'], authenticate, customersOnly);
 
   router.get('/customerorders', handler(async (req, res) => {
     const q = parse(
@@ -125,6 +125,43 @@ export const orderRoutes = () => {
     }
     if (!added) fail(409, 'None of the items in this order are available any more.');
     ok(res, { added, skipped: loaded!.items.length - added, cart: await buildCart(req.auth!.userId) });
+  }));
+
+  // The customer's refunds: what was paid back (or is being approved), how,
+  // and for which order or return.
+  router.get('/refunds', handler(async (req, res) => {
+    const { rows } = await query(
+      `SELECT r.id, r.order_id, r.return_id, r.status, r.amount, r.items_amount, r.delivery_amount, r.restocking_fee,
+         r.method, r.reference, r.created_at, r.processed_at, o.number AS order_number, o.currency,
+         i.number AS invoice_number, oi.name AS product, oi.image
+       FROM refunds r JOIN orders o ON o.id = r.order_id
+       LEFT JOIN invoices i ON i.id = r.invoice_id
+       LEFT JOIN returns rt ON rt.id = r.return_id
+       LEFT JOIN order_items oi ON oi.id = rt.order_item_id
+       WHERE o.user_id = $1 AND r.status IN ('processed', 'pending_approval', 'failed')
+       ORDER BY r.created_at DESC`,
+      [req.auth!.userId]
+    );
+    ok(res, rows.map((r) => ({
+      refund_id: r.id,
+      order_id: r.order_id,
+      order_number: r.order_number,
+      invoice_number: r.invoice_number,
+      return_id: r.return_id,
+      product: r.product || null,
+      image: r.image || null,
+      // Customers see "on its way" rather than internal approval steps.
+      status: r.status === 'processed' ? 'refunded' : r.status === 'failed' ? 'failed' : 'processing',
+      amount: Number(r.amount),
+      items_amount: Number(r.items_amount),
+      delivery_amount: Number(r.delivery_amount),
+      restocking_fee: Number(r.restocking_fee),
+      method: r.method,
+      reference: r.status === 'processed' ? r.reference : '',
+      currency: r.currency,
+      date_added: r.created_at,
+      date_processed: r.processed_at,
+    })));
   }));
 
   router.get('/returns', handler(async (req, res) => {

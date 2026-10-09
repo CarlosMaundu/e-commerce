@@ -21,6 +21,7 @@ import {
   FiLogOut,
   FiMapPin,
   FiPackage,
+  FiCornerUpLeft,
   FiRotateCcw,
   FiTruck,
   FiUser,
@@ -40,6 +41,7 @@ export const ACCOUNT_NAV = [
       { label: 'Track an order', to: '/account/track', icon: <FiTruck /> },
       { label: 'Invoices', to: '/account/invoices', icon: <FiFileText /> },
       { label: 'Returns', to: '/account/returns', icon: <FiRotateCcw /> },
+      { label: 'Refunds', to: '/account/refunds', icon: <FiCornerUpLeft /> },
       {
         label: 'Wishlist',
         to: '/account/wishlist',
