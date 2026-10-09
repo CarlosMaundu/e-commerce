@@ -587,6 +587,10 @@ test('legal pages: full built-in wording on the shop, edited with formatting in 
   await page.goto('/admin/legal');
   await page.getByTestId('legal-row-privacy').click();
   await page.getByRole('button', { name: 'Edit page' }).click();
+  // The formatting tools stay in view while scrolling a long page.
+  await page.mouse.wheel(0, 2500);
+  await expect(page.getByTestId('editor-toolbar')).toBeInViewport();
+  await page.mouse.wheel(0, -5000);
   await page.getByLabel('Page title').fill('Privacy notice');
   const editor = page.locator('.tiptap');
   await editor.click();
