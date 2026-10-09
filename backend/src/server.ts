@@ -3,6 +3,7 @@ import { createApp } from './app';
 import { config } from './config';
 import { runMigrations } from './migrate';
 import { runSeed } from './seed';
+import { restoreDemoImages } from './demoCatalog';
 import { loadFinance } from './lib/finance';
 import { loadDelivery } from './lib/delivery';
 import { loadSla } from './lib/sla';
@@ -15,6 +16,8 @@ const main = async () => {
   await loadDelivery();
   await loadSla();
   await runSeed();
+  const images = restoreDemoImages();
+  if (images) console.log(`Restored ${images} demo images`);
   // Invoices and ledger entries for orders placed before accounting existed.
   const backfilled = await backfillAccounting();
   if (backfilled) console.log(`Posted accounts for ${backfilled} earlier orders`);

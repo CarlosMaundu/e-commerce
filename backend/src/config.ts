@@ -22,6 +22,8 @@ export const config = {
     .map((o) => o.trim())
     .filter(Boolean),
   frontendUrl: env('FRONTEND_URL', 'http://localhost:3000'),
+  // Proxies between the visitor and the API (1: nginx in Docker).
+  trustProxy: Number(env('TRUST_PROXY', '1')),
   publicUploadsPath: '/uploads',
   uploadsDir: env('UPLOADS_DIR', 'uploads'),
   googleClientId: process.env.GOOGLE_CLIENT_ID || '',
