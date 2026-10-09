@@ -111,6 +111,8 @@ const RichTextEditor = ({
   document = false,
   tokens = [],
   minHeight,
+  // Back-office top bar height: where the sticky toolbar stops.
+  stickyTop = 84,
 }) => {
   const [linkAnchor, setLinkAnchor] = useState(null);
   const [tokenAnchor, setTokenAnchor] = useState(null);
@@ -203,7 +205,23 @@ const RichTextEditor = ({
           alignItems="center"
           role="toolbar"
           aria-label="Text formatting"
-          sx={{ px: 1, py: 0.75, borderBottom: 1, borderColor: 'divider' }}
+          data-testid="editor-toolbar"
+          sx={{
+            px: 1,
+            py: 0.75,
+            borderBottom: 1,
+            borderColor: 'divider',
+            // Long documents: the tools stay in view under the top bar.
+            ...(document && {
+              position: 'sticky',
+              top: stickyTop,
+              zIndex: 2,
+              bgcolor: 'background.paper',
+              borderTopLeftRadius: '8px',
+              borderTopRightRadius: '8px',
+              boxShadow: '0 6px 12px -10px rgba(27,33,36,0.25)',
+            }),
+          }}
         >
           {document && (
             <>
@@ -471,6 +489,7 @@ RichTextEditor.propTypes = {
     })
   ),
   minHeight: PropTypes.number,
+  stickyTop: PropTypes.number,
 };
 
 export default RichTextEditor;
