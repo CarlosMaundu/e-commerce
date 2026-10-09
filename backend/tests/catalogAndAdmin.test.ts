@@ -242,6 +242,37 @@ describe('admin catalog permissions', () => {
     expect(users.status).toBe(403);
   });
 
+  test('search: variant SKUs match exactly; otherwise related items, ranked', async () => {
+    await createUser('cat@example.com', 'catalog_manager');
+    const { token } = await signIn('cat@example.com');
+    const find = async (search: string) =>
+      (await request(app).get('/api/admin/products').query({ search }).set(bearer(token))).body.data;
+
+    const exact = await find('ST-CNV-LOW-WHI-41');
+    expect(exact.match).toBe('exact');
+    expect(exact.products.map((p: any) => p.name)).toEqual(['Canvas low-top sneakers']);
+
+    // No white size 99 exists: the same SKU family comes first.
+    const related = await find('ST-CNV-LOW-WHI-99');
+    expect(related.match).toBe('related');
+    expect(related.products[0].name).toBe('Canvas low-top sneakers');
+
+    const typo = await find('snekers');
+    expect(typo.match).toBe('related');
+    expect(typo.products.map((p: any) => p.name)).toContain('Canvas low-top sneakers');
+
+    // Gibberish still finds nothing; an empty search lists everything.
+    expect((await find('qqqzzzxxx')).total).toBe(0);
+    const all = await find('');
+    expect(all.match).toBe('exact');
+    expect(all.total).toBe(all.counts.all);
+
+    // The shop's search falls back the same way.
+    const shop = await request(app).get('/api/rest/products').query({ search: 'ST-CNV-LOW-WHI-99' });
+    expect(shop.headers['x-search-match']).toBe('related');
+    expect(shop.body.data[0].name).toBe('Canvas low-top sneakers');
+  });
+
   test('validates products: sale price, images and every field problem at once', async () => {
     await createUser('cat@example.com', 'catalog_manager');
     const { token } = await signIn('cat@example.com');

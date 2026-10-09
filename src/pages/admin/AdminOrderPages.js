@@ -210,7 +210,7 @@ export const AdminOrdersPage = () => {
           <SearchField
             value={search}
             onChange={setSearch}
-            onSubmit={() => setFilter('search', search.trim())}
+            onSubmit={(q) => setFilter('search', q)}
             placeholder="Search order number, customer or email"
             label="Search orders"
           />

@@ -1,5 +1,6 @@
 // src/routes/catalog.ts — storefront catalog, brands, reviews, promotions and
 // newsletter (OpenCart routes plus documented extensions).
+import { relatedMatch } from '../lib/search';
 import { getRefundSettings } from '../lib/refunds';
 import { Router } from 'express';
 import { z } from 'zod';
@@ -96,18 +97,38 @@ export const PRODUCT_FROM = `FROM products p
 
 /** Runs a filtered, sorted, paged product list → { total, products }. */
 export const listProducts = async (q: z.infer<typeof filterQuery>, extra: Partial<ProductFilters> = {}) => {
-  const params: unknown[] = [];
-  const whereSql = buildWhere({ ...(q as ProductFilters), ...extra }, params);
-  const total = Number((await query(`SELECT count(*) ${PRODUCT_FROM} ${whereSql}`, params)).rows[0].count);
+  const filters = { ...(q as ProductFilters), ...extra };
+  let params: unknown[] = [];
+  let whereSql = buildWhere(filters, params);
+  let total = Number((await query(`SELECT count(*) ${PRODUCT_FROM} ${whereSql}`, params)).rows[0].count);
+  let order = SORTS[q.sort || 'newest'];
+  let match: 'exact' | 'related' = 'exact';
+  // Nothing found: show related items instead (same other filters).
+  if (!total && filters.search) {
+    const p2: unknown[] = [];
+    const base = buildWhere({ ...filters, search: undefined }, p2);
+    const related = await relatedMatch(filters.search, p2);
+    if (related) {
+      const w = `${base ? `${base} AND` : 'WHERE'} ${related.where}`;
+      const n = Number((await query(`SELECT count(*) ${PRODUCT_FROM} ${w}`, p2)).rows[0].count);
+      if (n) {
+        params = p2;
+        whereSql = w;
+        total = n;
+        order = `${related.score} DESC, ${order}`;
+        match = 'related';
+      }
+    }
+  }
   let paging = '';
   if (q.limit) {
     params.push(q.limit, ((q.page || 1) - 1) * q.limit);
     paging = `LIMIT $${params.length - 1} OFFSET $${params.length}`;
   }
   const rows = (
-    await query<ProductRow>(`${PRODUCT_SELECT} ${whereSql} ORDER BY ${SORTS[q.sort || 'newest']} ${paging}`, params)
+    await query<ProductRow>(`${PRODUCT_SELECT} ${whereSql} ORDER BY ${order} ${paging}`, params)
   ).rows;
-  return { total, products: await hydrate(rows) };
+  return { total, match, products: await hydrate(rows) };
 };
 
 const reviewBody = z.object({
@@ -143,8 +164,9 @@ export const catalogRoutes = () => {
     '/products',
     handler(async (req, res) => {
       const q = parse(filterQuery, req.query);
-      const { total, products } = await listProducts(q, { status: 'published' });
+      const { total, match, products } = await listProducts(q, { status: 'published' });
       res.set('X-Total-Count', String(total));
+      res.set('X-Search-Match', match);
       ok(res, products);
     })
   );

@@ -38,7 +38,7 @@ export const createApp = ({
     cors({
       origin: (origin, callback) => callback(null, !origin || config.corsOrigins.includes(origin)),
       credentials: true,
-      exposedHeaders: ['X-Total-Count'],
+      exposedHeaders: ['X-Total-Count', 'X-Search-Match'],
     })
   );
   app.use(express.json({ limit: '100kb' }));

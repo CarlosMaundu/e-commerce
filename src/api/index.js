@@ -25,6 +25,7 @@ import {
   userFromApi,
   userToApi,
 } from './mappers';
+import { formatMoney } from '../utils/format';
 
 export { onSessionExpired } from './session';
 
@@ -113,6 +114,7 @@ export const catalog = {
     return {
       products: (data || []).map(productFromApi),
       total: Number(headers['x-total-count'] || 0),
+      match: headers['x-search-match'] || 'exact',
     };
   },
   async getProducts(filters = {}) {
@@ -180,7 +182,29 @@ export const adminCatalog = {
       products: data.products.map(productFromApi),
       total: data.total,
       counts: data.counts,
+      // 'related' when nothing matched exactly and close matches are shown.
+      match: data.match || 'exact',
     };
+  },
+  /** Predictive suggestions while typing: the top matches as list items. */
+  async suggestProducts(q) {
+    const { products, match } = await this.listProducts({
+      search: q,
+      limit: 6,
+    });
+    return products.map((p) => ({
+      key: p.id,
+      label: p.title,
+      secondary: [
+        p.sku,
+        formatMoney(p.price),
+        match === 'related' && 'Close match',
+      ]
+        .filter(Boolean)
+        .join(' · '),
+      image: p.images?.[0] || '',
+      to: `/admin/products/${p.id}`,
+    }));
   },
   async getProduct(id) {
     const { data } = await http().get(`/admin/products/${id}`);

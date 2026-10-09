@@ -1,4 +1,5 @@
 // src/routes/adminCatalog.ts — /api/admin/products, /categories, /files
+import { relatedMatch } from '../lib/search';
 import { Router } from 'express';
 import { z } from 'zod';
 import { config } from '../config';
@@ -264,18 +265,41 @@ export const adminCatalogRoutes = () => {
         low: 'p.track_inventory AND p.quantity > 0 AND p.quantity <= p.low_stock_threshold',
         out: 'p.track_inventory AND p.quantity <= 0',
       };
-      const params: unknown[] = [];
-      let whereSql = buildWhere({ ...(q as ProductFilters), status: undefined }, params);
-      if (q.status?.length) {
-        params.push(q.status);
-        whereSql += `${whereSql ? ' AND' : 'WHERE'} p.status = ANY($${params.length}::text[])`;
+      const filtered = (search: string | undefined, params: unknown[]) => {
+        let w = buildWhere({ ...(q as ProductFilters), search, status: undefined }, params);
+        if (q.status?.length) {
+          params.push(q.status);
+          w += `${w ? ' AND' : 'WHERE'} p.status = ANY($${params.length}::text[])`;
+        }
+        if (q.stock) w += `${w ? ' AND' : 'WHERE'} (${stockFilter[q.stock]})`;
+        return w;
+      };
+      let params: unknown[] = [];
+      let whereSql = filtered(q.search, params);
+      let total = Number((await query(`SELECT count(*) ${PRODUCT_FROM} ${whereSql}`, params)).rows[0].count);
+      let order = SORTS[q.sort || 'newest'];
+      let match: 'exact' | 'related' = 'exact';
+      // Nothing found (e.g. a SKU that doesn't exist): related items instead.
+      if (!total && q.search) {
+        const p2: unknown[] = [];
+        const base = filtered(undefined, p2);
+        const related = await relatedMatch(q.search, p2);
+        if (related) {
+          const w = `${base ? `${base} AND` : 'WHERE'} ${related.where}`;
+          const n = Number((await query(`SELECT count(*) ${PRODUCT_FROM} ${w}`, p2)).rows[0].count);
+          if (n) {
+            params = p2;
+            whereSql = w;
+            total = n;
+            order = `${related.score} DESC, ${order}`;
+            match = 'related';
+          }
+        }
       }
-      if (q.stock) whereSql += `${whereSql ? ' AND' : 'WHERE'} (${stockFilter[q.stock]})`;
-      const total = Number((await query(`SELECT count(*) ${PRODUCT_FROM} ${whereSql}`, params)).rows[0].count);
       const limit = q.limit || 20;
       const rows = (
         await query<ProductRow>(
-          `${PRODUCT_SELECT} ${whereSql} ORDER BY ${SORTS[q.sort || 'newest']}
+          `${PRODUCT_SELECT} ${whereSql} ORDER BY ${order}
            LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
           [...params, limit, ((q.page || 1) - 1) * limit]
         )
@@ -292,7 +316,7 @@ export const adminCatalogRoutes = () => {
         )
       ).rows[0];
       res.set('X-Total-Count', String(total));
-      ok(res, { total, counts, products: await hydrate(rows) });
+      ok(res, { total, match, counts, products: await hydrate(rows) });
     })
   );
 
