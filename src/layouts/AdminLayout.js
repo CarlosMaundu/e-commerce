@@ -43,6 +43,7 @@ import {
   FiBox,
   FiChevronDown,
   FiClipboard,
+  FiLifeBuoy,
   FiCornerUpLeft,
   FiCreditCard,
   FiFileText,
@@ -108,6 +109,14 @@ export const adminNav = (user) =>
           to: '/admin/returns',
           badge: 'open_returns',
           show: hasPermission(user, PERMISSIONS.returnsView),
+        },
+        {
+          label: 'Support',
+          title: 'Support requests',
+          icon: <FiLifeBuoy />,
+          to: '/admin/support',
+          badge: 'support_open',
+          show: hasPermission(user, PERMISSIONS.supportView),
         },
       ],
     },
@@ -202,9 +211,15 @@ export const adminNav = (user) =>
           show: hasPermission(user, PERMISSIONS.settingsManage),
         },
         {
-          label: 'Legal pages',
+          label: 'Site pages',
           icon: <FiClipboard />,
           to: '/admin/legal',
+          show: hasPermission(user, PERMISSIONS.settingsManage),
+        },
+        {
+          label: 'FAQ',
+          icon: <FiHelpCircle />,
+          to: '/admin/faq',
           show: hasPermission(user, PERMISSIONS.settingsManage),
         },
         {
@@ -483,7 +498,7 @@ const HelpCard = ({ hidden }) => {
       </Typography>
       <Typography
         component={RouterLink}
-        to="/information/support"
+        to="/support"
         target="_blank"
         sx={{
           display: 'inline-block',

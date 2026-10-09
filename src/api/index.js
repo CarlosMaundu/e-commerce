@@ -988,6 +988,80 @@ export const adminFinance = {
   },
 };
 
+/** Customer support requests (raw API shapes). */
+export const support = {
+  /** { code: label } for "What is it about?". */
+  async categories() {
+    const { data } = await http().get('/rest/support/categories');
+    return data;
+  },
+  /** Anyone: { name, email, phone, category, subject, message, order_id? } → { number, signed_in }. */
+  async create(form) {
+    const { data } = await http().post('/rest/support', form);
+    return data;
+  },
+  async mine() {
+    const { data } = await http().get('/rest/support');
+    return data;
+  },
+  async get(number) {
+    const { data } = await http().get(`/rest/support/${number}`);
+    return data;
+  },
+  async reply(number, body) {
+    const { data } = await http().post(`/rest/support/${number}/messages`, {
+      body,
+    });
+    return data;
+  },
+};
+
+export const adminSupport = {
+  /** { status, category, search, customer, page, limit } → { tickets, total, counts } */
+  async list(params = {}) {
+    const { data } = await http().get('/admin/support', { params });
+    return data;
+  },
+  async get(id) {
+    const { data } = await http().get(`/admin/support/${id}`);
+    return data;
+  },
+  async reply(id, body, status) {
+    const { data } = await http().post(`/admin/support/${id}/messages`, {
+      body,
+      status,
+    });
+    return data;
+  },
+  async setStatus(id, status) {
+    const { data } = await http().put(`/admin/support/${id}`, { status });
+    return data;
+  },
+};
+
+/** Frequently asked questions (raw API shapes). */
+export const faq = {
+  async list() {
+    const { data } = await http().get('/rest/faq');
+    return data;
+  },
+  async adminList() {
+    const { data } = await http().get('/admin/faq');
+    return data;
+  },
+  async create(item) {
+    const { data } = await http().post('/admin/faq', item);
+    return data;
+  },
+  async update(id, changes) {
+    const { data } = await http().put(`/admin/faq/${id}`, changes);
+    return data;
+  },
+  async remove(id) {
+    await http().delete(`/admin/faq/${id}`);
+  },
+};
+
 /** Terms, Privacy and Refund & Return pages (raw API shapes). */
 export const legal = {
   /** Published page: { slug, title, body (HTML, settings filled in), updated_at }. */

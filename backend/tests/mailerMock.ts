@@ -7,6 +7,15 @@ export const mailerMock = () => ({
   sendVerificationEmail: jest.fn(async (to: string, _name: string, link: string) => {
     sentEmails.push({ to, link, kind: 'verify' });
   }),
+  sendSupportReceivedEmail: jest.fn(async (to: string, _name: string, number: string, _s: string, link: string) => {
+    sentEmails.push({ to, link, kind: `support:received:${number}` });
+  }),
+  sendSupportReplyEmail: jest.fn(async (to: string, _name: string, number: string, _s: string, _r: string, link: string) => {
+    sentEmails.push({ to, link, kind: `support:reply:${number}` });
+  }),
+  sendSupportAlertEmail: jest.fn(async (to: string, number: string, _s: string, _f: string, _m: string, link: string) => {
+    sentEmails.push({ to, link, kind: `support:alert:${number}` });
+  }),
   sendAccountSetupEmail: jest.fn(async (to: string, _name: string, link: string) => {
     sentEmails.push({ to, link, kind: 'setup' });
   }),

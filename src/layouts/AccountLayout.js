@@ -22,6 +22,7 @@ import {
   FiMapPin,
   FiPackage,
   FiCornerUpLeft,
+  FiLifeBuoy,
   FiRotateCcw,
   FiTruck,
   FiUser,
@@ -42,6 +43,7 @@ export const ACCOUNT_NAV = [
       { label: 'Invoices', to: '/account/invoices', icon: <FiFileText /> },
       { label: 'Returns', to: '/account/returns', icon: <FiRotateCcw /> },
       { label: 'Refunds', to: '/account/refunds', icon: <FiCornerUpLeft /> },
+      { label: 'Support', to: '/account/support', icon: <FiLifeBuoy /> },
       {
         label: 'Wishlist',
         to: '/account/wishlist',

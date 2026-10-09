@@ -427,4 +427,20 @@ describe('viewing accounts and fine-grained permissions', () => {
     )).rows.map((r) => r.code);
     expect(codes).toEqual(['orders.orders.refund', 'orders.orders.update']);
   });
+
+  test('built-in roles receive new permissions from their defaults, even after edits', async () => {
+    // An older Support role, edited down, from before support requests existed.
+    await query(
+      `DELETE FROM role_permissions WHERE role_id = (SELECT id FROM roles WHERE code = 'support')
+         AND permission_id IN (SELECT id FROM permissions WHERE code <> 'orders.orders.view')`
+    );
+    await query("DELETE FROM permissions WHERE code LIKE 'support.tickets.%'");
+    const { runSeed } = await import('../src/seed');
+    await runSeed();
+    const codes = (await query(
+      `SELECT p.code FROM role_permissions rp JOIN permissions p ON p.id = rp.permission_id
+       JOIN roles r ON r.id = rp.role_id WHERE r.code = 'support' ORDER BY 1`
+    )).rows.map((r) => r.code);
+    expect(codes).toEqual(['orders.orders.view', 'support.tickets.reply', 'support.tickets.view']);
+  });
 });

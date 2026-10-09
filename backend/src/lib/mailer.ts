@@ -54,3 +54,28 @@ export const sendOrderStatusEmail = (to: string, orderNumber: string, statusLabe
     `Order ${orderNumber} is now ${statusLabel.toLowerCase()}`,
     `Your order ${orderNumber} is now ${statusLabel.toLowerCase()}.${comment ? `\n\n${comment}` : ''}\n\nDetails: ${link}`
   );
+
+// ---------- support ----------
+
+const excerpt = (text: string, max = 1200) => (text.length > max ? `${text.slice(0, max)}…` : text);
+
+export const sendSupportReceivedEmail = (to: string, name: string, number: string, subject: string, link: string) =>
+  send(
+    to,
+    `We've received your request ${number}: ${subject}`,
+    `Hi ${name || 'there'},\n\nThanks for getting in touch. Your request ${number} ("${subject}") has reached our support team and we'll reply as soon as we can, usually within one business day.\n\n${link}\n\nPlease quote ${number} if you contact us about this again.`
+  );
+
+export const sendSupportReplyEmail = (to: string, name: string, number: string, subject: string, reply: string, link: string) =>
+  send(
+    to,
+    `Re: ${subject} [${number}]`,
+    `Hi ${name || 'there'},\n\n${excerpt(reply)}\n\n—\nReply or follow your request here: ${link}`
+  );
+
+export const sendSupportAlertEmail = (to: string, number: string, subject: string, from: string, message: string, link: string) =>
+  send(
+    to,
+    `New support request ${number}: ${subject}`,
+    `From: ${from}\n\n${excerpt(message)}\n\nOpen it in the back office: ${link}`
+  );

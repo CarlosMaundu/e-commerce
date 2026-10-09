@@ -1,4 +1,4 @@
-// src/pages/admin/LegalPages.js — Back office → Legal pages: Terms and
+// src/pages/admin/LegalPages.js — Back office → Site pages: About us, Terms and
 // Conditions, Privacy Policy and the Refund & Return Policy. The list shows
 // who changed each page and when; a page opens read-only, then Edit gives the
 // formatted-text editor (headings, paragraphs, bold, italics, lists, links,
@@ -46,6 +46,9 @@ import { useHideHelpWhile } from '../../layouts/AdminLayout';
 import { policyPath } from '../../content/policies';
 import { formatDateTime } from '../../utils/format';
 
+/** Where each page lives on the shop. */
+const shopPath = (slug) => (slug === 'about' ? '/about' : policyPath(slug));
+
 const fill = (html, tokens) =>
   (html || '').replace(/\{\{\s*([a-z_]+)\s*\}\}/g, (m, key) => {
     const t = tokens.find((x) => x.token === key);
@@ -78,14 +81,14 @@ export const LegalPagesPage = () => {
       <PageHeader
         crumbs={[
           { label: 'Home', to: '/admin' },
-          { label: 'Legal pages', to: '/admin/legal' },
+          { label: 'Site pages', to: '/admin/legal' },
         ]}
-        title="Legal pages"
-        subtitle="Terms and conditions, privacy policy and refund policy, as shown on the shop. Have important changes reviewed by an advocate."
+        title="Site pages"
+        subtitle="About us, terms and conditions, privacy policy and refund policy, as shown on the shop. Have legal changes reviewed by an advocate."
       />
       <TablePanel>
         <TableContainer>
-          <Table aria-label="Legal pages">
+          <Table aria-label="Site pages">
             <TableHead sx={{ bgcolor: 'background.neutral' }}>
               <TableRow>
                 <TableCell>Page</TableCell>
@@ -135,7 +138,7 @@ export const LegalPagesPage = () => {
                             label: 'View on shop',
                             icon: <FiEye />,
                             onClick: () =>
-                              window.open(policyPath(p.slug), '_blank'),
+                              window.open(shopPath(p.slug), '_blank'),
                           },
                         ]}
                       />
@@ -143,7 +146,7 @@ export const LegalPagesPage = () => {
                   </TableRow>
                 ))
               ) : (
-                <EmptyRow cols={5}>No legal pages.</EmptyRow>
+                <EmptyRow cols={5}>No pages.</EmptyRow>
               )}
             </TableBody>
           </Table>
@@ -237,7 +240,7 @@ export const LegalPageEditor = () => {
       <PageHeader
         crumbs={[
           { label: 'Home', to: '/admin' },
-          { label: 'Legal pages', to: '/admin/legal' },
+          { label: 'Site pages', to: '/admin/legal' },
           { label: page.title, to: `/admin/legal/${slug}` },
         ]}
         title={page.title}
@@ -250,7 +253,7 @@ export const LegalPageEditor = () => {
               variant="outlined"
               startIcon={<FiExternalLink />}
               component={RouterLink}
-              to={policyPath(slug)}
+              to={shopPath(slug)}
               target="_blank"
               sx={{ bgcolor: 'background.paper' }}
             >
