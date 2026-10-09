@@ -55,6 +55,26 @@ export const formatDate = (value, options = {}) =>
       }).format(new Date(value))
     : '';
 
+/**
+ * Money that may be in several currencies, never added across them:
+ * [{ currency, amount }] → "KES 100.00 · USD 10.00" (zero when empty).
+ */
+export const formatMoneyList = (list) => {
+  const items = (list || []).filter((x) => Number(x.amount));
+  if (!items.length) return formatMoney(0);
+  return items.map((x) => formatMoney(x.amount, x.currency)).join(' · ');
+};
+
+/** Groups amounts by currency: [{ currency, amount }] → [{ currency, amount }]. */
+export const totalsByCurrency = (rows, pick = (r) => r.amount) => {
+  const map = new Map();
+  (rows || []).forEach((r) => {
+    const c = r.currency || currency;
+    map.set(c, (map.get(c) || 0) + Number(pick(r) || 0));
+  });
+  return [...map].map(([c, amount]) => ({ currency: c, amount }));
+};
+
 /** Compact table dates: dd-mm-yy (full time is on the detail view). */
 export const formatShortDate = (value) => {
   if (!value) return '';

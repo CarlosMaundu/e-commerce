@@ -26,11 +26,28 @@ const ymd = (at?: Date | string) => {
 // Seconds since 2024-01-01 in base 36: six characters until the 2090s.
 const EPOCH = Date.UTC(2024, 0, 1);
 
-/** Order numbers: [channel]-[time in base 36][2 random], e.g. WEB-1FT3K9X7. */
+/**
+ * Order numbers: [channel]-[time in base 36][3 random], e.g. WEB-1FT3K9X7Q:
+ * 46,656 possibilities per second. Inserts still go through insertNumbered,
+ * which picks a new number if one is ever taken.
+ */
 export type Channel = 'WEB' | 'STF';
 export const orderNumber = (channel: Channel = 'WEB', at: Date | string = new Date()) => {
   const secs = Math.max(0, Math.floor((new Date(at).getTime() - EPOCH) / 1000));
-  return `${channel}-${secs.toString(36).toUpperCase().padStart(6, '0')}${pick(ALNUM, 2)}`;
+  return `${channel}-${secs.toString(36).toUpperCase().padStart(6, '0')}${pick(ALNUM, 3)}`;
+};
+
+/**
+ * Runs an INSERT … ON CONFLICT (number) DO NOTHING RETURNING … with a fresh
+ * number until a row comes back. Safe inside transactions: a taken number
+ * returns no row instead of raising (which would abort the transaction).
+ */
+export const insertNumbered = async <T>(make: () => string, run: (number: string) => Promise<T[]>, attempts = 8) => {
+  for (let i = 0; i < attempts; i += 1) {
+    const rows = await run(make());
+    if (rows.length) return rows;
+  }
+  throw new Error('Could not find a free number after several attempts.');
 };
 
 /** Invoice numbers: INV-YYYYMMDD-HHMMSS-XXXX, e.g. INV-20261004-204015-X7R2. */

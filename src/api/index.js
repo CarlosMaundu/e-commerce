@@ -440,13 +440,14 @@ export const adminUsers = {
       staff: data.staff,
       stats: {
         orders: data.stats.orders,
-        spent: Number(data.stats.spent),
+        // [{ currency, amount }], or null without permission to see invoices.
+        spent: data.stats.spent ?? null,
         lastOrder: data.stats.last_order,
         wishlist: data.stats.wishlist,
         cart: data.stats.cart,
         returns: data.stats.returns,
         refunds: data.stats.refunds,
-        refunded: Number(data.stats.refunded || 0),
+        refunded: data.stats.refunded ?? null,
         reviews: data.stats.reviews,
         sessions: data.stats.sessions,
       },
@@ -854,7 +855,11 @@ export const adminOrders = {
       comment,
       notify,
     });
-    return orderFromApi(data);
+    // A full refund above the approval limit leaves the status until approved.
+    return {
+      ...orderFromApi(data),
+      refundPending: data.refund_pending || null,
+    };
   },
   /** Ticks a gift line's instructions off (or reopens them). */
   async giftDone(orderId, itemId, done) {

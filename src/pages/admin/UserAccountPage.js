@@ -65,6 +65,7 @@ import {
   formatDate,
   formatDateTime,
   formatMoney,
+  formatMoneyList,
   formatShortDate,
 } from '../../utils/format';
 
@@ -320,26 +321,32 @@ const UserAccountPage = () => {
   const tiles = staff
     ? []
     : [
+        // Each card links only where this person is allowed to go; money is
+        // shown per currency, and only to staff who may see invoices.
         [
           'Orders',
           stats.orders,
           <FiPackage key="o" />,
           'primary',
-          `/admin/orders?${who}`,
+          can(PERMISSIONS.ordersView) ? `/admin/orders?${who}` : null,
         ],
         [
           'Total spent',
-          formatMoney(stats.spent),
+          stats.spent ? formatMoneyList(stats.spent) : '—',
           <FiDollarSign key="s" />,
           'success',
-          `/admin/soon/customer-revenue?${who}&name=${encodeURIComponent(user.name)}`,
+          stats.spent
+            ? `/admin/soon/customer-revenue?${who}&name=${encodeURIComponent(user.name)}`
+            : null,
         ],
         [
           'Refunds',
-          formatMoney(stats.refunded || 0),
+          stats.refunded ? formatMoneyList(stats.refunded) : '—',
           <FiCornerUpLeft key="f" />,
           'info',
-          `/admin/refunds?tab=approved&${who}`,
+          can(PERMISSIONS.invoicesView)
+            ? `/admin/refunds?tab=approved&${who}`
+            : null,
         ],
         [
           'Wishlist',
@@ -353,7 +360,7 @@ const UserAccountPage = () => {
           stats.returns,
           <FiRotateCcw key="r" />,
           'warning',
-          `/admin/returns?${who}`,
+          can(PERMISSIONS.returnsView) ? `/admin/returns?${who}` : null,
         ],
         [
           'Reviews',

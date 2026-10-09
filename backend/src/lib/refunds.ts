@@ -74,6 +74,7 @@ export const createRefund = async (
     by,
     gateway,
     applyFee = true,
+    closesOrder = false,
   }: {
     order: any;
     itemsAmount: number;
@@ -84,6 +85,8 @@ export const createRefund = async (
     by: number | null;
     gateway: PaymentGateway | null;
     applyFee?: boolean;
+    // Marks the order refunded when this refund is paid out.
+    closesOrder?: boolean;
   }
 ) => {
   const invoice = (await db.query('SELECT * FROM invoices WHERE order_id = $1', [order.id])).rows[0];
@@ -106,10 +109,10 @@ export const createRefund = async (
   const refund = (
     await db.query(
       `INSERT INTO refunds (order_id, invoice_id, return_id, status, items_amount, delivery_amount, restocking_fee, amount,
-         method, reason, requested_by, approved_by)
-       VALUES ($1, $2, $3, 'pending_approval', $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
+         method, reason, requested_by, approved_by, closes_order)
+       VALUES ($1, $2, $3, 'pending_approval', $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
       [order.id, invoice.id, returnId, items, delivery, fee, amount, method || methodFor(order.payment_method), reason, by,
-        needsApproval ? null : by]
+        needsApproval ? null : by, closesOrder]
     )
   ).rows[0];
   if (!needsApproval) await payOut(db, refund, invoice, order, gateway, by);

@@ -151,12 +151,18 @@ const AdminOrderDetail = () => {
     e.preventDefault();
     setSaving(true);
     try {
-      await adminOrders.updateStatus(id, form);
-      notify.success(
-        form.notify
-          ? 'Order updated and the customer was emailed.'
-          : 'Order updated.'
-      );
+      const updated = await adminOrders.updateStatus(id, form);
+      if (updated.refundPending) {
+        notify.info(
+          `Refund of ${formatMoney(updated.refundPending.amount, updated.currency)} sent for approval. The order shows as Refunded once it’s approved.`
+        );
+      } else {
+        notify.success(
+          form.notify
+            ? 'Order updated and the customer was emailed.'
+            : 'Order updated.'
+        );
+      }
       await load();
     } catch (error) {
       notify.error(error, 'We couldn’t update the order.');

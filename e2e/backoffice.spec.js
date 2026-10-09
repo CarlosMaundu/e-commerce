@@ -416,7 +416,7 @@ test('staff create an order for a customer, invoice it, take an M-Pesa payment a
   await expect(page.getByTestId('order-customer-link')).toHaveText('Jane Doe');
   // Staff-made orders are numbered STF-…, invoices INV-date-time-code.
   await expect(
-    page.getByRole('heading', { name: /Order STF-[0-9A-Z]{8}/ })
+    page.getByRole('heading', { name: /Order STF-[0-9A-Z]{9}/ })
   ).toBeVisible();
 
   await page.getByRole('link', { name: 'Invoice', exact: true }).click();

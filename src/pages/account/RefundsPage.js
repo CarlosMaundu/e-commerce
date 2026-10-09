@@ -11,7 +11,12 @@ import { useNotify } from '../../notification/NotificationProvider';
 import { AccountPage } from '../../layouts/StorefrontLayout';
 import { EmptyState, SectionCard } from '../../components/ui';
 import { Pill, StandardPagination } from '../../components/admin/DataTable';
-import { formatDate, formatMoney } from '../../utils/format';
+import {
+  formatDate,
+  formatMoney,
+  formatMoneyList,
+  totalsByCurrency,
+} from '../../utils/format';
 
 const PAGE_SIZE = 10;
 
@@ -82,10 +87,11 @@ const RefundsPage = () => {
       });
   }, [notify]);
 
+  // Totals per currency: a refund keeps its order's currency.
   const sum = (status) =>
-    (list || [])
-      .filter((r) => r.status === status)
-      .reduce((s, r) => s + r.amount, 0);
+    formatMoneyList(
+      totalsByCurrency((list || []).filter((r) => r.status === status))
+    );
   const shown = (list || []).slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   return (
@@ -124,13 +130,13 @@ const RefundsPage = () => {
             <Total
               icon={<FiCheckCircle />}
               label="Refunded to you"
-              value={formatMoney(sum('refunded'))}
+              value={sum('refunded')}
               tone="success"
             />
             <Total
               icon={<FiClock />}
               label="Being processed"
-              value={formatMoney(sum('processing'))}
+              value={sum('processing')}
               tone="warning"
             />
           </Box>

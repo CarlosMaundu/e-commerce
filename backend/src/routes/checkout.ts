@@ -2,7 +2,7 @@
 //   shippingaddress → shippingmethods → paymentaddress → paymentmethods →
 //   POST confirm (order overview + payment) → PUT confirm (place order)
 import { Router } from 'express';
-import { orderNumber } from '../lib/numbers';
+import { insertNumbered, orderNumber } from '../lib/numbers';
 import { GiftChoice, giftBoxOf } from '../lib/pricing';
 
 /** The gift as bought: the box's name, price and photo at the time. */
@@ -227,15 +227,16 @@ export const checkoutRoutes = ({ payments }: { payments: PaymentGateway | null }
       if (state.pending_order_id) {
         await db.query('DELETE FROM orders WHERE id = $1 AND user_id = $2 AND placed_at IS NULL', [state.pending_order_id, userId]);
       }
-      const { rows } = await db.query(
+      const rows = await insertNumbered(() => orderNumber('WEB'), async (number) => (await db.query(
         `INSERT INTO orders (user_id, email, status, payment_method, shipping_method, shipping_address, payment_address,
            coupon_code, subtotal, discount, shipping_total, tax_total, total, currency, comment, gift_total, number)
-         VALUES ($1, $2, 'awaiting_payment', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING id`,
+         VALUES ($1, $2, 'awaiting_payment', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+         ON CONFLICT (number) DO NOTHING RETURNING id`,
         [userId, req.auth!.user.email, state.payment_method, state.shipping_method,
           JSON.stringify(toContractAddress(shipping)), JSON.stringify(toContractAddress(billing)),
           totals.coupon?.code ?? null, totals.subtotal, totals.discount, totals.shipping, totals.tax, totals.total,
-          finance().currency, state.comment || '', totals.gift, orderNumber('WEB')]
-      );
+          finance().currency, state.comment || '', totals.gift, number]
+      )).rows);
       const id = rows[0].id as number;
       for (const l of lines) {
         await db.query(

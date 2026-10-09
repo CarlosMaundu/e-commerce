@@ -66,7 +66,7 @@ async function checkout(page) {
   // A success window comes first, then the order summary.
   const success = page.getByTestId('order-success');
   await expect(success).toContainText('Order placed');
-  await expect(success).toContainText(/Order WEB-[0-9A-Z]{8} is confirmed/);
+  await expect(success).toContainText(/Order WEB-[0-9A-Z]{9} is confirmed/);
   await success.getByRole('button', { name: 'View order details' }).click();
   await expect(success).toHaveCount(0);
   await expect(page.getByText('Your order is confirmed')).toBeVisible();
@@ -140,10 +140,10 @@ test('checkout places an order the customer can see, and emails them', async ({
   const id = await checkout(page);
 
   await expect(
-    page.getByRole('heading', { name: /^Order WEB-[0-9A-Z]{8}$/ })
+    page.getByRole('heading', { name: /^Order WEB-[0-9A-Z]{9}$/ })
   ).toBeVisible();
   const { subject } = await linkFromLatestEmail('cam@example.com');
-  expect(subject).toMatch(/order WEB-[0-9A-Z]{8}$/);
+  expect(subject).toMatch(/order WEB-[0-9A-Z]{9}$/);
 
   // The cart was emptied and the order is listed.
   await page.goto('/cart');

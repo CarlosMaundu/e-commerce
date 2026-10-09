@@ -54,7 +54,7 @@ export const addHistory = (
 
 const n = (v: unknown) => Number(v);
 
-/** A URL's order: its number (WEB-1FT3K9X7) or, for older links, its id. */
+/** A URL’s order: its number (WEB-1FT3K9X7Q) or, for older links, its id. */
 export const orderRef = (raw: string): number | string => (/^\d+$/.test(raw) ? Number(raw) : raw.trim().toUpperCase());
 
 export const toContractOrder = (o: any, items: any[] = [], history: any[] = [], { admin = false } = {}) => ({
