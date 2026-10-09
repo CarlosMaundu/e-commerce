@@ -432,6 +432,13 @@ test('staff create an order for a customer, invoice it, take an M-Pesa payment a
   await dialog.getByRole('button', { name: 'Record payment' }).click();
   await expect(toast(page)).toHaveText('Payment recorded.');
   await expect(page.getByTestId('invoice-balance')).toContainText('0.00');
+  // The paid/due box isn't repeated inside the invoice in the back office.
+  await expect(page.getByTestId('invoice-document')).not.toContainText(
+    'Amount due'
+  );
+  await expect(page.getByTestId('invoice-document')).not.toContainText(
+    'Amount paid'
+  );
 
   await page.goto('/admin/payments?search=QFT1234XYZ');
   await expect(page.locator('[data-testid^="payment-"]')).toHaveCount(1);

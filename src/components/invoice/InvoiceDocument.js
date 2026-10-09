@@ -64,7 +64,8 @@ Party.propTypes = {
   email: PropTypes.string,
 };
 
-const InvoiceDocument = ({ order }) => {
+/** `showAmount`: the amount paid/due box beside the details (customers). */
+const InvoiceDocument = ({ order, showAmount = true }) => {
   const shop = useStore();
   const money = (n) => formatMoney(n, order.currency || undefined);
   const t = order.totals || {};
@@ -152,7 +153,7 @@ const InvoiceDocument = ({ order }) => {
           gridTemplateColumns: {
             xs: '1fr',
             sm: 'repeat(2, minmax(0, 1fr))',
-            md: 'repeat(4, minmax(0, 1fr))',
+            md: `repeat(${showAmount ? 4 : 3}, minmax(0, 1fr))`,
           },
         }}
       >
@@ -174,21 +175,23 @@ const InvoiceDocument = ({ order }) => {
             {PAYMENT_NAMES[order.paymentMethod] || order.paymentMethod}
           </Typography>
         </Box>
-        <Box
-          sx={{
-            bgcolor: 'background.neutral',
-            borderRadius: '8px',
-            p: 2,
-            alignSelf: 'start',
-          }}
-        >
-          <Typography variant="overline" color="text.secondary">
-            {state === 'Paid' ? 'Amount paid' : 'Amount due'}
-          </Typography>
-          <Typography sx={{ fontWeight: 800, fontSize: '1.4rem' }}>
-            {money(order.total)}
-          </Typography>
-        </Box>
+        {showAmount && (
+          <Box
+            sx={{
+              bgcolor: 'background.neutral',
+              borderRadius: '8px',
+              p: 2,
+              alignSelf: 'start',
+            }}
+          >
+            <Typography variant="overline" color="text.secondary">
+              {state === 'Paid' ? 'Amount paid' : 'Amount due'}
+            </Typography>
+            <Typography sx={{ fontWeight: 800, fontSize: '1.4rem' }}>
+              {money(order.total)}
+            </Typography>
+          </Box>
+        )}
       </Box>
 
       <Box sx={{ mt: 4, overflowX: 'auto' }}>
@@ -314,6 +317,9 @@ const InvoiceDocument = ({ order }) => {
   );
 };
 
-InvoiceDocument.propTypes = { order: PropTypes.object.isRequired };
+InvoiceDocument.propTypes = {
+  order: PropTypes.object.isRequired,
+  showAmount: PropTypes.bool,
+};
 
 export default InvoiceDocument;

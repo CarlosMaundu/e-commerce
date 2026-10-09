@@ -44,6 +44,7 @@ import {
 import OrderTracker from '../../components/account/OrderTracker';
 import OptionRows from '../../components/common/OptionRows';
 import GiftNote from '../../components/common/GiftNote';
+import OrderSuccessDialog from '../../components/checkout/OrderSuccessDialog';
 import { useStore } from '../../context/StoreContext';
 import { orders as ordersApi } from '../../api';
 import { StandardPagination } from '../../components/admin/DataTable';
@@ -632,6 +633,8 @@ export const OrderDetailPage = () => {
   const { id } = useParams();
   const [params] = useSearchParams();
   const justPlaced = params.get('placed') === '1';
+  // Straight after checkout: the success window first, then the summary.
+  const [celebrate, setCelebrate] = useState(justPlaced);
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const notify = useNotify();
@@ -728,6 +731,11 @@ export const OrderDetailPage = () => {
         </Stack>
       }
     >
+      <OrderSuccessDialog
+        open={celebrate}
+        order={order}
+        onClose={() => setCelebrate(false)}
+      />
       {justPlaced && (
         <Alert severity="success" sx={{ mb: 3 }}>
           Thank you! Your order is confirmed. We’ve emailed a receipt to{' '}

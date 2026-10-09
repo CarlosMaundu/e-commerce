@@ -132,6 +132,11 @@ export const catalog = {
       match: headers['x-search-match'] || 'exact',
     };
   },
+  /** Frequently bought together with this product (up to three). */
+  async boughtTogether(id) {
+    const { data } = await http().get(`/rest/products/${id}/bought-together`);
+    return (data || []).map(productFromApi);
+  },
   async getProducts(filters = {}) {
     return (await catalog.listProducts(filters)).products;
   },

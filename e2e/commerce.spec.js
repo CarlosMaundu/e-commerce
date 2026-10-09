@@ -63,6 +63,12 @@ async function checkout(page) {
   await page.getByTestId('payment-cod').click();
   await page.getByRole('checkbox', { name: /terms and conditions/i }).check();
   await page.getByRole('button', { name: /Place order/ }).click();
+  // A success window comes first, then the order summary.
+  const success = page.getByTestId('order-success');
+  await expect(success).toContainText('Order placed');
+  await expect(success).toContainText(/Order WEB-[0-9A-Z]{8} is confirmed/);
+  await success.getByRole('button', { name: 'View order details' }).click();
+  await expect(success).toHaveCount(0);
   await expect(page.getByText('Your order is confirmed')).toBeVisible();
   const [, id] = page.url().match(/\/account\/orders\/(\d+)/);
   return id;
@@ -367,4 +373,31 @@ test('a super admin creates, then deletes, a custom role', async ({ page }) => {
     .click();
   await expect(toast(page)).toHaveText('Role deleted.');
   await expect(page.getByText('Keeps stock up')).toHaveCount(0);
+});
+
+test('frequently bought together adds the ticked items to the cart in one go', async ({
+  page,
+}) => {
+  await customer();
+  await login(page, 'cam@example.com', 'Hi, Cam Customer');
+  await page.goto('/products?search=Canvas%20tote');
+  await page
+    .getByRole('link', { name: /Canvas tote bag/ })
+    .first()
+    .click();
+  const bundle = page.getByTestId('bought-together');
+  await expect(bundle).toContainText('Frequently bought together');
+  await expect(bundle).toContainText('This item: Canvas tote bag');
+  const boxes = bundle.getByRole('checkbox');
+  const count = await boxes.count();
+  expect(count).toBeGreaterThan(1);
+  // Untick one complement; the total and the button follow.
+  await boxes.nth(count - 1).uncheck();
+  await expect(bundle).toContainText(`Total for ${count - 1} items`);
+  await bundle.getByRole('button', { name: 'Add bundle to cart' }).click();
+  await expect(toast(page)).toHaveText(
+    `${count - 1} items added to your cart.`
+  );
+  await page.goto('/cart');
+  await expect(page.getByTestId('cart-line')).toHaveCount(count - 1);
 });
