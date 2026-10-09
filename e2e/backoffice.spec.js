@@ -562,3 +562,74 @@ test('SLA targets are set in Store settings and shown on the report', async ({
   await page.goto('/admin/reports/sla');
   await expect(page.getByText('target 12 h')).toBeVisible();
 });
+
+test('legal pages: full built-in wording on the shop, edited with formatting in the back office', async ({
+  page,
+}) => {
+  // The shop's Terms page: full wording, settings filled in, a section list.
+  await page.goto('/policies/terms');
+  await expect(
+    page.getByRole('heading', { name: 'Terms and Conditions', level: 1 })
+  ).toBeVisible();
+  const content = page.getByTestId('policy-content');
+  await expect(
+    content.getByRole('heading', { name: '12. Limitation of liability' })
+  ).toBeVisible();
+  await expect(content).not.toContainText('{{');
+  await expect(
+    page.getByRole('navigation', { name: 'On this page' }).getByRole('link', {
+      name: '22. Governing law and disputes',
+    })
+  ).toBeVisible();
+
+  // Edit the privacy policy with headings, bold text and a setting.
+  await signInAdmin(page);
+  await page.goto('/admin/legal');
+  await page.getByTestId('legal-row-privacy').click();
+  await page.getByRole('button', { name: 'Edit page' }).click();
+  await page.getByLabel('Page title').fill('Privacy notice');
+  const editor = page.locator('.tiptap');
+  await editor.click();
+  await page.keyboard.press('ControlOrMeta+a');
+  await page.keyboard.press('Delete');
+  await page.getByRole('combobox', { name: 'Text style' }).click();
+  await page.getByRole('option', { name: 'Heading', exact: true }).click();
+  await page.keyboard.type('How we protect you');
+  await page.keyboard.press('Enter');
+  await page.getByRole('button', { name: 'Bold' }).click();
+  await page.keyboard.type('We never sell your data.');
+  await page.getByRole('button', { name: 'Bold' }).click();
+  await page.keyboard.type(' Questions: ');
+  await page.getByRole('button', { name: 'Insert setting' }).click();
+  await page.getByRole('menuitem', { name: /Shop name/ }).click();
+  await page.getByRole('tab', { name: 'Preview' }).click();
+  await expect(page.getByTestId('legal-preview')).toContainText(
+    'Questions: Carlos Shop'
+  );
+  await page.getByRole('button', { name: 'Save page' }).click();
+  await expect(page.getByTestId('app-notification')).toContainText(
+    'Privacy notice saved'
+  );
+
+  await page.goto('/policies/privacy');
+  await expect(
+    page.getByRole('heading', { name: 'Privacy notice', level: 1 })
+  ).toBeVisible();
+  const privacy = page.getByTestId('policy-content');
+  await expect(
+    privacy.getByRole('heading', { name: 'How we protect you', level: 2 })
+  ).toBeVisible();
+  await expect(privacy.locator('strong')).toHaveText(
+    'We never sell your data.'
+  );
+  await expect(privacy).toContainText('Questions: Carlos Shop');
+
+  // Back to the built-in wording.
+  await page.goto('/admin/legal/privacy');
+  await page.getByRole('button', { name: 'Edit page' }).click();
+  await page.getByRole('button', { name: 'Reset to built-in wording' }).click();
+  await page.getByRole('button', { name: 'Reset page' }).click();
+  await expect(page.getByTestId('app-notification')).toHaveText(
+    'The built-in wording is back.'
+  );
+});

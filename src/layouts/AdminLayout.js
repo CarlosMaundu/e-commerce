@@ -42,6 +42,7 @@ import {
   FiBookOpen,
   FiBox,
   FiChevronDown,
+  FiClipboard,
   FiCornerUpLeft,
   FiCreditCard,
   FiFileText,
@@ -198,6 +199,12 @@ export const adminNav = (user) =>
           label: 'Store settings',
           icon: <FiSettings />,
           to: '/admin/settings',
+          show: hasPermission(user, PERMISSIONS.settingsManage),
+        },
+        {
+          label: 'Legal pages',
+          icon: <FiClipboard />,
+          to: '/admin/legal',
           show: hasPermission(user, PERMISSIONS.settingsManage),
         },
         {

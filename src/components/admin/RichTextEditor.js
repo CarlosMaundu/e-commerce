@@ -1,6 +1,8 @@
-// src/components/admin/RichTextEditor.js — formatted product descriptions
-// (Aurora's "Name and description" editor, built on Tiptap): undo/redo,
-// bold, italic, underline, alignment, lists and links. Emits HTML.
+// src/components/admin/RichTextEditor.js — formatted text (built on Tiptap):
+// undo/redo, bold, italic, underline, alignment, lists and links. Emits HTML.
+// `document` adds what long pages need (legal pages): a text style picker
+// (paragraph / heading / subheading / small heading), quotes, dividers, a
+// taller writing area, and `tokens` to insert {{placeholders}}.
 import React, { useEffect, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -14,7 +16,10 @@ import {
   Button,
   Divider,
   IconButton,
+  Menu,
+  MenuItem,
   Popover,
+  Select,
   Stack,
   TextField,
   Tooltip,
@@ -32,6 +37,8 @@ import {
   FiItalic,
   FiLink,
   FiList,
+  FiMinus,
+  FiPlusCircle,
   FiUnderline,
 } from 'react-icons/fi';
 import { richTextSx } from '../common/RichText';
@@ -79,19 +86,51 @@ ToolButton.propTypes = {
   children: PropTypes.node.isRequired,
 };
 
-const RichTextEditor = ({ value, onChange, placeholder, label, disabled }) => {
+const QuoteIcon = () => (
+  <Box
+    component="span"
+    sx={{ fontSize: 20, fontWeight: 800, lineHeight: 1, mt: '6px' }}
+  >
+    “
+  </Box>
+);
+
+const STYLES = [
+  ['p', 'Paragraph'],
+  ['2', 'Heading'],
+  ['3', 'Subheading'],
+  ['4', 'Small heading'],
+];
+
+const RichTextEditor = ({
+  value,
+  onChange,
+  placeholder,
+  label,
+  disabled,
+  document = false,
+  tokens = [],
+  minHeight,
+}) => {
   const [linkAnchor, setLinkAnchor] = useState(null);
+  const [tokenAnchor, setTokenAnchor] = useState(null);
   const [href, setHref] = useState('');
   const emitted = useRef(value);
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        heading: { levels: [2, 3] },
+        heading: { levels: document ? [2, 3, 4] : [2, 3] },
         code: false,
         codeBlock: false,
       }),
       Underline,
-      Link.configure({ openOnClick: false, autolink: true }),
+      // Product descriptions open links in a new tab; documents decide per
+      // link (the server opens only external links in a new tab).
+      Link.configure({
+        openOnClick: false,
+        autolink: true,
+        ...(document ? { HTMLAttributes: { target: null, rel: null } } : {}),
+      }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       Placeholder.configure({ placeholder }),
     ],
@@ -166,6 +205,43 @@ const RichTextEditor = ({ value, onChange, placeholder, label, disabled }) => {
           aria-label="Text formatting"
           sx={{ px: 1, py: 0.75, borderBottom: 1, borderColor: 'divider' }}
         >
+          {document && (
+            <>
+              <Select
+                size="small"
+                variant="standard"
+                disableUnderline
+                disabled={disabled}
+                value={
+                  [2, 3, 4].find((l) =>
+                    editor.isActive('heading', { level: l })
+                  )
+                    ? String(
+                        [2, 3, 4].find((l) =>
+                          editor.isActive('heading', { level: l })
+                        )
+                      )
+                    : 'p'
+                }
+                onChange={(e) =>
+                  e.target.value === 'p'
+                    ? cmd().setParagraph().run()
+                    : cmd()
+                        .setHeading({ level: Number(e.target.value) })
+                        .run()
+                }
+                inputProps={{ 'aria-label': 'Text style' }}
+                sx={{ minWidth: 140, mx: 0.5, fontSize: '0.875rem' }}
+              >
+                {STYLES.map(([v, l]) => (
+                  <MenuItem key={v} value={v}>
+                    {l}
+                  </MenuItem>
+                ))}
+              </Select>
+              {sep}
+            </>
+          )}
           <ToolButton
             label="Undo"
             disabled={disabled || !editor.can().undo()}
@@ -239,6 +315,25 @@ const RichTextEditor = ({ value, onChange, placeholder, label, disabled }) => {
           >
             <NumberedIcon />
           </ToolButton>
+          {document && (
+            <>
+              <ToolButton
+                label="Quote"
+                active={editor.isActive('blockquote')}
+                disabled={disabled}
+                onClick={() => cmd().toggleBlockquote().run()}
+              >
+                <QuoteIcon />
+              </ToolButton>
+              <ToolButton
+                label="Divider"
+                disabled={disabled}
+                onClick={() => cmd().setHorizontalRule().run()}
+              >
+                <FiMinus />
+              </ToolButton>
+            </>
+          )}
           {sep}
           <ToolButton
             label="Link"
@@ -248,6 +343,52 @@ const RichTextEditor = ({ value, onChange, placeholder, label, disabled }) => {
           >
             <FiLink />
           </ToolButton>
+          {tokens.length > 0 && (
+            <>
+              {sep}
+              <Button
+                size="small"
+                startIcon={<FiPlusCircle />}
+                disabled={disabled}
+                onClick={(e) => setTokenAnchor(e.currentTarget)}
+                aria-haspopup="menu"
+              >
+                Insert setting
+              </Button>
+              <Menu
+                anchorEl={tokenAnchor}
+                open={Boolean(tokenAnchor)}
+                onClose={() => setTokenAnchor(null)}
+              >
+                {tokens.map((t) => (
+                  <MenuItem
+                    key={t.token}
+                    onClick={() => {
+                      cmd().insertContent(`{{${t.token}}}`).run();
+                      setTokenAnchor(null);
+                    }}
+                    sx={{
+                      display: 'block',
+                      maxWidth: 420,
+                      whiteSpace: 'normal',
+                    }}
+                  >
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {t.label}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      noWrap
+                      component="div"
+                    >
+                      {`{{${t.token}}}`} → {t.value || '—'}
+                    </Typography>
+                  </MenuItem>
+                ))}
+              </Menu>
+            </>
+          )}
         </Stack>
         <Box
           sx={{
@@ -255,7 +396,22 @@ const RichTextEditor = ({ value, onChange, placeholder, label, disabled }) => {
             color: 'text.primary',
             px: 2,
             py: 1.5,
-            '& .tiptap': { minHeight: 200, outline: 'none' },
+            '& .tiptap': {
+              minHeight: minHeight || (document ? 480 : 200),
+              outline: 'none',
+            },
+            ...(document && {
+              '& h2': { fontSize: '1.35rem', mt: 3 },
+              '& h3': { fontSize: '1.15rem', mt: 2.5 },
+              '& h4': { fontSize: '1rem', mt: 2 },
+              '& hr': {
+                border: 0,
+                borderTop: 1,
+                borderColor: 'divider',
+                my: 3,
+              },
+              '& a': { color: 'primary.main', textDecoration: 'underline' },
+            }),
             '& .tiptap p.is-editor-empty:first-of-type::before': {
               content: 'attr(data-placeholder)',
               color: 'text.disabled',
@@ -306,6 +462,15 @@ RichTextEditor.propTypes = {
   placeholder: PropTypes.string,
   label: PropTypes.string,
   disabled: PropTypes.bool,
+  document: PropTypes.bool,
+  tokens: PropTypes.arrayOf(
+    PropTypes.shape({
+      token: PropTypes.string,
+      label: PropTypes.string,
+      value: PropTypes.string,
+    })
+  ),
+  minHeight: PropTypes.number,
 };
 
 export default RichTextEditor;

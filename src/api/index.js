@@ -988,6 +988,32 @@ export const adminFinance = {
   },
 };
 
+/** Terms, Privacy and Refund & Return pages (raw API shapes). */
+export const legal = {
+  /** Published page: { slug, title, body (HTML, settings filled in), updated_at }. */
+  async get(slug) {
+    const { data } = await http().get(`/rest/legal/${slug}`);
+    return data;
+  },
+  async list() {
+    const { data } = await http().get('/admin/legal');
+    return data;
+  },
+  /** As written: { title, body (with {{placeholders}}), preview, tokens, customised, updated_at, updated_by }. */
+  async adminGet(slug) {
+    const { data } = await http().get(`/admin/legal/${slug}`);
+    return data;
+  },
+  async save(slug, { title, body }) {
+    const { data } = await http().put(`/admin/legal/${slug}`, { title, body });
+    return data;
+  },
+  async reset(slug) {
+    const { data } = await http().post(`/admin/legal/${slug}/reset`);
+    return data;
+  },
+};
+
 /** Fulfilment SLA: settings and the performance report (raw API shapes). */
 export const adminReports = {
   async slaSettings() {

@@ -37,6 +37,7 @@ import VerifyEmailPage from './pages/VerifyEmailPage';
 import PolicyPage from './pages/PolicyPage';
 import CustomerRefundsPage from './pages/account/RefundsPage';
 import AdminNotificationsPage from './pages/admin/NotificationsPage';
+import { LegalPageEditor, LegalPagesPage } from './pages/admin/LegalPages';
 import SlaReportPage from './pages/admin/reports/SlaReportPage';
 import SlaOrderPage from './pages/admin/reports/SlaOrderPage';
 import InformationPage from './pages/InformationPage';
@@ -407,6 +408,22 @@ const App = () => (
                     <Route
                       path="notifications"
                       element={<AdminNotificationsPage />}
+                    />
+                    <Route
+                      path="legal"
+                      element={
+                        <AdminRoute permissions={['admin.settings.manage']}>
+                          <LegalPagesPage />
+                        </AdminRoute>
+                      }
+                    />
+                    <Route
+                      path="legal/:slug"
+                      element={
+                        <AdminRoute permissions={['admin.settings.manage']}>
+                          <LegalPageEditor />
+                        </AdminRoute>
+                      }
                     />
                     <Route
                       path="reports/sla"

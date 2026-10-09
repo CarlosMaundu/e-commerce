@@ -1,23 +1,51 @@
-// src/pages/PolicyPage.js — Terms and conditions, Privacy policy and the
-// Refund & Return Policy, with links between them.
-import React from 'react';
+// src/pages/PolicyPage.js — Terms and Conditions, Privacy Policy and the
+// Refund & Return Policy, as written in Back office → Legal pages, with links
+// between them and an "On this page" list of sections.
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link as RouterLink, useParams } from 'react-router-dom';
-import { Box, Container, Link, Stack, Typography } from '@mui/material';
-import { useStore } from '../context/StoreContext';
 import {
-  getPolicy,
-  POLICY_LINKS,
-  POLICY_UPDATED,
-  policyPath,
-} from '../content/policies';
+  Box,
+  Container,
+  Link,
+  Skeleton,
+  Stack,
+  Typography,
+} from '@mui/material';
+import { legal } from '../api';
+import LegalContent, {
+  withHeadingIds,
+} from '../components/common/LegalContent';
+import { POLICY_LINKS, policyPath } from '../content/policies';
+import { toSafeHtml } from '../utils/richText';
 import { formatDate } from '../utils/format';
 import NotFoundPage from './NotFoundPage';
 
 const PolicyPage = () => {
   const { slug } = useParams();
-  const shop = useStore();
-  const policy = getPolicy(slug, shop);
-  if (!policy) return <NotFoundPage />;
+  const [page, setPage] = useState(null);
+  const [missing, setMissing] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    setPage(null);
+    setMissing(false);
+    legal
+      .get(slug)
+      .then((p) => live && setPage(p))
+      .catch(() => live && setMissing(true));
+    return () => {
+      live = false;
+    };
+  }, [slug]);
+
+  const toc = useMemo(
+    () => (page ? withHeadingIds(toSafeHtml(page.body)).toc : []),
+    [page]
+  );
+
+  if (missing || !POLICY_LINKS.some((p) => p.slug === slug)) {
+    return <NotFoundPage />;
+  }
 
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 3, md: 6 } }}>
@@ -25,43 +53,81 @@ const PolicyPage = () => {
         sx={{
           display: 'grid',
           gap: { xs: 3, md: 5 },
-          gridTemplateColumns: { xs: '1fr', md: '240px minmax(0, 1fr)' },
+          gridTemplateColumns: { xs: '1fr', md: '260px minmax(0, 1fr)' },
           alignItems: 'start',
         }}
       >
         <Stack
-          component="nav"
-          aria-label="Policies"
-          spacing={0.5}
-          sx={{
-            position: { md: 'sticky' },
-            top: { md: 140 },
-            flexDirection: { xs: 'row', md: 'column' },
-            gap: { xs: 1, md: 0 },
-            overflowX: { xs: 'auto', md: 'visible' },
-          }}
+          spacing={3}
+          sx={{ position: { md: 'sticky' }, top: { md: 140 }, minWidth: 0 }}
         >
-          {POLICY_LINKS.map((p) => (
+          <Stack
+            component="nav"
+            aria-label="Policies"
+            spacing={0.5}
+            sx={{
+              flexDirection: { xs: 'row', md: 'column' },
+              gap: { xs: 1, md: 0 },
+              overflowX: { xs: 'auto', md: 'visible' },
+            }}
+          >
+            {POLICY_LINKS.map((p) => (
+              <Box
+                key={p.slug}
+                component={RouterLink}
+                to={policyPath(p.slug)}
+                aria-current={p.slug === slug ? 'page' : undefined}
+                sx={{
+                  px: 1.75,
+                  py: 1,
+                  borderRadius: '8px',
+                  whiteSpace: 'nowrap',
+                  textDecoration: 'none',
+                  fontWeight: p.slug === slug ? 700 : 500,
+                  color: p.slug === slug ? 'primary.main' : 'text.secondary',
+                  bgcolor: p.slug === slug ? 'primary.light' : 'transparent',
+                  '&:hover': { color: 'text.primary' },
+                }}
+              >
+                {p.label}
+              </Box>
+            ))}
+          </Stack>
+          {toc.length > 2 && (
             <Box
-              key={p.slug}
-              component={RouterLink}
-              to={policyPath(p.slug)}
-              aria-current={p.slug === slug ? 'page' : undefined}
-              sx={{
-                px: 1.75,
-                py: 1,
-                borderRadius: '8px',
-                whiteSpace: 'nowrap',
-                textDecoration: 'none',
-                fontWeight: p.slug === slug ? 700 : 500,
-                color: p.slug === slug ? 'primary.main' : 'text.secondary',
-                bgcolor: p.slug === slug ? 'primary.light' : 'transparent',
-                '&:hover': { color: 'text.primary' },
-              }}
+              component="nav"
+              aria-label="On this page"
+              sx={{ display: { xs: 'none', md: 'block' }, px: 1.75 }}
             >
-              {p.label}
+              <Typography
+                variant="caption"
+                sx={{
+                  fontWeight: 700,
+                  letterSpacing: '0.1em',
+                  textTransform: 'uppercase',
+                  color: 'text.secondary',
+                }}
+              >
+                On this page
+              </Typography>
+              <Stack
+                spacing={0.75}
+                sx={{ mt: 1, maxHeight: '55vh', overflowY: 'auto' }}
+              >
+                {toc.map((t) => (
+                  <Link
+                    key={t.id}
+                    href={`#${t.id}`}
+                    underline="hover"
+                    variant="body2"
+                    color="text.secondary"
+                  >
+                    {t.text}
+                  </Link>
+                ))}
+              </Stack>
             </Box>
-          ))}
+          )}
         </Stack>
 
         <Box
@@ -72,49 +138,32 @@ const PolicyPage = () => {
             borderColor: 'divider',
             borderRadius: 1,
             p: { xs: 2.5, md: 5 },
+            minWidth: 0,
           }}
         >
-          <Typography variant="h3" component="h1">
-            {policy.title}
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            Last updated {formatDate(POLICY_UPDATED)}
-          </Typography>
-          <Typography sx={{ mt: 3 }}>{policy.intro}</Typography>
-          {policy.sections.map((s, i) => (
-            <Box component="section" key={s.heading} sx={{ mt: 4 }}>
-              <Typography variant="h5" component="h2" sx={{ mb: 1.25 }}>
-                {i + 1}. {s.heading}
-              </Typography>
-              {(s.body || []).map((p) => (
-                <Typography key={p.slice(0, 40)} paragraph>
-                  {p}
-                </Typography>
+          {!page ? (
+            <Stack spacing={1.5}>
+              <Skeleton variant="text" width="60%" height={48} />
+              <Skeleton variant="text" width={180} />
+              {Array.from({ length: 8 }).map((_, i) => (
+                <Skeleton key={i} variant="text" />
               ))}
-              {s.list && (
-                <Box component="ul" sx={{ pl: 3, my: 0 }}>
-                  {s.list.map((item) => (
-                    <Typography
-                      component="li"
-                      key={item.slice(0, 40)}
-                      sx={{ mb: 0.75 }}
-                    >
-                      {item}
-                    </Typography>
-                  ))}
-                </Box>
-              )}
-              {s.link && (
-                <Link
-                  component={RouterLink}
-                  to={s.link.to || policyPath(s.link.slug)}
-                  sx={{ fontWeight: 600, display: 'inline-block', mt: 1 }}
-                >
-                  {s.link.label}
-                </Link>
-              )}
-            </Box>
-          ))}
+            </Stack>
+          ) : (
+            <>
+              <Typography variant="h3" component="h1">
+                {page.title}
+              </Typography>
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ mt: 1, mb: 4 }}
+              >
+                Last updated {formatDate(page.updated_at)}
+              </Typography>
+              <LegalContent html={page.body} data-testid="policy-content" />
+            </>
+          )}
         </Box>
       </Box>
     </Container>
