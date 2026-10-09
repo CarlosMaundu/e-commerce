@@ -20,6 +20,7 @@ const ALLOWED_TAGS = [
   'h3',
   'h4',
   'blockquote',
+  'hr',
 ];
 
 export const isHtml = (text = '') => /<\/?[a-z][\s\S]*>/i.test(text);

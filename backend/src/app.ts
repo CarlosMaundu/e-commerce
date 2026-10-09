@@ -12,6 +12,7 @@ import { adminCatalogRoutes } from './routes/adminCatalog';
 import { adminOrderRoutes } from './routes/adminOrders';
 import { adminFinanceRoutes } from './routes/adminFinance';
 import { adminReportRoutes } from './routes/adminReports';
+import { adminLegalRoutes, publicLegalRoutes } from './routes/legal';
 import { adminSecurityRoutes } from './routes/adminSecurity';
 import { adminRoleRoutes } from './routes/adminRoles';
 import { adminUserRoutes } from './routes/adminUsers';
@@ -59,6 +60,8 @@ export const createApp = ({
   app.use('/api/admin', adminOrderRoutes({ payments }));
   app.use('/api/admin', adminFinanceRoutes({ payments }));
   app.use('/api/admin', adminReportRoutes());
+  app.use('/api/rest', publicLegalRoutes());
+  app.use('/api/admin', adminLegalRoutes());
   app.use('/api/admin', adminSecurityRoutes());
 
   app.use(

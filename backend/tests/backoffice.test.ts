@@ -309,6 +309,49 @@ describe('security settings', () => {
     expect((await request(app).post('/api/rest/login').send({ email: 'jane@example.com', password: PASSWORD })).status).toBe(200);
   });
 
+  test('legal pages: full defaults with settings filled in, edited safely by admins, reset to default', async () => {
+    const terms = (await request(app).get('/api/rest/legal/terms')).body.data;
+    expect(terms.title).toBe('Terms and Conditions');
+    expect(terms.body).toContain('Limitation of liability');
+    expect(terms.body).toContain('Carlos Shop');
+    expect(terms.body).not.toMatch(/\{\{/);
+    const refunds = (await request(app).get('/api/rest/legal/refunds')).body.data;
+    expect(refunds.body).toContain('within <strong>14 days</strong>');
+    expect((await request(app).get('/api/rest/legal/cookies')).status).toBe(404);
+
+    await createUser('jane@example.com');
+    const jane = await signIn('jane@example.com');
+    expect((await request(app).put('/api/admin/legal/terms').set(bearer(jane.token)).send({ title: 'x', body: 'y' })).status).toBe(403);
+
+    await createUser('boss@example.com', 'admin');
+    const admin = await signIn('boss@example.com');
+    const page = (await request(app).get('/api/admin/legal/privacy').set(bearer(admin.token))).body.data;
+    expect(page).toMatchObject({ customised: false, title: 'Privacy Policy' });
+    expect(page.body).toContain('{{store_name}}');
+    expect(page.tokens.find((t: any) => t.token === 'return_window_days').value).toBe('14');
+
+    const empty = await request(app).put('/api/admin/legal/privacy').set(bearer(admin.token)).send({ title: 'Privacy', body: '<p></p>' });
+    expect(empty.status).toBe(400);
+    const saved = await request(app).put('/api/admin/legal/privacy').set(bearer(admin.token)).send({
+      title: 'Privacy notice',
+      body: '<h2>Who we are</h2><p><strong>{{store_name}}</strong> keeps your data safe. <em>Really.</em> '
+        + '<a href="/policies/terms" target="_blank">Terms</a> <a href="https://odpc.go.ke">ODPC</a></p>'
+        + '<script>alert(1)</script><p onclick="x()">Returns within {{return_window_days}} days.</p>',
+    });
+    expect(saved.status).toBe(200);
+    expect(saved.body.data).toMatchObject({ customised: true, title: 'Privacy notice', updated_by: 'Test User' });
+    const pub = (await request(app).get('/api/rest/legal/privacy')).body.data;
+    expect(pub.title).toBe('Privacy notice');
+    expect(pub.body).toContain('<h2>Who we are</h2><p><strong>Carlos Shop</strong> keeps your data safe. <em>Really.</em>');
+    expect(pub.body).toContain('<a href="/policies/terms">Terms</a>');
+    expect(pub.body).toContain('<a href="https://odpc.go.ke" target="_blank" rel="noopener noreferrer">ODPC</a>');
+    expect(pub.body).not.toMatch(/script|onclick/);
+    expect(pub.body).toContain('Returns within 14 days.');
+
+    await request(app).post('/api/admin/legal/privacy/reset').set(bearer(admin.token)).expect(200);
+    expect((await request(app).get('/api/rest/legal/privacy')).body.data.title).toBe('Privacy Policy');
+  });
+
   test('the audit log is searchable and shows who acted for whom', async () => {
     await createUser('boss@example.com', 'super_admin');
     await createUser('jane@example.com');
