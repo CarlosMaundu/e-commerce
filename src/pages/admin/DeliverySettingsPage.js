@@ -338,7 +338,8 @@ const GiftCard = ({ value, onChange, errors, editing, onUploading }) => {
               sx={{
                 display: 'grid',
                 gap: 2,
-                gridTemplateColumns: { xs: '1fr', md: '200px minmax(0, 1fr)' },
+                gridTemplateColumns: { xs: '1fr', sm: '180px minmax(0, 1fr)' },
+                alignItems: 'start',
                 p: 2,
                 borderRadius: '8px',
                 bgcolor: 'background.neutral',
@@ -351,9 +352,12 @@ const GiftCard = ({ value, onChange, errors, editing, onUploading }) => {
                   onChange={(url) => setBox(i, { image: url })}
                   onUploading={onUploading}
                   hint="Square, about 400 × 400 px."
+                  stacked
+                  size={180}
+                  hideLabel
                 />
               ) : (
-                <GiftBoxImage box={b} size={120} />
+                <GiftBoxImage box={b} size={180} />
               )}
               <Stack spacing={1.5}>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
@@ -415,7 +419,7 @@ const GiftCard = ({ value, onChange, errors, editing, onUploading }) => {
                       startIcon={<FiTrash2 />}
                       onClick={() => removeBox(i)}
                     >
-                      Remove
+                      Delete box
                     </Button>
                   )}
                 </Stack>

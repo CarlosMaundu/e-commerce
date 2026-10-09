@@ -453,6 +453,14 @@ test('staff create an order for a customer, invoice it, take an M-Pesa payment a
   await page.getByRole('button', { name: /^Notifications/ }).click();
   const bell = page.getByTestId('notification-list');
   await expect(bell).toContainText(/New order STF-/);
+  // "View all" opens every notification in the standard table.
+  await page.getByRole('button', { name: /^View all/ }).click();
+  await expect(page).toHaveURL(/\/admin\/notifications$/);
+  await expect(
+    page.getByRole('table', { name: 'Notifications' })
+  ).toContainText(/New order STF-/);
   await page.getByRole('button', { name: 'Clear all' }).click();
-  await expect(bell).toContainText('You’re all caught up.');
+  await expect(
+    page.getByRole('table', { name: 'Notifications' })
+  ).toContainText('You’re all caught up.');
 });

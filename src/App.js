@@ -36,6 +36,7 @@ import ResetPassword from './components/password/ResetPassword';
 import VerifyEmailPage from './pages/VerifyEmailPage';
 import PolicyPage from './pages/PolicyPage';
 import CustomerRefundsPage from './pages/account/RefundsPage';
+import AdminNotificationsPage from './pages/admin/NotificationsPage';
 import InformationPage from './pages/InformationPage';
 import NotFoundPage from './pages/NotFoundPage';
 
@@ -400,6 +401,10 @@ const App = () => (
                           <StoreSettingsPage />
                         </AdminRoute>
                       }
+                    />
+                    <Route
+                      path="notifications"
+                      element={<AdminNotificationsPage />}
                     />
                     <Route
                       path="audit"

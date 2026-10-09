@@ -297,7 +297,7 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
     const returns = hasPermission(user, 'orders.returns.view');
     const stock = hasPermission(user, 'catalog.products.view');
     ok(res, {
-      ...(await staffNotifications(req.auth!.userId, user)),
+      ...(await staffNotifications(req.auth!.userId, user, req.query.all ? 500 : 10)),
       to_fulfil: orders ? c.to_fulfil : null,
       delayed: orders ? c.delayed : null,
       open_returns: returns ? c.open_returns : null,

@@ -14,6 +14,9 @@ const ImageField = ({
   hint,
   contain = false,
   onUploading,
+  stacked = false,
+  size = 160,
+  hideLabel = false,
 }) => {
   const notify = useNotify();
   const fileRef = useRef(null);
@@ -36,14 +39,22 @@ const ImageField = ({
 
   return (
     <Box>
-      <Typography variant="subtitle2" sx={{ mb: 1 }}>
-        {label}
-      </Typography>
-      <Stack direction="row" spacing={2} alignItems="center">
+      {!hideLabel && (
+        <Typography variant="subtitle2" sx={{ mb: 1 }}>
+          {label}
+        </Typography>
+      )}
+      {/* stacked: a square preview with the buttons under it (narrow columns). */}
+      <Stack
+        direction={stacked ? 'column' : 'row'}
+        spacing={stacked ? 1 : 2}
+        alignItems={stacked ? 'stretch' : 'center'}
+        sx={stacked ? { width: size } : undefined}
+      >
         <Box
           sx={{
-            width: 160,
-            height: 96,
+            width: stacked ? size : 160,
+            height: stacked ? size : 96,
             borderRadius: '8px',
             bgcolor: 'background.neutral',
             border: 1,
@@ -70,7 +81,12 @@ const ImageField = ({
             <FiImage size={24} />
           )}
         </Box>
-        <Stack spacing={1} className="image-field-actions">
+        <Stack
+          direction={stacked ? 'row' : 'column'}
+          spacing={1}
+          className="image-field-actions"
+          sx={stacked ? { '& > button': { flex: 1, minWidth: 0 } } : undefined}
+        >
           <Button
             size="small"
             variant="outlined"
@@ -119,6 +135,9 @@ ImageField.propTypes = {
   hint: PropTypes.string,
   contain: PropTypes.bool,
   onUploading: PropTypes.func,
+  stacked: PropTypes.bool,
+  size: PropTypes.number,
+  hideLabel: PropTypes.bool,
 };
 
 export default ImageField;
