@@ -34,7 +34,7 @@ export const createApp = ({
   payments = stripeGateway(),
 }: AppOptions = {}) => {
   const app = express();
-  app.set('trust proxy', 1); // behind nginx in Docker
+  app.set('trust proxy', config.trustProxy); // visitors' real IPs for rate limits
   app.disable('x-powered-by');
 
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'same-site' } }));

@@ -73,6 +73,25 @@ const combos = (attributes: Spec['products'][number]['attributes']): Record<stri
 
 const code = (s: string) => s.replace(/[^A-Za-z0-9]/g, '').slice(0, 3).toUpperCase();
 
+/**
+ * Puts back demo images missing from the uploads folder. Hosts without a
+ * lasting disk (Render's free plan) start every boot with an empty folder
+ * while the database still points at the demo images.
+ */
+export const restoreDemoImages = () => {
+  fs.mkdirSync(config.uploadsDir, { recursive: true });
+  let restored = 0;
+  for (const dir of fs.readdirSync(path.join(SEED_DIR, 'images'))) {
+    for (const file of fs.readdirSync(path.join(SEED_DIR, 'images', dir))) {
+      const target = path.join(config.uploadsDir, `demo-${file}`);
+      if (file.endsWith('.md') || fs.existsSync(target)) continue;
+      fs.copyFileSync(path.join(SEED_DIR, 'images', dir, file), target);
+      restored += 1;
+    }
+  }
+  return restored;
+};
+
 export const seedDemoCatalog = async ({ replace = false } = {}) => {
   const spec: Spec = JSON.parse(fs.readFileSync(path.join(SEED_DIR, 'catalog.json'), 'utf8'));
   fs.mkdirSync(config.uploadsDir, { recursive: true });
