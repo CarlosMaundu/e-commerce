@@ -54,6 +54,7 @@ export interface Coupon {
   ends_at: Date | null;
   uses_limit: number | null;
   uses_count: number;
+  per_customer_limit?: number | null;
   active: boolean;
 }
 
@@ -171,6 +172,23 @@ export const couponProblem = (coupon: Coupon | undefined, subtotal: number): str
     return `That promo code needs an order of at least ${money(Number(coupon.min_total))}.`;
   }
   return null;
+};
+
+/** When this customer has already used the code as often as allowed. */
+export const customerCouponProblem = async (coupon: Coupon | undefined, userId: number): Promise<string | null> => {
+  if (!coupon?.per_customer_limit) return null;
+  const { n } = (
+    await query(
+      `SELECT count(*)::int AS n FROM orders
+       WHERE user_id = $1 AND coupon_code = $2 AND placed_at IS NOT NULL AND status <> 'cancelled'`,
+      [userId, coupon.code]
+    )
+  ).rows[0];
+  return n >= coupon.per_customer_limit
+    ? coupon.per_customer_limit === 1
+      ? 'You’ve already used this promo code.'
+      : `You’ve already used this promo code ${coupon.per_customer_limit} times.`
+    : null;
 };
 
 export const findCoupon = async (code: string) =>

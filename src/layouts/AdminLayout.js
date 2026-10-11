@@ -67,6 +67,7 @@ import {
   FiUsers,
   FiX,
   FiActivity,
+  FiScissors,
 } from 'react-icons/fi';
 import { AuthContext } from '../context/AuthContext';
 import {
@@ -140,6 +141,12 @@ export const adminNav = (user) =>
           icon: <FiTag />,
           to: '/admin/brands',
           show: hasPermissionPrefix(user, 'catalog.brands.'),
+        },
+        {
+          label: 'Promo codes',
+          icon: <FiScissors />,
+          to: '/admin/promos',
+          show: hasPermission(user, PERMISSIONS.promosView),
         },
       ],
     },

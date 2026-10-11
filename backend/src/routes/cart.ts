@@ -5,7 +5,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { query } from '../db';
 import { fail, handler, ok, parse } from '../lib/http';
-import { computeTotals, couponProblem, findCoupon, GiftChoice, giftBoxOf, loadCartLines } from '../lib/pricing';
+import { computeTotals, couponProblem, customerCouponProblem, findCoupon, GiftChoice, giftBoxOf, loadCartLines } from '../lib/pricing';
 import { delivery, giftBoxes } from '../lib/delivery';
 import { authenticate, customersOnly } from '../middleware/auth';
 import { hydrate, PRODUCT_SELECT, ProductRow, resolveItem } from '../lib/products';
@@ -179,7 +179,9 @@ export const cartRoutes = () => {
       const lines = await loadCartLines(req.auth!.userId);
       if (!lines.length) fail(400, 'Add something to your cart before using a promo code.');
       const coupon = await findCoupon(code);
-      const problem = couponProblem(coupon, computeTotals(lines, undefined, null).subtotal);
+      const problem =
+        couponProblem(coupon, computeTotals(lines, undefined, null).subtotal) ||
+        (await customerCouponProblem(coupon, req.auth!.userId));
       if (problem) fail(400, problem);
       await query(
         `INSERT INTO checkout_state (user_id, coupon_code) VALUES ($1, $2)

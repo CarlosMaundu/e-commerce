@@ -15,6 +15,7 @@ import { adminReportRoutes } from './routes/adminReports';
 import { adminLegalRoutes, publicLegalRoutes } from './routes/legal';
 import { adminSupportRoutes, supportRoutes } from './routes/support';
 import { adminFaqRoutes, publicFaqRoutes } from './routes/faq';
+import { adminPromoRoutes } from './routes/adminPromos';
 import { adminSecurityRoutes } from './routes/adminSecurity';
 import { adminRoleRoutes } from './routes/adminRoles';
 import { adminUserRoutes } from './routes/adminUsers';
@@ -66,6 +67,7 @@ export const createApp = ({
   app.use('/api/admin', adminLegalRoutes());
   app.use('/api/rest', supportRoutes());
   app.use('/api/admin', adminSupportRoutes());
+  app.use('/api/admin', adminPromoRoutes());
   app.use('/api/rest', publicFaqRoutes());
   app.use('/api/admin', adminFaqRoutes());
   app.use('/api/admin', adminSecurityRoutes());

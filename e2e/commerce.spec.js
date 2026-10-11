@@ -382,6 +382,52 @@ test('support end to end: a customer asks, staff reply, the customer replies bac
   await expect(page.getByText('Open', { exact: true }).first()).toBeVisible();
 });
 
+test('a promo code made in the back office is used at checkout and traced to the order', async ({
+  page,
+  freshPage,
+}) => {
+  await createUser({
+    email: 'boss@example.com',
+    firstname: 'Bea',
+    lastname: 'Boss',
+    role: 'admin',
+  });
+  const admin = await freshPage();
+  await login(admin, 'boss@example.com', 'Hi, Bea Boss');
+  await admin.goto('/admin/promos');
+  await admin.getByRole('button', { name: 'New promo code' }).click();
+  const dialog = admin.getByRole('dialog');
+  await dialog.getByLabel('Code').fill('fresh15');
+  await dialog.getByLabel('Description').fill('15% off for new friends');
+  await dialog
+    .getByRole('spinbutton', { name: 'Discount', exact: true })
+    .fill('15');
+  await dialog.getByLabel('Uses per customer').fill('1');
+  await dialog.getByRole('button', { name: 'Create code' }).click();
+  await expect(toast(admin)).toHaveText('FRESH15 created.');
+  await expect(admin).toHaveURL(/\/admin\/promos\/FRESH15$/);
+  await expect(admin.getByText('Nobody has used this code yet.')).toBeVisible();
+
+  await customer();
+  await login(page, 'cam@example.com', 'Hi, Cam Customer');
+  await addToCart(page, 'Canvas tote bag');
+  await page.goto('/cart');
+  await page.getByLabel('Promo code').fill('fresh15');
+  await page.getByRole('button', { name: 'Apply' }).click();
+  await expect(toast(page)).toHaveText('Promo code applied.');
+  const id = await checkout(page);
+
+  await admin.reload();
+  const use = admin.getByTestId(/^promo-use-WEB-/);
+  await expect(use).toContainText('Cam Customer');
+  await expect(use).toContainText(/INV-/);
+  await use.getByRole('link', { name: /^WEB-/ }).click();
+  await expect(admin).toHaveURL(new RegExp(`/admin/orders/${id}$`));
+
+  await admin.goto('/admin/promos?tab=active');
+  await expect(admin.getByTestId('promo-row-FRESH15')).toContainText('1');
+});
+
 test('back-office pages follow the role’s permissions', async ({ page }) => {
   await createUser({
     email: 'cat@example.com',
@@ -429,7 +475,7 @@ test('a super admin creates, then deletes, a custom role', async ({ page }) => {
   await expect(toast(page)).toHaveText('Role created.');
   const row = page.getByTestId('role-row-stock_clerk');
   await expect(row).toContainText('Keeps stock up');
-  await expect(row).toContainText('2 of 41');
+  await expect(row).toContainText('2 of 43');
 
   // The Permissions tab lists who holds each permission.
   await page.getByRole('tab', { name: /Permissions/ }).click();

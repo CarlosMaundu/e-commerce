@@ -69,6 +69,8 @@ export const PERMISSIONS = {
   auditView: 'admin.audit.view',
   supportView: 'support.tickets.view',
   supportReply: 'support.tickets.reply',
+  promosView: 'marketing.promos.view',
+  promosManage: 'marketing.promos.manage',
 };
 
 const ROLE_LABELS = {
