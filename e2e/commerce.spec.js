@@ -446,6 +446,47 @@ test('back-office pages follow the role’s permissions', async ({ page }) => {
   await expect(page).toHaveURL(/\/$/);
 });
 
+test('a deal added in Store settings shows in the top strip only', async ({
+  page,
+  freshPage,
+}) => {
+  await createUser({
+    email: 'boss@example.com',
+    firstname: 'Bea',
+    lastname: 'Boss',
+    role: 'admin',
+  });
+  const admin = await freshPage();
+  await login(admin, 'boss@example.com', 'Hi, Bea Boss');
+  await admin.goto('/admin/settings?tab=home');
+  await admin.getByRole('button', { name: 'Add deal' }).click();
+  const dialog = admin.getByRole('dialog');
+  await dialog.getByLabel('Title').fill('Flash sale on scarves');
+  await dialog.getByLabel('Text', { exact: true }).fill('Today only');
+  await dialog.getByLabel('Top strip').check();
+  await dialog.getByRole('button', { name: 'Add deal' }).click();
+  await expect(toast(admin)).toHaveText('Deal added.');
+  const up = admin.getByRole('button', {
+    name: 'Move “Flash sale on scarves” up',
+  });
+  while (await up.isEnabled()) {
+    await up.click();
+    await admin.waitForTimeout(300);
+  }
+  await expect(
+    admin.getByRole('table', { name: 'Deals' }).getByRole('row').nth(1)
+  ).toContainText('Flash sale on scarves');
+
+  await page.goto('/');
+  await expect(page.getByLabel('Current offers')).toContainText(
+    'Flash sale on scarves'
+  );
+  await expect(page.getByTestId('promo-banner')).toBeVisible();
+  await expect(page.getByTestId('promo-banner')).not.toContainText(
+    'Flash sale on scarves'
+  );
+});
+
 test('a super admin creates, then deletes, a custom role', async ({ page }) => {
   await createUser({
     email: 'root@example.com',

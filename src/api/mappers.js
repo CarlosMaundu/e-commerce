@@ -229,6 +229,8 @@ export const promotionFromApi = (p) => ({
   code: p.code || null,
   link: p.link || '/products',
   image: p.image || '',
+  // Where it shows: the strip under the header, the home banner, or both.
+  placement: p.placement || 'both',
   endsAt: p.ends_at,
   daily: Boolean(p.daily),
 });

@@ -1184,3 +1184,27 @@ export const adminPromos = {
     await http().delete(`/admin/promos/${encodeURIComponent(code)}`);
   },
 };
+
+/** Store settings → Home page → Deals (raw API shapes). */
+export const adminDeals = {
+  async list() {
+    const { data } = await http().get('/admin/deals');
+    return data;
+  },
+  async create(deal) {
+    const { data } = await http().post('/admin/deals', deal);
+    return data;
+  },
+  async update(id, deal) {
+    const { data } = await http().put(`/admin/deals/${id}`, deal);
+    return data;
+  },
+  /** ids in their new order → the reordered list */
+  async reorder(ids) {
+    const { data } = await http().put('/admin/deals-order', { ids });
+    return data;
+  },
+  async remove(id) {
+    await http().delete(`/admin/deals/${id}`);
+  },
+};

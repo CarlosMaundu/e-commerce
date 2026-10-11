@@ -422,6 +422,7 @@ export const catalogRoutes = () => {
           code: p.code,
           link: p.link,
           image: p.image,
+          placement: p.placement,
           ends_at: p.ends_at || startOfTomorrow(),
           daily: !p.ends_at,
         }))

@@ -38,6 +38,10 @@ const resetUsers = async () => {
   await db().query(
     "SELECT setval('faq_items_id_seq', GREATEST((SELECT max(id) FROM faq_items), 1))"
   );
+  // Only the sample promo codes; codes tests create go.
+  await db().query(
+    "DELETE FROM coupons WHERE code NOT IN ('WELCOME10', 'FRIDAY35', 'SAVE5')"
+  );
   await db().query('UPDATE coupons SET uses_count = 0');
   // Catalog back to the demo seed: products added by tests (no SKU) go,
   // and every variant has stock so option choices are predictable.
