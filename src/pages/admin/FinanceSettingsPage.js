@@ -15,7 +15,6 @@ import {
   MenuItem,
   Radio,
   RadioGroup,
-  Skeleton,
   Stack,
   TextField,
   Typography,
@@ -28,6 +27,7 @@ import { SectionCard } from '../../components/ui';
 import { PageHeader } from '../../components/admin/DataTable';
 import { useHideHelpWhile } from '../../layouts/AdminLayout';
 import { formatDateTime } from '../../utils/format';
+import { CardSkeleton, FormSkeleton } from '../../components/skeletons';
 
 export const CURRENCIES = [
   ['KES', 'Kenyan shilling'],
@@ -206,7 +206,9 @@ const FinanceSettingsPage = () => {
         >
           {[0, 1].map((i) => (
             <Grid item xs={12} md={6} key={i}>
-              <Skeleton variant="rounded" height={300} />
+              <CardSkeleton subtitle>
+                <FormSkeleton fields={3} columns={1} />
+              </CardSkeleton>
             </Grid>
           ))}
         </Grid>

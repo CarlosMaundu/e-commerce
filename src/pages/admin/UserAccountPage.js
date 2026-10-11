@@ -68,6 +68,13 @@ import {
   formatMoneyList,
   formatShortDate,
 } from '../../utils/format';
+import {
+  CardSkeleton,
+  FieldRowsSkeleton,
+  HeaderSkeleton,
+  StatCardsSkeleton,
+  TableSkeleton,
+} from '../../components/skeletons';
 
 /** Compact white stat card: icon square, small caps label and value; a link when it has details. */
 const CustomerStat = ({ label, value, icon, color, to }) => {
@@ -275,10 +282,39 @@ const UserAccountPage = () => {
   }, [id]);
 
   if (!data) {
+    // Profile card beside the stat tiles, then the tabs and their table.
     return (
-      <Stack spacing={2}>
-        <Skeleton height={60} width="40%" />
-        <Skeleton variant="rounded" height={200} />
+      <Stack spacing={3} data-testid="page-loading" aria-busy="true">
+        <HeaderSkeleton actions={2} />
+        <Grid container spacing={3}>
+          <Grid item xs={12} lg={4}>
+            <CardSkeleton
+              title={false}
+              sx={{ height: '100%', p: { xs: 2, md: 2.5 } }}
+            >
+              <Stack
+                direction="row"
+                spacing={2}
+                alignItems="center"
+                sx={{ mb: 2 }}
+              >
+                <Skeleton variant="circular" width={56} height={56} />
+                <Box sx={{ flex: 1 }}>
+                  <Skeleton variant="text" width="70%" />
+                  <Skeleton variant="text" width="45%" />
+                </Box>
+              </Stack>
+              <FieldRowsSkeleton rows={5} />
+            </CardSkeleton>
+          </Grid>
+          <Grid item xs={12} lg={8}>
+            <Stack spacing={3}>
+              <CardSkeleton lines={2} />
+              <StatCardsSkeleton count={6} columns={{ xs: 2, md: 3 }} />
+            </Stack>
+          </Grid>
+        </Grid>
+        <TableSkeleton columns={6} rows={5} tabs={4} toolbar={false} />
       </Stack>
     );
   }

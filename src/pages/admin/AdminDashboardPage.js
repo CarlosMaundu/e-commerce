@@ -45,6 +45,7 @@ import {
 } from '../../components/admin/DataTable';
 import KenyaMap from '../../components/admin/KenyaMap';
 import { formatMoney, formatMoneyCompact } from '../../utils/format';
+import { CardSkeleton, ItemRowsSkeleton } from '../../components/skeletons';
 
 ChartJS.register(
   CategoryScale,
@@ -1041,7 +1042,14 @@ const OverviewSkeleton = () => (
       }}
     >
       {[0, 1, 2, 3].map((i) => (
-        <Skeleton key={i} variant="rounded" height={170} />
+        <CardSkeleton key={i} title={false} sx={{ height: 170 }}>
+          <Stack direction="row" justifyContent="space-between">
+            <Skeleton variant="text" width={110} />
+            <Skeleton variant="rounded" width={40} height={40} />
+          </Stack>
+          <Skeleton variant="text" width={120} sx={{ fontSize: '1.8rem' }} />
+          <Skeleton variant="text" width="60%" />
+        </CardSkeleton>
       ))}
     </Box>
     <Box
@@ -1051,8 +1059,26 @@ const OverviewSkeleton = () => (
         gridTemplateColumns: { xs: '1fr', lg: '2.2fr 1fr' },
       }}
     >
-      <Skeleton variant="rounded" height={440} />
-      <Skeleton variant="rounded" height={440} />
+      <CardSkeleton subtitle action sx={{ height: 440 }}>
+        {/* The sales chart: bars rising from a baseline. */}
+        <Stack
+          direction="row"
+          spacing={1}
+          alignItems="flex-end"
+          sx={{ height: 300 }}
+        >
+          {[45, 60, 38, 72, 55, 80, 64, 90, 58, 70, 48, 76].map((h, i) => (
+            <Skeleton
+              key={i}
+              variant="rounded"
+              sx={{ flex: 1, height: `${h}%` }}
+            />
+          ))}
+        </Stack>
+      </CardSkeleton>
+      <CardSkeleton sx={{ height: 440 }}>
+        <ItemRowsSkeleton rows={5} image={40} />
+      </CardSkeleton>
     </Box>
     <Box
       sx={{
@@ -1062,7 +1088,9 @@ const OverviewSkeleton = () => (
       }}
     >
       {[0, 1, 2].map((i) => (
-        <Skeleton key={i} variant="rounded" height={230} />
+        <CardSkeleton key={i} sx={{ height: 230 }}>
+          <ItemRowsSkeleton rows={3} image={0} />
+        </CardSkeleton>
       ))}
     </Box>
   </Stack>

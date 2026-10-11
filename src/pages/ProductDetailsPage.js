@@ -47,6 +47,7 @@ import {
 } from '../redux/wishlistSlice';
 import { useNotify } from '../notification/NotificationProvider';
 import ProductCard from '../components/common/ProductCard';
+import { ItemRowsSkeleton, LinesSkeleton } from '../components/skeletons';
 import PageBreadcrumbs from '../components/common/PageBreadcrumbs';
 import { EmptyState } from '../components/ui';
 import RichText from '../components/common/RichText';
@@ -293,7 +294,22 @@ const Reviews = ({ product, onAdded }) => {
     }
   };
 
-  if (!data) return <Skeleton height={200} />;
+  if (!data) {
+    return (
+      <Grid container spacing={4} aria-busy="true">
+        <Grid item xs={12} md={4}>
+          <Skeleton variant="text" width={80} sx={{ fontSize: '2.4rem' }} />
+          <Skeleton variant="text" width={120} />
+          {[0, 1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} variant="text" height={28} />
+          ))}
+        </Grid>
+        <Grid item xs={12} md={8}>
+          <ItemRowsSkeleton rows={3} image={40} amount={false} />
+        </Grid>
+      </Grid>
+    );
+  }
   const { summary, reviews } = data;
   return (
     <Grid container spacing={4}>
@@ -437,6 +453,63 @@ Reviews.propTypes = {
 
 // ---------- page ----------
 
+/** The product page's shape while it loads: gallery, title, price, options, buttons. */
+const ProductPageSkeleton = () => (
+  <Container
+    maxWidth="xl"
+    sx={{ py: { xs: 3, md: 4 } }}
+    data-testid="page-loading"
+    aria-busy="true"
+  >
+    <Skeleton variant="text" width={280} sx={{ mb: 3 }} />
+    <Grid container spacing={{ xs: 3, md: 5 }}>
+      <Grid item xs={12} md={6} lg={5}>
+        <Skeleton
+          variant="rounded"
+          sx={{ aspectRatio: '1 / 1', height: 'auto', borderRadius: 1 }}
+        />
+        <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} variant="rounded" width={64} height={64} />
+          ))}
+        </Stack>
+      </Grid>
+      <Grid item xs={12} md={6} lg={7}>
+        <Stack spacing={2.25} sx={{ maxWidth: 640 }}>
+          <Box>
+            <Stack direction="row" spacing={1.5} alignItems="center">
+              <Skeleton variant="rounded" width={72} height={36} />
+              <Skeleton
+                variant="text"
+                width="55%"
+                sx={{ fontSize: '1.5rem' }}
+              />
+            </Stack>
+            <Skeleton variant="text" width={260} sx={{ mt: 1.25 }} />
+          </Box>
+          <Skeleton variant="rounded" height={84} />
+          {[0, 1].map((i) => (
+            <Box key={i}>
+              <Skeleton variant="text" width={90} />
+              <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
+                {[0, 1, 2, 3].map((j) => (
+                  <Skeleton key={j} variant="rounded" width={56} height={36} />
+                ))}
+              </Stack>
+            </Box>
+          ))}
+          <Stack direction="row" spacing={1.5}>
+            <Skeleton variant="rounded" width={128} height={48} />
+            <Skeleton variant="rounded" height={48} sx={{ flex: 1 }} />
+            <Skeleton variant="rounded" width={48} height={48} />
+          </Stack>
+          <LinesSkeleton lines={3} />
+        </Stack>
+      </Grid>
+    </Grid>
+  </Container>
+);
+
 const ProductDetailsPage = () => {
   const { id } = useParams();
   const location = useLocation();
@@ -538,25 +611,7 @@ const ProductDetailsPage = () => {
     );
   }
 
-  if (!product) {
-    return (
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-        <Grid container spacing={4}>
-          <Grid item xs={12} md={6}>
-            <Skeleton
-              variant="rounded"
-              sx={{ aspectRatio: '1 / 1', height: 'auto', borderRadius: 1 }}
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <Skeleton height={60} />
-            <Skeleton height={40} width="40%" />
-            <Skeleton height={200} />
-          </Grid>
-        </Grid>
-      </Container>
-    );
-  }
+  if (!product) return <ProductPageSkeleton />;
 
   const hasVariants = product.variants.length > 0;
   const needsChoice = product.attributes.some((a) => !selected[a.name]);

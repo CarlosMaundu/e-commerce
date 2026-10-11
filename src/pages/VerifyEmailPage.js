@@ -1,6 +1,7 @@
 // src/pages/VerifyEmailPage.js — confirming an email address: either the
 // link from the email (?token=…) or "check your inbox" after signing up or a
 // refused sign-in (?sent=email), with a button to send another link.
+// skeleton-exempt: checking the link is an action with its own progress message.
 import React, { useEffect, useState } from 'react';
 import { Link as RouterLink, useSearchParams } from 'react-router-dom';
 import {

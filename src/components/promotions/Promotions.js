@@ -137,9 +137,36 @@ const inBanner = (p) => p.placement !== 'strip';
 
 export const PromoStrip = ({ onClose }) => {
   const navigate = useNavigate();
-  const promos = usePromotions().filter(inStrip);
+  const state = usePromotionsState();
+  const promos = state.promos.filter(inStrip);
   const { index, pause } = useRotation(promos.length);
   const promo = promos[index];
+  if (!state.loaded) {
+    // Keep the strip's height while offers load, so the page doesn't jump.
+    return (
+      <Box
+        aria-hidden
+        data-testid="promo-strip-loading"
+        sx={{ bgcolor: 'promo.main', borderTop: 1, borderColor: 'divider' }}
+      >
+        <Stack
+          direction="row"
+          spacing={2.5}
+          alignItems="center"
+          justifyContent="center"
+          sx={{ py: 0.75, minHeight: 44 }}
+        >
+          <Skeleton variant="text" width={220} />
+          <Skeleton
+            variant="text"
+            width={260}
+            sx={{ display: { xs: 'none', md: 'block' } }}
+          />
+          <Skeleton variant="rounded" width={84} height={32} />
+        </Stack>
+      </Box>
+    );
+  }
   if (!promo) return null;
   return (
     <Box

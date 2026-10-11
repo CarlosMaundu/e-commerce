@@ -22,6 +22,7 @@ import { FiMonitor, FiSmartphone, FiTablet } from 'react-icons/fi';
 import { formatDateTime } from '../../utils/format';
 import { EmptyState } from '../ui';
 import { PAGE_SIZE, StandardPagination, usePaging } from '../admin/DataTable';
+import { SkeletonCells } from '../skeletons';
 
 const DEVICE_ICONS = {
   mobile: FiSmartphone,
@@ -50,7 +51,23 @@ export const SessionsTable = ({
   emptyText = 'No active sessions.',
 }) => {
   const paging = usePaging();
-  if (!sessions) return <Skeleton height={120} />;
+  if (!sessions) {
+    // The sessions table with placeholder rows.
+    const cols = 4 + (showUser ? 1 : 0) + (onEnd ? 1 : 0);
+    return (
+      <TableContainer aria-busy="true">
+        <Table size="small">
+          <TableBody>
+            {[0, 1, 2].map((i) => (
+              <TableRow key={i}>
+                <SkeletonCells cols={cols} index={i} />
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    );
+  }
   if (!sessions.length) return <EmptyState title={emptyText} />;
   return (
     <TableContainer>
@@ -176,7 +193,43 @@ const ACTION_TONES = {
 };
 
 export const ActivityList = ({ activity, showUser = false }) => {
-  if (!activity) return <Skeleton height={160} />;
+  if (!activity) {
+    // Activity rows: a dot, what happened and when.
+    return (
+      <Stack spacing={0} aria-busy="true">
+        {[0, 1, 2, 3].map((i) => (
+          <Stack
+            key={i}
+            direction="row"
+            spacing={1.5}
+            sx={{
+              py: 1.25,
+              borderBottom: i < 3 ? 1 : 0,
+              borderColor: 'divider',
+            }}
+          >
+            <Skeleton
+              variant="circular"
+              width={8}
+              height={8}
+              sx={{ mt: 0.75 }}
+            />
+            <Box sx={{ flex: 1 }}>
+              <Skeleton
+                variant="text"
+                width={['60%', '45%', '70%', '50%'][i]}
+              />
+              <Skeleton
+                variant="text"
+                width={140}
+                sx={{ fontSize: '0.75rem' }}
+              />
+            </Box>
+          </Stack>
+        ))}
+      </Stack>
+    );
+  }
   if (!activity.length) return <EmptyState title="No activity yet." />;
   return (
     <Stack spacing={0} data-testid="activity">

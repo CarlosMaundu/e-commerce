@@ -1,35 +1,31 @@
-// src/components/common/PageSkeleton.js — placeholder shapes shown while a
-// page's data (or the signed-in session) loads, instead of "Loading…" text.
+// src/components/common/PageSkeleton.js — placeholder for a whole page while
+// the signed-in session (or the cart) loads, built from the skeleton kit so
+// it has the same frames as the page that follows.
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Box, Container, Grid, Skeleton, Stack } from '@mui/material';
-
-const TableSkeleton = ({ rows = 8 }) => (
-  <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 2 }}>
-    <Stack direction="row" spacing={1.5} sx={{ mb: 2 }}>
-      <Skeleton variant="rounded" height={40} sx={{ flex: 1 }} />
-      <Skeleton variant="rounded" height={40} width={120} />
-      <Skeleton variant="rounded" height={40} width={120} />
-    </Stack>
-    {Array.from({ length: rows }, (_, i) => (
-      <Skeleton key={i} variant="text" height={44} />
-    ))}
-  </Box>
-);
-TableSkeleton.propTypes = { rows: PropTypes.number };
+import { Box, Grid, Skeleton, Stack } from '@mui/material';
+import {
+  CardSkeleton,
+  FieldRowsSkeleton,
+  FormSkeleton,
+  HeaderSkeleton,
+  ItemRowsSkeleton,
+  ShopPageSkeleton,
+  TableSkeleton,
+} from '../skeletons';
 
 /**
- * variant: 'page' (storefront: title + content and side card),
- * 'admin' (header + table), 'cart' (rows + summary), 'form' (cards).
+ * variant: 'page' (storefront: content beside a side card), 'admin' (header
+ * and a table panel), 'cart' (cart lines beside the summary), 'form' (cards
+ * of fields).
  */
 const PageSkeleton = ({ variant = 'page' }) => {
   if (variant === 'admin') {
     return (
-      <Box data-testid="page-loading" aria-busy="true">
-        <Skeleton variant="text" width={160} />
-        <Skeleton variant="text" width={260} height={52} sx={{ mb: 3 }} />
-        <TableSkeleton />
-      </Box>
+      <Stack spacing={3} data-testid="page-loading" aria-busy="true">
+        <HeaderSkeleton actions={1} />
+        <TableSkeleton tabs={3} rows={8} columns={6} />
+      </Stack>
     );
   }
   if (variant === 'form') {
@@ -37,7 +33,9 @@ const PageSkeleton = ({ variant = 'page' }) => {
       <Grid container spacing={3} data-testid="page-loading" aria-busy="true">
         {[0, 1].map((i) => (
           <Grid item xs={12} md={6} key={i}>
-            <Skeleton variant="rounded" height={300} />
+            <CardSkeleton subtitle>
+              <FormSkeleton fields={4} columns={1} />
+            </CardSkeleton>
           </Grid>
         ))}
       </Grid>
@@ -45,37 +43,25 @@ const PageSkeleton = ({ variant = 'page' }) => {
   }
   const cart = variant === 'cart';
   return (
-    <Container
-      maxWidth="xl"
-      sx={{ py: { xs: 3, md: 5 } }}
-      data-testid="page-loading"
-      aria-busy="true"
-    >
-      <Skeleton variant="text" width={220} height={52} sx={{ mb: 3 }} />
+    <ShopPageSkeleton>
       <Grid container spacing={4}>
         <Grid item xs={12} md={8}>
-          <Stack spacing={2}>
-            {Array.from({ length: cart ? 3 : 4 }, (_, i) => (
-              <Stack key={i} direction="row" spacing={2} alignItems="center">
-                <Skeleton
-                  variant="rounded"
-                  width={cart ? 88 : 56}
-                  height={cart ? 88 : 56}
-                />
-                <Box sx={{ flex: 1 }}>
-                  <Skeleton variant="text" width="60%" />
-                  <Skeleton variant="text" width="35%" />
-                </Box>
-                <Skeleton variant="text" width={64} />
-              </Stack>
-            ))}
-          </Stack>
+          <CardSkeleton title={false}>
+            <ItemRowsSkeleton rows={cart ? 3 : 4} image={cart ? 88 : 56} />
+          </CardSkeleton>
         </Grid>
         <Grid item xs={12} md={4}>
-          <Skeleton variant="rounded" height={cart ? 280 : 220} />
+          <CardSkeleton>
+            <FieldRowsSkeleton rows={cart ? 4 : 3} />
+            {cart && (
+              <Box sx={{ mt: 3 }}>
+                <Skeleton variant="rounded" height={48} />
+              </Box>
+            )}
+          </CardSkeleton>
         </Grid>
       </Grid>
-    </Container>
+    </ShopPageSkeleton>
   );
 };
 

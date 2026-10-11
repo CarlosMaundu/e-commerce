@@ -2,6 +2,7 @@
 // customer (phone or walk-in orders): choose the customer, add products,
 // pick their address or enter one, delivery and how they'll pay. The order
 // is created with its invoice; a payment can be recorded straight away.
+// skeleton-exempt: a static form; only the customer picker loads, and it shows its own loading text.
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
@@ -40,7 +41,7 @@ const CreateOrderPage = () => {
   const notify = useNotify();
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const [customers, setCustomers] = useState([]);
+  const [customers, setCustomers] = useState(null); // null while loading
   const [customer, setCustomer] = useState(null);
   const [addresses, setAddresses] = useState([]);
   const [addressId, setAddressId] = useState('new');
@@ -71,7 +72,7 @@ const CreateOrderPage = () => {
         if (preset)
           setCustomer(shoppers.find((u) => String(u.id) === preset) || null);
       })
-      .catch(() => {});
+      .catch(() => setCustomers([]));
     adminFinance
       .deliveryOptions()
       .then((list) => {
@@ -163,7 +164,9 @@ const CreateOrderPage = () => {
           <Stack spacing={3}>
             <SectionCard title="1. Customer">
               <Autocomplete
-                options={customers}
+                options={customers || []}
+                loading={!customers}
+                loadingText="Loading customers…"
                 value={customer}
                 onChange={(_, c) => setCustomer(c)}
                 getOptionLabel={(c) => `${c.name} — ${c.email}`}

@@ -13,7 +13,6 @@ import {
   IconButton,
   MenuItem,
   Select,
-  Skeleton,
   Stack,
   Typography,
   useMediaQuery,
@@ -23,6 +22,7 @@ import { FiFilter, FiX } from 'react-icons/fi';
 import PageBreadcrumbs from '../components/common/PageBreadcrumbs';
 import HeroSection from '../components/layout/HeroSection';
 import ProductCard from '../components/common/ProductCard';
+import { ProductCardSkeleton } from '../components/skeletons';
 import ProductFilters, {
   useProductQuery,
 } from '../components/products/ProductFilters';
@@ -383,12 +383,7 @@ const ProductsPage = () => {
                 p ? (
                   <ProductCard key={p.id} product={p} />
                 ) : (
-                  <Skeleton
-                    key={i}
-                    variant="rounded"
-                    height={380}
-                    sx={{ borderRadius: 1 }}
-                  />
+                  <ProductCardSkeleton key={i} />
                 )
               )}
             </Box>

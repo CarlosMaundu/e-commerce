@@ -5,15 +5,7 @@
 import React, { useCallback, useContext, useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import { Link as RouterLink, useParams } from 'react-router-dom';
-import {
-  Box,
-  Button,
-  Grid,
-  Link,
-  Skeleton,
-  Stack,
-  Typography,
-} from '@mui/material';
+import { Box, Button, Grid, Link, Stack, Typography } from '@mui/material';
 import { FiEdit3, FiRotateCcw } from 'react-icons/fi';
 import { AuthContext } from '../../../context/AuthContext';
 import { hasPermission } from '../../../auth/permissions';
@@ -29,6 +21,12 @@ import {
   RETURN_STATES,
   ReturnActionDialog,
 } from './ReturnActions';
+import {
+  FieldRowsSkeleton,
+  ItemRowsSkeleton,
+  LinesSkeleton,
+  TimelineSkeleton,
+} from '../../../components/skeletons';
 
 const Row = ({ label, children }) => (
   <Stack direction="row" spacing={2} justifyContent="space-between">
@@ -140,7 +138,7 @@ const AdminReturnDetail = () => {
           <Stack spacing={3}>
             <SectionCard title="Item">
               {!item ? (
-                <Skeleton variant="rounded" height={88} />
+                <ItemRowsSkeleton rows={1} image={72} />
               ) : (
                 <Stack spacing={2}>
                   <Stack direction="row" spacing={2} alignItems="center">
@@ -191,11 +189,7 @@ const AdminReturnDetail = () => {
             </SectionCard>
             <SectionCard title="Return updates">
               {!item ? (
-                <Stack spacing={2}>
-                  {[0, 1, 2].map((i) => (
-                    <Skeleton key={i} variant="rounded" height={40} />
-                  ))}
-                </Stack>
+                <TimelineSkeleton rows={4} />
               ) : (
                 <ReturnTimeline events={item.events} staff />
               )}
@@ -207,7 +201,7 @@ const AdminReturnDetail = () => {
           <Stack spacing={3}>
             <SectionCard title="Customer">
               {!item ? (
-                <Skeleton variant="rounded" height={48} />
+                <LinesSkeleton lines={2} />
               ) : (
                 <Stack spacing={0.5}>
                   {item.customer?.customer_id ? (
@@ -232,7 +226,7 @@ const AdminReturnDetail = () => {
             </SectionCard>
             <SectionCard title="Details">
               {!item ? (
-                <Skeleton variant="rounded" height={96} />
+                <FieldRowsSkeleton rows={3} />
               ) : (
                 <Stack spacing={1.25}>
                   <Row label="Order">
@@ -259,7 +253,7 @@ const AdminReturnDetail = () => {
             </SectionCard>
             <SectionCard title="Refund">
               {!item ? (
-                <Skeleton variant="rounded" height={56} />
+                <LinesSkeleton lines={3} />
               ) : item.refund ? (
                 <Stack spacing={1.25} alignItems="flex-start">
                   <Pill label={refundLabel} tone={refundTone} />

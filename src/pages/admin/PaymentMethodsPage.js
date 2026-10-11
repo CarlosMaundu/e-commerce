@@ -38,6 +38,7 @@ import { adminPayments } from '../../api';
 import { useNotify } from '../../notification/NotificationProvider';
 import { PageHeader, Pill } from '../../components/admin/DataTable';
 import { formatDateTime } from '../../utils/format';
+import { CardSkeleton, LinesSkeleton } from '../../components/skeletons';
 
 const ICONS = {
   stripe: <FiCreditCard />,
@@ -435,7 +436,19 @@ const PaymentMethodsPage = () => {
       >
         {!providers
           ? [0, 1, 2].map((i) => (
-              <Skeleton key={i} variant="rounded" height={230} />
+              <CardSkeleton key={i} title={false} sx={{ p: 2.5 }}>
+                <Stack direction="row" spacing={1.5} alignItems="center">
+                  <Skeleton variant="rounded" width={44} height={44} />
+                  <Box sx={{ flex: 1 }}>
+                    <Skeleton variant="text" width="70%" />
+                    <Skeleton variant="rounded" width={64} height={22} />
+                  </Box>
+                </Stack>
+                <Box sx={{ my: 1.5 }}>
+                  <LinesSkeleton lines={3} />
+                </Box>
+                <Skeleton variant="rounded" width={120} height={36} />
+              </CardSkeleton>
             ))
           : providers.map((p) => (
               <ProviderCard
