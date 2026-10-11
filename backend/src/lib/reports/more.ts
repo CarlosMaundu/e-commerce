@@ -72,14 +72,14 @@ export const customersReport = async (p: Period): Promise<Report> => {
        count(*)::int AS orders, sum(o.total) AS spent, max(o.placed_at) AS last_order,
        (SELECT count(*)::int FROM orders a WHERE a.user_id = u.id AND a.placed_at IS NOT NULL AND a.status <> 'cancelled') AS lifetime
      FROM orders o JOIN users u ON u.id = o.user_id
-     WHERE ${VALID} AND ${inRange('o.placed_at', '$1', '$2')} GROUP BY u.id ORDER BY spent DESC LIMIT 50`,
+     WHERE ${VALID} AND ${inRange('o.placed_at', '$1', '$2')} GROUP BY u.id ORDER BY spent DESC`,
     [p.from, p.to]
   )).rows;
   const places = (await query(
     `SELECT initcap(trim(o.shipping_address->>'city')) AS city, count(DISTINCT o.user_id)::int AS customers,
        count(*)::int AS orders, sum(o.total) AS sales
      FROM orders o WHERE ${VALID} AND ${inRange('o.placed_at', '$1', '$2')}
-     GROUP BY 1 ORDER BY sales DESC LIMIT 12`,
+     GROUP BY 1 ORDER BY sales DESC`,
     [p.from, p.to]
   )).rows;
   const fresh = fill(labels, series, 'first_time');
@@ -292,7 +292,7 @@ export const serviceReport = async (p: Period): Promise<Report> => {
        (SELECT COALESCE(sum(x.quantity), 0) FROM order_items x JOIN orders o ON o.id = x.order_id
          WHERE x.product_id = oi.product_id AND ${VALID} AND ${inRange('o.placed_at', '$1', '$2')})::int AS sold
      FROM returns r JOIN order_items oi ON oi.id = r.order_item_id JOIN products pr ON pr.id = oi.product_id
-     WHERE ${inRange('r.created_at', '$1', '$2')} GROUP BY 1, 2 ORDER BY 3 DESC LIMIT 15`,
+     WHERE ${inRange('r.created_at', '$1', '$2')} GROUP BY 1, 2 ORDER BY 3 DESC`,
     [p.from, p.to]
   )).rows;
   const topics = (await query(
@@ -518,7 +518,7 @@ export const searchReport = async (p: Period): Promise<Report> => {
   const terms = (await query(
     `SELECT normalized AS term, count(*)::int AS searches, round(avg(results))::int AS results,
        count(*) FILTER (WHERE results = 0)::int AS empty, max(created_at) AS last
-     FROM search_queries WHERE ${inRange('created_at', '$1', '$2')} GROUP BY 1 ORDER BY 2 DESC LIMIT 100`,
+     FROM search_queries WHERE ${inRange('created_at', '$1', '$2')} GROUP BY 1 ORDER BY 2 DESC LIMIT 1000`,
     [p.from, p.to]
   )).rows;
   const labels = buckets(p, p.group);
@@ -562,7 +562,7 @@ export const searchReport = async (p: Period): Promise<Report> => {
           { key: 'term', label: 'Search' },
           { key: 'empty', label: 'Times', format: 'number', align: 'right' },
         ],
-        rows: terms.filter((t) => t.empty > 0).sort((a, b) => b.empty - a.empty).slice(0, 20),
+        rows: terms.filter((t) => t.empty > 0).sort((a, b) => b.empty - a.empty),
         empty: 'Every search found something.',
       },
     ],

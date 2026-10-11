@@ -3,7 +3,6 @@
 // per stage, and every order in a filterable table. A row opens the order's
 // stage-by-stage breakdown (SlaOrderPage).
 import React, { useContext, useEffect, useState } from 'react';
-import PropTypes from 'prop-types';
 import {
   Link as RouterLink,
   useNavigate,
@@ -14,7 +13,6 @@ import {
   Button,
   Link,
   MenuItem,
-  Skeleton,
   Stack,
   Table,
   TableBody,
@@ -25,15 +23,9 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { alpha, useTheme } from '@mui/material/styles';
-import {
-  FiAlertTriangle,
-  FiCheckCircle,
-  FiClock,
-  FiDownload,
-  FiSettings,
-  FiXCircle,
-} from 'react-icons/fi';
+import { FiDownload, FiSettings } from 'react-icons/fi';
+import ReportStatCard from '../../../components/admin/ReportStatCard';
+import { StatCardsSkeleton } from '../../../components/skeletons';
 import { AuthContext } from '../../../context/AuthContext';
 import { hasPermission, PERMISSIONS } from '../../../auth/permissions';
 import { adminReports } from '../../../api';
@@ -80,64 +72,6 @@ const DELIVERY = {
 };
 
 /** Summary card: icon, label, big number, a line of context. */
-const StatCard = ({ icon, label, value, note, tone, onClick, active }) => {
-  const theme = useTheme();
-  const c = theme.palette[tone].main;
-  return (
-    <Box
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(e) => e.key === 'Enter' && onClick()}
-      data-testid={`sla-stat-${label.toLowerCase().replace(/\s+/g, '-')}`}
-      sx={{
-        p: 2.5,
-        borderRadius: 1,
-        border: 1,
-        borderColor: active ? c : 'divider',
-        bgcolor: active ? alpha(c, 0.05) : 'background.paper',
-        cursor: 'pointer',
-        transition: 'border-color .15s',
-        '&:hover': { borderColor: alpha(c, 0.6) },
-      }}
-    >
-      <Stack direction="row" spacing={1.5} alignItems="center">
-        <Box
-          sx={{
-            width: 40,
-            height: 40,
-            borderRadius: '8px',
-            display: 'grid',
-            placeItems: 'center',
-            fontSize: 18,
-            color: c,
-            bgcolor: alpha(c, 0.12),
-          }}
-        >
-          {icon}
-        </Box>
-        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-          {label}
-        </Typography>
-      </Stack>
-      <Typography sx={{ fontWeight: 800, fontSize: '1.6rem', mt: 1.5 }}>
-        {value}
-      </Typography>
-      <Typography variant="caption" color="text.secondary">
-        {note}
-      </Typography>
-    </Box>
-  );
-};
-StatCard.propTypes = {
-  icon: PropTypes.node,
-  label: PropTypes.string.isRequired,
-  value: PropTypes.node,
-  note: PropTypes.node,
-  tone: PropTypes.string.isRequired,
-  onClick: PropTypes.func,
-  active: PropTypes.bool,
-};
 
 const SlaReportPage = () => {
   const { user } = useContext(AuthContext);
@@ -227,7 +161,6 @@ const SlaReportPage = () => {
 
   const s = data?.summary;
   const state = get('state');
-  const card = (value) => (s ? value : <Skeleton width={60} />);
 
   return (
     <Stack spacing={3}>
@@ -274,46 +207,58 @@ const SlaReportPage = () => {
           },
         }}
       >
-        <StatCard
-          icon={<FiCheckCircle />}
-          label="Met SLAs"
-          tone="success"
-          value={card(s?.met)}
-          note={
-            s?.met_rate !== null && s?.met_rate !== undefined
-              ? `${s.met_rate}% of delivered orders`
-              : 'No delivered orders yet'
-          }
-          active={state === 'met'}
-          onClick={() => set({ state: state === 'met' ? '' : 'met' })}
-        />
-        <StatCard
-          icon={<FiXCircle />}
-          label="Breached SLAs"
-          tone="error"
-          value={card(s?.breached)}
-          note="Over their target, delivered or not"
-          active={state === 'breached'}
-          onClick={() => set({ state: state === 'breached' ? '' : 'breached' })}
-        />
-        <StatCard
-          icon={<FiClock />}
-          label="Pending"
-          tone="info"
-          value={card(s?.pending)}
-          note={s ? `${s.at_risk} at risk of breaching` : ''}
-          active={state === 'pending'}
-          onClick={() => set({ state: state === 'pending' ? '' : 'pending' })}
-        />
-        <StatCard
-          icon={<FiAlertTriangle />}
-          label="Average to deliver"
-          tone="warning"
-          value={card(daysText(s?.average_days ?? null))}
-          note="Placement to delivery, delivered orders"
-          active={false}
-          onClick={() => set({ state: '' })}
-        />
+        {!s ? (
+          <Box sx={{ gridColumn: '1 / -1' }}>
+            <StatCardsSkeleton count={4} columns={{ xs: 2, lg: 4 }} />
+          </Box>
+        ) : (
+          [
+            {
+              key: 'met',
+              label: 'Met SLAs',
+              value: s.met,
+              format: 'number',
+              hint:
+                s.met_rate !== null && s.met_rate !== undefined
+                  ? `${s.met_rate}% of delivered orders`
+                  : 'No delivered orders yet',
+              filter: 'met',
+            },
+            {
+              key: 'breached',
+              label: 'Breached SLAs',
+              value: s.breached,
+              format: 'number',
+              valueTone: s.breached ? 'error' : undefined,
+              hint: 'Over their target, delivered or not',
+              filter: 'breached',
+            },
+            {
+              key: 'pending',
+              label: 'Pending',
+              value: s.pending,
+              format: 'number',
+              hint: `${s.at_risk} at risk of breaching`,
+              filter: 'pending',
+            },
+            {
+              key: 'average',
+              label: 'Average to deliver',
+              value: daysText(s.average_days ?? null),
+              hint: 'Placement to delivery, delivered orders',
+              filter: '',
+            },
+          ].map((c) => (
+            <ReportStatCard
+              key={c.key}
+              card={c}
+              active={Boolean(c.filter) && state === c.filter}
+              onClick={() =>
+                set({ state: c.filter && state !== c.filter ? c.filter : '' })
+              }
+            />
+          ))
+        )}
       </Box>
 
       {s?.stages && (
@@ -331,29 +276,16 @@ const SlaReportPage = () => {
             const over =
               st.average_hours !== null && st.average_hours > st.target_hours;
             return (
-              <Box
+              <ReportStatCard
                 key={st.key}
-                sx={{
-                  p: 2,
-                  borderRadius: 1,
-                  bgcolor: 'background.neutral',
+                card={{
+                  key: `stage-${st.key}`,
+                  label: st.name,
+                  value: hoursText(st.average_hours),
+                  valueTone: over ? 'error' : undefined,
+                  hint: `Average · target ${targetText(st.target_hours)} · ${st.breached} breached`,
                 }}
-              >
-                <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                  {st.name}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Average{' '}
-                  <Box
-                    component="strong"
-                    sx={{ color: over ? 'error.main' : 'text.primary' }}
-                  >
-                    {hoursText(st.average_hours)}
-                  </Box>{' '}
-                  · target {targetText(st.target_hours)} · {st.breached}{' '}
-                  breached
-                </Typography>
-              </Box>
+              />
             );
           })}
         </Box>
