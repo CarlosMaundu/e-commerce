@@ -16,6 +16,7 @@ const STATUS_COLORS = {
   requested: 'warning',
   approved: 'info',
   received: 'info',
+  refund_pending: 'warning',
   rejected: 'default',
   paid: 'success',
   failed: 'error',

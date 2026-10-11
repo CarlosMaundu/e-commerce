@@ -71,8 +71,10 @@ import {
 import {
   OrderDetailPage,
   OrdersPage,
+  ReturnPage,
   ReturnsPage,
 } from './pages/account/OrderPages';
+import AdminReturnDetail from './pages/admin/orders/AdminReturnDetail';
 
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import {
@@ -249,6 +251,7 @@ const App = () => (
                       <Route path="invoices" element={<InvoicesPage />} />
                       <Route path="invoices/:id" element={<InvoicePage />} />
                       <Route path="returns" element={<ReturnsPage />} />
+                      <Route path="returns/:id" element={<ReturnPage />} />
                       <Route path="refunds" element={<CustomerRefundsPage />} />
                       <Route path="support" element={<SupportRequestsPage />} />
                       <Route
@@ -296,6 +299,14 @@ const App = () => (
                       element={
                         <AdminRoute permissions={['orders.returns.view']}>
                           <AdminReturnsPage />
+                        </AdminRoute>
+                      }
+                    />
+                    <Route
+                      path="returns/:id"
+                      element={
+                        <AdminRoute permissions={['orders.returns.view']}>
+                          <AdminReturnDetail />
                         </AdminRoute>
                       }
                     />

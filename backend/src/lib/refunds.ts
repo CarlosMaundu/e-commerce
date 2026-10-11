@@ -7,6 +7,7 @@ import { Db, postRefund, refundable } from './accounting';
 import { fail } from './http';
 import { PaymentGateway } from './payments';
 import { round2 } from './pricing';
+import { followRefund } from './returns';
 
 export const refundSettingsSchema = z.object({
   // Customers can ask for a return this many days after delivery (0 = any time).
@@ -55,6 +56,8 @@ export const payOut = async (db: Db, refund: any, invoice: any, order: any, gate
     await db.query('UPDATE refunds SET reference = $2 WHERE id = $1', [refund.id, reference]);
   }
   await postRefund(db, { ...refund, reference }, invoice, { by });
+  // A refund for a return completes the return.
+  await followRefund(db, { ...refund, status: 'processed', reference }, order.currency, by);
 };
 
 /**
@@ -116,6 +119,7 @@ export const createRefund = async (
     )
   ).rows[0];
   if (!needsApproval) await payOut(db, refund, invoice, order, gateway, by);
+  else await followRefund(db, refund, order.currency, by);
   return (await db.query('SELECT * FROM refunds WHERE id = $1', [refund.id])).rows[0];
 };
 

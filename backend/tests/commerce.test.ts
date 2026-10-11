@@ -707,6 +707,54 @@ describe('invoices, payments, refunds and the ledger', () => {
     await ledgerBalanced();
   });
 
+  test('returns end to end: each step is recorded and emailed, and the return waits for its refund’s approval', async () => {
+    const token = await shopper();
+    const admin = await staffUser('admin', 'boss@example.com');
+    await request(app).put('/api/admin/refund-settings').set(bearer(admin)).send({ approval_threshold: 1 }).expect(200);
+    const order = await placeOrder(token);
+    for (const s of ['processing', 'shipped', 'delivered']) {
+      await request(app).put(`/api/admin/orderhistory/${order.order_id}`).set(bearer(admin)).send({ order_status: s }).expect(200);
+    }
+    sentEmails.length = 0;
+    const ret = (await request(app).post('/api/rest/returns').set(bearer(token)).send({
+      order_id: order.order_id, order_product_id: order.products[0].order_product_id, quantity: 1, reason: 'damaged', comment: 'Seam split',
+    })).body.data;
+    const id = ret.return_id;
+    const update = (body: object) => request(app).put(`/api/admin/returns/${id}`).set(bearer(admin)).send(body);
+
+    // Rejecting needs a reason the customer can read.
+    expect((await update({ status: 'rejected' })).status).toBe(400);
+    await update({ status: 'approved', note: 'Use the prepaid label in the box.' }).expect(200);
+    await update({ status: 'note', note: 'Customer called about the label.' }).expect(200);
+    await update({ status: 'received', restock: false }).expect(200);
+    const pending = (await update({ status: 'refunded' })).body.data;
+    expect(pending).toMatchObject({ status: 'refund_pending', refund: { status: 'pending_approval' } });
+    expect((await update({ status: 'rejected', note: 'x' })).body.error[0]).toMatch(/waiting for approval/);
+
+    // A rejected refund puts the return back to "item received"; then it's approved and paid.
+    await request(app).put(`/api/admin/refunds/${pending.refund.refund_id}`).set(bearer(admin)).send({ action: 'reject' }).expect(200);
+    expect((await request(app).get(`/api/admin/returns/${id}`).set(bearer(admin))).body.data.status).toBe('received');
+    const again = (await update({ status: 'refunded' })).body.data;
+    await request(app).put(`/api/admin/refunds/${again.refund.refund_id}`).set(bearer(admin)).send({ action: 'approve' }).expect(200);
+
+    const staff = (await request(app).get(`/api/admin/returns/${id}`).set(bearer(admin))).body.data;
+    expect(staff).toMatchObject({ status: 'refunded', restocked: false });
+    expect(staff.events.map((e: any) => e.status)).toEqual([
+      'requested', 'approved', 'note', 'received', 'refund_requested', 'refund_rejected', 'refund_requested', 'refunded',
+    ]);
+    expect(staff.events[1]).toMatchObject({ by: expect.any(String), note: expect.stringMatching(/prepaid label/) });
+
+    // The customer sees their steps, not staff notes or approvals.
+    const mine = (await request(app).get(`/api/rest/returns/${id}`).set(bearer(token))).body.data;
+    expect(mine.events.map((e: any) => e.status)).toEqual(['requested', 'approved', 'refunded']);
+    expect(mine.events[2].note).toMatch(/paid back/);
+    expect(mine.events[0]).not.toHaveProperty('by');
+    expect(sentEmails.filter((e) => e.kind.startsWith(`return:${id}:`)).map((e) => e.kind.split(':')[2])).toEqual([
+      'request received', 'approved', 'item received', 'refunded',
+    ]);
+    expect(sentEmails.find((e) => e.kind === `return:${id}:approved`)!.link).toMatch(new RegExp(`/account/returns/${id}$`));
+  });
+
   test('the bell lists what needs attention, per permission, and can be read, dismissed and cleared', async () => {
     const token = await shopper();
     const order = await placeOrder(token);

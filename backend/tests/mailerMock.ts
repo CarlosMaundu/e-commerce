@@ -16,6 +16,9 @@ export const mailerMock = () => ({
   sendSupportAlertEmail: jest.fn(async (to: string, number: string, _s: string, _f: string, _m: string, link: string) => {
     sentEmails.push({ to, link, kind: `support:alert:${number}` });
   }),
+  sendReturnUpdateEmail: jest.fn(async (to: string, _name: string, id: number, headline: string, _m: string, link: string) => {
+    sentEmails.push({ to, link, kind: `return:${id}:${headline}` });
+  }),
   sendAccountSetupEmail: jest.fn(async (to: string, _name: string, link: string) => {
     sentEmails.push({ to, link, kind: 'setup' });
   }),

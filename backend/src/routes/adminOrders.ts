@@ -1,7 +1,7 @@
 // src/routes/adminOrders.ts — order management, returns and dashboard figures.
 import { Router } from 'express';
 import { z } from 'zod';
-import { query, transaction } from '../db';
+import { pool, query, transaction } from '../db';
 import { audit } from '../lib/audit';
 import { fail, handler, ok, parse } from '../lib/http';
 import { sendOrderStatusEmail } from '../lib/mailer';
@@ -11,6 +11,7 @@ import { attentionCounts, OVERVIEW_PERIODS, storeOverview } from '../lib/overvie
 import { round2 } from '../lib/pricing';
 import { issueInvoice, recordPayment, refundable, voidInvoice } from '../lib/accounting';
 import { createRefund } from '../lib/refunds';
+import { addReturnEvent, emailReturnUpdate, refundPaidMessage, returnEvents, sendBackInstructions } from '../lib/returns';
 import { hasPermission } from '../lib/users';
 import { authenticate, requirePermission } from '../middleware/auth';
 import { RETURN_SELECT, toContractReturn } from './orders';
@@ -264,55 +265,97 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
     ok(res, rows.map(toContractReturn));
   }));
 
+  router.get('/returns/:id', requirePermission('orders.returns.view'), handler(async (req, res) => {
+    const row = (await query(
+      `${RETURN_SELECT.replace('FROM returns r', `, u.email AS customer_email, u.id AS customer_id,
+         TRIM(COALESCE(u.firstname, '') || ' ' || COALESCE(u.lastname, '')) AS customer_name FROM returns r`)}
+       LEFT JOIN users u ON u.id = r.user_id WHERE r.id = $1`,
+      [Number(req.params.id)]
+    )).rows[0];
+    if (!row) fail(404, 'Return not found.');
+    ok(res, { ...toContractReturn(row), restocked: row.restocked, events: await returnEvents(row.id, { admin: true }) });
+  }));
+
   router.put('/returns/:id', requirePermission('orders.returns.update'), handler(async (req, res) => {
-    const { status, restock } = parse(
+    const { status, restock, note } = parse(
       z.object({
-        status: z.enum(['approved', 'received', 'rejected', 'refunded'], { errorMap: () => ({ message: 'Please choose a valid status.' }) }),
+        status: z.enum(['approved', 'received', 'rejected', 'refunded', 'note'], { errorMap: () => ({ message: 'Please choose a valid status.' }) }),
         // On receipt: whether the item goes back on sale.
         restock: z.coerce.boolean().default(true),
+        // Instructions on approval, the reason on rejection, or a staff note.
+        note: z.string().trim().max(1000).default(''),
       }),
       req.body
     );
     const row = (await query(`${RETURN_SELECT} WHERE r.id = $1`, [Number(req.params.id)])).rows[0];
     if (!row) fail(404, 'Return not found.');
-    // requested → approved (send it back) → received (checked in) → refunded.
+    const userId = req.auth!.userId;
+    if (status === 'note') {
+      if (!note) fail(400, 'Please write a note.');
+      await addReturnEvent(pool, row.id, 'note', { note, userId, internal: true });
+      return ok(res, toContractReturn(row));
+    }
+    // requested → approved (send it back) → received (checked in) → refunded;
+    // while a refund waits for approval the return is "refund pending".
     const allowed: Record<string, string[]> = {
       requested: ['approved', 'rejected'],
       approved: ['received', 'rejected'],
       received: ['refunded', 'rejected'],
     };
-    if (!(allowed[row.status] || []).includes(status)) fail(400, `A ${row.status} return can’t be marked ${status}.`);
+    if (!(allowed[row.status] || []).includes(status)) {
+      fail(400, row.status === 'refund_pending'
+        ? 'This return’s refund is waiting for approval.'
+        : `A ${row.status} return can’t be marked ${status}.`);
+    }
+    if (status === 'rejected' && !note) fail(400, 'Please tell the customer why the return was rejected.');
+    let email: [string, string] | null = null;
     if (status === 'refunded') {
-      // Pay back the returned items (less any restocking fee) and post it.
+      // Pay back the returned items (less any restocking fee) and post it;
+      // the refund moves the return on (refunded, or refund pending).
       if (!hasPermission(req.auth!.permissions, 'orders.orders.refund')) {
         fail(403, 'You don’t have permission to refund orders.');
       }
-      await transaction(async (db) => {
+      const refund = await transaction(async (db) => {
         const item = (await db.query('SELECT * FROM order_items WHERE id = $1', [row.order_item_id])).rows[0];
         const order = (await db.query('SELECT * FROM orders WHERE id = $1', [row.order_id])).rows[0];
-        await createRefund(db, {
+        const r = await createRefund(db, {
           order,
           itemsAmount: round2(Number(item.unit_price) * Number(row.quantity)),
           includeDelivery: false,
           reason: `Return #${row.id}: ${row.reason}`,
           returnId: row.id,
-          by: req.auth!.userId,
+          by: userId,
           gateway: payments,
         });
-        await db.query('UPDATE returns SET status = $2, updated_at = now() WHERE id = $1', [row.id, status]);
+        return { ...r, currency: order.currency };
       });
+      if (refund.status === 'processed') email = ['refunded', refundPaidMessage(refund, refund.currency)];
     } else if (status === 'received') {
       await transaction(async (db) => {
         if (restock) {
           const item = (await db.query('SELECT * FROM order_items WHERE id = $1', [row.order_item_id])).rows[0];
           await putBack(db, item, row.quantity);
         }
-        await db.query(`UPDATE returns SET status = 'received', received_at = now(), updated_at = now() WHERE id = $1`, [row.id]);
+        await db.query(
+          `UPDATE returns SET status = 'received', received_at = now(), restocked = $2, updated_at = now() WHERE id = $1`,
+          [row.id, restock]
+        );
+        await addReturnEvent(db, row.id, 'received', { note: restock ? 'Back in stock.' : 'Not put back on sale.', userId, internal: true });
+        if (note) await addReturnEvent(db, row.id, 'note', { note, userId, internal: true });
       });
+      email = ['item received', 'We’ve received your item and are checking it. We’ll let you know when your refund is on its way.'];
     } else {
-      await query('UPDATE returns SET status = $2, updated_at = now() WHERE id = $1', [row.id, status]);
+      await transaction(async (db) => {
+        await db.query('UPDATE returns SET status = $2, updated_at = now() WHERE id = $1', [row.id, status]);
+        const shown = status === 'approved' ? await sendBackInstructions(note) : note;
+        await addReturnEvent(db, row.id, status, { note: shown, userId });
+      });
+      email = status === 'approved'
+        ? ['approved', `Your return of ${row.quantity} × ${row.product_name} is approved.\n\n${await sendBackInstructions(note)}`]
+        : ['not accepted', `We can’t accept your return of ${row.quantity} × ${row.product_name}.\n\n${note}`];
     }
     audit(req, 'order.return_updated', `return:${row.id}`, { status, ...(status === 'received' ? { restock } : {}) });
+    if (email) await emailReturnUpdate(row.id, email[0], email[1]);
     ok(res, toContractReturn((await query(`${RETURN_SELECT} WHERE r.id = $1`, [row.id])).rows[0]));
   }));
 

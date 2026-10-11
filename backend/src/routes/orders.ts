@@ -3,7 +3,8 @@
 import { Router } from 'express';
 import { getRefundSettings } from '../lib/refunds';
 import { z } from 'zod';
-import { query } from '../db';
+import { pool, query } from '../db';
+import { addReturnEvent, emailReturnUpdate, returnEvents } from '../lib/returns';
 import { audit } from '../lib/audit';
 import { fail, handler, ok, parse } from '../lib/http';
 import { loadOrder, orderRef, ORDER_STATUSES, RETURN_REASONS, toContractOrder } from '../lib/orders';
@@ -33,13 +34,14 @@ export const toContractReturn = (r: any) => ({
     : null,
   date_added: r.created_at,
   date_modified: r.updated_at,
-  ...(r.customer_email ? { customer: { email: r.customer_email, name: r.customer_name } } : {}),
+  ...(r.customer_email ? { customer: { customer_id: r.customer_id, email: r.customer_email, name: r.customer_name } } : {}),
 });
 
 export const RETURN_STATUS_NAMES: Record<string, string> = {
   requested: 'Requested',
   approved: 'Approved — awaiting the item',
   received: 'Item received',
+  refund_pending: 'Refund being processed',
   rejected: 'Rejected',
   refunded: 'Refunded',
 };
@@ -172,7 +174,7 @@ export const orderRoutes = () => {
   router.get('/returns/:id', handler(async (req, res) => {
     const row = (await query(`${RETURN_SELECT} WHERE r.id = $1 AND r.user_id = $2`, [Number(req.params.id), req.auth!.userId])).rows[0];
     if (!row) fail(404, 'Return not found.');
-    ok(res, toContractReturn(row));
+    ok(res, { ...toContractReturn(row), events: await returnEvents(row.id) });
   }));
 
   router.post('/returns', handler(async (req, res) => {
@@ -214,7 +216,13 @@ export const orderRoutes = () => {
        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
       [b.order_id, item.id, req.auth!.userId, b.quantity, b.reason, b.opened, b.comment]
     );
+    await addReturnEvent(pool, rows[0].id, 'requested', { note: b.comment, userId: req.auth!.userId });
     audit(req, 'order.return_requested', `return:${rows[0].id}`, { order_id: b.order_id });
+    await emailReturnUpdate(
+      rows[0].id,
+      'request received',
+      `We’ve received your request to return ${b.quantity} × ${item.name}. We’ll review it and email you with the next steps, usually within one business day.`
+    );
     const row = (await query(`${RETURN_SELECT} WHERE r.id = $1`, [rows[0].id])).rows[0];
     ok(res, toContractReturn(row), 201);
   }));

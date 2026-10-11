@@ -523,6 +523,15 @@ export function returnFromApi(r) {
       date: r.date_added,
       updated: r.date_modified,
       customer: r.customer || null,
+      restocked: r.restocked ?? null,
+      events: (r.events || []).map((e) => ({
+        status: e.status,
+        name: e.status_name,
+        note: e.note,
+        date: e.date_added,
+        by: e.by || null,
+        internal: Boolean(e.internal),
+      })),
     }
   );
 }

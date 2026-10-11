@@ -209,39 +209,62 @@ test('an order moves through fulfilment and a delivered item can be returned', a
     'Return requested. We’ll email you when it’s reviewed.'
   );
 
+  // Staff approve it with instructions; the customer is told what to do.
   await admin.goto('/admin/returns');
   await admin.getByRole('button', { name: /^Actions for return of/ }).click();
   await admin.getByRole('menuitem', { name: /^Approve/ }).click();
+  let step = admin.getByRole('dialog');
+  await step
+    .getByLabel('Instructions for the customer (optional)')
+    .fill('Use the prepaid label in the box.');
+  await step.getByRole('button', { name: 'Approve return' }).click();
   await expect(toast(admin)).toHaveText(
-    'Return approved. The customer can send the item back.'
+    'Return approved. The customer has been emailed.'
   );
 
   await page.goto('/account/returns');
-  await expect(
-    page.getByText('Approved. Please send the item back to us.')
-  ).toBeVisible();
+  await page.getByRole('link', { name: /^#\d+$/ }).click();
+  await expect(page).toHaveURL(/\/account\/returns\/\d+$/);
+  await expect(page.getByTestId('return-next-step')).toContainText(
+    'Use the prepaid label in the box.'
+  );
 
-  // The item comes back: checked in, then refunded (linked to the refund).
+  // The item comes back: checked in on the return's page, then refunded.
   await admin.getByRole('tab', { name: /Awaiting item/ }).click();
-  await admin.getByRole('button', { name: /^Actions for return of/ }).click();
   await admin
-    .getByRole('menuitem', { name: 'Item received — back in stock' })
+    .getByTestId(/^return-row-/)
+    .first()
     .click();
+  await expect(admin).toHaveURL(/\/admin\/returns\/\d+$/);
+  await admin.getByRole('button', { name: 'Item received' }).click();
+  step = admin.getByRole('dialog');
+  await step.getByLabel('Don’t restock: damaged or not resellable').check();
+  await step.getByRole('button', { name: 'Mark as received' }).click();
   await expect(toast(admin)).toHaveText('Item received.');
-  await admin.getByRole('tab', { name: /Received/ }).click();
-  await admin.getByRole('button', { name: /^Actions for return of/ }).click();
-  await admin.getByRole('menuitem', { name: 'Refund the customer' }).click();
-  await expect(toast(admin)).toHaveText(/Return refunded/);
-  await admin.getByRole('tab', { name: /Refunded/ }).click();
+  await admin.getByRole('button', { name: 'Refund the customer' }).click();
+  await admin
+    .getByRole('dialog')
+    .getByRole('button', { name: 'Refund' })
+    .click();
+  await expect(toast(admin)).toHaveText(
+    'Refund paid. The customer has been emailed.'
+  );
+  const timeline = admin.getByTestId('return-timeline');
+  await expect(timeline).toContainText('Refunded');
+  await expect(timeline).toContainText('Not put back on sale.');
   await expect(admin.getByRole('link', { name: /Refund #\d+/ })).toBeVisible();
 
-  await page.goto('/account/returns');
-  await expect(
-    page.getByText('Refunded', { exact: true }).first()
-  ).toBeVisible();
+  await page.reload();
+  await expect(page.getByTestId('return-timeline')).toContainText('paid back');
+  await expect(page.getByTestId('return-timeline')).not.toContainText(
+    'Not put back on sale.'
+  );
 
   // The refund is listed under Refunds in the customer's account.
-  await page.getByRole('link', { name: 'Refunds', exact: true }).click();
+  await page
+    .getByRole('alert')
+    .getByRole('link', { name: 'Refunds', exact: true })
+    .click();
   await expect(page).toHaveURL(/\/account\/refunds$/);
   await expect(page.getByText('Return of Canvas tote bag')).toBeVisible();
   await expect(page.getByText('Refunded to you')).toBeVisible();

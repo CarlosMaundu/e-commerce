@@ -79,3 +79,19 @@ export const sendSupportAlertEmail = (to: string, number: string, subject: strin
     `New support request ${number}: ${subject}`,
     `From: ${from}\n\n${excerpt(message)}\n\nOpen it in the back office: ${link}`
   );
+
+// ---------- returns ----------
+
+export const sendReturnUpdateEmail = (
+  to: string,
+  name: string,
+  returnId: number,
+  headline: string,
+  message: string,
+  link: string
+) =>
+  send(
+    to,
+    `Return #${returnId}: ${headline}`,
+    `Hi ${name || 'there'},\n\n${message}\n\nSee your return: ${link}`
+  );

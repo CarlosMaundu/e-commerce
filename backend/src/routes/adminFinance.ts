@@ -29,6 +29,7 @@ import {
 } from '../lib/refunds';
 import { hasPermission } from '../lib/users';
 import { finance } from '../lib/finance';
+import { emailReturnUpdate, followRefund, refundPaidMessage } from '../lib/returns';
 import { authenticate, requirePermission } from '../middleware/auth';
 import { toContractAddress } from './checkout';
 
@@ -590,6 +591,7 @@ export const adminFinanceRoutes = ({ payments }: { payments: PaymentGateway | nu
       if (b.action === 'reject') {
         // The order keeps its status: no money went back. The timeline shows the rejection.
         await db.query(`UPDATE refunds SET status = 'rejected', approved_by = $2, decided_at = now() WHERE id = $1`, [r.id, req.auth!.userId]);
+        await followRefund(db, { ...r, status: 'rejected' }, order.currency, req.auth!.userId);
       } else {
         await db.query('UPDATE refunds SET approved_by = $2, decided_at = now() WHERE id = $1', [r.id, req.auth!.userId]);
         const invoice = (await db.query('SELECT * FROM invoices WHERE id = $1 FOR UPDATE', [r.invoice_id])).rows[0];
@@ -603,6 +605,10 @@ export const adminFinanceRoutes = ({ payments }: { payments: PaymentGateway | nu
       return (await db.query('SELECT * FROM refunds WHERE id = $1', [r.id])).rows[0];
     });
     audit(req, `refund.${b.action === 'approve' ? 'approved' : 'rejected'}`, `refund:${refund.id}`, {});
+    if (refund.return_id && refund.status === 'processed') {
+      const currency = (await query('SELECT currency FROM orders WHERE id = $1', [refund.order_id])).rows[0].currency;
+      await emailReturnUpdate(refund.return_id, 'refunded', refundPaidMessage(refund, currency));
+    }
     ok(res, toContractRefund(refund));
   }));
 
