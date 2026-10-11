@@ -17,6 +17,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
   FormControlLabel,
   Grid,
   InputAdornment,
@@ -148,8 +149,35 @@ const EMPTY = {
   ends_at: '',
   uses_limit: '',
   per_customer_limit: '',
+  audience: 'everyone',
+  new_customer_days: '',
+  max_discount: '',
+  exclude_sale_items: false,
+  send_on_signup: false,
   active: true,
 };
+
+const AUDIENCES = {
+  everyone: 'Everyone',
+  first_order: 'First order only',
+  new_customers: 'New customers (recently signed up)',
+  returning: 'Returning customers (second order on)',
+};
+
+/** The code's rules in a line, e.g. "First order only · max KES 500 · not on sale items". */
+export const rulesText = (p, currency) =>
+  [
+    p.audience === 'new_customers'
+      ? `Joined in the last ${p.new_customer_days} days`
+      : p.audience && p.audience !== 'everyone'
+        ? AUDIENCES[p.audience].replace(/ \(.*\)$/, '')
+        : '',
+    p.max_discount ? `max ${formatMoney(p.max_discount, currency)}` : '',
+    p.exclude_sale_items ? 'not on sale items' : '',
+    p.send_on_signup ? 'emailed on sign-up' : '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
 /** Create (no `promo.code` yet) or change a promo code. */
 export const PromoDialog = ({ promo, onClose, onSaved }) => {
@@ -171,6 +199,8 @@ export const PromoDialog = ({ promo, onClose, onSaved }) => {
       ends_at: toLocalInput(promo.ends_at),
       uses_limit: promo.uses_limit ?? '',
       per_customer_limit: promo.per_customer_limit ?? '',
+      new_customer_days: promo.new_customer_days ?? '',
+      max_discount: promo.max_discount ?? '',
     });
   }, [promo]);
   const set = (key) => (e) =>
@@ -350,6 +380,104 @@ export const PromoDialog = ({ promo, onClose, onSaved }) => {
               }
               label={form.active ? 'On: customers can use it' : 'Off'}
             />
+          </Grid>
+          <Grid item xs={12}>
+            <Divider sx={{ my: 0.5 }} />
+            <Typography variant="subtitle2" sx={{ mt: 1.5 }}>
+              Rules
+            </Typography>
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              select
+              label="Who can use it"
+              value={form.audience}
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  audience: e.target.value,
+                  new_customer_days:
+                    e.target.value === 'new_customers'
+                      ? f.new_customer_days || 30
+                      : f.new_customer_days,
+                  send_on_signup:
+                    e.target.value === 'returning' ? false : f.send_on_signup,
+                }))
+              }
+              {...err('audience')}
+              fullWidth
+            >
+              {Object.entries(AUDIENCES).map(([v, l]) => (
+                <MenuItem key={v} value={v}>
+                  {l}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            {form.audience === 'new_customers' && (
+              <TextField
+                label="Days after signing up"
+                type="number"
+                value={form.new_customer_days}
+                onChange={set('new_customer_days')}
+                {...err('new_customer_days')}
+                helperText={
+                  errors.new_customer_days ||
+                  'The code works this many days after an account is created.'
+                }
+                fullWidth
+              />
+            )}
+          </Grid>
+          {form.type === 'percent' && (
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Maximum discount"
+                type="number"
+                value={form.max_discount}
+                onChange={set('max_discount')}
+                {...err('max_discount')}
+                helperText={
+                  errors.max_discount ||
+                  'A cap on the amount off. Leave empty for none.'
+                }
+                fullWidth
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">{currency}</InputAdornment>
+                  ),
+                }}
+              />
+            </Grid>
+          )}
+          <Grid item xs={12}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={form.exclude_sale_items}
+                  onChange={set('exclude_sale_items')}
+                />
+              }
+              label="Not on items already on sale"
+            />
+          </Grid>
+          <Grid item xs={12}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={form.send_on_signup}
+                  onChange={set('send_on_signup')}
+                  disabled={form.audience === 'returning'}
+                />
+              }
+              label="Email this code to new customers when they sign up"
+            />
+            {errors.send_on_signup && (
+              <Typography variant="caption" color="error" component="div">
+                {errors.send_on_signup}
+              </Typography>
+            )}
           </Grid>
         </Grid>
       </DialogContent>
@@ -544,8 +672,21 @@ export const PromoCodesPage = () => {
                         {discountText(p, currency)}
                       </Typography>
                       {p.min_total > 0 && (
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          component="div"
+                        >
                           Orders over {formatMoney(p.min_total, currency)}
+                        </Typography>
+                      )}
+                      {rulesText(p, currency) && (
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          component="div"
+                        >
+                          {rulesText(p, currency)}
                         </Typography>
                       )}
                     </TableCell>
@@ -758,6 +899,7 @@ export const PromoCodePage = () => {
             ? [
                 discountText(promo, currency),
                 promo.description,
+                rulesText(promo, currency),
                 validText(promo),
               ]
                 .filter(Boolean)

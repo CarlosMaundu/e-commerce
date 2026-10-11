@@ -95,3 +95,19 @@ export const sendReturnUpdateEmail = (
     `Return #${returnId}: ${headline}`,
     `Hi ${name || 'there'},\n\n${message}\n\nSee your return: ${link}`
   );
+
+// ---------- welcome offers ----------
+
+export const sendWelcomeOfferEmail = (
+  to: string,
+  name: string,
+  offers: { code: string; text: string }[],
+  link: string
+) =>
+  send(
+    to,
+    offers.length === 1 ? `Welcome! Here’s ${offers[0].text}` : 'Welcome! Here are your new-customer offers',
+    `Hi ${name || 'there'},\n\nThanks for joining. ${offers.length === 1 ? 'Here’s a code' : 'Here are codes'} for your order:\n\n${offers
+      .map((o) => `- ${o.code}: ${o.text}`)
+      .join('\n')}\n\nEnter the code in your cart at checkout.\n\nStart shopping: ${link}`
+  );

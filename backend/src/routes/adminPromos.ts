@@ -40,6 +40,11 @@ const toContract = (c: any) => ({
   ends_at: c.ends_at,
   uses_limit: c.uses_limit,
   per_customer_limit: c.per_customer_limit,
+  audience: c.audience,
+  new_customer_days: c.new_customer_days,
+  max_discount: c.max_discount === null ? null : Number(c.max_discount),
+  exclude_sale_items: c.exclude_sale_items,
+  send_on_signup: c.send_on_signup,
   active: c.active,
   state: c.state,
   uses: c.uses,
@@ -68,11 +73,27 @@ const promoSchema = z
     ends_at: optionalDate.default(null),
     uses_limit: optionalCount.default(null),
     per_customer_limit: optionalCount.default(null),
+    // Who may use it: everyone, a first order, customers who joined in the
+    // last N days, or customers with an earlier order.
+    audience: z.enum(['everyone', 'first_order', 'new_customers', 'returning']).default('everyone'),
+    new_customer_days: optionalCount.default(null),
+    max_discount: z.preprocess(
+      (v) => (v === '' || v === undefined ? null : v),
+      z.coerce.number().positive('The cap must be more than zero.').nullable()
+    ).default(null),
+    exclude_sale_items: z.coerce.boolean().default(false),
+    send_on_signup: z.coerce.boolean().default(false),
     active: z.coerce.boolean().default(true),
   })
   .superRefine((p, ctx) => {
     if (p.type === 'percent' && p.value > 100) {
       ctx.addIssue({ code: 'custom', path: ['value'], message: 'A percentage can be at most 100.' });
+    }
+    if (p.audience === 'new_customers' && !p.new_customer_days) {
+      ctx.addIssue({ code: 'custom', path: ['new_customer_days'], message: 'How many days after signing up does it work?' });
+    }
+    if (p.send_on_signup && !['everyone', 'first_order', 'new_customers'].includes(p.audience)) {
+      ctx.addIssue({ code: 'custom', path: ['send_on_signup'], message: 'New customers can’t use a code for returning customers.' });
     }
     if (p.starts_at && p.ends_at && p.ends_at <= p.starts_at) {
       ctx.addIssue({ code: 'custom', path: ['ends_at'], message: 'The end must be after the start.' });
@@ -174,10 +195,11 @@ export const adminPromoRoutes = () => {
     if (taken) throw new HttpError(400, ['That code already exists.'], { code: 'That code already exists.' });
     await query(
       `INSERT INTO coupons (code, description, type, value, min_total, starts_at, ends_at, uses_limit, per_customer_limit,
-         active, created_by, updated_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11)`,
+         active, created_by, updated_by, audience, new_customer_days, max_discount, exclude_sale_items, send_on_signup)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $11, $12, $13, $14, $15, $16)`,
       [code, p.description, p.type, p.value, p.min_total, p.starts_at, p.ends_at, p.uses_limit, p.per_customer_limit,
-        p.active, req.auth!.userId]
+        p.active, req.auth!.userId, p.audience, p.audience === 'new_customers' ? p.new_customer_days : null,
+        p.type === 'percent' ? p.max_discount : null, p.exclude_sale_items, p.send_on_signup]
     );
     audit(req, 'promo.created', `promo:${code}`, { type: p.type, value: p.value });
     ok(res, toContract(await load(code)), 201);
@@ -188,10 +210,12 @@ export const adminPromoRoutes = () => {
     const p = parse(promoSchema, req.body);
     await query(
       `UPDATE coupons SET description = $2, type = $3, value = $4, min_total = $5, starts_at = $6, ends_at = $7,
-         uses_limit = $8, per_customer_limit = $9, active = $10, updated_by = $11, updated_at = now()
+         uses_limit = $8, per_customer_limit = $9, active = $10, updated_by = $11, updated_at = now(),
+         audience = $12, new_customer_days = $13, max_discount = $14, exclude_sale_items = $15, send_on_signup = $16
        WHERE code = $1`,
       [promo.code, p.description, p.type, p.value, p.min_total, p.starts_at, p.ends_at, p.uses_limit, p.per_customer_limit,
-        p.active, req.auth!.userId]
+        p.active, req.auth!.userId, p.audience, p.audience === 'new_customers' ? p.new_customer_days : null,
+        p.type === 'percent' ? p.max_discount : null, p.exclude_sale_items, p.send_on_signup]
     );
     audit(req, 'promo.updated', `promo:${promo.code}`, { active: p.active });
     ok(res, toContract(await load(promo.code)));

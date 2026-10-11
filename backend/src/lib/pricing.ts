@@ -55,6 +55,10 @@ export interface Coupon {
   uses_limit: number | null;
   uses_count: number;
   per_customer_limit?: number | null;
+  audience?: 'everyone' | 'first_order' | 'new_customers' | 'returning';
+  new_customer_days?: number | null;
+  max_discount?: string | null;
+  exclude_sale_items?: boolean;
   active: boolean;
 }
 
@@ -189,21 +193,36 @@ export const couponProblem = (coupon: Coupon | undefined, subtotal: number): str
   return null;
 };
 
-/** When this customer has already used the code as often as allowed. */
+/**
+ * Whether this customer may use the code: who it's for (first order, new or
+ * returning customers) and how often each customer may use it.
+ */
 export const customerCouponProblem = async (coupon: Coupon | undefined, userId: number): Promise<string | null> => {
-  if (!coupon?.per_customer_limit) return null;
-  const { n } = (
+  if (!coupon) return null;
+  const { orders, used, joined } = (
     await query(
-      `SELECT count(*)::int AS n FROM orders
-       WHERE user_id = $1 AND coupon_code = $2 AND placed_at IS NOT NULL AND status <> 'cancelled'`,
+      `SELECT
+         (SELECT count(*)::int FROM orders WHERE user_id = $1 AND placed_at IS NOT NULL AND status <> 'cancelled') AS orders,
+         (SELECT count(*)::int FROM orders WHERE user_id = $1 AND coupon_code = $2 AND placed_at IS NOT NULL AND status <> 'cancelled') AS used,
+         (SELECT created_at FROM users WHERE id = $1) AS joined`,
       [userId, coupon.code]
     )
   ).rows[0];
-  return n >= coupon.per_customer_limit
-    ? coupon.per_customer_limit === 1
+  const audience = coupon.audience || 'everyone';
+  if (audience === 'first_order' && orders > 0) return 'This promo code is for your first order only.';
+  if (audience === 'returning' && orders === 0) return 'This promo code is for returning customers. It works from your second order.';
+  if (audience === 'new_customers') {
+    const days = coupon.new_customer_days || 30;
+    if (Date.now() - new Date(joined).getTime() > days * 86400000) {
+      return `This promo code is for customers who joined in the last ${days} days.`;
+    }
+  }
+  if (coupon.per_customer_limit && used >= coupon.per_customer_limit) {
+    return coupon.per_customer_limit === 1
       ? 'You’ve already used this promo code.'
-      : `You’ve already used this promo code ${coupon.per_customer_limit} times.`
-    : null;
+      : `You’ve already used this promo code ${coupon.per_customer_limit} times.`;
+  }
+  return null;
 };
 
 export const findCoupon = async (code: string) =>
@@ -227,14 +246,23 @@ export const computeTotals = (
   shippingMethod: string | null
 ): Totals => {
   const subtotal = round2(lines.reduce((sum, l) => sum + l.total, 0));
-  const problem = coupon ? couponProblem(coupon, subtotal) : null;
+  const onSaleOnly = lines.length > 0 && lines.every((l) => l.special !== null && l.special !== undefined);
+  const problem = coupon
+    ? couponProblem(coupon, subtotal) ||
+      (coupon.exclude_sale_items && onSaleOnly ? 'That promo code doesn’t apply to items already on sale.' : null)
+    : null;
   const usable = coupon && !problem ? coupon : undefined;
   let discount = 0;
   if (usable) {
+    // Sale items can be left out; the rest is what the code applies to.
+    const base = usable.exclude_sale_items
+      ? round2(lines.filter((l) => l.special === null || l.special === undefined).reduce((sum, l) => sum + l.total, 0))
+      : subtotal;
     discount =
       usable.type === 'percent'
-        ? round2((subtotal * Number(usable.value)) / 100)
-        : Math.min(round2(Number(usable.value)), subtotal);
+        ? round2((base * Number(usable.value)) / 100)
+        : Math.min(round2(Number(usable.value)), base);
+    if (usable.max_discount) discount = Math.min(discount, round2(Number(usable.max_discount)));
   }
   // A gift box per line sent in one (taxed like the goods).
   const boxed = lines.map((l) => giftBoxOf(l.gift)).filter(Boolean);

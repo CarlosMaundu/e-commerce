@@ -34,8 +34,24 @@ const CODES = Object.keys(PROVIDERS) as ProviderCode[];
 // The callback URL carries a signature, so only Safaricom (who got it from
 // us) can confirm a request.
 const sign = (id: number) => crypto.createHmac('sha256', config.jwtSecret).update(`mpesa:${id}`).digest('hex').slice(0, 24);
+// Safaricom only calls public https:// addresses (not localhost or a LAN IP).
+export const publicHttps = (url: string) => {
+  try {
+    const u = new URL(url);
+    return u.protocol === 'https:' && !/^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)/.test(u.hostname);
+  } catch {
+    return false;
+  }
+};
+const callbackBase = () =>
+  (provider('mpesa').settings.callback_url as string) || `${config.frontendUrl.replace(/\/$/, '')}/api/payments/mpesa/callback`;
+const CALLBACK_HELP =
+  'Safaricom needs a public https:// callback address, and this shop’s address isn’t one (e.g. it runs on localhost). ' +
+  'Set Callback URL under Payment methods → M-Pesa to a public address that reaches this shop, ' +
+  'e.g. https://your-tunnel.trycloudflare.com/api/payments/mpesa/callback.';
 const callbackUrl = (id: number) => {
-  const base = (provider('mpesa').settings.callback_url as string) || `${config.frontendUrl.replace(/\/$/, '')}/api/payments/mpesa/callback`;
+  const base = callbackBase();
+  if (!publicHttps(base)) fail(400, CALLBACK_HELP);
   return `${base.replace(/\/$/, '')}/${id}/${sign(id)}`;
 };
 
@@ -131,6 +147,11 @@ export const adminPaymentRoutes = ({ payments, mpesa }: { payments: PaymentGatew
           ['Please fill in the required details to switch this on.'],
           Object.fromEntries(missing.map((f) => [f.key, `Please enter the ${f.label.toLowerCase()}.`]))
         );
+      }
+      if (code === 'mpesa' && settings.callback_url && !publicHttps(settings.callback_url)) {
+        throw new HttpError(400, ['The callback URL must be a public https:// address.'], {
+          callback_url: 'Use a public https:// address that reaches this shop (not localhost).',
+        });
       }
       if (code === 'stripe' && settings.publishable_key && !/^pk_(test|live)_/.test(settings.publishable_key)) {
         fail(400, 'The publishable key should start with pk_test_ or pk_live_.');
@@ -229,6 +250,7 @@ export const adminPaymentRoutes = ({ payments, mpesa }: { payments: PaymentGatew
       const cfg = cod.mpesa_prompt ? mpesaConfig() : null;
       if (!cfg) fail(400, 'M-Pesa prompts aren’t set up. See Payments.');
       if (order.currency !== 'KES') fail(400, 'M-Pesa takes payments in Kenyan shillings only.');
+      if (!publicHttps(callbackBase())) fail(400, CALLBACK_HELP);
       const phone = normalisePhone(b.phone || '');
       if (!phone) fail(400, 'Please enter the customer’s M-Pesa number, e.g. 0712 345 678.');
       row = (await query(

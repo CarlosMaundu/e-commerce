@@ -54,6 +54,7 @@ import {
   RefundDialog,
 } from './OrderDialogs';
 import CollectPayment from './CollectPayment';
+import OrderTimeline from '../../../components/orders/OrderTimeline';
 import {
   CardSkeleton,
   DetailSkeleton,
@@ -671,22 +672,7 @@ const AdminOrderDetail = () => {
             )}
 
             <SectionCard title="Order updates">
-              <Stack spacing={2}>
-                {[...order.history].reverse().map((h, i) => (
-                  <Stack key={i} direction="row" spacing={2}>
-                    <StatusChip status={h.status} label={h.statusName} />
-                    <Box sx={{ flex: 1 }}>
-                      <Typography variant="caption">
-                        {formatDateTime(h.date)}
-                        {h.notified ? ' · customer emailed' : ''}
-                      </Typography>
-                      {h.comment && (
-                        <Typography variant="body2">{h.comment}</Typography>
-                      )}
-                    </Box>
-                  </Stack>
-                ))}
-              </Stack>
+              <OrderTimeline history={order.history} staff />
             </SectionCard>
           </Stack>
         </Grid>

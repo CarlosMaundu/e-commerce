@@ -175,24 +175,44 @@ ItemRowsSkeleton.propTypes = {
   amount: PropTypes.bool,
 };
 
-/** A timeline: a marker, a date and a line of text per step. */
+/** A timeline: round markers joined by a line, a title, text and date. */
 export const TimelineSkeleton = ({ rows = 4 }) => (
-  <Stack spacing={2.5}>
+  <Box aria-hidden>
     {Array.from({ length: rows }, (_, i) => (
-      <Stack key={i} direction="row" spacing={2}>
-        <Skeleton
-          variant="rounded"
-          width={92}
-          height={24}
-          sx={{ flexShrink: 0 }}
-        />
-        <Box sx={{ flex: 1 }}>
-          <Skeleton variant="text" width={140} sx={{ fontSize: '0.75rem' }} />
-          <Skeleton variant="text" width={widthAt(i)} />
+      <Box key={i} sx={{ display: 'flex', gap: 2 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            width: 40,
+            flexShrink: 0,
+          }}
+        >
+          <Skeleton variant="circular" width={40} height={40} />
+          {i < rows - 1 && (
+            <Box
+              sx={{
+                flex: 1,
+                minHeight: 16,
+                my: 0.5,
+                borderLeft: 2,
+                borderColor: 'divider',
+                borderLeftStyle: 'dashed',
+              }}
+            />
+          )}
         </Box>
-      </Stack>
+        <Box sx={{ flex: 1, pb: i < rows - 1 ? 2.5 : 0 }}>
+          <Box sx={{ minHeight: 40, display: 'flex', alignItems: 'center' }}>
+            <Skeleton variant="text" width={140} sx={{ fontSize: '1rem' }} />
+          </Box>
+          <Skeleton variant="text" width={widthAt(i)} />
+          <Skeleton variant="text" width={90} sx={{ fontSize: '0.75rem' }} />
+        </Box>
+      </Box>
     ))}
-  </Stack>
+  </Box>
 );
 TimelineSkeleton.propTypes = { rows: PropTypes.number };
 
