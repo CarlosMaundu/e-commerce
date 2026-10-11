@@ -10,14 +10,14 @@ import {
   Avatar,
   Box,
   Button,
-  Chip,
   Dialog,
   DialogContent,
   DialogTitle,
   Grid,
   IconButton,
-  Skeleton,
   Stack,
+  TableCell,
+  TableRow,
   TextField,
   Tooltip,
   Typography,
@@ -32,7 +32,9 @@ import { account, addresses as addressApi } from '../../api';
 import { useNotify } from '../../notification/NotificationProvider';
 import { MESSAGES } from '../../notification/messages';
 import { AccountPage } from '../../layouts/StorefrontLayout';
-import { EmptyState, SectionCard } from '../../components/ui';
+import { SectionCard } from '../../components/ui';
+import { PAGE_SIZE, Pill } from '../../components/admin/DataTable';
+import AccountTable from '../../components/account/AccountTable';
 import AddressForm, { countryName } from '../../components/account/AddressForm';
 import ConfirmationDialog from '../../components/common/ConfirmationDialog';
 
@@ -394,6 +396,7 @@ export const AddressesPage = () => {
   const [editing, setEditing] = useState(null); // address or {} for new
   const [deleting, setDeleting] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [page, setPage] = useState(0);
 
   const load = useCallback(async () => {
     try {
@@ -451,95 +454,80 @@ export const AddressesPage = () => {
         </Button>
       }
     >
-      {!list ? (
-        <Grid container spacing={2}>
-          {[0, 1].map((i) => (
-            <Grid item xs={12} md={6} key={i}>
-              <Skeleton variant="rounded" height={170} />
-            </Grid>
-          ))}
-        </Grid>
-      ) : !list.length ? (
-        <SectionCard>
-          <EmptyState
-            icon={<FiMapPin />}
-            title="No saved addresses"
-            action={
-              <Button variant="contained" onClick={() => setEditing({})}>
-                Add your first address
-              </Button>
-            }
-          >
-            Add an address now, or save one during checkout.
-          </EmptyState>
-        </SectionCard>
-      ) : (
-        <Grid container spacing={2}>
-          {list.map((a) => (
-            <Grid item xs={12} md={6} key={a.id}>
-              <Box
-                sx={{
-                  bgcolor: 'background.neutral',
-                  borderRadius: 1,
-                  p: 3,
-                  height: '100%',
-                }}
-                data-testid={`address-${a.id}`}
-              >
-                <Stack
-                  direction="row"
-                  justifyContent="space-between"
-                  alignItems="flex-start"
-                >
-                  <Box>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Typography variant="subtitle1">
-                        {a.firstName} {a.lastName}
-                      </Typography>
-                      {a.isDefault && (
-                        <Chip size="small" color="primary" label="Default" />
-                      )}
-                    </Stack>
-                    <Typography color="text.secondary" sx={{ mt: 1 }}>
-                      {a.line1}
-                      {a.line2 ? `, ${a.line2}` : ''}
-                      <br />
-                      {[a.city, a.region, a.postcode]
-                        .filter(Boolean)
-                        .join(', ')}
-                      <br />
-                      {countryName(a.country)}
-                    </Typography>
-                    {a.phone && (
-                      <Typography variant="body2" sx={{ mt: 1 }}>
-                        {a.phone}
-                      </Typography>
-                    )}
-                  </Box>
-                  <Stack direction="row">
-                    <Tooltip title="Edit">
-                      <IconButton
-                        aria-label={`Edit address ${a.line1}`}
-                        onClick={() => setEditing(a)}
-                      >
-                        <FiEdit2 />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Delete">
-                      <IconButton
-                        aria-label={`Delete address ${a.line1}`}
-                        onClick={() => setDeleting(a)}
-                      >
-                        <FiTrash2 />
-                      </IconButton>
-                    </Tooltip>
-                  </Stack>
+      <AccountTable
+        label="Addresses"
+        columns={[
+          { label: 'Name' },
+          { label: 'Address' },
+          { label: 'Phone' },
+          { align: 'right' },
+        ]}
+        loading={!list}
+        empty={{
+          icon: <FiMapPin />,
+          title: 'No saved addresses',
+          text: 'Add an address now, or save one during checkout.',
+          action: (
+            <Button variant="contained" onClick={() => setEditing({})}>
+              Add your first address
+            </Button>
+          ),
+        }}
+        count={list?.length || 0}
+        page={page}
+        rowsPerPage={PAGE_SIZE}
+        onPageChange={setPage}
+        itemsLabel="addresses"
+      >
+        {(list || [])
+          .slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+          .map((a) => (
+            <TableRow key={a.id} hover data-testid={`address-${a.id}`}>
+              <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                    {a.firstName} {a.lastName}
+                  </Typography>
+                  {a.isDefault && <Pill label="Default" tone="primary" />}
                 </Stack>
-              </Box>
-            </Grid>
+              </TableCell>
+              <TableCell>
+                <Typography variant="body2">
+                  {a.line1}
+                  {a.line2 ? `, ${a.line2}` : ''}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {[a.city, a.region, a.postcode, countryName(a.country)]
+                    .filter(Boolean)
+                    .join(', ')}
+                </Typography>
+              </TableCell>
+              <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                {a.phone || '—'}
+              </TableCell>
+              <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                <Tooltip title="Edit">
+                  <IconButton
+                    size="small"
+                    aria-label={`Edit address ${a.line1}`}
+                    onClick={() => setEditing(a)}
+                  >
+                    <FiEdit2 />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Delete">
+                  <IconButton
+                    size="small"
+                    aria-label={`Delete address ${a.line1}`}
+                    onClick={() => setDeleting(a)}
+                  >
+                    <FiTrash2 />
+                  </IconButton>
+                </Tooltip>
+              </TableCell>
+            </TableRow>
           ))}
-        </Grid>
-      )}
+      </AccountTable>
 
       <Dialog
         open={Boolean(editing)}

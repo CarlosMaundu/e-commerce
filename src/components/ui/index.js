@@ -21,6 +21,14 @@ const STATUS_COLORS = {
   failed: 'error',
   active: 'success',
   suspended: 'error',
+  // Refund steps on an order's timeline.
+  refund_requested: 'warning',
+  refund_raised: 'info',
+  refund_started: 'info',
+  refund_approved: 'info',
+  refund_rejected: 'error',
+  refund_paid: 'success',
+  refund_failed: 'error',
 };
 
 /** Coloured chip for order, payment, return and account statuses. */

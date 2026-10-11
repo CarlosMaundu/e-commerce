@@ -588,13 +588,10 @@ export const adminFinanceRoutes = ({ payments }: { payments: PaymentGateway | nu
       const order = (await db.query('SELECT * FROM orders WHERE id = $1', [r.order_id])).rows[0];
       const money = `${order.currency} ${Number(r.amount).toFixed(2)}`;
       if (b.action === 'reject') {
-        await db.query(`UPDATE refunds SET status = 'rejected', approved_by = $2 WHERE id = $1`, [r.id, req.auth!.userId]);
-        // The order keeps its status: no money went back.
-        if (r.closes_order) {
-          await addHistory(db, order.id, order.status, `Refund of ${money} was not approved.`, { userId: req.auth!.userId });
-        }
+        // The order keeps its status: no money went back. The timeline shows the rejection.
+        await db.query(`UPDATE refunds SET status = 'rejected', approved_by = $2, decided_at = now() WHERE id = $1`, [r.id, req.auth!.userId]);
       } else {
-        await db.query('UPDATE refunds SET approved_by = $2 WHERE id = $1', [r.id, req.auth!.userId]);
+        await db.query('UPDATE refunds SET approved_by = $2, decided_at = now() WHERE id = $1', [r.id, req.auth!.userId]);
         const invoice = (await db.query('SELECT * FROM invoices WHERE id = $1 FOR UPDATE', [r.invoice_id])).rows[0];
         await payOut(db, r, invoice, order, payments, req.auth!.userId);
         // A full refund requested by moving the order to Refunded completes it now.

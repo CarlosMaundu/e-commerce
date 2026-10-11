@@ -15,11 +15,7 @@ import {
   Link,
   Skeleton,
   Stack,
-  Table,
-  TableBody,
   TableCell,
-  TableContainer,
-  TableHead,
   TableRow,
   TextField,
   Typography,
@@ -41,12 +37,8 @@ import InvoiceDocument, {
   invoiceNumber,
   invoiceState,
 } from '../../components/invoice/InvoiceDocument';
-import {
-  LoadingRows,
-  PAGE_SIZE,
-  Pill,
-  StandardPagination,
-} from '../../components/admin/DataTable';
+import { PAGE_SIZE, Pill } from '../../components/admin/DataTable';
+import AccountTable from '../../components/account/AccountTable';
 import { formatDate, formatMoney } from '../../utils/format';
 
 const ACTIVE = ['awaiting_payment', 'pending', 'processing', 'shipped'];
@@ -249,105 +241,68 @@ export const InvoicesPage = () => {
       title="Invoices"
       subtitle="An invoice for every order, ready to download or print."
     >
-      <Box
-        sx={{
-          border: 1,
-          borderColor: 'divider',
-          borderRadius: 1,
-          overflow: 'hidden',
-          bgcolor: 'background.paper',
+      <AccountTable
+        label="Invoices"
+        columns={[
+          { label: 'Invoice' },
+          { label: 'Order' },
+          { label: 'Date' },
+          { label: 'Amount', align: 'right' },
+          { label: 'Status' },
+          { align: 'right' },
+        ]}
+        loading={!result}
+        empty={{
+          icon: <FiFileText />,
+          title: 'No invoices yet',
+          text: 'Each order you place gets an invoice here.',
         }}
+        count={result?.total || 0}
+        page={page}
+        rowsPerPage={PAGE_SIZE}
+        onPageChange={setPage}
+        itemsLabel="invoices"
       >
-        <TableContainer>
-          <Table>
-            <TableHead
-              sx={{
-                bgcolor: 'background.neutral',
-                '& th': {
-                  fontSize: '0.72rem',
-                  fontWeight: 700,
-                  letterSpacing: '0.12em',
-                  textTransform: 'uppercase',
-                  color: 'text.secondary',
-                },
-              }}
+        {(result?.orders || []).map((o) => {
+          const [label, tone] = invoiceState(o);
+          return (
+            <TableRow
+              key={o.id}
+              hover
+              sx={{ cursor: 'pointer' }}
+              onClick={() => navigate(`/account/invoices/${o.id}`)}
+              data-testid={`invoice-row-${o.id}`}
             >
-              <TableRow>
-                <TableCell>Invoice</TableCell>
-                <TableCell>Order</TableCell>
-                <TableCell>Date</TableCell>
-                <TableCell align="right">Amount</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell align="right" />
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {!result ? (
-                <LoadingRows cols={6} rows={5} />
-              ) : result.orders.length ? (
-                result.orders.map((o) => {
-                  const [label, tone] = invoiceState(o);
-                  return (
-                    <TableRow
-                      key={o.id}
-                      hover
-                      sx={{ cursor: 'pointer' }}
-                      onClick={() => navigate(`/account/invoices/${o.id}`)}
-                      data-testid={`invoice-row-${o.id}`}
-                    >
-                      <TableCell sx={{ fontWeight: 700 }}>
-                        <Link
-                          component={RouterLink}
-                          to={`/account/invoices/${o.id}`}
-                          underline="hover"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {invoiceNumber(o)}
-                        </Link>
-                      </TableCell>
-                      <TableCell>{o.number}</TableCell>
-                      <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                        {formatDate(o.placedAt)}
-                      </TableCell>
-                      <TableCell
-                        align="right"
-                        sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}
-                      >
-                        {formatMoney(o.total, o.currency)}
-                      </TableCell>
-                      <TableCell>
-                        <Pill label={label} tone={tone} />
-                      </TableCell>
-                      <TableCell align="right">
-                        <FiFileText aria-hidden />
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={6}>
-                    <EmptyState icon={<FiFileText />} title="No invoices yet">
-                      Each order you place gets an invoice here.
-                    </EmptyState>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-        {result && result.total > 0 && (
-          <StandardPagination
-            count={result.total}
-            page={page}
-            rowsPerPage={PAGE_SIZE}
-            onPageChange={(_, p) => setPage(p)}
-            onRowsPerPageChange={() => {}}
-            maxShowAll={0}
-            label="invoices"
-          />
-        )}
-      </Box>
+              <TableCell sx={{ fontWeight: 700 }}>
+                <Link
+                  component={RouterLink}
+                  to={`/account/invoices/${o.id}`}
+                  underline="hover"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {invoiceNumber(o)}
+                </Link>
+              </TableCell>
+              <TableCell>{o.number}</TableCell>
+              <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                {formatDate(o.placedAt)}
+              </TableCell>
+              <TableCell
+                align="right"
+                sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}
+              >
+                {formatMoney(o.total, o.currency)}
+              </TableCell>
+              <TableCell>
+                <Pill label={label} tone={tone} />
+              </TableCell>
+              <TableCell align="right">
+                <FiFileText aria-hidden />
+              </TableCell>
+            </TableRow>
+          );
+        })}
+      </AccountTable>
     </AccountPage>
   );
 };

@@ -3,14 +3,21 @@
 // order or return it was for.
 import React, { useEffect, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
-import { Box, Link, Skeleton, Stack, Typography } from '@mui/material';
+import {
+  Box,
+  Link,
+  Stack,
+  TableCell,
+  TableRow,
+  Typography,
+} from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import { FiCheckCircle, FiClock, FiCornerUpLeft } from 'react-icons/fi';
 import { orders as ordersApi } from '../../api';
 import { useNotify } from '../../notification/NotificationProvider';
 import { AccountPage } from '../../layouts/StorefrontLayout';
-import { EmptyState, SectionCard } from '../../components/ui';
-import { Pill, StandardPagination } from '../../components/admin/DataTable';
+import { Pill } from '../../components/admin/DataTable';
+import AccountTable from '../../components/account/AccountTable';
 import {
   formatDate,
   formatMoney,
@@ -107,16 +114,8 @@ const RefundsPage = () => {
         </>
       }
     >
-      {!list ? (
-        <Skeleton variant="rounded" height={200} />
-      ) : !list.length ? (
-        <SectionCard>
-          <EmptyState icon={<FiCornerUpLeft />} title="No refunds">
-            When we refund you for a return or a cancelled order, it shows here.
-          </EmptyState>
-        </SectionCard>
-      ) : (
-        <Stack spacing={2}>
+      <Stack spacing={2}>
+        {list?.length > 0 && (
           <Box
             sx={{
               display: 'grid',
@@ -140,112 +139,108 @@ const RefundsPage = () => {
               tone="warning"
             />
           </Box>
+        )}
+        <AccountTable
+          label="Refunds"
+          columns={[
+            { label: 'Refund' },
+            { label: 'Order' },
+            { label: 'Date' },
+            { label: 'Paid back' },
+            { label: 'Amount', align: 'right' },
+            { label: 'Status' },
+          ]}
+          loading={!list}
+          empty={{
+            icon: <FiCornerUpLeft />,
+            title: 'No refunds',
+            text: 'When we refund you for a return or a cancelled order, it shows here.',
+          }}
+          count={list?.length || 0}
+          page={page}
+          rowsPerPage={PAGE_SIZE}
+          onPageChange={setPage}
+          itemsLabel="refunds"
+        >
           {shown.map((r) => {
             const [label, tone] = STATUS[r.status] || [r.status, 'default'];
             return (
-              <Stack
-                key={r.id}
-                direction={{ xs: 'column', sm: 'row' }}
-                spacing={2}
-                alignItems={{ sm: 'center' }}
-                data-testid={`refund-${r.id}`}
-                sx={{ bgcolor: 'background.neutral', borderRadius: 1, p: 2 }}
-              >
-                <Stack
-                  direction="row"
-                  spacing={2}
-                  alignItems="center"
-                  sx={{ flex: 1, minWidth: 0 }}
-                >
-                  {r.image ? (
-                    <Box
-                      component="img"
-                      src={r.image}
-                      alt=""
-                      sx={{
-                        width: 52,
-                        height: 52,
-                        objectFit: 'contain',
-                        borderRadius: '8px',
-                        bgcolor: 'background.paper',
-                        flexShrink: 0,
-                      }}
-                    />
-                  ) : (
-                    <Box
-                      sx={{
-                        width: 52,
-                        height: 52,
-                        borderRadius: '8px',
-                        display: 'grid',
-                        placeItems: 'center',
-                        bgcolor: 'background.paper',
-                        color: 'primary.main',
-                        fontSize: 20,
-                        flexShrink: 0,
-                      }}
-                    >
-                      <FiCornerUpLeft />
-                    </Box>
-                  )}
-                  <Box sx={{ minWidth: 0 }}>
-                    <Typography sx={{ fontWeight: 600 }} noWrap>
+              <TableRow key={r.id} hover data-testid={`refund-${r.id}`}>
+                <TableCell>
+                  <Stack direction="row" spacing={1.5} alignItems="center">
+                    {r.image ? (
+                      <Box
+                        component="img"
+                        src={r.image}
+                        alt=""
+                        sx={{
+                          width: 40,
+                          height: 40,
+                          objectFit: 'contain',
+                          borderRadius: '8px',
+                          bgcolor: 'background.neutral',
+                          flexShrink: 0,
+                        }}
+                      />
+                    ) : (
+                      <Box
+                        sx={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: '8px',
+                          display: 'grid',
+                          placeItems: 'center',
+                          bgcolor: 'background.neutral',
+                          color: 'primary.main',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <FiCornerUpLeft />
+                      </Box>
+                    )}
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
                       {r.product
                         ? `Return of ${r.product}`
                         : 'Refund on your order'}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      <Link
-                        component={RouterLink}
-                        to={`/account/orders/${r.orderId}`}
-                      >
-                        Order {r.orderNumber}
-                      </Link>
-                      {' · '}
-                      {formatDate(r.processedAt || r.date)}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {METHOD_WORDS[r.method] || 'Refunded'}
-                      {r.reference ? ` · Ref ${r.reference}` : ''}
-                    </Typography>
-                  </Box>
-                </Stack>
-                <Stack
-                  direction={{ xs: 'row', sm: 'column' }}
-                  alignItems={{ xs: 'center', sm: 'flex-end' }}
-                  justifyContent="space-between"
-                  spacing={0.75}
-                >
-                  <Typography sx={{ fontWeight: 700 }}>
-                    {formatMoney(r.amount, r.currency)}
+                  </Stack>
+                </TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                  <Link
+                    component={RouterLink}
+                    to={`/account/orders/${r.orderId}`}
+                    underline="hover"
+                  >
+                    {r.orderNumber}
+                  </Link>
+                </TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                  {formatDate(r.processedAt || r.date)}
+                </TableCell>
+                <TableCell>
+                  <Typography variant="body2">
+                    {METHOD_WORDS[r.method] || 'Refunded'}
                   </Typography>
+                  {r.reference && (
+                    <Typography variant="caption" color="text.secondary">
+                      Ref {r.reference}
+                    </Typography>
+                  )}
+                </TableCell>
+                <TableCell
+                  align="right"
+                  sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}
+                >
+                  {formatMoney(r.amount, r.currency)}
+                </TableCell>
+                <TableCell>
                   <Pill label={label} tone={tone} />
-                </Stack>
-              </Stack>
+                </TableCell>
+              </TableRow>
             );
           })}
-          {list.length > PAGE_SIZE && (
-            <Box
-              sx={{
-                borderRadius: 1,
-                overflow: 'hidden',
-                border: 1,
-                borderColor: 'divider',
-              }}
-            >
-              <StandardPagination
-                count={list.length}
-                page={page}
-                rowsPerPage={PAGE_SIZE}
-                label="refunds"
-                maxShowAll={0}
-                onRowsPerPageChange={() => {}}
-                onPageChange={(_, p) => setPage(p)}
-              />
-            </Box>
-          )}
-        </Stack>
-      )}
+        </AccountTable>
+      </Stack>
     </AccountPage>
   );
 };

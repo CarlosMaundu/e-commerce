@@ -32,6 +32,7 @@ import {
   Typography,
 } from '@mui/material';
 import {
+  FiCornerUpLeft,
   FiFileText,
   FiGrid,
   FiInfo,
@@ -852,17 +853,46 @@ export const OrderDetailPage = () => {
                 sx={{ listStyle: 'none', p: 0, m: 0 }}
               >
                 {[...order.history].reverse().map((h, i) => (
-                  <Stack key={i} component="li" direction="row" spacing={2}>
-                    <Box
-                      sx={{
-                        width: 12,
-                        height: 12,
-                        mt: 0.75,
-                        borderRadius: '50%',
-                        bgcolor: i === 0 ? 'primary.main' : 'divider',
-                        flexShrink: 0,
-                      }}
-                    />
+                  <Stack
+                    key={i}
+                    component="li"
+                    direction="row"
+                    spacing={2}
+                    data-testid={
+                      h.kind === 'refund' ? 'timeline-refund' : undefined
+                    }
+                  >
+                    {h.kind === 'refund' ? (
+                      <Box
+                        aria-hidden
+                        sx={{
+                          width: 20,
+                          height: 20,
+                          mx: '-4px',
+                          mt: 0.25,
+                          borderRadius: '50%',
+                          display: 'grid',
+                          placeItems: 'center',
+                          fontSize: 12,
+                          color: 'success.main',
+                          bgcolor: 'success.light',
+                          flexShrink: 0,
+                        }}
+                      >
+                        <FiCornerUpLeft />
+                      </Box>
+                    ) : (
+                      <Box
+                        sx={{
+                          width: 12,
+                          height: 12,
+                          mt: 0.75,
+                          borderRadius: '50%',
+                          bgcolor: i === 0 ? 'primary.main' : 'divider',
+                          flexShrink: 0,
+                        }}
+                      />
+                    )}
                     <Box>
                       <Typography variant="subtitle2">
                         {h.statusName}

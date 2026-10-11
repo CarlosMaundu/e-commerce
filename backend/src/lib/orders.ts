@@ -120,6 +120,51 @@ export const toContractOrder = (o: any, items: any[] = [], history: any[] = [], 
   date_modified: o.updated_at,
 });
 
+const REFUND_HOW: Record<string, [string, string]> = {
+  stripe: ['to the card', 'to your card'],
+  mpesa: ['by M-Pesa', 'by M-Pesa'],
+  bank: ['by bank transfer', 'by bank transfer'],
+  cash: ['in cash', 'in cash'],
+  cod: ['in cash', 'in cash'],
+};
+
+/** Timeline entries for one refund; customers see only what reaches them. */
+export const refundEvents = (r: any, currency: string, admin: boolean) => {
+  const money = `${currency} ${Number(r.amount).toFixed(2)}`;
+  const how = (REFUND_HOW[r.method] || ['', ''])[admin ? 0 : 1];
+  const ref = r.reference ? ` · Ref ${r.reference}` : '';
+  const event = (status: string, name: string, comment: string, date: Date) => ({
+    status, status_name: name, comment, date_added: date, kind: 'refund',
+  });
+  if (!admin) {
+    if (r.status === 'rejected') return [];
+    const out = [event('refund_started', 'Refund started', `We’re refunding ${money}${how ? ` ${how}` : ''}.`, r.created_at)];
+    if (r.status === 'processed' && r.processed_at) {
+      out.push(event('refund_paid', 'Refunded', `${money} paid back${how ? ` ${how}` : ''}${ref}.`, r.processed_at));
+    }
+    return out;
+  }
+  const by = (name: string | null) => (name ? ` by ${name}` : '');
+  const reason = r.reason ? ` Reason: ${r.reason}` : '';
+  const out = [
+    r.needs_approval
+      ? event('refund_requested', 'Approval requested', `Refund of ${money} raised${by(r.requested_by_name)}, waiting for approval.${reason}`, r.created_at)
+      : event('refund_raised', 'Refund raised', `Refund of ${money}${by(r.requested_by_name)}.${reason}`, r.created_at),
+  ];
+  if (r.needs_approval && r.decided_at) {
+    out.push(r.status === 'rejected'
+      ? event('refund_rejected', 'Refund rejected', `Refund of ${money} not approved${by(r.approved_by_name)}.`, r.decided_at)
+      : event('refund_approved', 'Refund approved', `Refund of ${money} approved${by(r.approved_by_name)}.`, r.decided_at));
+  }
+  if (r.status === 'processed' && r.processed_at) {
+    out.push(event('refund_paid', 'Refund paid', `${money} paid back${how ? ` ${how}` : ''}${ref}.`, r.processed_at));
+  }
+  if (r.status === 'failed') {
+    out.push(event('refund_failed', 'Refund failed', `Paying back ${money}${how ? ` ${how}` : ''} didn’t go through.`, r.decided_at || r.created_at));
+  }
+  return out;
+};
+
 export const loadOrder = async (
   id: number | string,
   { userId, admin = false }: { userId?: number; admin?: boolean } = {}
@@ -158,6 +203,19 @@ export const loadOrder = async (
     )
   ).rows;
   const contract = toContractOrder(order, items, history, { admin });
+  // Refunds join the timeline: raised, approval asked for, approved or rejected, paid.
+  const refunds = (
+    await query(
+      `SELECT r.*, NULLIF(TRIM(COALESCE(q.firstname, '') || ' ' || COALESCE(q.lastname, '')), '') AS requested_by_name,
+         NULLIF(TRIM(COALESCE(a.firstname, '') || ' ' || COALESCE(a.lastname, '')), '') AS approved_by_name
+       FROM refunds r LEFT JOIN users q ON q.id = r.requested_by LEFT JOIN users a ON a.id = r.approved_by
+       WHERE r.order_id = $1`,
+      [order.id]
+    )
+  ).rows;
+  contract.history = [...contract.history, ...refunds.flatMap((r) => refundEvents(r, order.currency, admin))].sort(
+    (a, b) => new Date(a.date_added).getTime() - new Date(b.date_added).getTime()
+  );
   // Staff see how the order is doing against the fulfilment targets.
   return { order, items, history, contract: admin ? { ...contract, sla: orderSla(order, history) } : contract };
 };

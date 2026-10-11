@@ -1,13 +1,15 @@
 // src/pages/account/SupportPages.js — the customer's support requests: a
 // list with status, and each request as a conversation they can reply to.
 import React, { useEffect, useState } from 'react';
-import { Link as RouterLink, useParams } from 'react-router-dom';
+import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import {
   Box,
   Button,
   Link,
   Skeleton,
   Stack,
+  TableCell,
+  TableRow,
   TextField,
   Typography,
 } from '@mui/material';
@@ -15,11 +17,13 @@ import { FiLifeBuoy, FiPlus } from 'react-icons/fi';
 import { support } from '../../api';
 import { useNotify } from '../../notification/NotificationProvider';
 import { AccountPage } from '../../layouts/StorefrontLayout';
-import { EmptyState, SectionCard } from '../../components/ui';
+import { SectionCard } from '../../components/ui';
 import SupportThread, {
   StatusPill,
 } from '../../components/support/SupportThread';
 import { formatDate } from '../../utils/format';
+import { PAGE_SIZE } from '../../components/admin/DataTable';
+import AccountTable from '../../components/account/AccountTable';
 
 const NewRequest = () => (
   <Button
@@ -34,7 +38,9 @@ const NewRequest = () => (
 
 export const SupportRequestsPage = () => {
   const notify = useNotify();
+  const navigate = useNavigate();
   const [list, setList] = useState(null);
+  const [page, setPage] = useState(0);
   useEffect(() => {
     support
       .mine()
@@ -51,56 +57,78 @@ export const SupportRequestsPage = () => {
       subtitle="Your questions to us and our replies."
       action={<NewRequest />}
     >
-      {!list ? (
-        <Skeleton variant="rounded" height={200} />
-      ) : !list.length ? (
-        <SectionCard>
-          <EmptyState icon={<FiLifeBuoy />} title="No requests yet">
-            Need help? Send us a request and our replies will appear here.
-          </EmptyState>
-        </SectionCard>
-      ) : (
-        <Stack spacing={1.5}>
-          {list.map((t) => (
-            <Box
+      <AccountTable
+        label="Support requests"
+        columns={[
+          { label: 'Request' },
+          { label: 'Topic' },
+          { label: 'Order' },
+          { label: 'Updated' },
+          { label: 'Status' },
+        ]}
+        loading={!list}
+        empty={{
+          icon: <FiLifeBuoy />,
+          title: 'No requests yet',
+          text: 'Need help? Send us a request and our replies will appear here.',
+        }}
+        count={list?.length || 0}
+        page={page}
+        rowsPerPage={PAGE_SIZE}
+        onPageChange={setPage}
+        itemsLabel="requests"
+      >
+        {(list || [])
+          .slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+          .map((t) => (
+            <TableRow
               key={t.number}
-              component={RouterLink}
-              to={`/account/support/${t.number}`}
+              hover
+              sx={{ cursor: 'pointer' }}
+              onClick={() => navigate(`/account/support/${t.number}`)}
               data-testid={`support-request-${t.number}`}
-              sx={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: 1.5,
-                alignItems: 'center',
-                p: 2,
-                borderRadius: 1,
-                bgcolor: 'background.neutral',
-                textDecoration: 'none',
-                color: 'text.primary',
-                '&:hover': { bgcolor: 'background.neutralDeep' },
-              }}
             >
-              <Box sx={{ flex: 1, minWidth: 220 }}>
-                <Typography sx={{ fontWeight: 700 }}>{t.subject}</Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {t.number} · {t.category_name}
-                  {t.order ? ` · order ${t.order.order_number}` : ''} · updated{' '}
-                  {formatDate(t.last_message_at)}
-                </Typography>
-              </Box>
-              {t.last_from === 'staff' && t.status === 'waiting' && (
+              <TableCell>
+                <Link
+                  component={RouterLink}
+                  to={`/account/support/${t.number}`}
+                  underline="hover"
+                  onClick={(e) => e.stopPropagation()}
+                  sx={{ fontWeight: 700 }}
+                >
+                  {t.subject}
+                </Link>
                 <Typography
                   variant="caption"
-                  sx={{ color: 'primary.main', fontWeight: 700 }}
+                  color="text.secondary"
+                  component="div"
                 >
-                  New reply
+                  {t.number}
+                  {t.last_from === 'staff' && t.status === 'waiting' && (
+                    <Box
+                      component="span"
+                      sx={{ color: 'primary.main', fontWeight: 700, ml: 1 }}
+                    >
+                      New reply
+                    </Box>
+                  )}
                 </Typography>
-              )}
-              <StatusPill status={t.status} label={t.status_name} />
-            </Box>
+              </TableCell>
+              <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                {t.category_name}
+              </TableCell>
+              <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                {t.order?.order_number || '—'}
+              </TableCell>
+              <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                {formatDate(t.last_message_at)}
+              </TableCell>
+              <TableCell>
+                <StatusPill status={t.status} label={t.status_name} />
+              </TableCell>
+            </TableRow>
           ))}
-        </Stack>
-      )}
+      </AccountTable>
     </AccountPage>
   );
 };
