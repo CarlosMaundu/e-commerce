@@ -1,168 +1,202 @@
-# E-Commerce Platform
+# Carlos Shop
 
-Welcome to our E-Commerce platform! This project is designed to provide a robust online shopping experience for end-users and admin users, integrating key features like product browsing, secure authentication, product management, order management, payment integrations, and more.
+An online shop with a full back office: a React storefront and customer
+account, and an Express + PostgreSQL API with staff roles, orders, invoices,
+payments (card, M-Pesa, cash on delivery), returns and refunds, promo codes,
+support requests and reports.
 
-## Overview
+## Contents
 
-This platform serves as an end-to-end solution for:
+- [What's in it](#whats-in-it)
+- [Tech stack](#tech-stack)
+- [Run it locally](#run-it-locally)
+- [Configuration](#configuration)
+- [Payments](#payments)
+- [Testing locally with M-Pesa (public callback)](#testing-locally-with-m-pesa-public-callback)
+- [Tests](#tests)
+- [Project layout](#project-layout)
+- [Working on the code](#working-on-the-code)
 
-- Browsing products from various categories.
-- Managing user profiles, including personal information, addresses, payment options, and wishlists.
-- Facilitating seamless checkouts with test credit cards, enabling you to verify the payment integration without moving real money.
-- Supporting admin users with additional tools, such as user management, product management, category management, and order oversight.
+## What's in it
 
-All communication with product, category, and user data is handled via external APIs. For example, we have integrated the [Platzi Fake Store API](https://api.escuelajs.co/api/v1/) for products, categories, and user information. This ensures a clear separation of concerns and simpler maintenance.
+**Storefront and account**
 
-## Key Features
+- Home page with hero, deal strip and photo banner, brands, curated picks and
+  featured products; product list with filters and instant, typo-tolerant
+  search; product pages with variants, reviews and "frequently bought
+  together".
+- Cart with gift wrapping, promo codes, checkout (card or cash on delivery),
+  order tracking, invoices, returns and refunds.
+- Account: orders, returns, refunds, invoices, addresses, wishlist, support
+  requests, profile and sign-in security (sessions, activity).
+- Support page, FAQ, About us, Terms, Privacy and Refund & Return policy.
 
-- **Product Browsing**: Users can view products, filter them by categories, and paginate through them.
-- **User Profiles**: Registered users can edit their personal information, manage saved addresses, payment options, and view their order history and wishlist.
-- **Secure Authentication**: Users can log in, manage their profile, and securely handle personal and payment information.
-- **Admin Capabilities**:
-  - **User Management**: Admins can view and manage platform users.
-  - **Product Management**: Add, edit, or remove products.
-  - **Category Management**: Create and update product categories.
-  - **Orders Management**: Oversee all customer orders.
-- **Checkout & Payment**: Integration with test-mode payments to simulate real card transactions without incurring charges.
-- **Responsive Design**: Supports both desktop and mobile viewports, including a collapsible/slide-out sidebar on mobile devices.
+**Back office** (`/admin`, by role and permission)
 
-## Installation
+- Workspace: overview dashboard, orders (with SLA tracking), returns,
+  support inbox.
+- Catalog: products and variants, categories, brands, promo codes (rules,
+  limits, usage by customer, order and invoice).
+- Money: invoices, payments, refunds (with an approval queue), ledger.
+- Reports: SLA performance.
+- People: customers and staff, roles and permissions.
+- System: store settings (including home page deals), site pages, FAQ,
+  payment methods, delivery options, refund and financial settings,
+  security, audit log.
 
-To set up the project locally:
+## Tech stack
 
-1. **Clone the Repository**:
-   ```bash
-   git clone https://github.com/yourusername/yourproject.git
-   cd yourproject
-   ```
-2. **Install Dependencies**:
-   ```bash
-   npm install
-   ```
-3. **Configure Environment Variables**:
-   - Set up `.env` files for local and production environments as needed.
-   - Include your API keys and endpoints. For test payments, use your test API keys.
-4. **Run the Development Server**:
-   ```bash
-   npm start
-   ```
-   The application will be available at [http://localhost:3000](http://localhost:3000).
+| Part | Built with |
+| --- | --- |
+| Web | React 18 (Create React App), MUI 5, Redux Toolkit, React Router 6 |
+| API | Node, Express, TypeScript, zod, PostgreSQL (`pg`) |
+| Payments | Stripe (cards, payment links), Safaricom Daraja (M-Pesa STK push) |
+| Email | Nodemailer; Mailpit catches all mail locally |
+| Tests | Jest (API and web), Playwright (end to end) |
+| Run | Docker Compose: Postgres, Mailpit, API, web (nginx) |
 
-## Authentication and Usage
+## Run it locally
 
-- **Login**: Use provided test user credentials or register a new user to access profile features.
-- **Admin Access**: Admin users can view special sections in the sidebar (e.g., User Management, Orders Management). Admin roles are typically assigned in the backend or via an admin dashboard.
-
-### Example Test Credentials
-
-- **Test User**:
-  - Email: `john@mail.com`
-  - Password: `changeme`
-- **Test Admin**:
-  - Email: `admin@mail.com`
-  - Password: `admin123`
-
-## Payment Testing with Stripe-Like Integration
-
-We use test-mode credit cards and payment methods to simulate transactions. Do not use real card details. Use the following test card details when prompted during checkout:
-
-- **Test Card Number**: `4242 4242 4242 4242`
-- **Expiration Date**: Any valid future date (e.g., 12/34)
-- **CVC**: Any three-digit number (e.g., 123)
-- **Postal Code**: some card number (e.g.,4242 4242 4242 4242 requires a valid postal code and you can use example `33601`
-
-You can also use other test cards as described below.
-
-### Common Test Scenarios
-
-- **Successful Payment**:
-  - Use `4242 4242 4242 4242` with any future expiration date and any three-digit CVC.
-- **Declined Payment**:
-  - Use `4000000000000002` to simulate a generic decline.
-- **3D Secure Testing**:
-  - Use cards that require authentication to simulate 3D Secure flows (e.g., `4000000000003220` requires 3DS).
-
-### Test Mode and Cards
-
-- Always use test API keys and test card numbers provided in the documentation.
-- For code-based testing, use `pm_card_visa` or other PaymentMethod IDs rather than card numbers directly.
-- When ready to go live, replace test keys with live keys.
-
-## Working with the APIs
-
-This project interacts with external APIs for products, categories, and users. See examples:
-
-- **Get All Products**:
-  ```bash
-  curl https://api.escuelajs.co/api/v1/products/
-  ```
-- **Get Product by ID**:
-  ```bash
-  curl https://api.escuelajs.co/api/v1/products/120
-  ```
-- **Create a Product**:
-  ```bash
-  curl -X POST https://api.escuelajs.co/api/v1/products/ \
-       -H "Content-Type: application/json" \
-       -d '{
-           "title": "New Product",
-           "price": 10,
-           "description": "A description",
-           "categoryId": 1,
-           "images": ["https://placeimg.com/640/480/any"]
-       }'
-  ```
-
-For authentication, categories, users, and other endpoints, please refer to the provided API specification or GraphQL queries in the code snippet above.
-
-## Test Payments and Integration
-
-### Interactive Testing:
-
-- Use the card `4242 4242 4242 4242` in checkout forms.
-- Enter a valid future expiry date and any CVC.
-
-### Command Line Example (Stripe-like API):
+You need Docker Desktop and Node 20 or later.
 
 ```bash
-curl https://api.stripe.com/v1/payment_intents \
--u "sk_test_.....:" \
--d amount=500 \
--d currency=gbp \
--d payment_method=pm_card_visa \
--d "payment_method_types[]"=card
+git clone https://github.com/CarlosMaundu/e-commerce.git
+cd e-commerce
+cp backend/.env.example backend/.env   # then set JWT_SECRET, ADMIN_EMAIL, ADMIN_PASSWORD
+npm install
+npm run stack                          # docker compose up -d --build
 ```
 
-Replace `sk_test_...` with your test secret key, and adjust amount, currency, and payment_method as needed.
+| Address | What |
+| --- | --- |
+| http://localhost:8080 | The shop (and `/admin` for the back office) |
+| http://localhost:4000/api/health | The API |
+| http://localhost:8025 | Mailpit: every email the shop sends |
+| `localhost:5433` | Postgres (`shop` / `shop`, database `carlos_shop`) |
 
-## Examples and Interactions
+On first start the API runs its migrations, creates the first super admin
+from `ADMIN_EMAIL` / `ADMIN_PASSWORD` (at least 12 characters), and loads a
+sample catalogue, promo codes and FAQ. Stop everything with
+`npm run stack:down`.
 
-- **Browse Products**:
-  - Navigate to `/products` to view the product grid.
-  - Click on a product to view its details.
-- **Manage Profile**:
-  - Login at `/login`.
-  - Go to `/profile` to update personal information, address, or payment options.
-  - Toggle between sections in the sidebar to view orders, wishlist, or admin tools (if you're an admin).
-- **Checkout**:
-  - Add items to your cart.
-  - Proceed to checkout, enter test payment details.
-  - Complete the transaction to see the order confirmation.
+**Developing the web app with hot reload:** keep the stack running and run
+`npm start`; the dev server on http://localhost:3000 sends `/api` to the API
+on port 4000.
 
-## Additional Notes
+**Developing the API:** `cd backend && npm install && npm run dev` (stop the
+`api` container first, or change `PORT`).
 
-- **Responsive Design**: On mobile devices, a hamburger menu is available to toggle the sidebar navigation.
-- **Virtual DOM Updates**: The project uses React’s Virtual DOM for efficient UI updates and navigation without full page reloads.
-- **API Mocks and Testing**: Use provided test APIs and cards for simulating payment scenarios. Avoid load testing in test mode due to stricter rate limits.
+## Configuration
+
+- **API:** `backend/.env` (see `backend/.env.example`). The important ones:
+  - `JWT_SECRET`: long random value (`openssl rand -base64 48`).
+  - `ADMIN_EMAIL`, `ADMIN_PASSWORD`: the first super admin.
+  - `PAYMENTS_SECRET_KEY`: encrypts saved payment credentials (defaults to
+    `JWT_SECRET`).
+  - `SMTP_*`, `MAIL_FROM`: real email in production (Mailpit locally).
+  - `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`: optional; card keys can
+    also be set in the back office.
+  - `CURRENCY`, `TAX_*`, shipping prices: first-run defaults for Financial
+    and Delivery settings.
+- **Web:** `.env` (see `.env.example`): `REACT_APP_GOOGLE_CLIENT_ID` for
+  Google sign-in; `REACT_APP_API_BASE_URL` only if the API isn't on `/api`.
+
+Most shop settings (name, logo, contact details, home page, deals, taxes,
+delivery, refunds, security, payment methods) are edited in the back office,
+not in files.
+
+## Payments
+
+Set up in **Back office → System → Payment methods**. Each method has a
+**Configure** dialog with its fields, **Save**, and **Test connection**.
+Secrets are stored encrypted and only ever shown as `••••1234`.
+
+- **Card (Stripe):** publishable and secret key. Test with card
+  `4242 4242 4242 4242`, any future date and any CVC
+  (`4000 0000 0000 0002` is declined, `4000 0000 0000 3220` asks for 3-D
+  Secure).
+- **M-Pesa (Daraja):** account type (Paybill or Till), shortcode, consumer
+  key and secret, passkey, callback URL; sandbox or live. Daraja sandbox:
+  shortcode `174379`, test phone `254708374149`.
+- **Cash on delivery:** on by default. Staff can also take a **card tap**
+  (QR code and link to a Stripe payment page) or send an **M-Pesa prompt**
+  from the order page when the order arrives, or record cash.
+
+Payments are recorded on the order's invoice and posted to the ledger.
+
+## Testing locally with M-Pesa (public callback)
+
+Safaricom only sends M-Pesa prompts when the callback is a **public
+`https://` address**, and then calls it to confirm the payment. A shop on
+`localhost` isn't reachable, so the prompt is refused ("Invalid CallBackURL").
+For local testing, open a tunnel that gives the shop a temporary public
+address:
+
+1. Install cloudflared once: `brew install cloudflared`.
+2. With the stack running, start the tunnel and leave it running:
+
+   ```bash
+   npm run tunnel   # cloudflared tunnel --url http://localhost:8080
+   ```
+
+   It prints an address like `https://random-words.trycloudflare.com`.
+   Anyone with that address can reach your local shop while it runs.
+3. In **Payment methods → M-Pesa → Configure**, set **Callback URL** to
+
+   ```
+   https://random-words.trycloudflare.com/api/payments/mpesa/callback
+   ```
+
+   then Save and **Test connection** (optionally with the sandbox phone
+   number, which sends a real KES 1 sandbox prompt).
+4. Send prompts from a cash-on-delivery order: **Collect payment → Send
+   M-Pesa prompt**.
+
+The quick-tunnel address changes every time cloudflared starts, so update
+the Callback URL each time. The order screen also checks the payment status
+with Safaricom every few seconds, so payments are recorded even if a
+callback is slow. In production, leave Callback URL empty: the shop's own
+https address is used.
+
+## Tests
+
+```bash
+npx eslint src e2e                              # lint (web and e2e)
+npm test                                        # web unit tests (Jest)
+cd backend && npm test                          # API tests (Jest; uses the carlos_shop_test database)
+npm run test:e2e                                # Playwright end to end
+```
+
+The API and e2e tests need the Docker database (`npm run stack`). The e2e
+suite starts its own API on port 4100 (database `carlos_shop_e2e`) and web
+app on port 3100, in US dollars with 8% tax. Run API tests one at a time
+(`--runInBand`, as `npm test` does).
+
+## Project layout
+
+```
+backend/               API (Express + TypeScript)
+  migrations/          SQL migrations, applied on start
+  seed/                sample catalogue and images
+  src/routes/          REST routes (/api/rest for the shop, /api/admin for staff)
+  src/lib/             business logic (orders, accounting, refunds, payments…)
+  tests/               API tests
+src/                   web app (React)
+  pages/               storefront, account and back-office pages
+  components/          shared UI (admin table kit, skeletons, timeline…)
+  api/                 API client and mappers (see src/api/contract.md)
+e2e/                   Playwright tests
+docker/, Dockerfile.frontend, docker-compose.yml
+```
+
+## Working on the code
+
+- One branch per feature from an up-to-date `main`, a pull request, then a
+  squash merge.
+- Every page that loads data shows a skeleton in its own layout (see
+  `src/components/skeletons/README.md`); a unit test checks new pages.
+- Never commit secrets: `backend/.env` and `.env` are gitignored.
 
 ## License
 
-This project is licensed under the MIT License.
-
-## Contributing
-
-Contributions are welcome! Please fork the repository and submit a pull request.
-
-## Contact
-
-For any queries or suggestions, please open an issue in the repository or contact the maintainers at `support@example.com`.
+ISC. See `package.json`.

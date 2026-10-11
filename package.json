@@ -10,7 +10,8 @@
     "prepare": "husky install",
     "test:e2e": "playwright test",
     "stack": "docker compose up -d --build",
-    "stack:down": "docker compose down"
+    "stack:down": "docker compose down",
+    "tunnel": "cloudflared tunnel --no-autoupdate --url http://localhost:8080"
   },
   "author": "Carlos Maundu",
   "license": "ISC",
