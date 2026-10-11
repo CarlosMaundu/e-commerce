@@ -7,6 +7,7 @@ import { restoreDemoImages } from './demoCatalog';
 import { loadFinance } from './lib/finance';
 import { loadDelivery } from './lib/delivery';
 import { loadSla } from './lib/sla';
+import { loadProviders } from './lib/paymentProviders';
 import { backfillAccounting } from './lib/accounting';
 import { fixLegacyData } from './lib/dataFixes';
 
@@ -15,6 +16,7 @@ const main = async () => {
   await loadFinance(); // seeding prices demo data in the shop's currency
   await loadDelivery();
   await loadSla();
+  await loadProviders();
   await runSeed();
   const images = restoreDemoImages();
   if (images) console.log(`Restored ${images} demo images`);

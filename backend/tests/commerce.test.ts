@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { insertNumbered } from '../src/lib/numbers';
 import { query } from '../src/db';
-import { app, bearer, closePool, createUser, fakePayments, resetDatabase, sentEmails, signIn } from './helpers';
+import { app, bearer, closePool, createUser, fakeMpesa, fakePayments, resetDatabase, sentEmails, signIn } from './helpers';
 
 jest.mock('../src/lib/mailer', () => require('./mailerMock').mailerMock());
 
@@ -825,6 +825,83 @@ describe('invoices, payments, refunds and the ledger', () => {
     const ordered = (await request(app).put('/api/admin/deals-order').set(bearer(admin)).send({ ids })).body.data;
     expect(ordered[0].promotion_id).toBe(strip.promotion_id);
     await request(app).delete(`/api/admin/deals/${later.promotion_id}`).set(bearer(admin)).expect(200);
+  });
+
+  test('payments: set up and tested in the back office; cash-on-delivery orders paid at the door by card link or M-Pesa', async () => {
+    const admin = await staffUser('admin', 'boss@example.com');
+    const manager = await staffUser('order_manager', 'ops@example.com');
+    expect((await request(app).get('/api/admin/payment-providers').set(bearer(manager))).status).toBe(403);
+    const list = (await request(app).get('/api/admin/payment-providers').set(bearer(admin))).body.data;
+    expect(list.map((p: any) => p.code)).toEqual(['stripe', 'mpesa', 'cod']);
+    // Stripe keys from the environment show as saved, never in full.
+    expect(list[0]).toMatchObject({ enabled: true, from_environment: true, secrets: { secret_key: '••••fake' } });
+    expect(JSON.stringify(list)).not.toContain('sk_test_fake');
+
+    // M-Pesa: required details, then a passing test.
+    const put = (code: string, body: object) => request(app).put(`/api/admin/payment-providers/${code}`).set(bearer(admin)).send(body);
+    const missing = await put('mpesa', { enabled: true, mode: 'test', settings: { account_type: 'paybill' } });
+    expect(Object.keys(missing.body.field_errors)).toEqual(expect.arrayContaining(['shortcode', 'consumer_key', 'passkey']));
+    const saved = (await put('mpesa', {
+      enabled: true, mode: 'test', settings: { account_type: 'paybill', shortcode: '174379' },
+      secrets: { consumer_key: 'ck_abc123', consumer_secret: 'cs_def456', passkey: 'pass7890' },
+    })).body.data;
+    expect(saved).toMatchObject({ enabled: true, ready: true, secrets: { consumer_key: '••••c123', passkey: '••••7890' } });
+    const stored = (await query("SELECT secrets FROM payment_providers WHERE code = 'mpesa'")).rows[0].secrets;
+    expect(stored).not.toContain('pass7890'); // encrypted at rest
+    // Saving again without secrets keeps them.
+    await put('mpesa', { enabled: true, mode: 'test', settings: { account_type: 'paybill', shortcode: '174379' } }).expect(200);
+    const tested = (await request(app).post('/api/admin/payment-providers/mpesa/test').set(bearer(admin)).send({ phone: '0712 345 678' })).body.data;
+    expect(tested).toMatchObject({ ok: true, message: expect.stringMatching(/test prompt for KES 1 was sent/) });
+    expect(fakeMpesa.prompts[0]).toMatchObject({ phone: '254712345678', amount: 1 });
+    const stripeTest = (await request(app).post('/api/admin/payment-providers/stripe/test').set(bearer(admin))).body.data;
+    expect(stripeTest).toMatchObject({ ok: true, message: 'Connected to Test Shop (test mode).', provider: { last_test: { ok: true } } });
+
+    // Checkout describes the ways to pay on delivery.
+    const token = await shopper();
+    await request(app).post('/api/rest/cart').set(bearer(token)).send({ product_id: await productId('Denim jacket'), quantity: 1, option: M }).expect(200);
+    const methods = (await request(app).get('/api/rest/paymentmethods').set(bearer(token))).body.data.payment_methods;
+    expect(methods.find((m: any) => m.code === 'cod').description).toBe('Pay when your order arrives: cash, card or M-Pesa.');
+
+    // At the door: a card link, paid by the customer, is recorded once.
+    const order = await placeOrder(token, { items: [] });
+    const ways = (await request(app).get(`/api/admin/orders/${order.order_id}/payment-requests`).set(bearer(manager))).body.data;
+    expect(ways).toMatchObject({ card_link: true, mpesa: true, requests: [] });
+    const link = (await request(app).post(`/api/admin/orders/${order.order_id}/collect`).set(bearer(manager)).send({ method: 'card_link' })).body.data;
+    expect(link).toMatchObject({ status: 'pending', url: expect.stringMatching(/^https:\/\/checkout/) });
+    const poll = (id: number) => request(app).get(`/api/admin/payment-requests/${id}`).set(bearer(manager));
+    expect((await poll(link.request_id)).body.data.status).toBe('pending');
+    fakePayments.links.forEach((l) => { l.status = 'paid'; });
+    expect((await poll(link.request_id)).body.data).toMatchObject({ status: 'paid', reference: expect.stringMatching(/^pi_cs_/) });
+    expect((await poll(link.request_id)).body.data.status).toBe('paid');
+    const finance = (await request(app).get(`/api/admin/orders/${order.order_id}/finance`).set(bearer(admin))).body.data;
+    expect(finance.payments.filter((p: any) => p.kind === 'payment')).toHaveLength(1);
+    expect((await request(app).post(`/api/admin/orders/${order.order_id}/collect`).set(bearer(manager)).send({ method: 'mpesa', phone: '0712345678' })).body.error)
+      .toEqual(['Nothing is owed on this order.']);
+
+    // M-Pesa: shillings only; the prompt is confirmed by Safaricom's callback with its receipt.
+    await request(app).post('/api/rest/cart').set(bearer(token)).send({ product_id: await productId('Denim jacket'), quantity: 1, option: M }).expect(200);
+    const second = await placeOrder(token, { items: [] });
+    const collect = (body: object) => request(app).post(`/api/admin/orders/${second.order_id}/collect`).set(bearer(manager)).send(body);
+    expect((await collect({ method: 'mpesa', phone: '0712345678' })).body.error).toEqual(['M-Pesa takes payments in Kenyan shillings only.']);
+    await query(`UPDATE orders SET currency = 'KES' WHERE id = $1`, [second.order_id]);
+    await query(`UPDATE invoices SET currency = 'KES' WHERE order_id = $1`, [second.order_id]);
+    expect((await collect({ method: 'mpesa', phone: '12' })).body.error[0]).toMatch(/M-Pesa number/);
+    const prompt = (await collect({ method: 'mpesa', phone: '+254 712 345 678' })).body.data;
+    expect(prompt).toMatchObject({ status: 'pending', phone: '254712345678', message: expect.stringMatching(/enter their PIN/) });
+    const sent = fakeMpesa.prompts.at(-1)!;
+    const path = new URL(sent.callbackUrl).pathname;
+    const callback = (body: object, at = path) => request(app).post(at).send({ Body: { stkCallback: body } });
+    // A forged callback (wrong signature) changes nothing.
+    await callback({ CheckoutRequestID: sent.id, ResultCode: 0 }, path.replace(/[^/]+$/, 'forged')).expect(200);
+    expect((await poll(prompt.request_id)).body.data.status).toBe('pending');
+    fakeMpesa.results.set(sent.id, 'paid');
+    await callback({
+      CheckoutRequestID: sent.id, ResultCode: 0,
+      CallbackMetadata: { Item: [{ Name: 'Amount', Value: sent.amount }, { Name: 'MpesaReceiptNumber', Value: 'SJK4H7XYZ1' }] },
+    }).expect(200);
+    expect((await poll(prompt.request_id)).body.data).toMatchObject({ status: 'paid', reference: 'SJK4H7XYZ1' });
+    const paid = (await request(app).get(`/api/admin/orders/${second.order_id}/finance`).set(bearer(admin))).body.data;
+    expect(paid.payments.find((p: any) => p.kind === 'payment')).toMatchObject({ method: 'mpesa', reference: 'SJK4H7XYZ1' });
   });
 
   test('the bell lists what needs attention, per permission, and can be read, dismissed and cleared', async () => {

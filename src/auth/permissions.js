@@ -71,6 +71,7 @@ export const PERMISSIONS = {
   supportReply: 'support.tickets.reply',
   promosView: 'marketing.promos.view',
   promosManage: 'marketing.promos.manage',
+  paymentsManage: 'admin.payments.manage',
 };
 
 const ROLE_LABELS = {

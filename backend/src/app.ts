@@ -17,6 +17,8 @@ import { adminSupportRoutes, supportRoutes } from './routes/support';
 import { adminFaqRoutes, publicFaqRoutes } from './routes/faq';
 import { adminPromoRoutes } from './routes/adminPromos';
 import { adminDealRoutes } from './routes/adminDeals';
+import { adminPaymentRoutes, mpesaCallbackRoutes } from './routes/adminPayments';
+import { darajaGateway, MpesaGateway } from './lib/mpesa';
 import { adminSecurityRoutes } from './routes/adminSecurity';
 import { adminRoleRoutes } from './routes/adminRoles';
 import { adminUserRoutes } from './routes/adminUsers';
@@ -29,11 +31,13 @@ import { orderRoutes } from './routes/orders';
 export interface AppOptions {
   verifyGoogle?: GoogleVerifier | null;
   payments?: PaymentGateway | null;
+  mpesa?: MpesaGateway;
 }
 
 export const createApp = ({
   verifyGoogle = config.googleClientId ? verifyGoogleIdToken : null,
   payments = stripeGateway(),
+  mpesa = darajaGateway(),
 }: AppOptions = {}) => {
   const app = express();
   app.set('trust proxy', config.trustProxy); // visitors' real IPs for rate limits
@@ -70,6 +74,8 @@ export const createApp = ({
   app.use('/api/admin', adminSupportRoutes());
   app.use('/api/admin', adminPromoRoutes());
   app.use('/api/admin', adminDealRoutes());
+  app.use('/api/admin', adminPaymentRoutes({ payments, mpesa }));
+  app.use('/api', mpesaCallbackRoutes({ mpesa }));
   app.use('/api/rest', publicFaqRoutes());
   app.use('/api/admin', adminFaqRoutes());
   app.use('/api/admin', adminSecurityRoutes());

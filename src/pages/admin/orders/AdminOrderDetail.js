@@ -54,6 +54,7 @@ import {
   RecordPaymentDialog,
   RefundDialog,
 } from './OrderDialogs';
+import CollectPayment from './CollectPayment';
 
 const STATUS_NAMES = {
   awaiting_payment: 'Awaiting payment',
@@ -666,6 +667,19 @@ const AdminOrderDetail = () => {
 
         <Grid item xs={12} lg={4}>
           <Stack spacing={3}>
+            {order.paymentMethod === 'cod' &&
+              invoice &&
+              invoice.balance > 0 &&
+              !['void'].includes(invoice.status) &&
+              order.status !== 'cancelled' &&
+              can(PERMISSIONS.paymentsRecord) && (
+                <CollectPayment
+                  order={order}
+                  balance={invoice.balance}
+                  onCash={() => setDialog('pay')}
+                  onPaid={load}
+                />
+              )}
             {can('orders.orders.update') && (
               <SectionCard title="Update status">
                 <Stack component="form" spacing={2} onSubmit={save}>

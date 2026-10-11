@@ -43,6 +43,8 @@ const resetUsers = async () => {
     "DELETE FROM coupons WHERE code NOT IN ('WELCOME10', 'FRIDAY35', 'SAVE5')"
   );
   await db().query('UPDATE coupons SET uses_count = 0');
+  // Payment methods back to the defaults (the API reloads them on start).
+  await db().query('DELETE FROM payment_providers');
   // Catalog back to the demo seed: products added by tests (no SKU) go,
   // and every variant has stock so option choices are predictable.
   await db().query('DELETE FROM products WHERE sku IS NULL');

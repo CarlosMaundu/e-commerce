@@ -14,7 +14,6 @@ const giftSnapshot = (g: GiftChoice) => {
   };
 };
 import { z } from 'zod';
-import { config } from '../config';
 import { finance } from '../lib/finance';
 import { issueInvoice, recordPayment } from '../lib/accounting';
 import { query, transaction } from '../db';
@@ -23,6 +22,7 @@ import { fail, handler, ok, parse } from '../lib/http';
 import { sendOrderConfirmationEmail } from '../lib/mailer';
 import { addHistory, loadOrder, orderLink } from '../lib/orders';
 import { PaymentGateway } from '../lib/payments';
+import { stripeKeys } from '../lib/paymentProviders';
 import { takeStock } from '../lib/products';
 import {
   checkStock, computeTotals, customerCouponProblem, findCoupon, loadCartLines, PAYMENT_METHODS, round2, SHIPPING_METHODS,
@@ -259,7 +259,7 @@ export const checkoutRoutes = ({ payments }: { payments: PaymentGateway | null }
         amountCents: Math.round(totals.total * 100), currency: finance().currency, orderId, email: req.auth!.user.email,
       });
       await query('UPDATE orders SET payment_reference = $2 WHERE id = $1', [orderId, intent.id]);
-      payment = { ...payment, client_secret: intent.clientSecret, publishable_key: config.stripe.publishableKey };
+      payment = { ...payment, client_secret: intent.clientSecret, publishable_key: stripeKeys().publishableKey };
     }
     const loaded = await loadOrder(orderId, { admin: false });
     ok(res, { order: loaded!.contract, payment });

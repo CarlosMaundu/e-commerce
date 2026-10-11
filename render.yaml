@@ -36,6 +36,9 @@ services:
           property: connectionString
       - key: JWT_SECRET
         generateValue: true
+      # Encrypts payment credentials saved under Payment methods.
+      - key: PAYMENTS_SECRET_KEY
+        generateValue: true
       - key: COOKIE_SECURE
         value: 'true'
       # Visitor → static site rewrite → Render's edge → API.
