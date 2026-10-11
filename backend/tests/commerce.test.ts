@@ -410,7 +410,7 @@ describe('custom roles', () => {
     await createUser('root@example.com', 'super_admin');
     const { token } = await signIn('root@example.com');
     const perms = await request(app).get('/api/admin/permissions').set(bearer(token));
-    expect(perms.body.data.map((g: any) => g.name)).toEqual(['Administration', 'Catalog', 'Dashboard', 'Orders', 'Support']);
+    expect(perms.body.data.map((g: any) => g.name)).toEqual(['Administration', 'Catalog', 'Dashboard', 'Marketing', 'Orders', 'Support']);
 
     const created = await request(app).post('/api/admin/roles').set(bearer(token)).send({
       name: 'Stock Clerk', description: 'Keeps stock up to date', permissions: ['catalog.products.update'],
@@ -753,6 +753,47 @@ describe('invoices, payments, refunds and the ledger', () => {
       'request received', 'approved', 'item received', 'refunded',
     ]);
     expect(sentEmails.find((e) => e.kind === `return:${id}:approved`)!.link).toMatch(new RegExp(`/account/returns/${id}$`));
+  });
+
+  test('promo codes: created by staff, limited per customer, and every use traced to its order and invoice', async () => {
+    const admin = await staffUser('admin', 'boss@example.com');
+    const manager = await staffUser('order_manager', 'ops@example.com');
+    const create = (body: object, who = admin) => request(app).post('/api/admin/promos').set(bearer(who)).send(body);
+
+    const bad = await create({ code: 'x', type: 'percent', value: 150, starts_at: '2030-01-02', ends_at: '2030-01-01' });
+    expect(Object.keys(bad.body.field_errors)).toEqual(expect.arrayContaining(['code', 'value', 'ends_at']));
+    expect((await create({ code: 'NOPE10', type: 'percent', value: 10 }, manager)).status).toBe(403);
+    const made = (await create({ code: 'vip-10', description: 'VIP 10% off', type: 'percent', value: 10, per_customer_limit: 1 })).body.data;
+    expect(made).toMatchObject({ code: 'VIP-10', state: 'active', uses: 0, created_by: expect.any(String) });
+    expect((await create({ code: 'VIP-10', type: 'fixed', value: 5 })).body.field_errors).toEqual({ code: 'That code already exists.' });
+    await create({ code: 'LATER', type: 'fixed', value: 5, starts_at: new Date(Date.now() + 86400000).toISOString() }).expect(201);
+
+    // A customer uses it once; a second time is refused.
+    const token = await shopper();
+    await request(app).post('/api/rest/cart').set(bearer(token)).send({ product_id: await productId('Denim jacket'), quantity: 1, option: M }).expect(200);
+    await request(app).post('/api/rest/coupon').set(bearer(token)).send({ coupon: 'vip-10' }).expect(200);
+    const order = await placeOrder(token, { items: [] });
+    await request(app).post('/api/rest/cart').set(bearer(token)).send({ product_id: await productId('Denim jacket'), quantity: 1, option: M }).expect(200);
+    const again = await request(app).post('/api/rest/coupon').set(bearer(token)).send({ coupon: 'VIP-10' });
+    expect(again.body.error).toEqual(['You’ve already used this promo code.']);
+
+    // Staff (with invoice access) see the use: who, which order and invoice, the discount.
+    const list = (await request(app).get('/api/admin/promos?status=all').set(bearer(manager))).body.data;
+    expect(list.counts).toMatchObject({ scheduled: 1 }); // plus the sample codes, all active
+    expect(list.promos.find((p: any) => p.code === 'VIP-10')).toMatchObject({ uses: 1, customers: 1, discount_total: expect.any(Number) });
+    const uses = (await request(app).get('/api/admin/promos/vip-10/uses').set(bearer(manager))).body.data;
+    expect(uses.total).toBe(1);
+    expect(uses.uses[0]).toMatchObject({
+      order_id: order.order_id, order_number: order.order_number,
+      customer: { email: 'jane@example.com' }, invoice: { number: expect.stringMatching(/^INV-/) },
+    });
+    expect(uses.uses[0].discount).toBeGreaterThan(0);
+
+    // Used codes can't be deleted, only switched off; unused ones can go.
+    expect((await request(app).delete('/api/admin/promos/VIP-10').set(bearer(admin))).body.error[0]).toMatch(/Switch it off/);
+    const off = (await request(app).put('/api/admin/promos/VIP-10').set(bearer(admin)).send({ ...made, active: false })).body.data;
+    expect(off.state).toBe('inactive');
+    await request(app).delete('/api/admin/promos/LATER').set(bearer(admin)).expect(200);
   });
 
   test('the bell lists what needs attention, per permission, and can be read, dismissed and cleared', async () => {

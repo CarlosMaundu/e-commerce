@@ -25,7 +25,7 @@ import { addHistory, loadOrder, orderLink } from '../lib/orders';
 import { PaymentGateway } from '../lib/payments';
 import { takeStock } from '../lib/products';
 import {
-  checkStock, computeTotals, findCoupon, loadCartLines, PAYMENT_METHODS, round2, SHIPPING_METHODS,
+  checkStock, computeTotals, customerCouponProblem, findCoupon, loadCartLines, PAYMENT_METHODS, round2, SHIPPING_METHODS,
 } from '../lib/pricing';
 import { authenticate, customersOnly } from '../middleware/auth';
 
@@ -221,6 +221,8 @@ export const checkoutRoutes = ({ payments }: { payments: PaymentGateway | null }
     const coupon = state.coupon_code ? await findCoupon(state.coupon_code) : undefined;
     const totals = computeTotals(lines, coupon, state.shipping_method);
     if (totals.coupon_problem) fail(400, `${totals.coupon_problem} Remove it to continue.`);
+    const usedUp = await customerCouponProblem(coupon, userId);
+    if (usedUp) fail(400, `${usedUp} Remove it to continue.`);
 
     const orderId = await transaction(async (db) => {
       // Replace the previous unplaced order for this checkout, if any.

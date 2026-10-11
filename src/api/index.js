@@ -1147,3 +1147,40 @@ export const adminRoles = {
     await http().delete(`/admin/roles/${code}`);
   },
 };
+
+/** Back office → Promo codes (raw API shapes). */
+export const adminPromos = {
+  /** { status, search, page, limit } → { promos, total, counts } */
+  async list(params = {}) {
+    const { data } = await http().get('/admin/promos', { params });
+    return data;
+  },
+  async get(code) {
+    const { data } = await http().get(
+      `/admin/promos/${encodeURIComponent(code)}`
+    );
+    return data;
+  },
+  /** { page, limit } → { uses, total } */
+  async uses(code, params = {}) {
+    const { data } = await http().get(
+      `/admin/promos/${encodeURIComponent(code)}/uses`,
+      { params }
+    );
+    return data;
+  },
+  async create(promo) {
+    const { data } = await http().post('/admin/promos', promo);
+    return data;
+  },
+  async update(code, promo) {
+    const { data } = await http().put(
+      `/admin/promos/${encodeURIComponent(code)}`,
+      promo
+    );
+    return data;
+  },
+  async remove(code) {
+    await http().delete(`/admin/promos/${encodeURIComponent(code)}`);
+  },
+};
