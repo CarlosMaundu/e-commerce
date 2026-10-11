@@ -13,7 +13,6 @@ import {
   InputAdornment,
   LinearProgress,
   Link,
-  Skeleton,
   Stack,
   TableCell,
   TableRow,
@@ -40,6 +39,8 @@ import InvoiceDocument, {
 import { PAGE_SIZE, Pill } from '../../components/admin/DataTable';
 import AccountTable from '../../components/account/AccountTable';
 import { formatDate, formatMoney } from '../../utils/format';
+import { InvoiceSkeleton } from '../../components/skeletons';
+import { ItemRowsSkeleton } from '../../components/skeletons';
 
 const ACTIVE = ['awaiting_payment', 'pending', 'processing', 'shipped'];
 
@@ -151,7 +152,7 @@ export const TrackOrderPage = () => {
           subtitle="Orders that haven’t arrived yet."
         >
           {!active ? (
-            <Skeleton variant="rounded" height={120} />
+            <ItemRowsSkeleton rows={2} image={48} />
           ) : !active.length ? (
             <EmptyState icon={<FiTruck />} title="Nothing on the way">
               Orders you place will show here until they’re delivered.
@@ -348,7 +349,7 @@ export const InvoicePage = () => {
           We couldn’t find that invoice in your account.
         </EmptyState>
       ) : !order ? (
-        <Skeleton variant="rounded" height={640} />
+        <InvoiceSkeleton />
       ) : (
         <InvoiceDocument order={order} />
       )}

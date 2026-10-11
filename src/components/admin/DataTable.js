@@ -16,7 +16,6 @@ import {
   MenuItem,
   Paper,
   Popper,
-  Skeleton,
   Stack,
   Tab,
   TableCell,
@@ -38,6 +37,7 @@ import {
 } from 'react-icons/fi';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import PageBreadcrumbs from '../common/PageBreadcrumbs';
+import { SkeletonCells } from '../skeletons';
 
 export const PAGE_SIZE = 10;
 export const PAGE_SIZES = [10, 25, 50];
@@ -601,12 +601,11 @@ SearchField.propTypes = {
   delay: PropTypes.number,
 };
 
+/** Loading rows with one placeholder per column, so the table keeps its shape. */
 export const LoadingRows = ({ cols, rows = 5 }) =>
   Array.from({ length: rows }).map((_, i) => (
-    <TableRow key={`loading-${i}`}>
-      <TableCell colSpan={cols}>
-        <Skeleton height={36} />
-      </TableCell>
+    <TableRow key={`loading-${i}`} data-testid="loading-row" aria-hidden>
+      <SkeletonCells cols={cols} index={i} />
     </TableRow>
   ));
 

@@ -46,6 +46,11 @@ import { SectionCard } from '../components/ui';
 import AddressForm, { countryName } from '../components/account/AddressForm';
 import CardPayment from '../components/checkout/CardPayment';
 import { formatMoney, optionText } from '../utils/format';
+import {
+  CardSkeleton,
+  FieldRowsSkeleton,
+  ItemRowsSkeleton,
+} from '../components/skeletons';
 
 const STEPS = ['Delivery address', 'Delivery option', 'Payment'];
 
@@ -233,7 +238,14 @@ export const CheckoutSkeleton = () => (
         </Stack>
       </Grid>
       <Grid item xs={12} md={7}>
-        <Skeleton variant="rounded" height={420} />
+        {/* The order summary: items, then the totals. */}
+        <CardSkeleton>
+          <ItemRowsSkeleton rows={3} image={64} />
+          <Box sx={{ mt: 3 }}>
+            <FieldRowsSkeleton rows={4} />
+          </Box>
+          <Skeleton variant="rounded" height={48} sx={{ mt: 3 }} />
+        </CardSkeleton>
       </Grid>
     </Grid>
   </Container>

@@ -10,7 +10,6 @@ import {
   FormControlLabel,
   Grid,
   InputAdornment,
-  Skeleton,
   Stack,
   Switch,
   TextField,
@@ -22,6 +21,7 @@ import { useNotify } from '../../notification/NotificationProvider';
 import { SectionCard } from '../../components/ui';
 import { useHideHelpWhile } from '../../layouts/AdminLayout';
 import { formatDateTime } from '../../utils/format';
+import { CardSkeleton, FormSkeleton } from '../../components/skeletons';
 
 const STATUS_NAMES = {
   placed: 'Order placed',
@@ -87,7 +87,13 @@ const SlaSettingsTab = () => {
     }
   };
 
-  if (!form) return <Skeleton variant="rounded" height={360} sx={{ mt: 3 }} />;
+  if (!form) {
+    return (
+      <CardSkeleton subtitle sx={{ mt: 3 }}>
+        <FormSkeleton fields={6} columns={3} />
+      </CardSkeleton>
+    );
+  }
 
   return (
     <Box sx={{ mt: 3 }}>

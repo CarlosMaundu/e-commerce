@@ -18,6 +18,7 @@ import {
 import { FiArrowRight, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import { catalog } from '../../api';
 import ProductCard from '../common/ProductCard';
+import { ProductCardSkeleton } from '../skeletons';
 
 /** Loads once on mount; [] while loading or after an error. */
 const useLoad = (load) => {
@@ -108,7 +109,22 @@ export const BrandsStrip = () => {
     <Box component="section" aria-labelledby="brands-title">
       <SectionTitle id="brands-title">Our brands</SectionTitle>
       {!brands ? (
-        <Skeleton variant="rounded" height={84} sx={{ borderRadius: 1 }} />
+        // The logo tiles, same size and spacing.
+        <Stack direction="row" sx={{ overflow: 'hidden' }} aria-hidden>
+          {Array.from({ length: 9 }, (_, i) => (
+            <Skeleton
+              key={i}
+              variant="rounded"
+              height={84}
+              sx={{
+                flex: '0 0 auto',
+                width: { xs: 120, md: 150 },
+                mx: 0.75,
+                borderRadius: 1,
+              }}
+            />
+          ))}
+        </Stack>
       ) : (
         <Box
           sx={{
@@ -351,12 +367,7 @@ export const BestViewed = () => {
             p ? (
               <ProductCard key={p.id} product={p} compact />
             ) : (
-              <Skeleton
-                key={i}
-                variant="rounded"
-                height={320}
-                sx={{ borderRadius: 1 }}
-              />
+              <ProductCardSkeleton key={i} compact />
             )
           )}
         </Box>
@@ -423,12 +434,7 @@ export const FeaturedGrid = () => {
           p ? (
             <ProductCard key={p.id} product={p} />
           ) : (
-            <Skeleton
-              key={i}
-              variant="rounded"
-              height={380}
-              sx={{ borderRadius: 1 }}
-            />
+            <ProductCardSkeleton key={i} />
           )
         )}
       </Box>

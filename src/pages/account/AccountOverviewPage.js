@@ -22,6 +22,7 @@ import { isStaff } from '../../auth/permissions';
 import { EmptyState, SectionCard, StatusChip } from '../../components/ui';
 import OrderTracker from '../../components/account/OrderTracker';
 import { formatDate, formatMoney } from '../../utils/format';
+import { ItemRowsSkeleton, LinesSkeleton } from '../../components/skeletons';
 
 const ACTIVE = ['awaiting_payment', 'pending', 'processing', 'shipped'];
 
@@ -230,7 +231,21 @@ const AccountOverviewPage = () => {
           }
         >
           {!data ? (
-            <Skeleton variant="rounded" height={160} />
+            <Stack spacing={3} aria-busy="true">
+              <Stack direction="row" spacing={1} alignItems="center">
+                {[0, 1, 2, 3].map((i) => (
+                  <React.Fragment key={i}>
+                    {i > 0 && <Skeleton variant="text" sx={{ flex: 1 }} />}
+                    <Skeleton variant="circular" width={36} height={36} />
+                  </React.Fragment>
+                ))}
+              </Stack>
+              <Stack direction="row" spacing={1.5}>
+                {[0, 1, 2].map((i) => (
+                  <Skeleton key={i} variant="rounded" width={64} height={64} />
+                ))}
+              </Stack>
+            </Stack>
           ) : !data.orders.length ? (
             <EmptyState
               icon={<FiPackage />}
@@ -248,7 +263,21 @@ const AccountOverviewPage = () => {
               Your orders will appear here.
             </EmptyState>
           ) : !latest ? (
-            <Skeleton variant="rounded" height={160} />
+            <Stack spacing={3} aria-busy="true">
+              <Stack direction="row" spacing={1} alignItems="center">
+                {[0, 1, 2, 3].map((i) => (
+                  <React.Fragment key={i}>
+                    {i > 0 && <Skeleton variant="text" sx={{ flex: 1 }} />}
+                    <Skeleton variant="circular" width={36} height={36} />
+                  </React.Fragment>
+                ))}
+              </Stack>
+              <Stack direction="row" spacing={1.5}>
+                {[0, 1, 2].map((i) => (
+                  <Skeleton key={i} variant="rounded" width={64} height={64} />
+                ))}
+              </Stack>
+            </Stack>
           ) : (
             <Stack spacing={3}>
               <OrderTracker order={latest} />
@@ -303,7 +332,7 @@ const AccountOverviewPage = () => {
             }
           >
             {!data ? (
-              <Skeleton height={80} />
+              <LinesSkeleton lines={3} />
             ) : defaultAddress ? (
               <Stack direction="row" spacing={1.5}>
                 <Box sx={{ color: 'primary.main', mt: 0.25 }}>
@@ -358,7 +387,7 @@ const AccountOverviewPage = () => {
         }
       >
         {!data ? (
-          <Skeleton variant="rounded" height={180} />
+          <ItemRowsSkeleton rows={3} image={48} />
         ) : !data.orders.length ? (
           <Typography color="text.secondary">No orders yet.</Typography>
         ) : (

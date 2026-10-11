@@ -84,6 +84,13 @@ import {
   getCurrency,
 } from '../../../utils/format';
 import { METHOD_NAMES, RecordPaymentDialog } from '../orders/OrderDialogs';
+import {
+  CardSkeleton,
+  FormSkeleton,
+  HeaderSkeleton,
+  InvoiceSkeleton,
+  TableSkeleton,
+} from '../../../components/skeletons';
 
 export const INVOICE_STATES = {
   issued: ['Due', 'warning'],
@@ -498,10 +505,14 @@ export const InvoiceDetailPage = () => {
     load();
   }, [load]);
 
-  if (!data)
+  if (!data) {
     return (
-      <Skeleton variant="rounded" height={640} data-testid="invoice-loading" />
+      <Stack spacing={3}>
+        <HeaderSkeleton actions={2} />
+        <InvoiceSkeleton />
+      </Stack>
     );
+  }
   const { invoice, order, payments } = data;
   const [label, tone] = INVOICE_STATES[invoice.status] || [
     invoice.status,
@@ -1300,7 +1311,15 @@ export const RefundSettingsPage = () => {
         }
       />
       {!form ? (
-        <Skeleton variant="rounded" height={360} sx={{ mt: 3 }} />
+        <Grid container spacing={3} sx={{ mt: 0 }}>
+          {[0, 1].map((i) => (
+            <Grid item xs={12} md={6} key={i}>
+              <CardSkeleton subtitle>
+                <FormSkeleton fields={3} columns={1} />
+              </CardSkeleton>
+            </Grid>
+          ))}
+        </Grid>
       ) : (
         <Box
           component="fieldset"
@@ -1687,7 +1706,7 @@ export const LedgerPage = () => {
         }
       >
         {!data ? (
-          <Skeleton variant="rounded" height={320} />
+          <TableSkeleton columns={4} rows={6} toolbar={false} />
         ) : (
           <TableContainer>
             <Table size="small">

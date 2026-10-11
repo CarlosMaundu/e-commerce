@@ -15,7 +15,6 @@ import {
   Grid,
   Link,
   MenuItem,
-  Skeleton,
   Stack,
   Table,
   TableBody,
@@ -48,6 +47,13 @@ import SupportThread, {
   StatusPill,
 } from '../../components/support/SupportThread';
 import { formatDateTime, formatShortDate } from '../../utils/format';
+import {
+  CardSkeleton,
+  DetailSkeleton,
+  FieldRowsSkeleton,
+  FormSkeleton,
+  ThreadSkeleton,
+} from '../../components/skeletons';
 
 const TABS = [
   { value: 'open', label: 'Open' },
@@ -317,10 +323,24 @@ export const SupportTicketPage = () => {
 
   if (!ticket) {
     return (
-      <Stack spacing={2}>
-        <Skeleton variant="text" width={320} height={56} />
-        <Skeleton variant="rounded" height={360} />
-      </Stack>
+      <DetailSkeleton
+        actions={0}
+        main={
+          <CardSkeleton>
+            <ThreadSkeleton messages={3} />
+          </CardSkeleton>
+        }
+        side={
+          <>
+            <CardSkeleton>
+              <FieldRowsSkeleton rows={4} />
+            </CardSkeleton>
+            <CardSkeleton>
+              <FormSkeleton fields={1} columns={1} />
+            </CardSkeleton>
+          </>
+        }
+      />
     );
   }
 

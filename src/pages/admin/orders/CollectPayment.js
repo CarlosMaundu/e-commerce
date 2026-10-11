@@ -16,6 +16,7 @@ import {
   DialogContent,
   DialogTitle,
   Link,
+  Skeleton,
   Stack,
   TextField,
   Typography,
@@ -287,6 +288,10 @@ const CollectPayment = ({ order, balance, onCash, onPaid }) => {
       subtitle={`${formatMoney(balance, order.currency)} to pay on delivery`}
     >
       <Stack spacing={1.25}>
+        {!ways &&
+          [0, 1].map((i) => (
+            <Skeleton key={i} variant="rounded" height={36.5} />
+          ))}
         {ways?.card_link && (
           <Button
             variant="contained"

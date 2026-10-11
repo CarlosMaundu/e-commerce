@@ -24,6 +24,7 @@ import SupportThread, {
 import { formatDate } from '../../utils/format';
 import { PAGE_SIZE } from '../../components/admin/DataTable';
 import AccountTable from '../../components/account/AccountTable';
+import { CardSkeleton, ThreadSkeleton } from '../../components/skeletons';
 
 const NewRequest = () => (
   <Button
@@ -194,7 +195,14 @@ export const SupportRequestPage = () => {
       }
     >
       {!ticket ? (
-        <Skeleton variant="rounded" height={260} />
+        <Stack spacing={3} aria-busy="true">
+          <CardSkeleton title={false}>
+            <ThreadSkeleton messages={2} reply={false} />
+          </CardSkeleton>
+          <CardSkeleton>
+            <Skeleton variant="rounded" height={120} />
+          </CardSkeleton>
+        </Stack>
       ) : (
         <Stack spacing={3}>
           <SectionCard>

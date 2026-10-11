@@ -1,6 +1,7 @@
 // src/pages/admin/StaffProfilePage.js — a back-office user's own profile,
 // adapted from the portal's ProfileTab: details and photo, role and
 // permissions, password, where you're signed in, and recent activity.
+// skeleton-exempt: the profile shows at once; sessions and activity show their own skeletons (SecurityWidgets).
 import React, { useContext, useEffect, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import {

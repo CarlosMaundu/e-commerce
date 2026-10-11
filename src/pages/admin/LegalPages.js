@@ -45,6 +45,11 @@ import ConfirmationDialog from '../../components/common/ConfirmationDialog';
 import { useHideHelpWhile } from '../../layouts/AdminLayout';
 import { policyPath } from '../../content/policies';
 import { formatDateTime } from '../../utils/format';
+import {
+  CardSkeleton,
+  HeaderSkeleton,
+  LinesSkeleton,
+} from '../../components/skeletons';
 
 /** Where each page lives on the shop. */
 const shopPath = (slug) => (slug === 'about' ? '/about' : policyPath(slug));
@@ -227,10 +232,34 @@ export const LegalPageEditor = () => {
   };
 
   if (!page) {
+    // Header, then the editor: its toolbar and the page text.
     return (
-      <Stack spacing={2}>
-        <Skeleton variant="text" width={300} height={56} />
-        <Skeleton variant="rounded" height={480} />
+      <Stack spacing={3} data-testid="page-loading" aria-busy="true">
+        <HeaderSkeleton actions={2} />
+        <CardSkeleton title={false}>
+          <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+            {Array.from({ length: 10 }, (_, i) => (
+              <Skeleton
+                key={i}
+                variant="rounded"
+                width={i ? 32 : 140}
+                height={32}
+              />
+            ))}
+          </Stack>
+          <Skeleton
+            variant="text"
+            width="40%"
+            sx={{ fontSize: '1.6rem', mb: 1 }}
+          />
+          <LinesSkeleton lines={6} />
+          <Skeleton
+            variant="text"
+            width="30%"
+            sx={{ fontSize: '1.3rem', my: 1 }}
+          />
+          <LinesSkeleton lines={5} />
+        </CardSkeleton>
       </Stack>
     );
   }

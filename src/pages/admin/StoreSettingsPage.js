@@ -8,7 +8,6 @@ import {
   Button,
   Grid,
   InputAdornment,
-  Skeleton,
   Stack,
   TextField,
   Typography,
@@ -31,6 +30,7 @@ import HomeDealsSection from './HomeDealsSection';
 import { useHideHelpWhile } from '../../layouts/AdminLayout';
 import ImageField from '../../components/admin/ImageField';
 import { formatDateTime } from '../../utils/format';
+import { CardSkeleton, FormSkeleton } from '../../components/skeletons';
 
 const SOCIALS = [
   { key: 'facebook', label: 'Facebook', icon: <FiFacebook /> },
@@ -50,11 +50,15 @@ const SettingsSkeleton = () => (
   >
     {[0, 1].map((i) => (
       <Grid item xs={12} md={6} key={i}>
-        <Skeleton variant="rounded" height={320} />
+        <CardSkeleton subtitle>
+          <FormSkeleton fields={i ? 4 : 5} columns={1} />
+        </CardSkeleton>
       </Grid>
     ))}
     <Grid item xs={12}>
-      <Skeleton variant="rounded" height={200} />
+      <CardSkeleton subtitle>
+        <FormSkeleton fields={6} columns={2} />
+      </CardSkeleton>
     </Grid>
   </Grid>
 );

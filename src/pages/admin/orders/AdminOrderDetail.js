@@ -16,7 +16,6 @@ import {
   Grid,
   Link,
   MenuItem,
-  Skeleton,
   Stack,
   TextField,
   Typography,
@@ -55,6 +54,14 @@ import {
   RefundDialog,
 } from './OrderDialogs';
 import CollectPayment from './CollectPayment';
+import {
+  CardSkeleton,
+  DetailSkeleton,
+  FieldRowsSkeleton,
+  FormSkeleton,
+  ItemRowsSkeleton,
+  TimelineSkeleton,
+} from '../../../components/skeletons';
 
 const STATUS_NAMES = {
   awaiting_payment: 'Awaiting payment',
@@ -173,18 +180,37 @@ const AdminOrderDetail = () => {
   };
 
   if (!order) {
+    // Items, payments and updates beside status, customer and addresses.
     return (
-      <Stack spacing={3} data-testid="order-loading">
-        <Skeleton variant="text" width={260} height={56} />
-        <Grid container spacing={3}>
-          <Grid item xs={12} lg={8}>
-            <Skeleton variant="rounded" height={420} />
-          </Grid>
-          <Grid item xs={12} lg={4}>
-            <Skeleton variant="rounded" height={420} />
-          </Grid>
-        </Grid>
-      </Stack>
+      <DetailSkeleton
+        testId="order-loading"
+        actions={2}
+        main={
+          <>
+            <CardSkeleton>
+              <ItemRowsSkeleton rows={3} image={64} />
+            </CardSkeleton>
+            <CardSkeleton subtitle>
+              <ItemRowsSkeleton rows={2} image={0} />
+            </CardSkeleton>
+            <CardSkeleton>
+              <TimelineSkeleton rows={4} />
+            </CardSkeleton>
+          </>
+        }
+        side={
+          <>
+            <CardSkeleton>
+              <FormSkeleton fields={2} columns={1} />
+            </CardSkeleton>
+            <CardSkeleton lines={3} />
+            <CardSkeleton lines={4} />
+            <CardSkeleton>
+              <FieldRowsSkeleton rows={3} />
+            </CardSkeleton>
+          </>
+        }
+      />
     );
   }
 

@@ -64,6 +64,13 @@ import {
   formatMoney,
   optionText,
 } from '../../utils/format';
+import {
+  CardSkeleton,
+  FieldRowsSkeleton,
+  ItemRowsSkeleton,
+  LinesSkeleton,
+  TimelineSkeleton,
+} from '../../components/skeletons';
 
 const FILTERS = [
   { label: 'All', value: '' },
@@ -450,13 +457,28 @@ export const OrdersPage = () => {
         </Stack>
       </Stack>
       {!data ? (
-        <Stack spacing={2}>
+        // Order cards: number, date and status; the items; total and buttons.
+        <Stack spacing={2} data-testid="orders-loading" aria-busy="true">
           {[0, 1, 2].map((i) => (
-            <Skeleton
-              key={i}
-              variant="rounded"
-              height={view === 'detailed' ? 260 : 150}
-            />
+            <CardSkeleton key={i} title={false}>
+              <Stack
+                direction="row"
+                justifyContent="space-between"
+                alignItems="center"
+                sx={{ mb: 2 }}
+              >
+                <Box>
+                  <Skeleton variant="text" width={150} />
+                  <Skeleton variant="text" width={110} />
+                </Box>
+                <Skeleton variant="rounded" width={88} height={24} />
+              </Stack>
+              <ItemRowsSkeleton rows={view === 'detailed' ? 2 : 1} />
+              <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+                <Skeleton variant="rounded" width={120} height={36} />
+                <Skeleton variant="rounded" width={100} height={36} />
+              </Stack>
+            </CardSkeleton>
           ))}
         </Stack>
       ) : !data.orders.length ? (
@@ -702,9 +724,41 @@ export const OrderDetailPage = () => {
     );
   }
   if (!order) {
+    // Progress, then items and updates beside the summary and addresses.
     return (
       <AccountPage title="Order" back="/account/orders" backLabel="My orders">
-        <Skeleton variant="rounded" height={320} />
+        <Stack spacing={3} data-testid="page-loading" aria-busy="true">
+          <CardSkeleton>
+            <Stack direction="row" spacing={1} alignItems="center">
+              {[0, 1, 2, 3].map((i) => (
+                <React.Fragment key={i}>
+                  {i > 0 && <Skeleton variant="text" sx={{ flex: 1 }} />}
+                  <Skeleton variant="circular" width={36} height={36} />
+                </React.Fragment>
+              ))}
+            </Stack>
+          </CardSkeleton>
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={8}>
+              <Stack spacing={3}>
+                <CardSkeleton>
+                  <ItemRowsSkeleton rows={2} image={72} />
+                </CardSkeleton>
+                <CardSkeleton>
+                  <TimelineSkeleton rows={3} />
+                </CardSkeleton>
+              </Stack>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Stack spacing={3}>
+                <CardSkeleton>
+                  <FieldRowsSkeleton rows={5} />
+                </CardSkeleton>
+                <CardSkeleton lines={4} />
+              </Stack>
+            </Grid>
+          </Grid>
+        </Stack>
       </AccountPage>
     );
   }
@@ -1257,7 +1311,7 @@ export const ReturnPage = () => {
           <Stack spacing={3}>
             <SectionCard title="Where it is">
               {!item ? (
-                <Skeleton variant="rounded" height={72} />
+                <LinesSkeleton lines={2} />
               ) : (
                 <Stack spacing={1.5}>
                   {item.status !== 'rejected' && (
@@ -1292,11 +1346,7 @@ export const ReturnPage = () => {
             </SectionCard>
             <SectionCard title="Return updates">
               {!item ? (
-                <Stack spacing={2}>
-                  {[0, 1, 2].map((i) => (
-                    <Skeleton key={i} variant="rounded" height={40} />
-                  ))}
-                </Stack>
+                <TimelineSkeleton rows={3} />
               ) : (
                 <ReturnTimeline events={item.events} />
               )}
@@ -1306,7 +1356,7 @@ export const ReturnPage = () => {
         <Grid item xs={12} md={5}>
           <SectionCard title="Item">
             {!item ? (
-              <Skeleton variant="rounded" height={120} />
+              <ItemRowsSkeleton rows={1} image={64} amount={false} />
             ) : (
               <Stack spacing={1.5}>
                 <Stack direction="row" spacing={2} alignItems="center">

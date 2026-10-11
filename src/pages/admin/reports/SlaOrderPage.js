@@ -9,7 +9,6 @@ import {
   Box,
   Button,
   LinearProgress,
-  Skeleton,
   Stack,
   Table,
   TableBody,
@@ -31,6 +30,12 @@ import {
   targetText,
 } from '../../../components/admin/Sla';
 import { formatDateTime } from '../../../utils/format';
+import {
+  CardSkeleton,
+  HeaderSkeleton,
+  StatCardsSkeleton,
+  TableSkeleton,
+} from '../../../components/skeletons';
 
 const STATUS_NAMES = {
   placed: 'Placed',
@@ -75,11 +80,18 @@ const SlaOrderPage = () => {
   }, [id, notify]);
 
   if (!data) {
+    // Summary tiles, then the stages table.
     return (
-      <Stack spacing={3}>
-        <Skeleton variant="text" width={280} height={56} />
-        <Skeleton variant="rounded" height={120} />
-        <Skeleton variant="rounded" height={260} />
+      <Stack spacing={3} data-testid="page-loading" aria-busy="true">
+        <HeaderSkeleton actions={1} />
+        <StatCardsSkeleton count={4} columns={{ xs: 2, md: 4 }} />
+        <CardSkeleton subtitle>
+          <TableSkeleton
+            columns={['Stage', 'Started', 'Finished', 'Time taken', 'Target']}
+            rows={5}
+            toolbar={false}
+          />
+        </CardSkeleton>
       </Stack>
     );
   }

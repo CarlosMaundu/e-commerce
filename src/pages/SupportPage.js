@@ -12,6 +12,7 @@ import {
   Grid,
   Link,
   MenuItem,
+  Skeleton,
   Stack,
   TextField,
   Typography,
@@ -33,6 +34,7 @@ import { faq as faqApi, orders as ordersApi, support } from '../api';
 import { useStore } from '../context/StoreContext';
 import { useNotify } from '../notification/NotificationProvider';
 import { SectionCard } from '../components/ui';
+import { CardSkeleton } from '../components/skeletons';
 
 const QUICK = [
   [
@@ -63,7 +65,7 @@ const SupportPage = () => {
   const [params] = useSearchParams();
   const shopper = user && canShop(user);
   const [categories, setCategories] = useState({});
-  const [popular, setPopular] = useState([]);
+  const [popular, setPopular] = useState(null);
   const [myOrders, setMyOrders] = useState([]);
   const [form, setForm] = useState({
     name: user?.name || '',
@@ -86,7 +88,7 @@ const SupportPage = () => {
     faqApi
       .list()
       .then((list) => setPopular(list.slice(0, 5)))
-      .catch(() => {});
+      .catch(() => setPopular([]));
   }, []);
   useEffect(() => {
     if (!shopper) return;
@@ -414,7 +416,20 @@ const SupportPage = () => {
                 )}
               </Stack>
             </SectionCard>
-            {popular.length > 0 && (
+            {!popular && (
+              <CardSkeleton action>
+                <Stack spacing={1.25}>
+                  {[0, 1, 2, 3, 4].map((i) => (
+                    <Skeleton
+                      key={i}
+                      variant="text"
+                      width={['85%', '70%', '78%', '64%', '72%'][i]}
+                    />
+                  ))}
+                </Stack>
+              </CardSkeleton>
+            )}
+            {popular?.length > 0 && (
               <SectionCard
                 title="Popular questions"
                 action={
