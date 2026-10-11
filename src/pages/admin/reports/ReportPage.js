@@ -41,8 +41,11 @@ import {
   Tooltip as ChartTooltip,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
-import { FiArrowDownRight, FiArrowUpRight, FiDownload } from 'react-icons/fi';
+import { FiDownload } from 'react-icons/fi';
 import { adminReports, catalog } from '../../../api';
+import ReportStatCard, {
+  formatValue,
+} from '../../../components/admin/ReportStatCard';
 import { useNotify } from '../../../notification/NotificationProvider';
 import { SectionCard } from '../../../components/ui';
 import {
@@ -60,7 +63,6 @@ import {
 import {
   downloadCsv,
   formatDate,
-  formatMoney,
   formatMoneyCompact,
 } from '../../../utils/format';
 
@@ -163,109 +165,6 @@ const PRESETS = [
   ['custom', 'Custom dates', null],
 ];
 
-/** A value in its report format. */
-export const formatValue = (v, format) => {
-  if (v === null || v === undefined || v === '') return '—';
-  switch (format) {
-    case 'money':
-      return formatMoney(v);
-    case 'percent':
-      return `${Number(v).toLocaleString(undefined, { maximumFractionDigits: 1 })}%`;
-    case 'number':
-      return Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 });
-    case 'days':
-      return `${Number(v).toLocaleString(undefined, { maximumFractionDigits: 1 })} days`;
-    case 'hours':
-      return Number(v) >= 48
-        ? `${(Number(v) / 24).toFixed(1)} days`
-        : `${Number(v).toFixed(1)} h`;
-    case 'date':
-      return formatDate(v);
-    default:
-      return String(v);
-  }
-};
-
-const StatCard = ({ card }) => {
-  const theme = useTheme();
-  const has = card.change !== null && card.change !== undefined;
-  const up = has && card.change > 0;
-  const good = has && card.change !== 0 && (card.inverse ? !up : up);
-  const tone =
-    !has || card.change === 0
-      ? 'text.secondary'
-      : good
-        ? 'success.main'
-        : 'error.main';
-  return (
-    <Box
-      data-testid={`report-card-${card.key}`}
-      sx={{
-        p: 2.5,
-        borderRadius: 1,
-        border: 1,
-        borderColor: 'divider',
-        bgcolor: 'background.paper',
-        minWidth: 0,
-      }}
-    >
-      <Typography
-        variant="body2"
-        color="text.secondary"
-        sx={{ fontWeight: 600 }}
-      >
-        {card.label}
-      </Typography>
-      <Typography
-        sx={{ fontWeight: 800, fontSize: '1.5rem', mt: 0.75, lineHeight: 1.2 }}
-        noWrap
-      >
-        {formatValue(card.value, card.format)}
-      </Typography>
-      <Stack
-        direction="row"
-        spacing={0.75}
-        alignItems="center"
-        sx={{ mt: 0.75, minHeight: 20 }}
-      >
-        {has && (
-          <Box
-            sx={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 0.25,
-              color: tone,
-              fontWeight: 700,
-              fontSize: '0.8rem',
-              bgcolor: alpha(theme.palette.text.primary, 0.04),
-              borderRadius: '6px',
-              px: 0.75,
-            }}
-          >
-            {card.change > 0 ? (
-              <FiArrowUpRight />
-            ) : card.change < 0 ? (
-              <FiArrowDownRight />
-            ) : null}
-            {card.format === 'percent'
-              ? `${card.change > 0 ? '+' : ''}${card.change} pts`
-              : `${card.change > 0 ? '+' : ''}${card.change}%`}
-          </Box>
-        )}
-        <Typography
-          variant="caption"
-          color="text.secondary"
-          noWrap
-          title={card.hint}
-        >
-          {card.hint || (has ? 'vs comparison' : '')}
-        </Typography>
-      </Stack>
-    </Box>
-  );
-};
-StatCard.propTypes = { card: PropTypes.object.isRequired };
-
 const SeriesChart = ({ series, group }) => {
   const theme = useTheme();
   const colors = [theme.palette.primary.main, theme.palette.warning.main];
@@ -360,18 +259,16 @@ SeriesChart.propTypes = {
 };
 
 /** A report table; rows with a link open what's behind them. */
-const ReportTable = ({ table, paged, testId }) => {
+const ReportTable = ({ table, pageSize = PAGE_SIZE, testId }) => {
   const navigate = useNavigate();
   const [page, setPage] = useState(0);
   useEffect(() => setPage(0), [table]);
-  const rows = paged
-    ? table.rows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
-    : table.rows;
+  const rows = table.rows.slice(page * pageSize, (page + 1) * pageSize);
   return (
     <>
       <TableContainer>
         <Table
-          size={paged ? 'medium' : 'small'}
+          size={pageSize === PAGE_SIZE ? 'medium' : 'small'}
           aria-label={table.title}
           data-testid={testId}
         >
@@ -429,11 +326,11 @@ const ReportTable = ({ table, paged, testId }) => {
           </TableBody>
         </Table>
       </TableContainer>
-      {paged && table.rows.length > 0 && (
+      {table.rows.length > 0 && (
         <StandardPagination
           count={table.rows.length}
           page={page}
-          rowsPerPage={PAGE_SIZE}
+          rowsPerPage={pageSize}
           onPageChange={(_, p) => setPage(p)}
           onRowsPerPageChange={() => {}}
           maxShowAll={0}
@@ -445,7 +342,7 @@ const ReportTable = ({ table, paged, testId }) => {
 };
 ReportTable.propTypes = {
   table: PropTypes.object.isRequired,
-  paged: PropTypes.bool,
+  pageSize: PropTypes.number,
   testId: PropTypes.string,
 };
 
@@ -716,7 +613,7 @@ const ReportPage = () => {
             }}
           >
             {data.cards.map((c) => (
-              <StatCard key={c.key} card={c} />
+              <ReportStatCard key={c.key} card={c} />
             ))}
           </Box>
 
@@ -737,7 +634,7 @@ const ReportPage = () => {
               <Box sx={{ px: 2.5, py: 2 }}>
                 <Typography variant="h6">{data.table.title}</Typography>
               </Box>
-              <ReportTable table={data.table} paged testId="report-table" />
+              <ReportTable table={data.table} testId="report-table" />
             </TablePanel>
           )}
 
@@ -768,7 +665,7 @@ const ReportPage = () => {
                         overflow: 'hidden',
                       }}
                     >
-                      <ReportTable table={b} />
+                      <ReportTable table={b} pageSize={5} />
                     </Box>
                   </SectionCard>
                 </Grid>

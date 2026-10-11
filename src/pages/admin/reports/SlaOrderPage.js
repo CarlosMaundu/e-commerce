@@ -22,7 +22,12 @@ import { FiExternalLink } from 'react-icons/fi';
 import { adminReports } from '../../../api';
 import { useNotify } from '../../../notification/NotificationProvider';
 import { SectionCard } from '../../../components/ui';
-import { PageHeader, Pill } from '../../../components/admin/DataTable';
+import {
+  PageHeader,
+  Pill,
+  StandardPagination,
+  usePaging,
+} from '../../../components/admin/DataTable';
 import {
   daysText,
   hoursText,
@@ -71,6 +76,8 @@ const SlaOrderPage = () => {
   const { id } = useParams();
   const notify = useNotify();
   const [data, setData] = useState(null);
+  const stagePaging = usePaging(5);
+  const historyPaging = usePaging(5);
 
   useEffect(() => {
     adminReports
@@ -181,7 +188,7 @@ const SlaOrderPage = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {sla.stages.map((st) => {
+              {stagePaging.slice(sla.stages).map((st) => {
                 const [stLabel, stTone] = slaState(st.state);
                 const share =
                   st.hours === null
@@ -246,6 +253,12 @@ const SlaOrderPage = () => {
             </TableBody>
           </Table>
         </TableContainer>
+        <StandardPagination
+          count={sla.stages.length}
+          {...stagePaging.props}
+          maxShowAll={0}
+          label="stages"
+        />
       </SectionCard>
 
       <SectionCard title="Status history">
@@ -260,7 +273,7 @@ const SlaOrderPage = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {history.map((h, i) => (
+              {historyPaging.slice(history).map((h, i) => (
                 <TableRow key={i}>
                   <TableCell sx={{ fontWeight: 600 }}>
                     {h.status_name}
@@ -275,6 +288,12 @@ const SlaOrderPage = () => {
             </TableBody>
           </Table>
         </TableContainer>
+        <StandardPagination
+          count={history.length}
+          {...historyPaging.props}
+          maxShowAll={0}
+          label="updates"
+        />
       </SectionCard>
     </Stack>
   );

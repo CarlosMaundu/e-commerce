@@ -481,7 +481,7 @@ test('staff create an order for a customer, invoice it, take an M-Pesa payment a
   await expect(page.locator('[data-testid^="admin-order-"]')).toHaveCount(1);
 
   await page.getByRole('link', { name: 'SLA performance' }).click();
-  await expect(page.getByTestId('sla-stat-pending')).toContainText('1');
+  await expect(page.getByTestId('report-card-pending')).toContainText('1');
   await page.locator('[data-testid^="sla-row-"]').first().click();
   await expect(page.getByTestId('sla-stage-row-confirm')).toContainText(
     'In progress'

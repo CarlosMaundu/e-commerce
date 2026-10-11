@@ -98,7 +98,7 @@ const refundSeries = async (from: string, to: string, group: string) =>
 const breakdown = async (from: string, to: string, by: string, label: string, name: (v: string) => string) => {
   const rows = (await query(
     `SELECT ${by} AS key, count(*)::int AS orders, COALESCE(sum(o.total), 0) AS sales
-     FROM orders o WHERE ${VALID} AND ${inRange('o.placed_at', '$1', '$2')} GROUP BY 1 ORDER BY 3 DESC LIMIT 12`,
+     FROM orders o WHERE ${VALID} AND ${inRange('o.placed_at', '$1', '$2')} GROUP BY 1 ORDER BY 3 DESC`,
     [from, to]
   )).rows;
   const total = rows.reduce((s, r) => s + num(r.sales), 0);
@@ -275,7 +275,6 @@ export const productsReport = async (p: Period, f: { category?: number; brand?: 
       ],
       rows: [...g.entries()]
         .sort((a, b) => b[1].revenue - a[1].revenue)
-        .slice(0, 12)
         .map(([name, v]) => ({ name, ...v, share: pct(v.revenue, revenue) })),
     };
   };
@@ -283,7 +282,7 @@ export const productsReport = async (p: Period, f: { category?: number; brand?: 
     `SELECT pr.name, oi.options, sum(oi.quantity)::int AS units, sum(oi.total) AS revenue
      FROM order_items oi JOIN orders o ON o.id = oi.order_id JOIN products pr ON pr.id = oi.product_id
      WHERE ${VALID} AND ${inRange('o.placed_at', '$1', '$2')} AND oi.options <> '{}'::jsonb ${where}
-     GROUP BY 1, 2 ORDER BY 3 DESC LIMIT 10`,
+     GROUP BY 1, 2 ORDER BY 3 DESC`,
     params
   )).rows;
   const productColumns = [
@@ -339,8 +338,7 @@ export const productsReport = async (p: Period, f: { category?: number; brand?: 
         columns: productColumns,
         rows: rows
           .filter((r) => r.views >= 10 && r.conversion < 2)
-          .sort((a, b) => b.views - a.views)
-          .slice(0, 10),
+          .sort((a, b) => b.views - a.views),
         empty: 'Nothing stands out.',
       },
       {
@@ -350,7 +348,7 @@ export const productsReport = async (p: Period, f: { category?: number; brand?: 
           { key: 'views', label: 'Views', format: 'number', align: 'right' },
           { key: 'stock', label: 'In stock', format: 'number', align: 'right' },
         ],
-        rows: rows.filter((r) => r.units === 0).sort((a, b) => (b.stock ?? 0) - (a.stock ?? 0)).slice(0, 10),
+        rows: rows.filter((r) => r.units === 0).sort((a, b) => (b.stock ?? 0) - (a.stock ?? 0)),
         empty: 'Every product sold.',
       },
     ],
@@ -425,7 +423,7 @@ export const inventoryReport = async (p: Period, f: { product?: number }): Promi
      LEFT JOIN product_variants v ON v.id = m.variant_id LEFT JOIN orders o ON o.id = m.order_id
      LEFT JOIN users u ON u.id = m.user_id
      WHERE ${inRange('m.created_at', '$1', '$2')} ${f.product ? 'AND m.product_id = $3' : ''}
-     ORDER BY m.id DESC LIMIT ${f.product ? 200 : 25}`,
+     ORDER BY m.id DESC LIMIT 1000`,
     f.product ? [p.from, p.to, f.product] : [p.from, p.to]
   )).rows;
   const tracked = rows.length;
@@ -475,7 +473,7 @@ export const inventoryReport = async (p: Period, f: { product?: number }): Promi
         empty: 'No stock moved.',
       },
       {
-        title: f.product ? 'Stock history' : 'Latest stock movements',
+        title: f.product ? 'Stock history' : 'Stock movements',
         columns: [
           { key: 'date', label: 'When', format: 'date' },
           { key: 'name', label: 'Item' },
