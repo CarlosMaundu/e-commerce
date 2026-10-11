@@ -1,6 +1,7 @@
 // src/routes/catalog.ts — storefront catalog, brands, reviews, promotions and
 // newsletter (OpenCart routes plus documented extensions).
-import { relatedMatch } from '../lib/search';
+import crypto from 'crypto';
+import { logSearch, relatedMatch } from '../lib/search';
 import { getRefundSettings } from '../lib/refunds';
 import { Router } from 'express';
 import { z } from 'zod';
@@ -162,9 +163,19 @@ export const catalogRoutes = () => {
 
   router.get(
     '/products',
+    optionalAuth,
     handler(async (req, res) => {
       const q = parse(filterQuery, req.query);
       const { total, match, products } = await listProducts(q, { status: 'published' });
+      // Searches for the Search report (first page only; results found exactly).
+      if (q.search && (q.page || 1) === 1) {
+        const visitor = crypto
+          .createHash('sha256')
+          .update(`${req.ip}|${req.get('user-agent') || ''}`)
+          .digest('hex')
+          .slice(0, 32);
+        await logSearch(q.search, match === 'exact' ? total : 0, visitor, req.auth?.userId ?? null);
+      }
       res.set('X-Total-Count', String(total));
       res.set('X-Search-Match', match);
       ok(res, products);

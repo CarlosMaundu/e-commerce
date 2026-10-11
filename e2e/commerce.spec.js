@@ -542,6 +542,77 @@ test('payment methods are configured in a dialog, saved and tested', async ({
   await expect(mpesa).toContainText('Off');
 });
 
+test('reports: sales from a real order, products, inventory history and finance', async ({
+  page,
+  freshPage,
+}) => {
+  await customer();
+  await login(page, 'cam@example.com', 'Hi, Cam Customer');
+  await addToCart(page, 'Canvas tote bag');
+  await checkout(page);
+  await page.goto('/products?search=unicorn%20saddle');
+  await expect(
+    page
+      .getByText(/No exact matches|didn’t find|0 results|No products/i)
+      .first()
+  ).toBeVisible();
+
+  await createUser({
+    email: 'boss@example.com',
+    firstname: 'Bea',
+    lastname: 'Boss',
+    role: 'admin',
+  });
+  const admin = await freshPage();
+  await login(admin, 'boss@example.com', 'Hi, Bea Boss');
+  await admin.goto('/admin/reports/sales');
+  await expect(admin.getByTestId('report-card-orders')).toContainText('1');
+  await expect(admin.getByTestId('report-chart')).toBeVisible();
+  await expect(admin.getByTestId('report-table')).toBeVisible();
+  // Another period and no comparison.
+  await admin.getByRole('combobox', { name: /^Period/ }).click();
+  await admin.getByRole('option', { name: 'Last 7 days' }).click();
+  await admin.getByRole('combobox', { name: /^Compare with/ }).click();
+  await admin.getByRole('option', { name: 'No comparison' }).click();
+  await expect(admin).toHaveURL(/range=7/);
+  await expect(admin.getByTestId('report-card-orders')).toContainText('1');
+
+  // Products: the tote sold one.
+  await admin
+    .getByRole('link', { name: 'Products', exact: true })
+    .last()
+    .click();
+  await expect(admin).toHaveURL(/\/admin\/reports\/products/);
+  const products = admin.getByTestId('report-table');
+  await expect(
+    products.getByRole('row', { name: /Canvas tote bag/ })
+  ).toContainText('1');
+
+  // Inventory: open the tote's stock history.
+  await admin.goto('/admin/reports/inventory');
+  await admin
+    .getByTestId('report-table')
+    .getByRole('link', { name: 'Canvas tote bag' })
+    .click();
+  await expect(admin).toHaveURL(/product=\d+/);
+  await expect(
+    admin.getByRole('table', { name: 'Stock history' })
+  ).toContainText('Sold');
+
+  // Searches: what wasn't found.
+  await admin.goto('/admin/reports/search');
+  await expect(admin.getByTestId('report-table')).toContainText(
+    'unicorn saddle'
+  );
+
+  // Finance: cash on delivery still to collect.
+  await admin.goto('/admin/reports/finance');
+  await expect(admin.getByTestId('report-card-cod')).not.toContainText('0.00');
+  await expect(
+    admin.getByRole('table', { name: 'Cash on delivery to collect' })
+  ).toContainText(/WEB-/);
+});
+
 test('a super admin creates, then deletes, a custom role', async ({ page }) => {
   await createUser({
     email: 'root@example.com',
@@ -571,7 +642,7 @@ test('a super admin creates, then deletes, a custom role', async ({ page }) => {
   await expect(toast(page)).toHaveText('Role created.');
   const row = page.getByTestId('role-row-stock_clerk');
   await expect(row).toContainText('Keeps stock up');
-  await expect(row).toContainText('2 of 44');
+  await expect(row).toContainText('2 of 46');
 
   // The Permissions tab lists who holds each permission.
   await page.getByRole('tab', { name: /Permissions/ }).click();

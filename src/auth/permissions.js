@@ -72,6 +72,8 @@ export const PERMISSIONS = {
   promosView: 'marketing.promos.view',
   promosManage: 'marketing.promos.manage',
   paymentsManage: 'admin.payments.manage',
+  reportsView: 'reports.view',
+  reportsFinance: 'reports.finance.view',
 };
 
 const ROLE_LABELS = {

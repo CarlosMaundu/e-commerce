@@ -69,6 +69,13 @@ import {
   FiActivity,
   FiScissors,
   FiSmartphone,
+  FiTrendingUp,
+  FiBarChart2,
+  FiArchive,
+  FiUserCheck,
+  FiGift,
+  FiRefreshCcw,
+  FiDollarSign,
 } from 'react-icons/fi';
 import { AuthContext } from '../context/AuthContext';
 import {
@@ -183,6 +190,56 @@ export const adminNav = (user) =>
     {
       heading: 'Reports',
       items: [
+        {
+          label: 'Sales',
+          icon: <FiTrendingUp />,
+          to: '/admin/reports/sales',
+          show: hasPermission(user, PERMISSIONS.reportsView),
+        },
+        {
+          label: 'Products',
+          title: 'Product report',
+          icon: <FiBarChart2 />,
+          to: '/admin/reports/products',
+          show: hasPermission(user, PERMISSIONS.reportsView),
+        },
+        {
+          label: 'Inventory',
+          icon: <FiArchive />,
+          to: '/admin/reports/inventory',
+          show: hasPermission(user, PERMISSIONS.reportsView),
+        },
+        {
+          label: 'Customers',
+          title: 'Customer report',
+          icon: <FiUserCheck />,
+          to: '/admin/reports/customers',
+          show: hasPermission(user, PERMISSIONS.reportsView),
+        },
+        {
+          label: 'Promotions',
+          icon: <FiGift />,
+          to: '/admin/reports/promotions',
+          show: hasPermission(user, PERMISSIONS.reportsView),
+        },
+        {
+          label: 'Returns & service',
+          icon: <FiRefreshCcw />,
+          to: '/admin/reports/service',
+          show: hasPermission(user, PERMISSIONS.reportsView),
+        },
+        {
+          label: 'Searches',
+          icon: <FiSearch />,
+          to: '/admin/reports/search',
+          show: hasPermission(user, PERMISSIONS.reportsView),
+        },
+        {
+          label: 'Finance',
+          icon: <FiDollarSign />,
+          to: '/admin/reports/finance',
+          show: hasPermission(user, PERMISSIONS.reportsFinance),
+        },
         {
           label: 'SLA performance',
           icon: <FiActivity />,

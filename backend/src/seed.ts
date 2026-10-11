@@ -54,6 +54,8 @@ export const PERMISSION_CATALOG: { code: string; description: string; implied?: 
   { code: 'admin.refunds.approve', description: 'Approve refunds above the approval limit', implied: ['admin.finance.manage'] },
   { code: 'admin.refunds.manage', description: 'Change refund rules', implied: ['admin.finance.manage'] },
   { code: 'admin.ledger.view', description: 'See the ledger and account balances', implied: ['admin.finance.manage'] },
+  { code: 'reports.view', description: 'See sales, product, stock, customer, promotion, returns and search reports', implied: ['dashboard.overview.view'] },
+  { code: 'reports.finance.view', description: 'See the finance report (money owed, payments, VAT)', implied: ['orders.invoices.view'] },
   { code: 'marketing.promos.view', description: 'See promo codes and how they are used', implied: ['orders.invoices.view'] },
   { code: 'marketing.promos.manage', description: 'Create, change and switch off promo codes', implied: ['admin.settings.manage'] },
   { code: 'support.tickets.view', description: 'Read customer support requests', implied: ['admin.users.reset_password'] },

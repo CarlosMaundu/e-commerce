@@ -70,6 +70,7 @@ const EMPTY = {
   variants: [],
   price: '',
   specialPrice: '',
+  costPrice: '',
   quantity: 0,
   trackInventory: true,
   lowStockThreshold: 5,
@@ -147,6 +148,7 @@ const baseFromProduct = (p) => ({
     sku: v.sku,
     price: v.ownPrice ? v.price : '',
     specialPrice: v.ownPrice && v.specialPrice !== null ? v.specialPrice : '',
+    costPrice: v.costPrice ?? '',
     quantity: v.quantity,
     images: v.images,
     description: v.description || '',
@@ -154,6 +156,7 @@ const baseFromProduct = (p) => ({
   })),
   price: p.price,
   specialPrice: p.specialPrice ?? '',
+  costPrice: p.costPrice ?? '',
   quantity: p.quantity ?? 0,
   trackInventory: p.trackInventory,
   lowStockThreshold: p.lowStockThreshold,
@@ -218,6 +221,7 @@ const syncVariants = (attributes, current) => {
         sku: '',
         price: '',
         specialPrice: '',
+        costPrice: '',
         quantity: 0,
         images: [],
       }
@@ -447,6 +451,7 @@ const ProductFormPage = () => {
   const [bulk, setBulk] = useState({
     price: '',
     specialPrice: '',
+    costPrice: '',
     quantity: '',
   });
 
@@ -575,6 +580,7 @@ const ProductFormPage = () => {
         ...(bulk.specialPrice !== ''
           ? { specialPrice: bulk.specialPrice }
           : {}),
+        ...(bulk.costPrice !== '' ? { costPrice: bulk.costPrice } : {}),
         ...(bulk.quantity !== '' ? { quantity: bulk.quantity } : {}),
       })),
     }));
@@ -1250,6 +1256,22 @@ const ProductFormPage = () => {
                 inputProps={{ min: 0, step: '0.01' }}
                 fullWidth
               />
+              <TextField
+                label={form.hasVariants ? 'Default cost price' : 'Cost price'}
+                type="number"
+                value={form.costPrice}
+                onChange={(e) => set({ costPrice: e.target.value })}
+                helperText="What one costs you. Staff only; used for profit in reports."
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      {getCurrency()}
+                    </InputAdornment>
+                  ),
+                }}
+                inputProps={{ min: 0, step: '0.01' }}
+                fullWidth
+              />
               {!form.hasVariants && form.trackInventory && (
                 <TextField
                   label="Quantity"
@@ -1283,6 +1305,7 @@ const ProductFormPage = () => {
                         <TableCell>Quantity</TableCell>
                         <TableCell>Price</TableCell>
                         <TableCell>Sale price</TableCell>
+                        <TableCell>Cost price</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -1292,27 +1315,29 @@ const ProductFormPage = () => {
                             Set all
                           </Typography>
                         </TableCell>
-                        {['quantity', 'price', 'specialPrice'].map((k) => (
-                          <TableCell key={k}>
-                            <TextField
-                              size="small"
-                              type="number"
-                              value={bulk[k]}
-                              onChange={(e) =>
-                                setBulk({ ...bulk, [k]: e.target.value })
-                              }
-                              inputProps={{
-                                'aria-label': `Set all ${k === 'specialPrice' ? 'sale prices' : k === 'price' ? 'prices' : 'quantities'}`,
-                                min: 0,
-                              }}
-                              sx={{ width: 110 }}
-                            />
-                          </TableCell>
-                        ))}
+                        {['quantity', 'price', 'specialPrice', 'costPrice'].map(
+                          (k) => (
+                            <TableCell key={k}>
+                              <TextField
+                                size="small"
+                                type="number"
+                                value={bulk[k]}
+                                onChange={(e) =>
+                                  setBulk({ ...bulk, [k]: e.target.value })
+                                }
+                                inputProps={{
+                                  'aria-label': `Set all ${{ specialPrice: 'sale prices', costPrice: 'cost prices', price: 'prices' }[k] || 'quantities'}`,
+                                  min: 0,
+                                }}
+                                sx={{ width: 110 }}
+                              />
+                            </TableCell>
+                          )
+                        )}
                       </TableRow>
                       <TableRow>
                         <TableCell
-                          colSpan={4}
+                          colSpan={5}
                           sx={{ textAlign: 'right', py: 0.5 }}
                         >
                           <Button
@@ -1321,6 +1346,7 @@ const ProductFormPage = () => {
                             disabled={
                               !bulk.price &&
                               !bulk.specialPrice &&
+                              !bulk.costPrice &&
                               bulk.quantity === ''
                             }
                           >
@@ -1434,6 +1460,25 @@ const ProductFormPage = () => {
                               }
                               inputProps={{
                                 'aria-label': `Sale price for ${label(v.options)}`,
+                                min: 0,
+                                step: '0.01',
+                              }}
+                              sx={{ width: 110 }}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <TextField
+                              size="small"
+                              type="number"
+                              value={v.costPrice}
+                              placeholder={
+                                form.costPrice ? String(form.costPrice) : ''
+                              }
+                              onChange={(e) =>
+                                setVariant(i, { costPrice: e.target.value })
+                              }
+                              inputProps={{
+                                'aria-label': `Cost price for ${label(v.options)}`,
                                 min: 0,
                                 step: '0.01',
                               }}

@@ -328,8 +328,28 @@ export const syncProductQuantity = async (db: Db, productId: number) => {
   );
 };
 
+/**
+ * Says why stock is about to change in this transaction (sale, cancelled,
+ * returned, adjustment…), so the stock_movements log records it.
+ */
+export const stockReason = (
+  db: Db,
+  reason: string,
+  { orderId = null, userId = null }: { orderId?: number | null; userId?: number | null } = {}
+) =>
+  db.query(
+    `SELECT set_config('app.stock_reason', $1, true), set_config('app.stock_order', $2, true),
+            set_config('app.stock_user', $3, true)`,
+    [reason, orderId ? String(orderId) : '', userId ? String(userId) : '']
+  );
+
 /** Takes stock for one order line; false when there isn't enough. */
-export const takeStock = async (db: Db, item: { product_id: number; variant_id: number | null; quantity: number }) => {
+export const takeStock = async (
+  db: Db,
+  item: { product_id: number; variant_id: number | null; quantity: number; order_id?: number },
+  userId: number | null = null
+) => {
+  await stockReason(db, 'sale', { orderId: item.order_id ?? null, userId });
   const product = (
     await db.query('SELECT quantity, track_inventory FROM products WHERE id = $1 FOR UPDATE', [item.product_id])
   ).rows[0];
@@ -350,7 +370,13 @@ export const takeStock = async (db: Db, item: { product_id: number; variant_id: 
 };
 
 /** Puts back some of one order line (a received return). */
-export const putBack = async (db: Db, item: { product_id: number; variant_id: number | null }, quantity: number) => {
+export const putBack = async (
+  db: Db,
+  item: { product_id: number; variant_id: number | null; order_id?: number },
+  quantity: number,
+  userId: number | null = null
+) => {
+  await stockReason(db, 'returned', { orderId: item.order_id ?? null, userId });
   const product = (await db.query('SELECT track_inventory FROM products WHERE id = $1', [item.product_id])).rows[0];
   if (!product?.track_inventory) return;
   if (item.variant_id) {
@@ -362,7 +388,8 @@ export const putBack = async (db: Db, item: { product_id: number; variant_id: nu
 };
 
 /** Puts stock back for every line of an order (cancellations). */
-export const returnStock = async (db: Db, orderId: number) => {
+export const returnStock = async (db: Db, orderId: number, reason = 'cancelled', userId: number | null = null) => {
+  await stockReason(db, reason, { orderId, userId });
   const items = (
     await db.query(
       `SELECT oi.product_id, oi.variant_id, oi.quantity FROM order_items oi

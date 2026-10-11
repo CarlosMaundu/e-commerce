@@ -168,7 +168,7 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
         }
         if (status !== order.status) {
           await db.query('UPDATE orders SET status = $2, updated_at = now() WHERE id = $1', [order.id, status]);
-          if (status === 'cancelled') await restock(db, order.id);
+          if (status === 'cancelled') await restock(db, order.id, 'cancelled', req.auth!.userId);
           // Money and the ledger follow the status.
           const outstanding = Number(invoice.total) - Number(invoice.amount_paid);
           if (status === 'delivered' && order.payment_method === 'cod' && outstanding > 0.009) {
@@ -334,7 +334,7 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
       await transaction(async (db) => {
         if (restock) {
           const item = (await db.query('SELECT * FROM order_items WHERE id = $1', [row.order_item_id])).rows[0];
-          await putBack(db, item, row.quantity);
+          await putBack(db, item, row.quantity, userId);
         }
         await db.query(
           `UPDATE returns SET status = 'received', received_at = now(), restocked = $2, updated_at = now() WHERE id = $1`,

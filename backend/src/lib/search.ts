@@ -60,3 +60,36 @@ export const relatedMatch = async (search: string, params: unknown[]) => {
   if (!conditions.length) return null;
   return { where: `(${conditions.join(' OR ')})`, score: `(${scores.join(' + ')})` };
 };
+
+/**
+ * Records a shop search for the Search report. Instant search sends a query
+ * as the shopper types, so a search that extends (or trims) the same
+ * visitor's search from the last two minutes replaces it: "lap", "lapt",
+ * "laptop" count once, as "laptop". Never fails the search itself.
+ */
+export const logSearch = async (term: string, results: number, visitor: string, userId: number | null) => {
+  const normalized = term.toLowerCase().replace(/\s+/g, ' ').trim().slice(0, 120);
+  if (normalized.length < 2) return;
+  try {
+    const last = (
+      await query(
+        `SELECT id, normalized FROM search_queries
+         WHERE visitor = $1 AND created_at > now() - interval '2 minutes' ORDER BY id DESC LIMIT 1`,
+        [visitor]
+      )
+    ).rows[0];
+    if (last && (normalized.startsWith(last.normalized) || last.normalized.startsWith(normalized))) {
+      await query(
+        'UPDATE search_queries SET term = $2, normalized = $3, results = $4, created_at = now() WHERE id = $1',
+        [last.id, term.slice(0, 120), normalized, results]
+      );
+      return;
+    }
+    await query(
+      'INSERT INTO search_queries (term, normalized, results, user_id, visitor) VALUES ($1, $2, $3, $4, $5)',
+      [term.slice(0, 120), normalized, results, userId, visitor]
+    );
+  } catch (error) {
+    console.error('Search log failed:', error);
+  }
+};

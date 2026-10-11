@@ -285,7 +285,7 @@ export const checkoutRoutes = ({ payments }: { payments: PaymentGateway | null }
     const placed = await transaction(async (db) => {
       const items = (await db.query('SELECT * FROM order_items WHERE order_id = $1', [pending.id])).rows;
       for (const item of items) {
-        if (!(await takeStock(db, item))) {
+        if (!(await takeStock(db, item, req.auth!.userId))) {
           fail(409, `Sorry, “${item.name}” sold out while you were checking out. Please update your cart.`);
         }
       }
