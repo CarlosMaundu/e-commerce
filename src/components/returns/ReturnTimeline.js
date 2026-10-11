@@ -1,51 +1,66 @@
 // src/components/returns/ReturnTimeline.js — a return's steps, newest
-// first. Staff also see who did each step and staff-only notes.
+// first, in the shared Timeline. Staff also see who did each step and
+// staff-only notes.
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Box, Stack, Typography } from '@mui/material';
+import {
+  FiCheck,
+  FiCornerUpLeft,
+  FiEdit3,
+  FiPackage,
+  FiRotateCcw,
+  FiShield,
+  FiXCircle,
+} from 'react-icons/fi';
+import Timeline from '../common/Timeline';
 import { Pill } from '../admin/DataTable';
-import { formatDateTime } from '../../utils/format';
 
-const EVENT_TONES = {
-  requested: 'warning',
-  approved: 'info',
-  received: 'primary',
-  refund_requested: 'warning',
-  refund_rejected: 'error',
-  refunded: 'success',
-  rejected: 'default',
-  note: 'default',
+const STEPS = {
+  requested: [
+    <FiRotateCcw key="i" />,
+    'warning',
+    'We’ve got the return request.',
+  ],
+  approved: [
+    <FiCheck key="i" />,
+    'info',
+    'Approved. The item can be sent back.',
+  ],
+  received: [<FiPackage key="i" />, 'primary', 'The item is back with us.'],
+  refund_requested: [<FiShield key="i" />, 'warning', ''],
+  refund_rejected: [<FiXCircle key="i" />, 'error', ''],
+  refunded: [<FiCornerUpLeft key="i" />, 'success', ''],
+  rejected: [<FiXCircle key="i" />, 'error', ''],
+  note: [<FiEdit3 key="i" />, 'primary', ''],
 };
 
-/** A return's steps, newest first. */
+/** events: [{ status, name, note, date, by, internal }], oldest first. */
 const ReturnTimeline = ({ events, staff }) => (
-  <Stack
-    spacing={2}
-    component="ol"
-    sx={{ listStyle: 'none', p: 0, m: 0 }}
-    data-testid="return-timeline"
-  >
-    {[...events].reverse().map((e, i) => (
-      <Stack key={i} component="li" direction="row" spacing={2}>
-        <Box sx={{ pt: 0.25, minWidth: 0 }}>
-          <Pill label={e.name} tone={EVENT_TONES[e.status] || 'default'} />
-        </Box>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography variant="caption" component="div">
-            {formatDateTime(e.date)}
-            {staff && e.by ? ` · ${e.by}` : ''}
-            {staff && e.internal ? ' · staff only' : ''}
-          </Typography>
-          {e.note && (
-            <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
-              {e.note}
-            </Typography>
-          )}
-        </Box>
-      </Stack>
-    ))}
-  </Stack>
+  <Timeline
+    testId="return-timeline"
+    items={[...events].reverse().map((e, i) => {
+      const [icon, tone, text] = STEPS[e.status] || [
+        <FiCheck key="i" />,
+        'primary',
+        '',
+      ];
+      return {
+        key: i,
+        icon,
+        tone,
+        title: e.name,
+        text: e.note || text,
+        date: e.date,
+        meta: staff && e.by ? [e.by] : [],
+        badge:
+          staff && e.internal ? (
+            <Pill label="Staff only" tone="default" />
+          ) : null,
+      };
+    })}
+  />
 );
+
 ReturnTimeline.propTypes = {
   events: PropTypes.array.isRequired,
   staff: PropTypes.bool,

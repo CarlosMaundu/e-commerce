@@ -181,6 +181,7 @@ export const cartRoutes = () => {
       const coupon = await findCoupon(code);
       const problem =
         couponProblem(coupon, computeTotals(lines, undefined, null).subtotal) ||
+        computeTotals(lines, coupon, null).coupon_problem ||
         (await customerCouponProblem(coupon, req.auth!.userId));
       if (problem) fail(400, problem);
       await query(

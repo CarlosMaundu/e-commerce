@@ -9,6 +9,7 @@ import { audit } from '../lib/audit';
 import { GoogleVerifier } from '../lib/google';
 import { fail, handler, ok, parse } from '../lib/http';
 import { sendPasswordResetEmail, sendVerificationEmail } from '../lib/mailer';
+import { sendWelcomeOffers } from '../lib/welcomeOffers';
 import { hashPassword, passwordSchema, randomToken, sha256, verifyPassword } from '../lib/security';
 import { enforcePasswordPolicy, getSettings, idleMessage } from '../lib/settings';
 import {
@@ -116,6 +117,7 @@ export const authRoutes = ({ verifyGoogle }: { verifyGoogle: GoogleVerifier | nu
       );
       const user = await findUserById(rows[0].id);
       audit(req, 'auth.register', `user:${user.id}`, {}, user.id);
+      void sendWelcomeOffers(user); // promo codes for new customers, if any
       // When the shop requires it, the account works once the email is confirmed.
       if ((await getSettings()).accounts.require_email_verification) {
         await sendVerification(user);
@@ -190,6 +192,7 @@ export const authRoutes = ({ verifyGoogle }: { verifyGoogle: GoogleVerifier | nu
       if (!identity!.emailVerified) {
         fail(401, 'Your Google email address isn’t verified. Please verify it with Google and try again.');
       }
+      let joined = false; // a new account, not a returning one
       const user = await transaction(async (client) => {
         const bySub = (await client.query('SELECT id FROM users WHERE google_sub = $1', [identity!.sub])).rows[0];
         if (bySub) return bySub.id as number;
@@ -211,10 +214,12 @@ export const authRoutes = ({ verifyGoogle }: { verifyGoogle: GoogleVerifier | nu
            VALUES ($1, $2, $3, $4, $5, $6, now()) RETURNING id`,
           [identity!.email.toLowerCase(), identity!.sub, identity!.givenName, identity!.familyName, identity!.picture, roleId]
         );
+        joined = true;
         return created.rows[0].id as number;
       }).then(findUserById);
       if (user.status !== 'active') fail(403, SUSPENDED);
       audit(req, 'auth.login', `user:${user.id}`, { method: 'google' }, user.id);
+      if (joined) void sendWelcomeOffers(user);
       ok(res, await startSession(req, res, user));
     })
   );

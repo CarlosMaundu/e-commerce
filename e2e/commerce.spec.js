@@ -397,7 +397,9 @@ test('a promo code made in the back office is used at checkout and traced to the
   await admin.goto('/admin/promos');
   await admin.getByRole('button', { name: 'New promo code' }).click();
   const dialog = admin.getByRole('dialog');
-  await dialog.getByLabel('Code').fill('fresh15');
+  await dialog
+    .getByRole('textbox', { name: 'Code', exact: true })
+    .fill('fresh15');
   await dialog.getByLabel('Description').fill('15% off for new friends');
   await dialog
     .getByRole('spinbutton', { name: 'Discount', exact: true })

@@ -796,6 +796,47 @@ describe('invoices, payments, refunds and the ledger', () => {
     await request(app).delete('/api/admin/promos/LATER').set(bearer(admin)).expect(200);
   });
 
+  test('promo rules: first order, new and returning customers, a discount cap, sale items, and codes emailed on sign-up', async () => {
+    const admin = await staffUser('admin', 'boss@example.com');
+    const make = (body: object) => request(app).post('/api/admin/promos').set(bearer(admin)).send({ type: 'percent', value: 10, ...body });
+    const bad = await make({ code: 'NEWBIES', audience: 'new_customers', send_on_signup: true });
+    expect(Object.keys(bad.body.field_errors)).toEqual(['new_customer_days']);
+    expect((await make({ code: 'COMEBACK', audience: 'returning', send_on_signup: true })).body.field_errors)
+      .toEqual({ send_on_signup: 'New customers can’t use a code for returning customers.' });
+    await make({ code: 'FIRST20', value: 20, audience: 'first_order', max_discount: 5, send_on_signup: true }).expect(201);
+    await make({ code: 'COMEBACK', audience: 'returning' }).expect(201);
+    await make({ code: 'NEWBIES', audience: 'new_customers', new_customer_days: 30 }).expect(201);
+    await make({ code: 'FULLPRICE', exclude_sale_items: true }).expect(201);
+
+    const token = await shopper();
+    const add = async () =>
+      request(app).post('/api/rest/cart').set(bearer(token))
+        .send({ product_id: await productId('Denim jacket'), quantity: 1, option: M }).expect(200);
+    const apply = (code: string) => request(app).post('/api/rest/coupon').set(bearer(token)).send({ coupon: code });
+    await add();
+    // Returning customers only; and no discount on items already on sale.
+    expect((await apply('COMEBACK')).body.error).toEqual(['This promo code is for returning customers. It works from your second order.']);
+    expect((await apply('FULLPRICE')).body.error).toEqual(['That promo code doesn’t apply to items already on sale.']);
+    // 20% off the first order, capped at 5.
+    const first = (await apply('FIRST20')).body.data;
+    expect(first.totals.find((t: any) => t.code === 'coupon').value).toBe(-5);
+    await placeOrder(token, { items: [] });
+
+    await add();
+    expect((await apply('FIRST20')).body.error).toEqual(['This promo code is for your first order only.']);
+    await apply('COMEBACK').expect(200);
+    // Joined more than 30 days ago: not a new customer any more.
+    await query(`UPDATE users SET created_at = now() - interval '40 days' WHERE email = 'jane@example.com'`);
+    expect((await apply('NEWBIES')).body.error).toEqual(['This promo code is for customers who joined in the last 30 days.']);
+
+    // A new sign-up is emailed the codes marked for it.
+    sentEmails.length = 0;
+    await request(app).post('/api/rest/register')
+      .send({ firstname: 'Neo', lastname: 'New', email: 'neo@example.com', password: 'Str0ng!Pass1' }).expect(201);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(sentEmails.map((e) => e.kind)).toContain('welcome:FIRST20');
+  });
+
   test('home page deals: placed in the strip, the banner or both, ordered, and checked', async () => {
     const admin = await staffUser('admin', 'boss@example.com');
     const manager = await staffUser('order_manager', 'ops@example.com');
@@ -841,15 +882,24 @@ describe('invoices, payments, refunds and the ledger', () => {
     const put = (code: string, body: object) => request(app).put(`/api/admin/payment-providers/${code}`).set(bearer(admin)).send(body);
     const missing = await put('mpesa', { enabled: true, mode: 'test', settings: { account_type: 'paybill' } });
     expect(Object.keys(missing.body.field_errors)).toEqual(expect.arrayContaining(['shortcode', 'consumer_key', 'passkey']));
+    // The callback must be public https; this shop runs on http://shop.test.
+    expect((await put('mpesa', {
+      enabled: true, mode: 'test', settings: { account_type: 'paybill', shortcode: '174379', callback_url: 'http://localhost:8080/cb' },
+      secrets: { consumer_key: 'ck_abc123', consumer_secret: 'cs_def456', passkey: 'pass7890' },
+    })).body.field_errors).toEqual({ callback_url: 'Use a public https:// address that reaches this shop (not localhost).' });
     const saved = (await put('mpesa', {
-      enabled: true, mode: 'test', settings: { account_type: 'paybill', shortcode: '174379' },
+      enabled: true, mode: 'test',
+      settings: { account_type: 'paybill', shortcode: '174379', callback_url: 'https://shop.example.com/api/payments/mpesa/callback' },
       secrets: { consumer_key: 'ck_abc123', consumer_secret: 'cs_def456', passkey: 'pass7890' },
     })).body.data;
     expect(saved).toMatchObject({ enabled: true, ready: true, secrets: { consumer_key: '••••c123', passkey: '••••7890' } });
     const stored = (await query("SELECT secrets FROM payment_providers WHERE code = 'mpesa'")).rows[0].secrets;
     expect(stored).not.toContain('pass7890'); // encrypted at rest
     // Saving again without secrets keeps them.
-    await put('mpesa', { enabled: true, mode: 'test', settings: { account_type: 'paybill', shortcode: '174379' } }).expect(200);
+    await put('mpesa', {
+      enabled: true, mode: 'test',
+      settings: { account_type: 'paybill', shortcode: '174379', callback_url: 'https://shop.example.com/api/payments/mpesa/callback' },
+    }).expect(200);
     const tested = (await request(app).post('/api/admin/payment-providers/mpesa/test').set(bearer(admin)).send({ phone: '0712 345 678' })).body.data;
     expect(tested).toMatchObject({ ok: true, message: expect.stringMatching(/test prompt for KES 1 was sent/) });
     expect(fakeMpesa.prompts[0]).toMatchObject({ phone: '254712345678', amount: 1 });

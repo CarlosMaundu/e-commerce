@@ -34,7 +34,6 @@ import {
   Typography,
 } from '@mui/material';
 import {
-  FiCornerUpLeft,
   FiFileText,
   FiGrid,
   FiInfo,
@@ -53,6 +52,7 @@ import { orders as ordersApi } from '../../api';
 import { StandardPagination } from '../../components/admin/DataTable';
 import AccountTable from '../../components/account/AccountTable';
 import ReturnTimeline from '../../components/returns/ReturnTimeline';
+import OrderTimeline from '../../components/orders/OrderTimeline';
 import { formatAddress } from '../../api/mappers';
 import { cartReplaced } from '../../redux/cartSlice';
 import { useNotify } from '../../notification/NotificationProvider';
@@ -905,68 +905,7 @@ export const OrderDetailPage = () => {
               </Stack>
             </SectionCard>
             <SectionCard title="Order updates">
-              <Stack
-                spacing={2.5}
-                component="ol"
-                sx={{ listStyle: 'none', p: 0, m: 0 }}
-              >
-                {[...order.history].reverse().map((h, i) => (
-                  <Stack
-                    key={i}
-                    component="li"
-                    direction="row"
-                    spacing={2}
-                    data-testid={
-                      h.kind === 'refund' ? 'timeline-refund' : undefined
-                    }
-                  >
-                    {h.kind === 'refund' ? (
-                      <Box
-                        aria-hidden
-                        sx={{
-                          width: 20,
-                          height: 20,
-                          mx: '-4px',
-                          mt: 0.25,
-                          borderRadius: '50%',
-                          display: 'grid',
-                          placeItems: 'center',
-                          fontSize: 12,
-                          color: 'success.main',
-                          bgcolor: 'success.light',
-                          flexShrink: 0,
-                        }}
-                      >
-                        <FiCornerUpLeft />
-                      </Box>
-                    ) : (
-                      <Box
-                        sx={{
-                          width: 12,
-                          height: 12,
-                          mt: 0.75,
-                          borderRadius: '50%',
-                          bgcolor: i === 0 ? 'primary.main' : 'divider',
-                          flexShrink: 0,
-                        }}
-                      />
-                    )}
-                    <Box>
-                      <Typography variant="subtitle2">
-                        {h.statusName}
-                      </Typography>
-                      <Typography variant="caption">
-                        {formatDateTime(h.date)}
-                      </Typography>
-                      {h.comment && (
-                        <Typography variant="body2" sx={{ mt: 0.5 }}>
-                          {h.comment}
-                        </Typography>
-                      )}
-                    </Box>
-                  </Stack>
-                ))}
-              </Stack>
+              <OrderTimeline history={order.history} />
             </SectionCard>
             {order.returns.length > 0 && (
               <SectionCard title="Returns">

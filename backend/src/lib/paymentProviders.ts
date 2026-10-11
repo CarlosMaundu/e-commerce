@@ -43,7 +43,7 @@ export const PROVIDERS: Record<ProviderCode, { name: string; description: string
       { key: 'consumer_key', label: 'Consumer key', type: 'secret', required: true, help: 'From your app on developer.safaricom.co.ke.' },
       { key: 'consumer_secret', label: 'Consumer secret', type: 'secret', required: true },
       { key: 'passkey', label: 'Passkey (Lipa na M-Pesa Online)', type: 'secret', required: true },
-      { key: 'callback_url', label: 'Callback URL', type: 'text', help: 'Where Safaricom confirms payments. Leave empty to use this shop’s address.' },
+      { key: 'callback_url', label: 'Callback URL', type: 'text', help: 'Where Safaricom confirms payments: a public https:// address ending in /api/payments/mpesa/callback. Leave empty to use this shop’s address (only works when the shop is online over https; for local testing use a tunnel such as cloudflared or ngrok).' },
     ],
   },
   cod: {

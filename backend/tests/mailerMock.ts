@@ -19,6 +19,9 @@ export const mailerMock = () => ({
   sendReturnUpdateEmail: jest.fn(async (to: string, _name: string, id: number, headline: string, _m: string, link: string) => {
     sentEmails.push({ to, link, kind: `return:${id}:${headline}` });
   }),
+  sendWelcomeOfferEmail: jest.fn(async (to: string, _name: string, offers: { code: string }[], link: string) => {
+    sentEmails.push({ to, link, kind: `welcome:${offers.map((o) => o.code).join(',')}` });
+  }),
   sendAccountSetupEmail: jest.fn(async (to: string, _name: string, link: string) => {
     sentEmails.push({ to, link, kind: 'setup' });
   }),
