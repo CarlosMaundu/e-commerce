@@ -93,7 +93,7 @@ const priceItems = async (db: Db, items: z.infer<typeof itemBody>[]) => {
 
 const insertItems = async (db: Db, orderId: number, lines: any[]) => {
   for (const l of lines) {
-    const ok2 = await takeStock(db, { product_id: l.product_id, variant_id: l.variant_id, quantity: l.quantity });
+    const ok2 = await takeStock(db, { product_id: l.product_id, variant_id: l.variant_id, quantity: l.quantity, order_id: orderId });
     if (!ok2) fail(409, `There isn’t enough stock of “${l.name}”${Object.keys(l.options).length ? ` (${Object.values(l.options).join(' / ')})` : ''}.`);
     await db.query(
       `INSERT INTO order_items (order_id, product_id, variant_id, name, image, options, unit_price, quantity, total, gift)
@@ -317,7 +317,7 @@ export const adminFinanceRoutes = ({ payments }: { payments: PaymentGateway | nu
             (await db.query('SELECT product_id, variant_id, gift FROM order_items WHERE order_id = $1 AND gift IS NOT NULL', [id]))
               .rows.map((r: any) => [`${r.product_id}:${r.variant_id}`, r.gift])
           );
-          await restock(db, id);
+          await restock(db, id, 'order_edit', req.auth!.userId);
           await db.query('DELETE FROM order_items WHERE order_id = $1', [id]);
           lines = (await priceItems(db, b.items)).map((l: any) => ({ ...l, gift: gifts.get(`${l.product_id}:${l.variant_id}`) || null }));
           await insertItems(db, id, lines);

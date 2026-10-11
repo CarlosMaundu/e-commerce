@@ -15,7 +15,7 @@ const MODULE_NAMES: Record<string, string> = {
   catalog: 'Catalog',
   orders: 'Orders',
   admin: 'Administration',
-  support: 'Support', marketing: 'Marketing',
+  support: 'Support', marketing: 'Marketing', reports: 'Reports',
 };
 
 const loadRole = async (code: string) => {

@@ -1101,6 +1101,16 @@ export const legal = {
 
 /** Fulfilment SLA: settings and the performance report (raw API shapes). */
 export const adminReports = {
+  /** A report by name: { from, to, group, compare, …filters } → { cards, series, table, breakdowns } */
+  async run(name, params = {}) {
+    const clean = Object.fromEntries(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== '')
+    );
+    const { data } = await http().get(`/admin/reports/${name}`, {
+      params: clean,
+    });
+    return data;
+  },
   async slaSettings() {
     const { data } = await http().get('/admin/sla-settings');
     return data;

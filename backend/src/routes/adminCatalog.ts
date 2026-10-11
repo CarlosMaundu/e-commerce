@@ -18,6 +18,7 @@ import {
   ProductRow,
   SORTS,
   PRODUCT_STATUSES,
+  stockReason,
   syncProductQuantity,
 } from '../lib/products';
 import { filterQuery, loadCategoryTree, PRODUCT_FROM } from './catalog';
@@ -57,6 +58,8 @@ const variantSchema = z.object({
   sku: optionalText(64),
   price: z.coerce.number().positive('Variant prices must be greater than zero.').nullable().optional(),
   special: z.coerce.number().positive('Variant sale prices must be greater than zero.').nullable().optional(),
+  // What the shop pays for it (staff only); empty = the product's cost.
+  cost_price: z.preprocess((v) => (v === '' ? null : v), z.coerce.number().min(0, 'Cost can’t be negative.').nullable().optional()),
   quantity: z.coerce.number().int().min(0, 'Stock can’t be negative.').default(0),
   images: z.array(imageUrl).max(6, 'You can add up to 6 images per variant.').default([]),
   // Variant-specific content (used when the product's variant_content is on).
@@ -80,6 +83,8 @@ const productBody = z.object({
   description: z.string().max(40000).default('').transform(cleanRichText),
   price: z.coerce.number({ invalid_type_error: 'Please enter a price greater than zero.' }).positive('Please enter a price greater than zero.'),
   special: z.coerce.number().positive().nullable().optional(),
+  // What the shop pays for one (staff only; for margins in reports).
+  cost_price: z.preprocess((v) => (v === '' ? null : v), z.coerce.number().min(0, 'Cost can’t be negative.').nullable().optional()),
   quantity: z.coerce.number().int().min(0, 'Stock can’t be negative.').default(0),
   category_id: z.coerce.number().int().positive().nullable().optional(),
   brand_id: z.coerce.number().int().positive().nullable().optional(),
@@ -164,14 +169,34 @@ const uniqueViolation = (error: unknown) => {
   throw error;
 };
 
+/** Staff-only cost prices on a loaded product and its variants. */
+const withCosts = async (product: any) => {
+  if (!product) return product;
+  const rows = (await query(
+    `SELECT NULL::int AS variant_id, cost_price FROM products WHERE id = $1
+     UNION ALL SELECT id, cost_price FROM product_variants WHERE product_id = $1`,
+    [product.product_id]
+  )).rows;
+  const cost = (v: any) => (v === null || v === undefined ? null : Number(v));
+  return {
+    ...product,
+    cost_price: cost(rows.find((r) => r.variant_id === null)?.cost_price),
+    variants: (product.variants || []).map((v: any) => ({
+      ...v,
+      cost_price: cost(rows.find((r) => r.variant_id === v.variant_id)?.cost_price),
+    })),
+  };
+};
+
 /** Saves the product and replaces its variants, keeping ids of unchanged combinations. */
-const saveProduct = async (b: ProductInput, id: number | null) => {
+const saveProduct = async (b: ProductInput, id: number | null, userId: number | null = null) => {
   const variants = checkVariants(b);
   checkSpecial(b.price, b.special);
   await checkRef('categories', b.category_id, 'Please choose a category that exists.');
   await checkRef('brands', b.brand_id, 'Please choose a brand that exists.');
   try {
     return await transaction(async (db) => {
+      await stockReason(db, 'adjustment', { userId });
       const values = [
         b.name, b.description, b.price, b.special ?? null, b.quantity, b.category_id ?? null, b.brand_id ?? null,
         JSON.stringify(b.images), b.sku, b.status, b.featured, b.tags, JSON.stringify(b.attributes),
@@ -204,6 +229,9 @@ const saveProduct = async (b: ProductInput, id: number | null) => {
           [...values, productId]
         );
       }
+      if (b.cost_price !== undefined) {
+        await db.query('UPDATE products SET cost_price = $2 WHERE id = $1', [productId, b.cost_price]);
+      }
       if (b.variants !== undefined) {
         const keep = variants.map((v) => JSON.stringify(v.options));
         await db.query(
@@ -213,13 +241,14 @@ const saveProduct = async (b: ProductInput, id: number | null) => {
         for (const [position, v] of variants.entries()) {
           await db.query(
             `INSERT INTO product_variants (product_id, options, sku, price, special, quantity, images, position,
-               description, specs)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+               description, specs, cost_price)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
              ON CONFLICT (product_id, options) DO UPDATE SET sku = EXCLUDED.sku, price = EXCLUDED.price,
                special = EXCLUDED.special, quantity = EXCLUDED.quantity, images = EXCLUDED.images,
-               position = EXCLUDED.position, description = EXCLUDED.description, specs = EXCLUDED.specs`,
+               position = EXCLUDED.position, description = EXCLUDED.description, specs = EXCLUDED.specs,
+               cost_price = EXCLUDED.cost_price`,
             [productId, JSON.stringify(v.options), v.sku, v.price ?? null, v.special ?? null, v.quantity,
-              JSON.stringify(v.images), position, v.description ?? null, JSON.stringify(v.specs)]
+              JSON.stringify(v.images), position, v.description ?? null, JSON.stringify(v.specs), v.cost_price ?? null]
           );
         }
       } else if (id !== null) {
@@ -326,7 +355,7 @@ export const adminCatalogRoutes = () => {
     handler(async (req, res) => {
       const product = await loadProduct(Number(req.params.id));
       if (!product) fail(404, 'Product not found.');
-      ok(res, product);
+      ok(res, await withCosts(product));
     })
   );
 
@@ -335,9 +364,9 @@ export const adminCatalogRoutes = () => {
     requirePermission('catalog.products.create'),
     handler(async (req, res) => {
       const b = parse(productBody, req.body);
-      const id = await saveProduct(b, null);
+      const id = await saveProduct(b, null, req.auth!.userId);
       audit(req, 'catalog.product_created', `product:${id}`, { name: b.name });
-      ok(res, await loadProduct(id), 201);
+      ok(res, await withCosts(await loadProduct(id)), 201);
     })
   );
 
@@ -368,9 +397,9 @@ export const adminCatalogRoutes = () => {
         variants: undefined,
         ...req.body,
       });
-      await saveProduct(b, current.product_id);
+      await saveProduct(b, current.product_id, req.auth!.userId);
       audit(req, 'catalog.product_updated', `product:${current.product_id}`, { fields: Object.keys(req.body || {}) });
-      ok(res, await loadProduct(current.product_id));
+      ok(res, await withCosts(await loadProduct(current.product_id)));
     })
   );
 

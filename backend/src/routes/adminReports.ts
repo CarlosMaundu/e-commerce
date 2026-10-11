@@ -10,6 +10,22 @@ import { fail, handler, ok, parse } from '../lib/http';
 import { loadOrder, orderRef, statusName } from '../lib/orders';
 import { DELIVERED_AT_SQL, mergeSla, orderSla, saveSla, sla, slaSchema, SlaState } from '../lib/sla';
 import { authenticate, requireAnyPermission, requirePermission } from '../middleware/auth';
+import { parsePeriod, periodQuery } from '../lib/reports/common';
+import { inventoryReport, productsReport, salesReport } from '../lib/reports/core';
+import { customersReport, financeReport, promotionsReport, searchReport, serviceReport } from '../lib/reports/more';
+import { hasPermission } from '../lib/users';
+
+// Reports by name, and the permission each needs.
+const REPORTS: Record<string, { permission: string; run: (p: any, q: any) => Promise<unknown> }> = {
+  sales: { permission: 'reports.view', run: (p) => salesReport(p) },
+  products: { permission: 'reports.view', run: (p, q) => productsReport(p, q) },
+  inventory: { permission: 'reports.view', run: (p, q) => inventoryReport(p, q) },
+  customers: { permission: 'reports.view', run: (p) => customersReport(p) },
+  promotions: { permission: 'reports.view', run: (p) => promotionsReport(p) },
+  service: { permission: 'reports.view', run: (p) => serviceReport(p) },
+  search: { permission: 'reports.view', run: (p) => searchReport(p) },
+  finance: { permission: 'reports.finance.view', run: (p) => financeReport(p) },
+};
 
 const listQuery = z.object({
   days: z.coerce.number().int().min(1).max(3660).optional(),
@@ -44,6 +60,29 @@ export const adminReportRoutes = () => {
     await saveSla(merged, req.auth!.userId);
     audit(req, 'admin.sla_settings_updated', 'sla_settings', {});
     ok(res, { settings: merged });
+  }));
+
+  // GET /admin/reports/:name?from=YYYY-MM-DD&to=…&group=day|week|month&compare=previous|last_year|none
+  router.get('/reports/:name', handler(async (req, res, next) => {
+    const report = REPORTS[req.params.name];
+    if (!report) return next(); // e.g. /reports/sla below
+    if (!hasPermission(req.auth!.permissions, report.permission)) fail(403, 'You don’t have permission to see this report.');
+    const q = parse(
+      periodQuery.extend({
+        category: z.coerce.number().int().positive().optional(),
+        brand: z.coerce.number().int().positive().optional(),
+        product: z.coerce.number().int().positive().optional(),
+      }),
+      req.query
+    );
+    let period;
+    try {
+      period = parsePeriod(q);
+    } catch {
+      fail(400, 'The start date must be on or before the end date.');
+    }
+    res.set('Cache-Control', 'no-store');
+    ok(res, await report.run(period, q));
   }));
 
   router.get('/reports/sla', requirePermission('orders.orders.view'), handler(async (req, res) => {

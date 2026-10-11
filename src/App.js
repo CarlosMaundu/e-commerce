@@ -51,6 +51,7 @@ import {
   SupportRequestsPage,
 } from './pages/account/SupportPages';
 import SlaReportPage from './pages/admin/reports/SlaReportPage';
+import ReportPage from './pages/admin/reports/ReportPage';
 import SlaOrderPage from './pages/admin/reports/SlaOrderPage';
 import InformationPage from './pages/InformationPage';
 import NotFoundPage from './pages/NotFoundPage';
@@ -515,6 +516,16 @@ const App = () => (
                       element={
                         <AdminRoute permissions={['admin.settings.manage']}>
                           <LegalPageEditor />
+                        </AdminRoute>
+                      }
+                    />
+                    <Route
+                      path="reports/:name"
+                      element={
+                        <AdminRoute
+                          permissions={['reports.view', 'reports.finance.view']}
+                        >
+                          <ReportPage />
                         </AdminRoute>
                       }
                     />
