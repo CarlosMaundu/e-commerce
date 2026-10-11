@@ -76,6 +76,7 @@ import {
 } from './pages/account/OrderPages';
 import AdminReturnDetail from './pages/admin/orders/AdminReturnDetail';
 import { PromoCodePage, PromoCodesPage } from './pages/admin/PromoPages';
+import PaymentMethodsPage from './pages/admin/PaymentMethodsPage';
 
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import {
@@ -308,6 +309,14 @@ const App = () => (
                       element={
                         <AdminRoute permissions={['orders.returns.view']}>
                           <AdminReturnDetail />
+                        </AdminRoute>
+                      }
+                    />
+                    <Route
+                      path="payment-methods"
+                      element={
+                        <AdminRoute permissions={['admin.payments.manage']}>
+                          <PaymentMethodsPage />
                         </AdminRoute>
                       }
                     />

@@ -7,6 +7,7 @@ import { GoogleIdentity } from '../src/lib/google';
 import { loadFinance } from '../src/lib/finance';
 import { loadDelivery } from '../src/lib/delivery';
 import { loadSla } from '../src/lib/sla';
+import { loadProviders } from '../src/lib/paymentProviders';
 import { runSeed } from '../src/seed';
 
 // Captured emails (the mailer is mocked in each test file).
@@ -32,6 +33,40 @@ export const fakePayments = {
     fakePayments.partialRefunds.push({ id, amountCents });
     return `re_${id}_${amountCents ?? 'all'}`;
   },
+  // Card links shown at the door: tests mark them paid.
+  links: new Map<string, { status: 'paid' | 'open' | 'expired'; amountCents: number }>(),
+  async createPaymentLink({ amountCents, orderId }: { amountCents: number; orderId: number }) {
+    const id = `cs_${orderId}_${amountCents}_${fakePayments.links.size}`;
+    fakePayments.links.set(id, { status: 'open', amountCents });
+    return { id, url: `https://checkout.stripe.test/${id}` };
+  },
+  async getPaymentLink(id: string) {
+    const l = fakePayments.links.get(id);
+    return l?.status === 'paid' ? { status: 'paid' as const, paymentId: `pi_${id}` } : { status: l?.status || ('expired' as const) };
+  },
+  async checkKey(key: string) {
+    if (!key.startsWith('sk_test_')) throw new Error('Invalid API Key provided');
+    return 'Test Shop';
+  },
+};
+
+// Fake Safaricom Daraja: tests set what a prompt ends up as.
+export const fakeMpesa = {
+  prompts: [] as { phone: string; amount: number; callbackUrl: string; id: string }[],
+  results: new Map<string, 'paid' | 'failed' | 'pending'>(),
+  async checkCredentials(cfg: { consumerKey: string }) {
+    if (cfg.consumerKey === 'wrong') throw Object.assign(new Error('bad'), { messages: ['Safaricom didn’t accept the consumer key and secret.'] });
+  },
+  async stkPush(_cfg: unknown, input: { phone: string; amount: number; callbackUrl: string }) {
+    const id = `ws_CO_${fakeMpesa.prompts.length + 1}`;
+    fakeMpesa.prompts.push({ ...input, id });
+    fakeMpesa.results.set(id, 'pending');
+    return { checkoutRequestId: id, customerMessage: 'Success. Request accepted for processing' };
+  },
+  async query(_cfg: unknown, id: string) {
+    const status = fakeMpesa.results.get(id) || 'pending';
+    return { status, message: status === 'failed' ? 'Request cancelled by user' : status };
+  },
 };
 export const app = createApp({
   verifyGoogle: async (idToken) => {
@@ -40,6 +75,7 @@ export const app = createApp({
     return identity;
   },
   payments: fakePayments,
+  mpesa: fakeMpesa,
 });
 
 export const PASSWORD = 'Str0ng!Pass1';
@@ -49,16 +85,20 @@ export const resetDatabase = async () => {
   await query(
     `TRUNCATE audit_logs, auth_tokens, sessions, users, products, categories, coupons, orders,
        order_items, order_history, returns, cart_items, checkout_state, wishlist_items, addresses,
-       newsletter_subscribers, brands, promotions, role_permissions, roles, permissions, sla_settings, legal_pages, support_tickets, support_messages, faq_items, store_settings RESTART IDENTITY CASCADE`
+       newsletter_subscribers, brands, promotions, role_permissions, roles, permissions, sla_settings, legal_pages, support_tickets, support_messages, faq_items, store_settings, payment_providers RESTART IDENTITY CASCADE`
   );
   await loadFinance(); // before seeding, which prices in the shop's currency
   await loadDelivery();
   await loadSla();
+  await loadProviders();
   await runSeed();
   sentEmails.length = 0;
   fakePayments.intents.clear();
   fakePayments.refunds.length = 0;
   fakePayments.partialRefunds.length = 0;
+  fakePayments.links.clear();
+  fakeMpesa.prompts.length = 0;
+  fakeMpesa.results.clear();
 };
 
 export const createUser = async (email: string, role = 'customer', password: string | null = PASSWORD) => {

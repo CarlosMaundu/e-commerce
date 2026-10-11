@@ -58,6 +58,7 @@ export const PERMISSION_CATALOG: { code: string; description: string; implied?: 
   { code: 'marketing.promos.manage', description: 'Create, change and switch off promo codes', implied: ['admin.settings.manage'] },
   { code: 'support.tickets.view', description: 'Read customer support requests', implied: ['admin.users.reset_password'] },
   { code: 'support.tickets.reply', description: 'Reply to support requests and change their status', implied: ['admin.users.reset_password'] },
+  { code: 'admin.payments.manage', description: 'Set up and test payment methods (card, M-Pesa, cash on delivery)', implied: ['admin.finance.manage'] },
   { code: 'admin.delivery.manage', description: 'Change delivery options, prices and the pick-up point', implied: ['admin.finance.manage'] },
 ];
 

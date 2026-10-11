@@ -487,6 +487,59 @@ test('a deal added in Store settings shows in the top strip only', async ({
   );
 });
 
+test('payment methods are configured in a dialog, saved and tested', async ({
+  page,
+}) => {
+  await createUser({
+    email: 'boss@example.com',
+    firstname: 'Bea',
+    lastname: 'Boss',
+    role: 'admin',
+  });
+  await login(page, 'boss@example.com', 'Hi, Bea Boss');
+  await page.goto('/admin/payment-methods');
+  const mpesa = page.getByTestId('payment-provider-mpesa');
+  await expect(mpesa).toContainText('M-Pesa (Safaricom Daraja)');
+  await mpesa.getByRole('button', { name: /^Configure/ }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel(/^On|^Off/).check();
+  await dialog.getByRole('button', { name: 'Save' }).click();
+  await expect(
+    dialog.getByText('Please enter the business shortcode.')
+  ).toBeVisible();
+  await dialog.getByLabel('Business shortcode').fill('174379');
+  await dialog.getByLabel('Consumer key').fill('ck_example_123');
+  await dialog.getByLabel('Consumer secret').fill('cs_example_456');
+  await dialog.getByLabel('Passkey (Lipa na M-Pesa Online)').fill('pk_ex_7890');
+  await dialog.getByRole('button', { name: 'Save' }).click();
+  await expect(toast(page)).toHaveText('M-Pesa (Safaricom Daraja) saved.');
+  // Saved secrets show only their last four characters.
+  await expect(
+    dialog.getByLabel('Passkey (Lipa na M-Pesa Online)')
+  ).toHaveAttribute('placeholder', 'Saved: ••••7890');
+  await dialog.getByRole('button', { name: 'Close' }).click();
+  await expect(mpesa).toContainText('On');
+  await expect(mpesa).toContainText('Sandbox');
+
+  // Card payments without keys: the test says what's missing.
+  const stripe = page.getByTestId('payment-provider-stripe');
+  await stripe.getByRole('button', { name: /^Configure/ }).click();
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: 'Test connection' })
+    .click();
+  await expect(page.getByTestId('payment-test-result')).toContainText(
+    'Add the secret key first.'
+  );
+  await page.getByRole('dialog').getByRole('button', { name: 'Close' }).click();
+
+  // Switch M-Pesa off again so other tests see the default set-up.
+  await mpesa.getByRole('button', { name: /^Configure/ }).click();
+  await page.getByRole('dialog').getByLabel(/^On/).uncheck();
+  await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click();
+  await expect(mpesa).toContainText('Off');
+});
+
 test('a super admin creates, then deletes, a custom role', async ({ page }) => {
   await createUser({
     email: 'root@example.com',
@@ -516,7 +569,7 @@ test('a super admin creates, then deletes, a custom role', async ({ page }) => {
   await expect(toast(page)).toHaveText('Role created.');
   const row = page.getByTestId('role-row-stock_clerk');
   await expect(row).toContainText('Keeps stock up');
-  await expect(row).toContainText('2 of 43');
+  await expect(row).toContainText('2 of 44');
 
   // The Permissions tab lists who holds each permission.
   await page.getByRole('tab', { name: /Permissions/ }).click();

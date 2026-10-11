@@ -1208,3 +1208,47 @@ export const adminDeals = {
     await http().delete(`/admin/deals/${id}`);
   },
 };
+
+/** Back office → Payment methods, and collecting payment at the door (raw API shapes). */
+export const adminPayments = {
+  async providers() {
+    const { data } = await http().get('/admin/payment-providers');
+    return data;
+  },
+  /** { enabled, mode, settings, secrets } — empty secrets keep the saved ones. */
+  async save(code, body) {
+    const { data } = await http().put(`/admin/payment-providers/${code}`, body);
+    return data;
+  },
+  /** → { ok, message, provider } */
+  async test(code, { phone } = {}) {
+    const { data } = await http().post(
+      `/admin/payment-providers/${code}/test`,
+      phone ? { phone } : {}
+    );
+    return data;
+  },
+  /** → { requests, card_link, mpesa } */
+  async forOrder(orderId) {
+    const { data } = await http().get(
+      `/admin/orders/${orderId}/payment-requests`
+    );
+    return data;
+  },
+  /** { method: 'card_link' | 'mpesa', phone } */
+  async collect(orderId, body) {
+    const { data } = await http().post(
+      `/admin/orders/${orderId}/collect`,
+      body
+    );
+    return data;
+  },
+  async request(id) {
+    const { data } = await http().get(`/admin/payment-requests/${id}`);
+    return data;
+  },
+  async cancel(id) {
+    const { data } = await http().delete(`/admin/payment-requests/${id}`);
+    return data;
+  },
+};

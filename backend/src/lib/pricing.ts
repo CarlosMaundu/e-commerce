@@ -1,6 +1,6 @@
 // src/lib/pricing.ts — every price the customer pays is calculated here, on
 // the server. The browser only displays these numbers.
-import { config } from '../config';
+import { cardsReady, mpesaReady, provider, stripeKeys } from './paymentProviders';
 import { query } from '../db';
 import { delivery, findGiftBox } from './delivery';
 import { finance } from './finance';
@@ -89,17 +89,32 @@ export const SHIPPING_METHODS = () => {
   ].filter(Boolean) as { code: string; title: string; description: string; cost: number; pickup?: object }[];
 };
 
-export const PAYMENT_METHODS = () => [
-  { code: 'cod', title: 'Cash on delivery', description: 'Pay when your order arrives.' },
-  ...(config.stripe.secretKey && config.stripe.publishableKey
-    ? [{
-        code: 'stripe',
-        title: 'Credit or debit card',
-        description: 'Paid securely through Stripe.',
-        publishable_key: config.stripe.publishableKey,
-      }]
-    : []),
-];
+/** How customers can pay, from Back office → Payments. */
+export const PAYMENT_METHODS = () => {
+  const cod = provider('cod');
+  const ways = ['cash', cod.settings.tap_to_pay && cardsReady() && 'card', cod.settings.mpesa_prompt && mpesaReady() && 'M-Pesa']
+    .filter(Boolean) as string[];
+  const keys = stripeKeys();
+  return [
+    ...(cod.enabled
+      ? [{
+          code: 'cod',
+          title: 'Cash on delivery',
+          description:
+            (cod.settings.instructions as string) ||
+            `Pay when your order arrives: ${ways.length > 1 ? `${ways.slice(0, -1).join(', ')} or ${ways.at(-1)}` : 'cash'}.`,
+        }]
+      : []),
+    ...(keys.secretKey && keys.publishableKey
+      ? [{
+          code: 'stripe',
+          title: 'Credit or debit card',
+          description: 'Paid securely through Stripe.',
+          publishable_key: keys.publishableKey,
+        }]
+      : []),
+  ];
+};
 
 export const money = (n: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: finance().currency }).format(n);

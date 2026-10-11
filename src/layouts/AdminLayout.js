@@ -68,6 +68,7 @@ import {
   FiX,
   FiActivity,
   FiScissors,
+  FiSmartphone,
 } from 'react-icons/fi';
 import { AuthContext } from '../context/AuthContext';
 import {
@@ -228,6 +229,12 @@ export const adminNav = (user) =>
           icon: <FiHelpCircle />,
           to: '/admin/faq',
           show: hasPermission(user, PERMISSIONS.settingsManage),
+        },
+        {
+          label: 'Payment methods',
+          icon: <FiSmartphone />,
+          to: '/admin/payment-methods',
+          show: hasPermission(user, PERMISSIONS.paymentsManage),
         },
         {
           label: 'Delivery options',
