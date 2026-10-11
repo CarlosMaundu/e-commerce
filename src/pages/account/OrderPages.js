@@ -25,6 +25,8 @@ import {
   Skeleton,
   Stack,
   Tab,
+  TableCell,
+  TableRow,
   Tabs,
   TextField,
   ToggleButton,
@@ -49,6 +51,8 @@ import OrderSuccessDialog from '../../components/checkout/OrderSuccessDialog';
 import { useStore } from '../../context/StoreContext';
 import { orders as ordersApi } from '../../api';
 import { StandardPagination } from '../../components/admin/DataTable';
+import AccountTable from '../../components/account/AccountTable';
+import ReturnTimeline from '../../components/returns/ReturnTimeline';
 import { formatAddress } from '../../api/mappers';
 import { cartReplaced } from '../../redux/cartSlice';
 import { useNotify } from '../../notification/NotificationProvider';
@@ -920,10 +924,18 @@ export const OrderDetailPage = () => {
                       justifyContent="space-between"
                       alignItems="center"
                     >
-                      <Typography variant="body2">
+                      <Link
+                        component={RouterLink}
+                        to={`/account/returns/${r.id}`}
+                        variant="body2"
+                        underline="hover"
+                      >
                         {r.quantity} × {r.product} · {r.reasonName}
-                      </Typography>
-                      <StatusChip status={r.status} label={r.status} />
+                      </Link>
+                      <StatusChip
+                        status={r.status}
+                        label={RETURN_STEP_NAMES[r.status] || r.statusName}
+                      />
                     </Stack>
                   ))}
                 </Stack>
@@ -1024,19 +1036,24 @@ const RETURN_STEP_NAMES = {
   requested: 'Requested',
   approved: 'Approved',
   received: 'Received',
+  refund_pending: 'Refund on its way',
   refunded: 'Refunded',
+  rejected: 'Rejected',
 };
 const RETURN_HINTS = {
-  requested: 'We’re reviewing your request.',
+  requested: 'We’re reviewing your request and will email you the next steps.',
   approved: 'Approved. Please send the item back to us.',
-  received: 'We’ve received the item and will refund you shortly.',
+  received: 'We’ve received the item and are checking it.',
+  refund_pending: 'We’ve received the item and your refund is being processed.',
   refunded: 'Refunded.',
-  rejected: 'This return wasn’t accepted. Contact us if you have questions.',
+  rejected: 'This return wasn’t accepted.',
 };
-const RETURNS_PAGE_SIZE = 10;
 
 const ReturnSteps = ({ status }) => {
-  const at = RETURN_STEPS.indexOf(status);
+  // "Refund on its way" sits between Received and Refunded.
+  const at = RETURN_STEPS.indexOf(
+    status === 'refund_pending' ? 'received' : status
+  );
   return (
     <Stack
       direction="row"
@@ -1074,6 +1091,7 @@ ReturnSteps.propTypes = { status: PropTypes.string.isRequired };
 
 export const ReturnsPage = () => {
   const notify = useNotify();
+  const navigate = useNavigate();
   const [list, setList] = useState(null);
   const [page, setPage] = useState(0);
   useEffect(() => {
@@ -1085,10 +1103,6 @@ export const ReturnsPage = () => {
         setList([]);
       });
   }, [notify]);
-  const shown = (list || []).slice(
-    page * RETURNS_PAGE_SIZE,
-    (page + 1) * RETURNS_PAGE_SIZE
-  );
   return (
     <AccountPage
       title="Returns"
@@ -1102,100 +1116,244 @@ export const ReturnsPage = () => {
         </>
       }
     >
-      {!list ? (
-        <Skeleton variant="rounded" height={200} />
-      ) : !list.length ? (
+      <AccountTable
+        label="Returns"
+        columns={[
+          { label: 'Return' },
+          { label: 'Item' },
+          { label: 'Order' },
+          { label: 'Requested' },
+          { label: 'Progress' },
+          { label: 'Status' },
+        ]}
+        loading={!list}
+        empty={{
+          icon: <FiRotateCcw />,
+          title: 'No returns',
+          text: 'To return something, open a delivered order and choose Return next to the item.',
+        }}
+        count={list?.length || 0}
+        page={page}
+        rowsPerPage={PAGE_SIZE}
+        onPageChange={setPage}
+        itemsLabel="returns"
+      >
+        {(list || [])
+          .slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+          .map((r) => (
+            <TableRow
+              key={r.id}
+              hover
+              sx={{ cursor: 'pointer' }}
+              onClick={() => navigate(`/account/returns/${r.id}`)}
+              data-testid={`return-${r.id}`}
+            >
+              <TableCell sx={{ fontWeight: 700 }}>
+                <Link
+                  component={RouterLink}
+                  to={`/account/returns/${r.id}`}
+                  underline="hover"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  #{r.id}
+                </Link>
+              </TableCell>
+              <TableCell>
+                <Stack direction="row" spacing={1.5} alignItems="center">
+                  <Box
+                    component="img"
+                    src={r.image}
+                    alt=""
+                    sx={{
+                      width: 40,
+                      height: 40,
+                      objectFit: 'contain',
+                      borderRadius: '8px',
+                      bgcolor: 'background.neutral',
+                      flexShrink: 0,
+                    }}
+                  />
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {r.quantity} × {r.product}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {r.reasonName}
+                    </Typography>
+                  </Box>
+                </Stack>
+              </TableCell>
+              <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                {r.orderNumber}
+              </TableCell>
+              <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                {formatDate(r.date)}
+              </TableCell>
+              <TableCell>
+                {r.status === 'rejected' ? (
+                  '—'
+                ) : (
+                  <ReturnSteps status={r.status} />
+                )}
+              </TableCell>
+              <TableCell>
+                <StatusChip
+                  status={r.status}
+                  label={RETURN_STEP_NAMES[r.status] || r.statusName}
+                />
+              </TableCell>
+            </TableRow>
+          ))}
+      </AccountTable>
+    </AccountPage>
+  );
+};
+
+/** One return: where it is, what to do next, the refund and every step. */
+export const ReturnPage = () => {
+  const { id } = useParams();
+  const [item, setItem] = useState(null);
+  const [missing, setMissing] = useState(false);
+  useEffect(() => {
+    ordersApi
+      .getReturn(id)
+      .then(setItem)
+      .catch(() => setMissing(true));
+  }, [id]);
+
+  if (missing) {
+    return (
+      <AccountPage title="Return" back="/account/returns" backLabel="Returns">
         <SectionCard>
-          <EmptyState icon={<FiRotateCcw />} title="No returns">
-            To return something, open a delivered order and choose Return next
-            to the item.
+          <EmptyState icon={<FiRotateCcw />} title="Return not found">
+            It may belong to another account.
           </EmptyState>
         </SectionCard>
-      ) : (
-        <Stack spacing={2}>
-          {shown.map((r) => (
-            <Stack
-              key={r.id}
-              direction={{ xs: 'column', sm: 'row' }}
-              spacing={2}
-              alignItems={{ sm: 'center' }}
-              data-testid={`return-${r.id}`}
-              sx={{ bgcolor: 'background.neutral', borderRadius: 1, p: 2.5 }}
-            >
-              <Box
-                component="img"
-                src={r.image}
-                alt=""
-                sx={{
-                  width: 56,
-                  height: 56,
-                  objectFit: 'contain',
-                  borderRadius: 1,
-                  bgcolor: 'background.paper',
-                  flexShrink: 0,
-                }}
-              />
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography variant="subtitle1">
-                  {r.quantity} × {r.product}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Return #{r.id} · {r.reasonName} · requested{' '}
-                  {formatDate(r.date)} ·{' '}
-                  <Typography
-                    component={RouterLink}
-                    to={`/account/orders/${r.orderId}`}
-                    variant="body2"
-                    sx={{ color: 'primary.main' }}
-                  >
-                    Order {r.orderNumber}
-                  </Typography>
-                </Typography>
-                <Box sx={{ mt: 1 }}>
-                  {r.status === 'rejected' ? null : (
-                    <ReturnSteps status={r.status} />
+      </AccountPage>
+    );
+  }
+  const latestNote = item
+    ? [...item.events].reverse().find((e) => e.status === item.status && e.note)
+        ?.note
+    : '';
+
+  return (
+    <AccountPage
+      title={`Return #${id}`}
+      subtitle={item ? `Order ${item.orderNumber}` : ' '}
+      back="/account/returns"
+      backLabel="Returns"
+      action={
+        item && (
+          <StatusChip
+            status={item.status}
+            label={RETURN_STEP_NAMES[item.status] || item.statusName}
+          />
+        )
+      }
+    >
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={7}>
+          <Stack spacing={3}>
+            <SectionCard title="Where it is">
+              {!item ? (
+                <Skeleton variant="rounded" height={72} />
+              ) : (
+                <Stack spacing={1.5}>
+                  {item.status !== 'rejected' && (
+                    <ReturnSteps status={item.status} />
                   )}
-                  <Typography variant="body2" sx={{ mt: 0.5 }}>
-                    {RETURN_HINTS[r.status]}
-                    {r.refund && r.refund.status === 'processed'
-                      ? ` ${formatMoney(r.refund.amount)} paid back${
-                          r.refund.method === 'stripe' ? ' to your card' : ''
-                        }.`
-                      : ''}
-                    {r.refund && r.refund.status === 'pending_approval'
-                      ? ' Your refund is being approved.'
-                      : ''}
+                  <Typography variant="body2">
+                    {RETURN_HINTS[item.status]}
                   </Typography>
-                </Box>
-              </Box>
-              <StatusChip
-                status={r.status}
-                label={RETURN_STEP_NAMES[r.status] || 'Rejected'}
-              />
-            </Stack>
-          ))}
-          {list.length > RETURNS_PAGE_SIZE && (
-            <Box
-              sx={{
-                borderRadius: 1,
-                overflow: 'hidden',
-                border: 1,
-                borderColor: 'divider',
-              }}
-            >
-              <StandardPagination
-                count={list.length}
-                page={page}
-                rowsPerPage={RETURNS_PAGE_SIZE}
-                label="returns"
-                maxShowAll={0}
-                onRowsPerPageChange={() => {}}
-                onPageChange={(_, p) => setPage(p)}
-              />
-            </Box>
-          )}
-        </Stack>
-      )}
+                  {latestNote && item.status !== 'refunded' && (
+                    <Alert
+                      severity={item.status === 'rejected' ? 'warning' : 'info'}
+                      icon={false}
+                      sx={{ whiteSpace: 'pre-line' }}
+                      data-testid="return-next-step"
+                    >
+                      {latestNote}
+                    </Alert>
+                  )}
+                  {item.refund?.status === 'processed' && (
+                    <Alert severity="success" icon={false}>
+                      {formatMoney(item.refund.amount)} paid back
+                      {item.refund.method === 'stripe' ? ' to your card' : ''}.
+                      See{' '}
+                      <Link component={RouterLink} to="/account/refunds">
+                        Refunds
+                      </Link>
+                      .
+                    </Alert>
+                  )}
+                </Stack>
+              )}
+            </SectionCard>
+            <SectionCard title="Return updates">
+              {!item ? (
+                <Stack spacing={2}>
+                  {[0, 1, 2].map((i) => (
+                    <Skeleton key={i} variant="rounded" height={40} />
+                  ))}
+                </Stack>
+              ) : (
+                <ReturnTimeline events={item.events} />
+              )}
+            </SectionCard>
+          </Stack>
+        </Grid>
+        <Grid item xs={12} md={5}>
+          <SectionCard title="Item">
+            {!item ? (
+              <Skeleton variant="rounded" height={120} />
+            ) : (
+              <Stack spacing={1.5}>
+                <Stack direction="row" spacing={2} alignItems="center">
+                  <Box
+                    component="img"
+                    src={item.image}
+                    alt=""
+                    sx={{
+                      width: 64,
+                      height: 64,
+                      objectFit: 'contain',
+                      borderRadius: 1,
+                      bgcolor: 'background.neutral',
+                      flexShrink: 0,
+                    }}
+                  />
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography variant="subtitle2">
+                      {item.quantity} × {item.product}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {item.reasonName}
+                      {item.opened ? ' · opened' : ''}
+                    </Typography>
+                  </Box>
+                </Stack>
+                {item.comment && (
+                  <Typography variant="body2" color="text.secondary">
+                    “{item.comment}”
+                  </Typography>
+                )}
+                <Divider />
+                <Button
+                  component={RouterLink}
+                  to={`/account/orders/${item.orderId}`}
+                  variant="outlined"
+                >
+                  View order {item.orderNumber}
+                </Button>
+                <Button component={RouterLink} to="/support?category=returns">
+                  Ask about this return
+                </Button>
+              </Stack>
+            )}
+          </SectionCard>
+        </Grid>
+      </Grid>
     </AccountPage>
   );
 };

@@ -788,6 +788,11 @@ export const orders = {
     const { data } = await http().get('/rest/returns');
     return data.map(returnFromApi);
   },
+  /** One return with its steps. */
+  async getReturn(id) {
+    const { data } = await http().get(`/rest/returns/${id}`);
+    return returnFromApi(data);
+  },
   /** The customer's refunds, newest first. */
   async refunds() {
     const { data } = await http().get('/rest/refunds');
@@ -886,11 +891,17 @@ export const adminOrders = {
     const { data } = await http().get('/admin/returns', { params: clean });
     return { ...data, returns: data.returns.map(returnFromApi) };
   },
-  async updateReturn(id, status, { restock } = {}) {
+  async updateReturn(id, status, { restock, note } = {}) {
     const { data } = await http().put(`/admin/returns/${id}`, {
       status,
       ...(restock === false ? { restock: false } : {}),
+      ...(note ? { note } : {}),
     });
+    return returnFromApi(data);
+  },
+  /** One return with every step, including staff-only ones. */
+  async getReturn(id) {
+    const { data } = await http().get(`/admin/returns/${id}`);
     return returnFromApi(data);
   },
   /** Store overview for the last `days` (7, 30 or 90), raw API shape. */

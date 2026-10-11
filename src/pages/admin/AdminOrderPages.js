@@ -49,6 +49,13 @@ import {
   formatMoney,
   formatShortDate,
 } from '../../utils/format';
+import {
+  REFUND_PILL,
+  RETURN_ACTIONS,
+  RETURN_STATES,
+  RETURN_TABS,
+  ReturnActionDialog,
+} from './orders/ReturnActions';
 
 const PAYMENT = {
   paid: ['Paid', 'success'],
@@ -530,56 +537,8 @@ export const AdminOrdersPage = () => {
 // The order page lives in ./orders/AdminOrderDetail.
 export { default as AdminOrderDetailPage } from './orders/AdminOrderDetail';
 
-// Returns: requested → approved (customer sends it back) → received (checked
-// in, optionally back on sale) → refunded (creates the refund). Rejection is
-// possible until it's refunded.
-export const RETURN_STATES = {
-  requested: ['Requested', 'warning'],
-  approved: ['Awaiting item', 'info'],
-  received: ['Item received', 'primary'],
-  refunded: ['Refunded', 'success'],
-  rejected: ['Rejected', 'default'],
-};
-const RETURN_TABS = [
-  { value: 'requested', label: 'Requested' },
-  { value: 'approved', label: 'Awaiting item' },
-  { value: 'received', label: 'Received' },
-  { value: 'refunded', label: 'Refunded' },
-  { value: 'rejected', label: 'Rejected' },
-  { value: 'all', label: 'All' },
-];
-const REFUND_PILL = {
-  pending_approval: ['Refund awaiting approval', 'warning'],
-  processed: ['Paid back', 'success'],
-  rejected: ['Refund rejected', 'default'],
-  failed: ['Refund failed', 'error'],
-};
-const RETURN_ACTIONS = {
-  requested: [
-    { status: 'approved', label: 'Approve — ask for the item back' },
-    { status: 'rejected', label: 'Reject', color: 'error' },
-  ],
-  approved: [
-    { status: 'received', label: 'Item received — back in stock' },
-    {
-      status: 'received',
-      restock: false,
-      label: 'Item received — don’t restock',
-    },
-    { status: 'rejected', label: 'Reject', color: 'error' },
-  ],
-  received: [
-    { status: 'refunded', label: 'Refund the customer' },
-    { status: 'rejected', label: 'Reject', color: 'error' },
-  ],
-};
-const DONE = {
-  approved: 'Return approved. The customer can send the item back.',
-  received: 'Item received.',
-  refunded: 'Return refunded.',
-  rejected: 'Return rejected.',
-};
-
+// Returns: the list. Each row opens the return; steps that need a note or a
+// choice go through ReturnActionDialog.
 export const AdminReturnsPage = () => {
   const { user } = useContext(AuthContext);
   const notify = useNotify();
@@ -623,22 +582,8 @@ export const AdminReturnsPage = () => {
   }, [params, notify]);
   useEffect(load, [load]);
 
-  const update = async (r, action) => {
-    try {
-      const next = await adminOrders.updateReturn(r.id, action.status, {
-        restock: action.restock,
-      });
-      notify.success(
-        action.status === 'refunded' &&
-          next.refund?.status === 'pending_approval'
-          ? 'Return refunded. The refund is waiting for approval.'
-          : DONE[action.status]
-      );
-      load();
-    } catch (error) {
-      notify.error(error, 'We couldn’t update the return.');
-    }
-  };
+  const navigate = useNavigate();
+  const [acting, setActing] = useState(null); // { item, action }
 
   const counts = data?.counts || {};
   const total = Object.values(counts).reduce((a, b) => a + b, 0);
@@ -730,8 +675,23 @@ export const AdminReturnsPage = () => {
                   : [];
                 const actions = canUpdate ? RETURN_ACTIONS[r.status] || [] : [];
                 return (
-                  <TableRow key={r.id} hover data-testid={`return-row-${r.id}`}>
-                    <TableCell sx={{ fontWeight: 700 }}>#{r.id}</TableCell>
+                  <TableRow
+                    key={r.id}
+                    hover
+                    sx={{ cursor: 'pointer' }}
+                    onClick={() => navigate(`/admin/returns/${r.id}`)}
+                    data-testid={`return-row-${r.id}`}
+                  >
+                    <TableCell sx={{ fontWeight: 700 }}>
+                      <Link
+                        component={RouterLink}
+                        to={`/admin/returns/${r.id}`}
+                        underline="hover"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        #{r.id}
+                      </Link>
+                    </TableCell>
                     <TableCell sx={{ whiteSpace: 'nowrap' }}>
                       {formatShortDate(r.date)}
                     </TableCell>
@@ -759,6 +719,7 @@ export const AdminReturnsPage = () => {
                             to={`/admin/orders/${r.orderId}`}
                             variant="caption"
                             underline="hover"
+                            onClick={(e) => e.stopPropagation()}
                           >
                             {r.orderNumber}
                           </Link>
@@ -802,6 +763,7 @@ export const AdminReturnsPage = () => {
                             }&search=${r.orderId}`}
                             variant="caption"
                             underline="hover"
+                            onClick={(e) => e.stopPropagation()}
                           >
                             Refund #{r.refund.id} ·{' '}
                             {formatMoney(r.refund.amount)}
@@ -811,17 +773,25 @@ export const AdminReturnsPage = () => {
                         '—'
                       )}
                     </TableCell>
-                    <TableCell align="right">
-                      {actions.length > 0 && (
-                        <RowActions
-                          label={`Actions for return of ${r.product}`}
-                          items={actions.map((a) => ({
+                    <TableCell
+                      align="right"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <RowActions
+                        label={`Actions for return of ${r.product}`}
+                        items={[
+                          {
+                            label: 'Open return',
+                            onClick: () => navigate(`/admin/returns/${r.id}`),
+                          },
+                          ...actions.map((a) => ({
                             label: a.label,
                             color: a.color,
-                            onClick: () => update(r, a),
-                          }))}
-                        />
-                      )}
+                            onClick: () =>
+                              setActing({ item: r, action: a.status }),
+                          })),
+                        ]}
+                      />
                     </TableCell>
                   </TableRow>
                 );
@@ -844,6 +814,15 @@ export const AdminReturnsPage = () => {
           />
         )}
       </TablePanel>
+      <ReturnActionDialog
+        item={acting?.item}
+        action={acting?.action}
+        onClose={() => setActing(null)}
+        onDone={() => {
+          setActing(null);
+          load();
+        }}
+      />
     </Stack>
   );
 };
