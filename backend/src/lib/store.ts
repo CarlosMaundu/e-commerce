@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { config } from '../config';
 import { query } from '../db';
 
-const image = z
+export const image = z
   .string()
   .trim()
   .max(2000)
@@ -19,7 +19,7 @@ const link = z
   .refine((v) => v === '' || /^https:\/\/\S+$/i.test(v), { message: 'Please enter a full https:// link.' });
 
 // A link inside the shop ("/products?on_sale=1") or a full https:// URL.
-const target = z
+export const target = z
   .string()
   .trim()
   .max(500)

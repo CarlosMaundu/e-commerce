@@ -27,6 +27,7 @@ import { useStore } from '../../context/StoreContext';
 import { SectionCard } from '../../components/ui';
 import { PageHeader, PanelTabs } from '../../components/admin/DataTable';
 import SlaSettingsTab from './SlaSettingsTab';
+import HomeDealsSection from './HomeDealsSection';
 import { useHideHelpWhile } from '../../layouts/AdminLayout';
 import ImageField from '../../components/admin/ImageField';
 import { formatDateTime } from '../../utils/format';
@@ -415,6 +416,11 @@ const StoreSettingsPage = () => {
               )}
             </Grid>
           </Box>
+          {tab === 'home' && (
+            <Box sx={{ mt: 3 }}>
+              <HomeDealsSection />
+            </Box>
+          )}
         </>
       )}
       {form && editing && tab !== 'sla' && (

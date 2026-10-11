@@ -796,6 +796,37 @@ describe('invoices, payments, refunds and the ledger', () => {
     await request(app).delete('/api/admin/promos/LATER').set(bearer(admin)).expect(200);
   });
 
+  test('home page deals: placed in the strip, the banner or both, ordered, and checked', async () => {
+    const admin = await staffUser('admin', 'boss@example.com');
+    const manager = await staffUser('order_manager', 'ops@example.com');
+    expect((await request(app).get('/api/admin/deals').set(bearer(manager))).status).toBe(403);
+    const before = (await request(app).get('/api/admin/deals').set(bearer(admin))).body.data;
+
+    const bad = await request(app).post('/api/admin/deals').set(bearer(admin)).send({ title: '', link: 'javascript:x', placement: 'side' });
+    expect(Object.keys(bad.body.field_errors)).toEqual(expect.arrayContaining(['title', 'link', 'placement']));
+    const noCode = await request(app).post('/api/admin/deals').set(bearer(admin))
+      .send({ title: 'Big sale', link: '/products', placement: 'strip', code: 'NOPE' });
+    expect(noCode.body.error[0]).toMatch(/doesn’t exist/);
+
+    const strip = (await request(app).post('/api/admin/deals').set(bearer(admin))
+      .send({ title: 'Free delivery weekend', link: '/products', placement: 'strip', code: 'save5' })).body.data;
+    expect(strip).toMatchObject({ code: 'SAVE5', placement: 'strip', daily: true, live: true });
+    const later = (await request(app).post('/api/admin/deals').set(bearer(admin)).send({
+      title: 'Next month', link: '/products', placement: 'banner',
+      starts_at: new Date(Date.now() + 30 * 86400000).toISOString(),
+    })).body.data;
+    expect(later.live).toBe(false);
+
+    const shown = (await request(app).get('/api/rest/promotions')).body.data;
+    expect(shown.find((p: any) => p.promotion_id === strip.promotion_id)).toMatchObject({ placement: 'strip' });
+    expect(shown.find((p: any) => p.promotion_id === later.promotion_id)).toBeUndefined();
+
+    const ids = [strip.promotion_id, ...before.map((d: any) => d.promotion_id), later.promotion_id];
+    const ordered = (await request(app).put('/api/admin/deals-order').set(bearer(admin)).send({ ids })).body.data;
+    expect(ordered[0].promotion_id).toBe(strip.promotion_id);
+    await request(app).delete(`/api/admin/deals/${later.promotion_id}`).set(bearer(admin)).expect(200);
+  });
+
   test('the bell lists what needs attention, per permission, and can be read, dismissed and cleared', async () => {
     const token = await shopper();
     const order = await placeOrder(token);

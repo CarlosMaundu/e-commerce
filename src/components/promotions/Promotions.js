@@ -132,9 +132,12 @@ Countdown.propTypes = {
 };
 
 /** Slim strip under the header. */
+const inStrip = (p) => p.placement !== 'banner';
+const inBanner = (p) => p.placement !== 'strip';
+
 export const PromoStrip = ({ onClose }) => {
   const navigate = useNavigate();
-  const promos = usePromotions();
+  const promos = usePromotions().filter(inStrip);
   const { index, pause } = useRotation(promos.length);
   const promo = promos[index];
   if (!promo) return null;
@@ -206,7 +209,9 @@ PromoStrip.propTypes = { onClose: PropTypes.func.isRequired };
  */
 export const PromoBanner = () => {
   const navigate = useNavigate();
-  const { promos, loaded } = usePromotionsState();
+  const state = usePromotionsState();
+  const { loaded } = state;
+  const promos = state.promos.filter(inBanner);
   const { index, setIndex, pause } = useRotation(promos.length, 7000);
   if (!loaded) {
     return (
