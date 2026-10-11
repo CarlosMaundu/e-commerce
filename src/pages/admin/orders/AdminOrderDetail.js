@@ -643,7 +643,7 @@ const AdminOrderDetail = () => {
               </SectionCard>
             )}
 
-            <SectionCard title="History">
+            <SectionCard title="Order updates">
               <Stack spacing={2}>
                 {[...order.history].reverse().map((h, i) => (
                   <Stack key={i} direction="row" spacing={2}>

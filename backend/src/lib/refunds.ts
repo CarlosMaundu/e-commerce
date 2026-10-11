@@ -109,10 +109,10 @@ export const createRefund = async (
   const refund = (
     await db.query(
       `INSERT INTO refunds (order_id, invoice_id, return_id, status, items_amount, delivery_amount, restocking_fee, amount,
-         method, reason, requested_by, approved_by, closes_order)
-       VALUES ($1, $2, $3, 'pending_approval', $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+         method, reason, requested_by, approved_by, closes_order, needs_approval)
+       VALUES ($1, $2, $3, 'pending_approval', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING *`,
       [order.id, invoice.id, returnId, items, delivery, fee, amount, method || methodFor(order.payment_method), reason, by,
-        needsApproval ? null : by, closesOrder]
+        needsApproval ? null : by, closesOrder, needsApproval]
     )
   ).rows[0];
   if (!needsApproval) await payOut(db, refund, invoice, order, gateway, by);

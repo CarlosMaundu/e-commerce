@@ -844,7 +844,7 @@ describe('invoices, payments, refunds and the ledger', () => {
     await request(app).put(`/api/admin/refunds/${pending.refund_id}`).set(bearer(admin)).send({ action: 'reject' }).expect(200);
     let now = (await request(app).get(`/api/admin/orders/${order.order_id}`).set(bearer(admin))).body.data;
     expect(now.status).toBe('delivered');
-    expect(now.history.at(-1).comment).toMatch(/was not approved/);
+    expect(now.history.at(-1)).toMatchObject({ status: 'refund_rejected', comment: expect.stringMatching(/not approved by/) });
 
     await toRefunded();
     money = (await request(app).get(`/api/admin/orders/${order.order_id}/finance`).set(bearer(admin))).body.data;
@@ -852,7 +852,16 @@ describe('invoices, payments, refunds and the ledger', () => {
     await request(app).put(`/api/admin/refunds/${again.refund_id}`).set(bearer(admin)).send({ action: 'approve' }).expect(200);
     now = (await request(app).get(`/api/admin/orders/${order.order_id}`).set(bearer(admin))).body.data;
     expect(now.status).toBe('refunded');
-    expect(now.history.at(-1)).toMatchObject({ status: 'refunded', comment: expect.stringMatching(/approved and paid back/) });
+    expect(now.history.find((h: any) => h.status === 'refunded').comment).toMatch(/approved and paid back/);
+    // The timeline: each refund raised for approval, then rejected or approved and paid.
+    const steps = now.history.filter((h: any) => h.kind === 'refund').map((h: any) => h.status_name);
+    expect(steps).toEqual(['Approval requested', 'Refund rejected', 'Approval requested', 'Refund approved', 'Refund paid']);
+
+    // Customers see the refund that went through, not the approvals.
+    const mine = (await request(app).get(`/api/rest/customerorders/${order.order_id}`).set(bearer(token))).body.data;
+    const theirs = mine.history.filter((h: any) => h.kind === 'refund');
+    expect(theirs.map((h: any) => h.status_name)).toEqual(['Refund started', 'Refunded']);
+    expect(theirs[1].comment).toMatch(/paid back to your card/);
   });
 });
 

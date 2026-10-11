@@ -488,6 +488,7 @@ export const orderFromApi = (o) =>
       comment: h.comment,
       date: h.date_added,
       notified: h.notified,
+      kind: h.kind || 'status',
     })),
     returns: (o.returns || []).map(returnFromApi),
     placedAt: o.date_added,
