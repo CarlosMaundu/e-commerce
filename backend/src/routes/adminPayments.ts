@@ -71,7 +71,7 @@ const toContractRequest = (r: any) => ({
 });
 
 /** Records the money once, whichever confirmation arrives first. */
-const markPaid = async (requestId: number, reference: string, method: 'mpesa' | 'stripe', userId: number | null) =>
+export const markPaid = async (requestId: number, reference: string, method: 'mpesa' | 'stripe', userId: number | null) =>
   transaction(async (db) => {
     const r = (await db.query('SELECT * FROM payment_requests WHERE id = $1 FOR UPDATE', [requestId])).rows[0];
     if (!r || r.status === 'paid') return r;
@@ -100,6 +100,67 @@ const markPaid = async (requestId: number, reference: string, method: 'mpesa' | 
       )
     ).rows[0];
   });
+
+// A request still waiting gives up after this long (the card link lasts an hour).
+const GIVE_UP_MINUTES = { card_link: 70, mpesa: 15 };
+
+/**
+ * Checks a waiting request with Stripe or Safaricom and records the payment
+ * if it went through. Used when staff look at it and by the background check,
+ * so payments are recorded even when nobody is watching.
+ */
+export const settleRequest = async (
+  r: any,
+  { payments, mpesa }: { payments: PaymentGateway | null; mpesa: MpesaGateway },
+  userId: number | null
+) => {
+  if (r.status !== 'pending' || !r.external_id) return r;
+  try {
+    if (r.provider === 'card_link' && payments) {
+      const link = await payments.getPaymentLink(r.external_id);
+      if (link.status === 'paid') return await markPaid(r.id, link.paymentId || r.external_id, 'stripe', userId);
+      if (link.status === 'expired') {
+        return (await query(`UPDATE payment_requests SET status = 'expired', message = 'The link expired.', updated_at = now()
+          WHERE id = $1 AND status = 'pending' RETURNING *`, [r.id])).rows[0] || r;
+      }
+    } else if (r.provider === 'mpesa') {
+      const cfg = mpesaConfig();
+      if (cfg) {
+        const q = await mpesa.query(cfg, r.external_id);
+        // The receipt number arrives on the callback; until then the request id stands in.
+        if (q.status === 'paid') return await markPaid(r.id, r.reference || r.external_id, 'mpesa', userId);
+        if (q.status === 'failed') {
+          return (await query(`UPDATE payment_requests SET status = 'failed', message = $2, updated_at = now()
+            WHERE id = $1 AND status = 'pending' RETURNING *`, [r.id, q.message])).rows[0] || r;
+        }
+      }
+    }
+  } catch {
+    // Keep it pending; the next check (or the callback) settles it.
+  }
+  const minutes = (Date.now() - new Date(r.created_at).getTime()) / 60000;
+  if (minutes > GIVE_UP_MINUTES[r.provider as 'card_link' | 'mpesa']) {
+    return (await query(
+      `UPDATE payment_requests SET status = 'expired', message = $2, updated_at = now() WHERE id = $1 AND status = 'pending' RETURNING *`,
+      [r.id, r.provider === 'mpesa' ? 'No answer from the customer’s phone.' : 'The link expired.']
+    )).rows[0] || r;
+  }
+  return r;
+};
+
+/** Settles every request still waiting (the background check). */
+export const settleWaitingRequests = async (gateways: { payments: PaymentGateway | null; mpesa: MpesaGateway }) => {
+  const rows = (await query(
+    `SELECT * FROM payment_requests WHERE status = 'pending' AND external_id <> ''
+       AND created_at < now() - interval '1 minute' ORDER BY id LIMIT 100`
+  )).rows;
+  let settled = 0;
+  for (const r of rows) {
+    const after = await settleRequest(r, gateways, null);
+    if (after.status !== 'pending') settled += 1;
+  }
+  return settled;
+};
 
 export const adminPaymentRoutes = ({ payments, mpesa }: { payments: PaymentGateway | null; mpesa: MpesaGateway }) => {
   const router = Router();
@@ -283,34 +344,9 @@ export const adminPaymentRoutes = ({ payments, mpesa }: { payments: PaymentGatew
 
   /** The request's latest state; checks with Stripe or Safaricom while pending. */
   router.get('/payment-requests/:id', requirePermission('orders.payments.record'), handler(async (req, res) => {
-    let r = (await query('SELECT * FROM payment_requests WHERE id = $1', [Number(req.params.id)])).rows[0];
+    const r = (await query('SELECT * FROM payment_requests WHERE id = $1', [Number(req.params.id)])).rows[0];
     if (!r) fail(404, 'Payment request not found.');
-    if (r.status === 'pending' && r.external_id) {
-      try {
-        if (r.provider === 'card_link' && payments) {
-          const link = await payments.getPaymentLink(r.external_id);
-          if (link.status === 'paid') r = await markPaid(r.id, link.paymentId || r.external_id, 'stripe', req.auth!.userId);
-          else if (link.status === 'expired') {
-            r = (await query(`UPDATE payment_requests SET status = 'expired', message = 'The link expired.', updated_at = now()
-              WHERE id = $1 RETURNING *`, [r.id])).rows[0];
-          }
-        } else if (r.provider === 'mpesa') {
-          const cfg = mpesaConfig();
-          if (cfg) {
-            const q = await mpesa.query(cfg, r.external_id);
-            // The receipt number arrives on the callback; until then the request id stands in.
-            if (q.status === 'paid') r = await markPaid(r.id, r.reference || r.external_id, 'mpesa', req.auth!.userId);
-            else if (q.status === 'failed') {
-              r = (await query(`UPDATE payment_requests SET status = 'failed', message = $2, updated_at = now()
-                WHERE id = $1 RETURNING *`, [r.id, q.message])).rows[0];
-            }
-          }
-        }
-      } catch {
-        // Keep it pending; the next check (or the callback) settles it.
-      }
-    }
-    ok(res, toContractRequest(r));
+    ok(res, toContractRequest(await settleRequest(r, { payments, mpesa }, req.auth!.userId)));
   }));
 
   router.delete('/payment-requests/:id', requirePermission('orders.payments.record'), handler(async (req, res) => {

@@ -11,6 +11,9 @@ import { loadSla } from './lib/sla';
 import { loadProviders } from './lib/paymentProviders';
 import { backfillAccounting } from './lib/accounting';
 import { fixLegacyData } from './lib/dataFixes';
+import { startJobs } from './lib/jobs';
+import { stripeGateway } from './lib/payments';
+import { darajaGateway } from './lib/mpesa';
 
 const main = async () => {
   await runMigrations();
@@ -29,7 +32,10 @@ const main = async () => {
   if (backfilled) console.log(`Posted accounts for ${backfilled} earlier orders`);
   const fixed = await fixLegacyData();
   if (fixed) console.log(`Updated ${fixed} order numbers, invoice numbers and payment references`);
-  createApp().listen(config.port, () => {
+  const payments = stripeGateway();
+  const mpesa = darajaGateway();
+  startJobs({ payments, mpesa });
+  createApp({ payments, mpesa }).listen(config.port, () => {
     console.log(`Carlos Shop API listening on :${config.port}`);
   });
 };

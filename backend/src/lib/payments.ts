@@ -4,7 +4,7 @@
 // change there applies at once. Tests inject a fake.
 import Stripe from 'stripe';
 import { fail } from './http';
-import { stripeKeys } from './paymentProviders';
+import { stripeKeys, stripeWebhookSecret } from './paymentProviders';
 
 export interface PaymentGateway {
   createIntent(input: { amountCents: number; currency: string; orderId: number; email: string }): Promise<{
@@ -29,6 +29,8 @@ export interface PaymentGateway {
   getPaymentLink(id: string): Promise<{ status: 'paid' | 'open' | 'expired'; paymentId?: string }>;
   /** Checks a secret key; returns the account's name. */
   checkKey(secretKey: string): Promise<string>;
+  /** A webhook call from Stripe, checked against its signature; throws if forged. */
+  parseWebhook(raw: Buffer, signature: string): { type: string; data: { object: any } };
 }
 
 const client = (secretKey?: string) => {
@@ -88,6 +90,11 @@ export const stripeGateway = (): PaymentGateway => ({
       return { status: 'paid', paymentId: typeof s.payment_intent === 'string' ? s.payment_intent : s.payment_intent?.id };
     }
     return { status: s.status === 'expired' ? 'expired' : 'open' };
+  },
+  parseWebhook(raw, signature) {
+    const secret = stripeWebhookSecret();
+    if (!secret) fail(503, 'Stripe webhooks aren’t set up.');
+    return client().webhooks.constructEvent(raw, signature, secret) as any;
   },
   async checkKey(secretKey) {
     const account = await client(secretKey).accounts.retrieve();

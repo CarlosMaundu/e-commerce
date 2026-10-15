@@ -954,6 +954,73 @@ describe('invoices, payments, refunds and the ledger', () => {
     expect(paid.payments.find((p: any) => p.kind === 'payment')).toMatchObject({ method: 'mpesa', reference: 'SJK4H7XYZ1' });
   });
 
+  test('card payments are never lost: Stripe’s webhook or the background check places the order once', async () => {
+    const token = await shopper();
+    const { placePaidCardOrders } = await import('../src/lib/jobs');
+    const confirm = await prepareCheckout(token, { payment: 'stripe' });
+    const intent = confirm.body.data.payment.client_secret.replace(/_secret$/, '');
+    const pendingId = (await query(`SELECT id FROM orders WHERE payment_reference = $1`, [intent])).rows[0].id;
+    const hook = (body: object, signature = 'test-signature') =>
+      request(app).post('/api/payments/stripe/webhook').set('Stripe-Signature', signature)
+        .set('Content-Type', 'application/json').send(JSON.stringify(body));
+    const paid = { type: 'payment_intent.succeeded', data: { object: { id: intent } } };
+
+    // A forged call changes nothing.
+    await hook(paid, 'forged').expect(400);
+    expect((await query('SELECT placed_at FROM orders WHERE id = $1', [pendingId])).rows[0].placed_at).toBeNull();
+
+    // The customer paid and closed the page: Stripe's webhook places the order, once.
+    fakePayments.intents.get(intent)!.status = 'succeeded';
+    await hook(paid).expect(200);
+    await hook(paid).expect(200);
+    const order = (await query('SELECT * FROM orders WHERE id = $1', [pendingId])).rows[0];
+    expect(order).toMatchObject({ status: 'processing', payment_status: 'paid' });
+    expect((await query(`SELECT count(*)::int AS n FROM payments WHERE order_id = $1 AND kind = 'payment'`, [pendingId])).rows[0].n).toBe(1);
+    expect((await request(app).get('/api/rest/cart').set(bearer(token))).body.data.products).toHaveLength(0);
+    // Coming back to the page afterwards just shows the order.
+    const back = await request(app).put('/api/rest/confirm').set(bearer(token));
+    expect(back.status).toBe(400); // checkout is already finished
+    const mine = (await request(app).get(`/api/rest/customerorders/${pendingId}`).set(bearer(token))).body.data;
+    expect(mine.status).toBe('processing');
+
+    // No webhook at all: the background check finds the paid order and places it.
+    const second = await prepareCheckout(token, { payment: 'stripe' });
+    const intent2 = second.body.data.payment.client_secret.replace(/_secret$/, '');
+    fakePayments.intents.get(intent2)!.status = 'succeeded';
+    await query(`UPDATE orders SET created_at = now() - interval '5 minutes' WHERE payment_reference = $1`, [intent2]);
+    expect(await placePaidCardOrders(fakePayments as any)).toBe(1);
+    expect(await placePaidCardOrders(fakePayments as any)).toBe(0);
+    expect((await query('SELECT payment_status FROM orders WHERE payment_reference = $1', [intent2])).rows[0].payment_status).toBe('paid');
+  });
+
+  test('payment requests nobody is watching are settled or expired in the background', async () => {
+    const admin = await staffUser('admin', 'boss@example.com');
+    await request(app).put('/api/admin/payment-providers/mpesa').set(bearer(admin)).send({
+      enabled: true, mode: 'test',
+      settings: { account_type: 'paybill', shortcode: '174379', callback_url: 'https://shop.example.com/api/payments/mpesa/callback' },
+      secrets: { consumer_key: 'ck_abc123', consumer_secret: 'cs_def456', passkey: 'pass7890' },
+    }).expect(200);
+    const token = await shopper();
+    const order = await placeOrder(token);
+    await query(`UPDATE orders SET currency = 'KES' WHERE id = $1`, [order.order_id]);
+    await query(`UPDATE invoices SET currency = 'KES' WHERE order_id = $1`, [order.order_id]);
+    const collect = (body: object) => request(app).post(`/api/admin/orders/${order.order_id}/collect`).set(bearer(admin)).send(body);
+    const link = (await collect({ method: 'card_link' })).body.data;
+    const prompt = (await collect({ method: 'mpesa', phone: '0712345678' })).body.data;
+    const { settleWaitingRequests } = await import('../src/routes/adminPayments');
+    const gateways = { payments: fakePayments as any, mpesa: fakeMpesa as any };
+
+    // Nothing has happened yet, and they're too new to check.
+    expect(await settleWaitingRequests(gateways)).toBe(0);
+    await query(`UPDATE payment_requests SET created_at = now() - interval '20 minutes'`);
+    // The card link was paid on the customer's phone; the M-Pesa prompt was never answered.
+    fakePayments.links.forEach((l) => { l.status = 'paid'; });
+    expect(await settleWaitingRequests(gateways)).toBe(2);
+    const states = (await query('SELECT id, status, message FROM payment_requests ORDER BY id')).rows;
+    expect(states.find((r) => r.id === link.request_id).status).toBe('paid');
+    expect(states.find((r) => r.id === prompt.request_id)).toMatchObject({ status: 'expired', message: 'No answer from the customer’s phone.' });
+  });
+
   test('the bell lists what needs attention, per permission, and can be read, dismissed and cleared', async () => {
     const token = await shopper();
     const order = await placeOrder(token);

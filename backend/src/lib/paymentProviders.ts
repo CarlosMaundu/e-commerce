@@ -28,6 +28,10 @@ export const PROVIDERS: Record<ProviderCode, { name: string; description: string
     fields: [
       { key: 'publishable_key', label: 'Publishable key', type: 'text', required: true, help: 'Starts with pk_test_ or pk_live_.' },
       { key: 'secret_key', label: 'Secret key', type: 'secret', required: true, help: 'Starts with sk_test_ or sk_live_. Stored encrypted.' },
+      {
+        key: 'webhook_secret', label: 'Webhook signing secret', type: 'secret',
+        help: 'Starts with whsec_. In Stripe → Developers → Webhooks, add https://<your shop>/api/payments/stripe/webhook for payment_intent.succeeded and checkout.session.completed. Places paid orders even if the customer closes the page.',
+      },
     ],
   },
   mpesa: {
@@ -125,6 +129,9 @@ export const stripeKeys = () => {
     publishableKey: (p.settings.publishable_key as string) || config.stripe.publishableKey,
   };
 };
+/** Stripe's webhook signing secret (Back office first, else STRIPE_WEBHOOK_SECRET). */
+export const stripeWebhookSecret = () => provider('stripe').secrets.webhook_secret || process.env.STRIPE_WEBHOOK_SECRET || '';
+
 export const cardsReady = () => Boolean(stripeKeys().secretKey && stripeKeys().publishableKey);
 
 export interface MpesaConfig {
