@@ -18,6 +18,7 @@ import { adminFaqRoutes, publicFaqRoutes } from './routes/faq';
 import { adminPromoRoutes } from './routes/adminPromos';
 import { adminDealRoutes } from './routes/adminDeals';
 import { adminCostRoutes } from './routes/adminCosts';
+import { stripeWebhookRoutes } from './routes/stripeWebhook';
 import { adminPaymentRoutes, mpesaCallbackRoutes } from './routes/adminPayments';
 import { darajaGateway, MpesaGateway } from './lib/mpesa';
 import { adminSecurityRoutes } from './routes/adminSecurity';
@@ -52,6 +53,8 @@ export const createApp = ({
       exposedHeaders: ['X-Total-Count', 'X-Search-Match'],
     })
   );
+  // Stripe signs the raw body, so its webhook comes before JSON parsing.
+  app.use('/api', stripeWebhookRoutes({ payments }));
   app.use(express.json({ limit: '100kb' }));
   app.use(cookieParser());
 

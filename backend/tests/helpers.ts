@@ -44,6 +44,11 @@ export const fakePayments = {
     const l = fakePayments.links.get(id);
     return l?.status === 'paid' ? { status: 'paid' as const, paymentId: `pi_${id}` } : { status: l?.status || ('expired' as const) };
   },
+  // Webhooks: 'test-signature' is genuine, anything else is forged.
+  parseWebhook(raw: Buffer, signature: string) {
+    if (signature !== 'test-signature') throw new Error('No signatures found matching the expected signature');
+    return JSON.parse(raw.toString('utf8'));
+  },
   async checkKey(key: string) {
     if (!key.startsWith('sk_test_')) throw new Error('Invalid API Key provided');
     return 'Test Shop';

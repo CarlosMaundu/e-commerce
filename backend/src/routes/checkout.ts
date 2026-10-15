@@ -15,17 +15,15 @@ const giftSnapshot = (g: GiftChoice) => {
 };
 import { z } from 'zod';
 import { finance } from '../lib/finance';
-import { issueInvoice, recordPayment } from '../lib/accounting';
 import { query, transaction } from '../db';
 import { audit } from '../lib/audit';
 import { fail, handler, ok, parse } from '../lib/http';
-import { sendOrderConfirmationEmail } from '../lib/mailer';
-import { addHistory, loadOrder, orderLink } from '../lib/orders';
+import { loadOrder } from '../lib/orders';
 import { PaymentGateway } from '../lib/payments';
+import { placeOrder } from '../lib/placeOrder';
 import { stripeKeys } from '../lib/paymentProviders';
-import { takeStock } from '../lib/products';
 import {
-  checkStock, computeTotals, customerCouponProblem, findCoupon, loadCartLines, PAYMENT_METHODS, round2, SHIPPING_METHODS,
+  checkStock, computeTotals, customerCouponProblem, findCoupon, loadCartLines, PAYMENT_METHODS, SHIPPING_METHODS,
 } from '../lib/pricing';
 import { authenticate, customersOnly } from '../middleware/auth';
 
@@ -271,58 +269,24 @@ export const checkoutRoutes = ({ payments }: { payments: PaymentGateway | null }
     const userId = req.auth!.userId;
     const state = await getState(userId);
     const pending = state.pending_order_id
-      && (await query('SELECT * FROM orders WHERE id = $1 AND user_id = $2 AND placed_at IS NULL', [state.pending_order_id, userId])).rows[0];
+      && (await query('SELECT * FROM orders WHERE id = $1 AND user_id = $2', [state.pending_order_id, userId])).rows[0];
     if (!pending) fail(400, 'Please review your order again before placing it.');
+    // Stripe's webhook may have placed it already (paid while this page loaded).
+    if (pending.placed_at) {
+      await query('UPDATE checkout_state SET pending_order_id = NULL WHERE user_id = $1', [userId]);
+      return ok(res, (await loadOrder(pending.id, { userId }))!.contract);
+    }
 
-    let paymentStatus = 'pending';
+    let paid = false;
     if (pending.payment_method === 'stripe') {
       if (!payments || !pending.payment_reference) fail(400, 'Your card payment wasn’t completed. Please try again.');
       const status = await payments!.getStatus(pending.payment_reference);
       if (status !== 'succeeded') fail(402, 'Your card payment wasn’t completed. Please try again or use another card.');
-      paymentStatus = 'paid';
+      paid = true;
     }
-
-    const placed = await transaction(async (db) => {
-      const items = (await db.query('SELECT * FROM order_items WHERE order_id = $1', [pending.id])).rows;
-      for (const item of items) {
-        if (!(await takeStock(db, item, req.auth!.userId))) {
-          fail(409, `Sorry, “${item.name}” sold out while you were checking out. Please update your cart.`);
-        }
-      }
-      if (pending.coupon_code) {
-        await db.query('UPDATE coupons SET uses_count = uses_count + 1 WHERE code = $1', [pending.coupon_code]);
-      }
-      const status = paymentStatus === 'paid' ? 'processing' : 'pending';
-      await db.query(
-        `UPDATE orders SET status = $2, payment_status = $3, placed_by = $4, placed_at = now(), updated_at = now()
-         WHERE id = $1`,
-        [pending.id, status, paymentStatus, req.auth!.impersonatorId]
-      );
-      await addHistory(db, pending.id, status, 'Order placed.', { notified: true, userId });
-      // The invoice, and the card payment when there is one.
-      const placedRow = (await db.query('SELECT * FROM orders WHERE id = $1', [pending.id])).rows[0];
-      const invoice = await issueInvoice(db, placedRow, { by: userId });
-      if (paymentStatus === 'paid') {
-        await recordPayment(db, {
-          invoice, method: 'stripe', amount: Number(invoice.total), reference: pending.payment_reference, by: userId,
-        });
-      }
-      await db.query('DELETE FROM cart_items WHERE user_id = $1', [userId]);
-      await db.query(
-        `UPDATE checkout_state SET coupon_code = NULL, pending_order_id = NULL, comment = '' WHERE user_id = $1`,
-        [userId]
-      );
-      return items;
-    });
-
+    await placeOrder(pending.id, { paid, userId, placedBy: req.auth!.impersonatorId ?? null });
     const loaded = (await loadOrder(pending.id, { userId }))!;
     audit(req, 'order.placed', `order:${pending.id}`, { total: Number(pending.total) });
-    sendOrderConfirmationEmail(req.auth!.user.email, {
-      number: pending.number,
-      total: Number(pending.total),
-      currency: pending.currency,
-      items: placed.map((i: any) => ({ name: i.name, quantity: i.quantity, total: round2(Number(i.total)) })),
-    }, orderLink(pending.id)).catch((error) => console.error('Order email failed:', error));
     ok(res, loaded.contract);
   }));
 
