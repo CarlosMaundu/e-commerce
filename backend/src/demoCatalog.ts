@@ -73,6 +73,53 @@ const combos = (attributes: Spec['products'][number]['attributes']): Record<stri
 
 const code = (s: string) => s.replace(/[^A-Za-z0-9]/g, '').slice(0, 3).toUpperCase();
 
+// What the demo shop pays, as a share of the selling price, by top-level
+// category (typical retail margins), so reports can show profit.
+const COST_SHARE: Record<string, number> = {
+  Electronics: 0.75,
+  Women: 0.45,
+  Men: 0.45,
+  Accessories: 0.45,
+  Shoes: 0.5,
+  Home: 0.5,
+  Beauty: 0.4,
+};
+
+/**
+ * Gives demo products (and their variants) a cost price where they have
+ * none, and past order lines of those products their cost; never touches a
+ * cost staff entered. Returns how many products were filled.
+ */
+export const fillDemoCosts = async (db: { query: (q: string, p?: unknown[]) => Promise<any> }) => {
+  const spec: Spec = JSON.parse(fs.readFileSync(path.join(SEED_DIR, 'catalog.json'), 'utf8'));
+  const skus = spec.products.map((p) => p.sku);
+  const share = `CASE COALESCE(root.name, c.name) ${Object.entries(COST_SHARE)
+    .map(([name, v]) => `WHEN '${name}' THEN ${v}`)
+    .join(' ')} ELSE 0.5 END`;
+  const filled = await db.query(
+    `UPDATE products p SET cost_price = round(p.price * s.share, 2)
+     FROM (SELECT p2.id, ${share} AS share FROM products p2
+           LEFT JOIN categories c ON c.id = p2.category_id LEFT JOIN categories root ON root.id = c.parent_id) s
+     WHERE s.id = p.id AND p.cost_price IS NULL AND p.sku = ANY($1::text[])`,
+    [skus]
+  );
+  await db.query(
+    `UPDATE product_variants v SET cost_price = round(COALESCE(v.price, p.price) * (p.cost_price / NULLIF(p.price, 0)), 2)
+     FROM products p WHERE p.id = v.product_id AND v.cost_price IS NULL AND p.cost_price IS NOT NULL
+       AND p.sku = ANY($1::text[])`,
+    [skus]
+  );
+  // Past order lines of these products: the variant's cost, else the product's.
+  await db.query(
+    `UPDATE order_items oi SET unit_cost = COALESCE(
+       (SELECT cost_price FROM product_variants WHERE id = oi.variant_id),
+       (SELECT cost_price FROM products WHERE id = oi.product_id))
+     WHERE oi.unit_cost IS NULL AND oi.product_id IN (SELECT id FROM products WHERE sku = ANY($1::text[]))`,
+    [skus]
+  );
+  return filled.rowCount || 0;
+};
+
 /**
  * Puts back demo images missing from the uploads folder. Hosts without a
  * lasting disk (Render's free plan) start every boot with an empty folder
@@ -241,6 +288,7 @@ export const seedDemoCatalog = async ({ replace = false } = {}) => {
       );
     }
   });
+  await fillDemoCosts({ query: (q: string, p?: unknown[]) => query(q, p) });
   console.log(`Seeded demo catalog: ${spec.products.length} products`);
 };
 

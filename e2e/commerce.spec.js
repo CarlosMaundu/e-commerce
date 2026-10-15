@@ -613,6 +613,41 @@ test('reports: sales from a real order, products, inventory history and finance'
   ).toContainText(/WEB-/);
 });
 
+test('cost prices are edited in one table, and deal clicks reach the Promotions report', async ({
+  page,
+  freshPage,
+}) => {
+  // A shopper clicks the deal in the top strip.
+  await page.goto('/');
+  const strip = page.getByLabel('Current offers');
+  await expect(strip).toBeVisible();
+  await strip.getByRole('button', { name: 'View deal' }).click();
+
+  await createUser({
+    email: 'boss@example.com',
+    firstname: 'Bea',
+    lastname: 'Boss',
+    role: 'admin',
+  });
+  const admin = await freshPage();
+  await login(admin, 'boss@example.com', 'Hi, Bea Boss');
+  await admin.goto('/admin/products');
+  await admin.getByRole('link', { name: 'Cost prices' }).click();
+  await expect(admin).toHaveURL(/\/admin\/products\/costs$/);
+  await admin.getByPlaceholder('Search product or SKU').fill('tote');
+  const cost = admin.getByLabel('Cost price for Canvas tote bag');
+  await cost.fill('9.5');
+  await admin.getByRole('button', { name: 'Save 1 change' }).click();
+  await expect(toast(admin)).toHaveText('1 cost price saved.');
+  await expect(cost).toHaveValue('9.5');
+
+  await admin.goto('/admin/reports/promotions');
+  await expect(admin.getByTestId('report-card-deal_clicks')).toContainText('1');
+  await expect(
+    admin.getByRole('table', { name: 'Deals: views and clicks' })
+  ).toBeVisible();
+});
+
 test('a super admin creates, then deletes, a custom role', async ({ page }) => {
   await createUser({
     email: 'root@example.com',

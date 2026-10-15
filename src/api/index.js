@@ -1262,3 +1262,29 @@ export const adminPayments = {
     return data;
   },
 };
+
+/** Back office → Products → Cost prices (raw API shapes). */
+export const adminCosts = {
+  /** { search, missing, category, page, limit } → { items, total, counts } */
+  async list(params = {}) {
+    const { data } = await http().get('/admin/cost-prices', { params });
+    return data;
+  },
+  /** items: [{ product_id, variant_id, cost_price }] */
+  async save(items, applyToPastOrders) {
+    const { data } = await http().put('/admin/cost-prices', {
+      items,
+      apply_to_past_orders: applyToPastOrders,
+    });
+    return data;
+  },
+  /** Fills missing costs so each item makes `marginPercent` → { filled } */
+  async fill(marginPercent, { category, applyToPastOrders } = {}) {
+    const { data } = await http().post('/admin/cost-prices/fill', {
+      margin_percent: marginPercent,
+      category: category || undefined,
+      apply_to_past_orders: applyToPastOrders,
+    });
+    return data;
+  },
+};

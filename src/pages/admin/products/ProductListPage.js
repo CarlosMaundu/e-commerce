@@ -274,6 +274,15 @@ const ProductListPage = () => {
             >
               {selected.length ? `Export ${selected.length}` : 'Export'}
             </Button>
+            {canUpdate && (
+              <Button
+                component={RouterLink}
+                to="/admin/products/costs"
+                sx={{ bgcolor: 'background.neutral' }}
+              >
+                Cost prices
+              </Button>
+            )}
             {canCreate && (
               <Button
                 variant="contained"

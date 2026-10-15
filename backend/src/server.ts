@@ -3,7 +3,8 @@ import { createApp } from './app';
 import { config } from './config';
 import { runMigrations } from './migrate';
 import { runSeed } from './seed';
-import { restoreDemoImages } from './demoCatalog';
+import { fillDemoCosts, restoreDemoImages } from './demoCatalog';
+import { query } from './db';
 import { loadFinance } from './lib/finance';
 import { loadDelivery } from './lib/delivery';
 import { loadSla } from './lib/sla';
@@ -18,6 +19,9 @@ const main = async () => {
   await loadSla();
   await loadProviders();
   await runSeed();
+  // Demo products get cost prices (once), so reports can show profit.
+  const costed = await fillDemoCosts({ query: (q: string, p?: unknown[]) => query(q, p) });
+  if (costed) console.log(`Set cost prices on ${costed} demo products`);
   const images = restoreDemoImages();
   if (images) console.log(`Restored ${images} demo images`);
   // Invoices and ledger entries for orders placed before accounting existed.

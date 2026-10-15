@@ -244,7 +244,7 @@ export const productsReport = async (p: Period, f: { category?: number; brand?: 
     return_rate: pct(r.returned, r.units),
     margin: r.costed ? pct(num(r.costed) - num(r.cogs), num(r.costed)) : null,
     stock: r.track_inventory ? r.stock : null,
-    link: `/admin/products/${r.id}/edit`,
+    link: `/admin/products/${r.id}`,
   }));
   const sold = rows.filter((r) => r.units > 0);
   const units = sold.reduce((s, r) => s + r.units, 0);
