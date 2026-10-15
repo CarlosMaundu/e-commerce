@@ -1,6 +1,7 @@
 // src/routes/catalog.ts — storefront catalog, brands, reviews, promotions and
 // newsletter (OpenCart routes plus documented extensions).
 import crypto from 'crypto';
+import rateLimit from 'express-rate-limit';
 import { logSearch, relatedMatch } from '../lib/search';
 import { getRefundSettings } from '../lib/refunds';
 import { Router } from 'express';
@@ -157,6 +158,16 @@ const startOfTomorrow = () => {
   d.setHours(24, 0, 0, 0);
   return d;
 };
+
+// Deal views and clicks: plenty for real shoppers, not for floods.
+const dealLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (_req, res) => res.status(204).end(),
+  skip: () => process.env.NODE_ENV === 'test',
+});
 
 export const catalogRoutes = () => {
   const router = Router();
@@ -438,6 +449,35 @@ export const catalogRoutes = () => {
           daily: !p.ends_at,
         }))
       );
+    })
+  );
+
+  // A deal was seen or clicked (top strip or home banner), for the
+  // Promotions report. Views count once per visitor, deal, place and day.
+  router.post(
+    '/promotions/:id/events',
+    dealLimiter,
+    optionalAuth,
+    handler(async (req, res) => {
+      const b = parse(
+        z.object({ kind: z.enum(['view', 'click']), placement: z.enum(['strip', 'banner']) }),
+        req.body
+      );
+      const id = Number(req.params.id);
+      const visitor = crypto
+        .createHash('sha256')
+        .update(`${req.ip}|${req.get('user-agent') || ''}`)
+        .digest('hex')
+        .slice(0, 32);
+      if (Number.isInteger(id) && id > 0) {
+        await query(
+          `INSERT INTO promotion_events (promotion_id, kind, placement, visitor, user_id, day)
+           SELECT id, $2, $3, $4, $5, (now() AT TIME ZONE 'Africa/Nairobi')::date FROM promotions WHERE id = $1
+           ON CONFLICT DO NOTHING`,
+          [id, b.kind, b.placement, visitor, req.auth?.userId ?? null]
+        );
+      }
+      res.status(204).end();
     })
   );
 

@@ -17,6 +17,7 @@ import { adminSupportRoutes, supportRoutes } from './routes/support';
 import { adminFaqRoutes, publicFaqRoutes } from './routes/faq';
 import { adminPromoRoutes } from './routes/adminPromos';
 import { adminDealRoutes } from './routes/adminDeals';
+import { adminCostRoutes } from './routes/adminCosts';
 import { adminPaymentRoutes, mpesaCallbackRoutes } from './routes/adminPayments';
 import { darajaGateway, MpesaGateway } from './lib/mpesa';
 import { adminSecurityRoutes } from './routes/adminSecurity';
@@ -74,6 +75,7 @@ export const createApp = ({
   app.use('/api/admin', adminSupportRoutes());
   app.use('/api/admin', adminPromoRoutes());
   app.use('/api/admin', adminDealRoutes());
+  app.use('/api/admin', adminCostRoutes());
   app.use('/api/admin', adminPaymentRoutes({ payments, mpesa }));
   app.use('/api', mpesaCallbackRoutes({ mpesa }));
   app.use('/api/rest', publicFaqRoutes());

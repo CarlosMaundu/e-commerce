@@ -17,8 +17,55 @@ import {
 } from '@mui/material';
 import { FiChevronLeft, FiChevronRight, FiX } from 'react-icons/fi';
 import { catalog } from '../../api';
+import { API_BASE_URL } from '../../api/config';
 
 let cache = null; // one request per page load
+
+/**
+ * Tells the shop a deal was seen or clicked (for the Promotions report).
+ * A beacon, so it never slows the page or a click; views are sent once per
+ * deal, place and day from this browser (the server also counts each once).
+ */
+export const trackDeal = (id, kind, placement) => {
+  if (!id) return;
+  if (kind === 'view') {
+    const key = `deal-view:${id}:${placement}:${new Date().toDateString()}`;
+    try {
+      if (window.sessionStorage.getItem(key)) return;
+      window.sessionStorage.setItem(key, '1');
+    } catch {
+      // Private mode: send it anyway.
+    }
+  }
+  const url = `${API_BASE_URL}/rest/promotions/${id}/events`;
+  const body = JSON.stringify({ kind, placement });
+  try {
+    if (
+      navigator.sendBeacon?.(
+        url,
+        new Blob([body], { type: 'application/json' })
+      )
+    )
+      return;
+  } catch {
+    // Fall back to fetch below.
+  }
+  fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body,
+    keepalive: true,
+    credentials: 'include',
+  }).catch(() => {});
+};
+
+/** Counts the deal on screen as seen. */
+const useDealView = (promo, placement) => {
+  const id = promo?.id;
+  useEffect(() => {
+    trackDeal(id, 'view', placement);
+  }, [id, placement]);
+};
 
 /** Current offers; `loaded` is false until the first answer arrives. */
 export const usePromotionsState = () => {
@@ -141,6 +188,7 @@ export const PromoStrip = ({ onClose }) => {
   const promos = state.promos.filter(inStrip);
   const { index, pause } = useRotation(promos.length);
   const promo = promos[index];
+  useDealView(state.loaded ? promo : null, 'strip');
   if (!state.loaded) {
     // Keep the strip's height while offers load, so the page doesn't jump.
     return (
@@ -208,7 +256,10 @@ export const PromoStrip = ({ onClose }) => {
             size="small"
             variant="contained"
             color="warning"
-            onClick={() => navigate(promo.link)}
+            onClick={() => {
+              trackDeal(promo.id, 'click', 'strip');
+              navigate(promo.link);
+            }}
             sx={{ color: '#fff' }}
           >
             View deal
@@ -240,6 +291,7 @@ export const PromoBanner = () => {
   const { loaded } = state;
   const promos = state.promos.filter(inBanner);
   const { index, setIndex, pause } = useRotation(promos.length, 7000);
+  useDealView(loaded ? promos[index] : null, 'banner');
   if (!loaded) {
     return (
       <Skeleton
@@ -359,7 +411,10 @@ export const PromoBanner = () => {
               <Button
                 variant="contained"
                 color="warning"
-                onClick={() => navigate(promo.link)}
+                onClick={() => {
+                  trackDeal(promo.id, 'click', 'banner');
+                  navigate(promo.link);
+                }}
                 tabIndex={active ? 0 : -1}
                 sx={{ color: '#fff', justifySelf: { xs: 'start', md: 'end' } }}
               >

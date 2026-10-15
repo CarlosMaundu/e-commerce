@@ -78,6 +78,7 @@ import {
 import AdminReturnDetail from './pages/admin/orders/AdminReturnDetail';
 import { PromoCodePage, PromoCodesPage } from './pages/admin/PromoPages';
 import PaymentMethodsPage from './pages/admin/PaymentMethodsPage';
+import CostPricesPage from './pages/admin/products/CostPricesPage';
 
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import {
@@ -342,6 +343,14 @@ const App = () => (
                       element={
                         <AdminRoute permissions={['catalog.products.view']}>
                           <ProductListPage />
+                        </AdminRoute>
+                      }
+                    />
+                    <Route
+                      path="products/costs"
+                      element={
+                        <AdminRoute permissions={['catalog.products.update']}>
+                          <CostPricesPage />
                         </AdminRoute>
                       }
                     />

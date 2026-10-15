@@ -91,4 +91,69 @@ describe('data for reports', () => {
     await request(app).get('/api/rest/products').query({ search: 'jacket', page: 2, limit: 1 }).set('User-Agent', 'tablet');
     expect((await query('SELECT count(*)::int AS n FROM search_queries')).rows[0].n).toBe(3);
   });
+
+  test('cost prices: demo products come with costs; staff edit them, fill missing ones from a margin, and use them for past orders', async () => {
+    const admin = await staff('admin', 'boss@example.com');
+    // The demo catalog has costs, so margins show from the start.
+    const missingAtStart = (await request(app).get('/api/admin/cost-prices').set(bearer(admin))).body.data.counts;
+    expect(missingAtStart).toMatchObject({ missing: 0 });
+    const ops = await staff('order_manager', 'ops@example.com');
+    expect((await request(app).get('/api/admin/cost-prices').set(bearer(ops))).status).toBe(403);
+
+    // A product without a cost, and a past order line of it.
+    const tote = await productId('Canvas tote bag');
+    await query('UPDATE products SET cost_price = NULL WHERE id = $1', [tote]);
+    const orderId = (await query(
+      `INSERT INTO orders (email, status, payment_method, shipping_method, shipping_address, payment_address, subtotal, shipping_total, tax_total, total, currency, number, placed_at)
+       VALUES ('x@example.com', 'delivered', 'cod', 'standard', '{}', '{}', 20, 0, 0, 20, 'USD', 'WEB-TEST', now()) RETURNING id`
+    )).rows[0].id;
+    await query(
+      `INSERT INTO order_items (order_id, product_id, name, image, options, unit_price, quantity, total)
+       VALUES ($1, $2, 'Canvas tote bag', '', '{}', 20, 1, 20)`,
+      [orderId, tote]
+    );
+    const missing = (await request(app).get('/api/admin/cost-prices?missing=1').set(bearer(admin))).body.data;
+    expect(missing.items.map((i: any) => i.name)).toEqual(['Canvas tote bag']);
+    expect(missing.items[0]).toMatchObject({ cost_price: null, margin: null });
+
+    // Filling from a 40% margin, used for past orders too.
+    const filled = (await request(app).post('/api/admin/cost-prices/fill').set(bearer(admin))
+      .send({ margin_percent: 40, apply_to_past_orders: true })).body.data;
+    expect(filled.filled).toBe(1);
+    const row = (await request(app).get('/api/admin/cost-prices?search=tote').set(bearer(admin))).body.data.items[0];
+    expect(row.margin).toBeCloseTo(40, 0);
+    expect(Number((await query('SELECT unit_cost FROM order_items WHERE order_id = $1', [orderId])).rows[0].unit_cost))
+      .toBeCloseTo(row.cost_price, 2);
+
+    // Editing a cost; past order lines that already have one keep it.
+    await request(app).put('/api/admin/cost-prices').set(bearer(admin))
+      .send({ items: [{ product_id: tote, variant_id: null, cost_price: 5 }], apply_to_past_orders: true }).expect(200);
+    expect(Number((await query('SELECT cost_price FROM products WHERE id = $1', [tote])).rows[0].cost_price)).toBe(5);
+    expect(Number((await query('SELECT unit_cost FROM order_items WHERE order_id = $1', [orderId])).rows[0].unit_cost))
+      .toBeCloseTo(row.cost_price, 2);
+    expect((await request(app).post('/api/admin/cost-prices/fill').set(bearer(admin)).send({ margin_percent: 120 })).status).toBe(400);
+  });
+
+  test('deal views and clicks are counted (views once per visitor a day) and reported per deal', async () => {
+    const admin = await staff('admin', 'boss@example.com');
+    const deals = (await request(app).get('/api/admin/deals').set(bearer(admin))).body.data;
+    const deal = deals[0];
+    const send = (kind: string, placement: string, agent = 'phone') =>
+      request(app).post(`/api/rest/promotions/${deal.promotion_id}/events`).set('User-Agent', agent).send({ kind, placement });
+    await send('view', 'strip').expect(204);
+    await send('view', 'strip').expect(204); // same visitor, same day: once
+    await send('view', 'banner').expect(204);
+    await send('view', 'strip', 'laptop').expect(204);
+    await send('click', 'strip').expect(204);
+    await send('click', 'banner', 'laptop').expect(204);
+    expect((await send('stare', 'strip')).status).toBe(400);
+    await request(app).post('/api/rest/promotions/999999/events').send({ kind: 'view', placement: 'strip' }).expect(204);
+
+    const report = (await request(app).get('/api/admin/reports/promotions').set(bearer(admin))).body.data;
+    expect(report.cards.find((c: any) => c.key === 'deal_views').value).toBe(3);
+    expect(report.cards.find((c: any) => c.key === 'deal_clicks').value).toBe(2);
+    const row = report.breakdowns[0].rows.find((r: any) => r.title === deal.title);
+    expect(row).toMatchObject({ views: 3, clicks: 2, rate: 66.67, split: '1 / 1' });
+    expect(report.notes).toBeUndefined();
+  });
 });

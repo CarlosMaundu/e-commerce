@@ -79,7 +79,8 @@ describe('reports', () => {
     const promos = (await report('promotions')).body.data;
     expect(cardOf(promos, 'with_code').value).toBe(1);
     expect(promos.table.rows[0]).toMatchObject({ code: 'WELCOME10', uses: 1 });
-    expect(promos.breakdowns[0].rows[0]).toMatchObject({ code: 'WELCOME10', first_orders: 1, came_back: 1 });
+    expect(promos.breakdowns.find((b: any) => b.title.startsWith('First orders')).rows[0])
+      .toMatchObject({ code: 'WELCOME10', first_orders: 1, came_back: 1 });
 
     const service = (await report('service')).body.data;
     expect(cardOf(service, 'returns').value).toBe(1);

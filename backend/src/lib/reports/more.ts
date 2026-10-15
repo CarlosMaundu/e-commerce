@@ -173,6 +173,31 @@ export const promotionsReport = async (p: Period): Promise<Report> => {
     [p.from, p.to]
   )).rows;
   const share = pct(cur.with_code, cur.orders);
+  // Deals (top strip and home banner): views, clicks, and what their codes sold.
+  const dealTotals = async (from: string, to: string) =>
+    (await query(
+      `SELECT count(*) FILTER (WHERE kind = 'view')::int AS views, count(*) FILTER (WHERE kind = 'click')::int AS clicks
+       FROM promotion_events WHERE day BETWEEN $1::date AND $2::date`,
+      [from, to]
+    )).rows[0];
+  const dealsNow = await dealTotals(p.from, p.to);
+  const dealsBefore = p.compare ? await dealTotals(p.compare.from, p.compare.to) : null;
+  const deals = (await query(
+    `SELECT pr.id, pr.title, pr.placement, pr.code,
+       count(e.*) FILTER (WHERE e.kind = 'view')::int AS views,
+       count(e.*) FILTER (WHERE e.kind = 'click')::int AS clicks,
+       count(e.*) FILTER (WHERE e.kind = 'click' AND e.placement = 'strip')::int AS strip_clicks,
+       count(e.*) FILTER (WHERE e.kind = 'click' AND e.placement = 'banner')::int AS banner_clicks,
+       (SELECT count(*)::int FROM orders o WHERE pr.code IS NOT NULL AND o.coupon_code = pr.code
+          AND ${VALID} AND ${inRange('o.placed_at', '$1', '$2')}) AS code_orders,
+       (SELECT COALESCE(sum(o.total), 0) FROM orders o WHERE pr.code IS NOT NULL AND o.coupon_code = pr.code
+          AND ${VALID} AND ${inRange('o.placed_at', '$1', '$2')}) AS code_sales
+     FROM promotions pr
+     LEFT JOIN promotion_events e ON e.promotion_id = pr.id AND e.day BETWEEN $1::date AND $2::date
+     GROUP BY pr.id ORDER BY count(e.*) FILTER (WHERE e.kind = 'click') DESC, pr.position`,
+    [p.from, p.to]
+  )).rows;
+  const PLACES: Record<string, string> = { strip: 'Top strip', banner: 'Home banner', both: 'Strip and banner' };
   return {
     period: p.out,
     cards: [
@@ -181,6 +206,12 @@ export const promotionsReport = async (p: Period): Promise<Report> => {
       card('code_sales', 'Sales with a code', num(cur.code_sales), 'money', prev ? num(prev.code_sales) : null),
       card('aov_code', 'Average order with a code', num(cur.aov_code), 'money', undefined, {
         hint: `Without a code: ${round2(num(cur.aov_plain)).toFixed(2)}`,
+      }),
+      card('deal_views', 'Deal views', dealsNow.views, 'number', dealsBefore?.views, {
+        hint: 'Top strip and home banner, once per visitor a day',
+      }),
+      card('deal_clicks', 'Deal clicks', dealsNow.clicks, 'number', dealsBefore?.clicks, {
+        hint: `${pct(dealsNow.clicks, dealsNow.views)}% of views`,
       }),
       card('return_rate', 'First-order code → came back', pct(
         followUp.reduce((s, r) => s + r.came_back, 0),
@@ -219,6 +250,33 @@ export const promotionsReport = async (p: Period): Promise<Report> => {
     },
     breakdowns: [
       {
+        title: 'Deals: views and clicks',
+        columns: [
+          { key: 'title', label: 'Deal' },
+          { key: 'place', label: 'Shows in' },
+          { key: 'views', label: 'Views', format: 'number', align: 'right' },
+          { key: 'clicks', label: 'Clicks', format: 'number', align: 'right' },
+          { key: 'rate', label: 'Click rate', format: 'percent', align: 'right' },
+          { key: 'split', label: 'Clicks: strip / banner' },
+          { key: 'code', label: 'Code' },
+          { key: 'code_orders', label: 'Code orders', format: 'number', align: 'right' },
+          { key: 'code_sales', label: 'Code sales', format: 'money', align: 'right' },
+        ],
+        rows: deals.map((d) => ({
+          title: d.title,
+          place: PLACES[d.placement] || d.placement,
+          views: d.views,
+          clicks: d.clicks,
+          rate: pct(d.clicks, d.views),
+          split: `${d.strip_clicks} / ${d.banner_clicks}`,
+          code: d.code || '—',
+          code_orders: d.code_orders,
+          code_sales: round2(num(d.code_sales)),
+          link: '/admin/settings?tab=home',
+        })),
+        empty: 'No deals yet. Add them in Store settings → Home page.',
+      },
+      {
         title: 'First orders with a code: did they come back?',
         columns: [
           { key: 'code', label: 'Code' },
@@ -230,7 +288,6 @@ export const promotionsReport = async (p: Period): Promise<Report> => {
         empty: 'No first orders used a code in this period.',
       },
     ],
-    notes: ['Clicks on the deal strip and home banner aren’t tracked yet, so deals are measured by the codes they promote.'],
   };
 };
 
