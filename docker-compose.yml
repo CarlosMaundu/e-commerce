@@ -57,6 +57,26 @@ services:
       mailpit:
         condition: service_started
 
+  # Nightly database backups to ./backups (see docker/backup.sh).
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    entrypoint: ['/bin/sh', '/backup.sh']
+    environment:
+      PGHOST: db
+      PGUSER: shop
+      PGPASSWORD: ${POSTGRES_PASSWORD:-shop}
+      PGDATABASE: carlos_shop
+      TZ: Africa/Nairobi
+      BACKUP_HOUR: ${BACKUP_HOUR:-2}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+    volumes:
+      - ./docker/backup.sh:/backup.sh:ro
+      - ./backups:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+
   web:
     build:
       context: .

@@ -13,6 +13,7 @@ support requests and reports.
 - [Configuration](#configuration)
 - [Payments](#payments)
 - [Testing locally with M-Pesa (public callback)](#testing-locally-with-m-pesa-public-callback)
+- [Backups](#backups)
 - [Tests](#tests)
 - [Project layout](#project-layout)
 - [Working on the code](#working-on-the-code)
@@ -158,6 +159,21 @@ with Safaricom every few seconds, so payments are recorded even if a
 callback is slow. In production, leave Callback URL empty: the shop's own
 https address is used.
 
+## Backups
+
+The `backup` service (in `docker-compose.yml`) writes a compressed copy of
+the shop database to `./backups` when it starts and every night at 02:00
+(Nairobi time), keeping 14 days. Change with `BACKUP_HOUR` and
+`BACKUP_KEEP_DAYS`.
+
+```bash
+npm run backup                                          # a backup right now
+npm run restore -- backups/carlos_shop-2026-10-15-0200.sql.gz   # replaces all data (asks first)
+```
+
+Copy `./backups` somewhere off the machine too (cloud drive, another
+computer): a backup on the same disk doesn't survive that disk.
+
 ## Tests
 
 ```bash
@@ -171,6 +187,11 @@ The API and e2e tests need the Docker database (`npm run stack`). The e2e
 suite starts its own API on port 4100 (database `carlos_shop_e2e`) and web
 app on port 3100, in US dollars with 8% tax. Run API tests one at a time
 (`--runInBand`, as `npm test` does).
+
+**On GitHub:** every pull request and push to `main` runs lint, the web unit
+tests and the API tests (`.github/workflows/ci.yml`); the end-to-end suite
+runs nightly and on demand (`e2e.yml`). Make the **CI** checks required in
+the repository's branch protection so a red build can't be merged.
 
 ## Project layout
 

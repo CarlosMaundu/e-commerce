@@ -29,3 +29,6 @@ yarn-error.log*
 /test-results/
 /playwright-report/
 firebase-debug.log
+
+# database backups (docker/backup.sh)
+/backups/

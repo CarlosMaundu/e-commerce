@@ -11,7 +11,9 @@
     "test:e2e": "playwright test",
     "stack": "docker compose up -d --build",
     "stack:down": "docker compose down",
-    "tunnel": "cloudflared tunnel --no-autoupdate --url http://localhost:8080"
+    "tunnel": "cloudflared tunnel --no-autoupdate --url http://localhost:8080",
+    "backup": "docker compose exec -T db pg_dump -U shop --no-owner --clean --if-exists carlos_shop | gzip > backups/carlos_shop-$(date +%Y-%m-%d-%H%M).sql.gz && ls -1t backups | head -1",
+    "restore": "sh docker/restore.sh"
   },
   "author": "Carlos Maundu",
   "license": "ISC",
