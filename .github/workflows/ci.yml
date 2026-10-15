@@ -1,0 +1,62 @@
+# CI: lint, web unit tests and API tests on every pull request and push to
+# main. Merging needs these to pass (set "ci" as a required check in branch
+# protection). The end-to-end suite runs nightly and on demand (e2e.yml).
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: Web (lint + unit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      HUSKY: '0'
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx eslint src e2e --max-warnings=0
+      - run: npm test
+
+  api:
+    name: API (types + tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: shop
+          POSTGRES_PASSWORD: shop
+          POSTGRES_DB: carlos_shop_test
+        ports: ['5433:5432']
+        options: >-
+          --health-cmd "pg_isready -U shop -d carlos_shop_test"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit -p tsconfig.json
+      - run: npm test
+        env:
+          TEST_DATABASE_URL: postgres://shop:shop@localhost:5433/carlos_shop_test

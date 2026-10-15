@@ -1,0 +1,46 @@
+# End-to-end (Playwright) suite: nightly and on demand. Starts its own API
+# and web app against a Postgres service and Mailpit, like `npm run test:e2e`.
+name: E2E
+
+on:
+  schedule:
+    - cron: '0 1 * * *' # 04:00 in Nairobi
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: shop
+          POSTGRES_PASSWORD: shop
+          POSTGRES_DB: carlos_shop_e2e
+        ports: ['5433:5432']
+        options: >-
+          --health-cmd "pg_isready -U shop -d carlos_shop_e2e"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+      mailpit:
+        image: axllent/mailpit:v1.21
+        ports: ['1025:1025', '8025:8025']
+    env:
+      HUSKY: '0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm ci
+        working-directory: backend
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test --reporter=line
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: test-results/
+          retention-days: 7
