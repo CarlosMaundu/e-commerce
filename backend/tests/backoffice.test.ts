@@ -209,8 +209,13 @@ describe('security settings', () => {
       tagline: 'Everyday things, chosen with care.',
       social: { instagram: 'https://instagram.com/nyota', x: 'https://x.com/nyota' },
     });
-    const log = await query("SELECT action FROM audit_logs WHERE action = 'admin.store_settings_updated'");
-    expect(log.rowCount).toBe(2);
+    // Audit entries are written after the response, so give them a moment.
+    let logged = 0;
+    for (let i = 0; i < 20 && logged < 2; i += 1) {
+      logged = (await query("SELECT action FROM audit_logs WHERE action = 'admin.store_settings_updated'")).rowCount ?? 0;
+      if (logged < 2) await new Promise((r) => setTimeout(r, 50));
+    }
+    expect(logged).toBe(2);
   });
 
   test('back-office sessions end after the idle timeout; customers’ don’t', async () => {
