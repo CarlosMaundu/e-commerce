@@ -31,7 +31,12 @@ const FEATURES = [
 ];
 
 const CustomerExperienceSection = () => (
-  <Box component="section" aria-labelledby="experience-title">
+  // Phones skip this: the home page there is photos, categories and products.
+  <Box
+    component="section"
+    aria-labelledby="experience-title"
+    sx={{ display: { xs: 'none', md: 'block' } }}
+  >
     <Grid container spacing={{ xs: 2, md: 6 }} alignItems="center">
       <Grid item xs={12} md={6}>
         <Typography

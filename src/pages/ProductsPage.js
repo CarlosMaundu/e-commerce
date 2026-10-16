@@ -184,7 +184,9 @@ const ProductsPage = () => {
             ? `#${filters.tags[0]}`
             : chosenCategories.length > 1
               ? chosenCategories.map((c) => c.category.name).join(', ')
-              : 'All products');
+              : filters.sort === 'popular'
+                ? 'Best viewed this week'
+                : 'All products');
 
   // Active filters as removable chips.
   const chips = useMemo(() => {

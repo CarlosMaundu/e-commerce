@@ -14,6 +14,7 @@ import {
   Skeleton,
   Stack,
   Typography,
+  useMediaQuery,
 } from '@mui/material';
 import { FiArrowRight, FiChevronLeft, FiChevronRight } from 'react-icons/fi';
 import { catalog } from '../../api';
@@ -162,17 +163,23 @@ export const BrandsStrip = () => {
   );
 };
 
-// ---------- curated categories ----------
+// ---------- phones: category circles under the hero ----------
 
-export const CuratedPicks = () => {
+/** Phones: every category with a photo, as circles you swipe through. */
+export const CategoryCircles = () => {
   const categories = useLoad(() => catalog.getCategories());
-  const navigate = useNavigate();
   const list = (categories || []).filter((c) => c.image);
   if (categories && !list.length) return null;
   return (
-    <Box component="section" aria-labelledby="curated-title">
-      <SectionTitle id="curated-title">Curated picks</SectionTitle>
-      {/* Phones: a row of circles to swipe through. */}
+    <Box
+      component="nav"
+      aria-label="Shop by category"
+      sx={{ display: { xs: 'block', md: 'none' }, mt: 3 }}
+    >
+      <Typography variant="h5" component="h2" sx={{ mb: 1.5 }}>
+        Categories
+      </Typography>
+
       <Box
         data-testid="curated-circles"
         sx={{
@@ -180,6 +187,7 @@ export const CuratedPicks = () => {
           gap: 2,
           overflowX: 'auto',
           scrollSnapType: 'x mandatory',
+          scrollPaddingInline: 16,
           mx: -2,
           px: 2,
           pb: 1,
@@ -245,6 +253,133 @@ export const CuratedPicks = () => {
           )
         )}
       </Box>
+    </Box>
+  );
+};
+
+const TRAIN_SECONDS_PER_CARD = 4;
+
+/**
+ * Phones: Curated picks as photo cards moving right to left without end —
+ * the list runs twice, side by side, so the loop never shows a gap. Touch
+ * or hover pauses it; with reduced motion it's a row you swipe instead.
+ */
+const CuratedTrain = ({ list }) => {
+  const card = (cat, copy) => (
+    <Box
+      key={`${copy}-${cat.id}`}
+      component={RouterLink}
+      to={`/products?category=${cat.id}`}
+      aria-hidden={copy ? true : undefined}
+      tabIndex={copy ? -1 : undefined}
+      sx={{
+        position: 'relative',
+        flex: '0 0 auto',
+        width: 168,
+        height: 112,
+        borderRadius: '12px',
+        overflow: 'hidden',
+        color: 'common.white',
+        textDecoration: 'none',
+      }}
+    >
+      <Box
+        component="img"
+        src={cat.image}
+        alt=""
+        loading="lazy"
+        sx={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          display: 'block',
+        }}
+      />
+      <Box
+        sx={{
+          position: 'absolute',
+          inset: 0,
+          display: 'flex',
+          alignItems: 'flex-end',
+          p: 1.25,
+          background:
+            'linear-gradient(180deg, rgba(0,0,0,0) 35%, rgba(0,0,0,0.65) 100%)',
+        }}
+      >
+        <Typography sx={{ fontWeight: 700, fontSize: '0.9rem' }} noWrap>
+          {cat.name}
+        </Typography>
+      </Box>
+    </Box>
+  );
+
+  if (!list) {
+    return (
+      <Stack
+        direction="row"
+        spacing={1.5}
+        sx={{ display: { xs: 'flex', md: 'none' }, overflow: 'hidden' }}
+      >
+        {Array.from({ length: 3 }, (_, i) => (
+          <Skeleton
+            key={i}
+            variant="rounded"
+            width={168}
+            height={112}
+            sx={{ flexShrink: 0, borderRadius: '12px' }}
+          />
+        ))}
+      </Stack>
+    );
+  }
+
+  return (
+    <Box
+      data-testid="curated-train"
+      sx={{
+        display: { xs: 'block', md: 'none' },
+        mx: -2,
+        pl: 2,
+        overflow: 'hidden',
+        '@media (prefers-reduced-motion: reduce)': { overflowX: 'auto' },
+      }}
+    >
+      <Box
+        sx={{
+          display: 'flex',
+          gap: 1.5,
+          width: 'max-content',
+          animation: `curatedTrain ${list.length * TRAIN_SECONDS_PER_CARD}s linear infinite`,
+          '&:hover, &:active': { animationPlayState: 'paused' },
+          '@keyframes curatedTrain': {
+            // One full copy plus its gap: the second copy lands where the
+            // first began, so the loop is seamless.
+            from: { transform: 'translateX(0)' },
+            to: { transform: 'translateX(calc(-50% - 6px))' },
+          },
+          '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
+        }}
+      >
+        {list.map((cat) => card(cat, 0))}
+        {list.map((cat) => card(cat, 1))}
+      </Box>
+    </Box>
+  );
+};
+CuratedTrain.propTypes = { list: PropTypes.array };
+
+// ---------- curated categories ----------
+
+export const CuratedPicks = () => {
+  const categories = useLoad(() => catalog.getCategories());
+  const navigate = useNavigate();
+  const list = (categories || []).filter((c) => c.image);
+  if (categories && !list.length) return null;
+  return (
+    <Box component="section" aria-labelledby="curated-title">
+      <SectionTitle id="curated-title">Curated picks</SectionTitle>
+      {/* Phones: the photo cards travel past like a train, round and round. */}
+      <CuratedTrain list={categories ? list : null} />
       <Grid container spacing={2} sx={{ display: { xs: 'none', md: 'flex' } }}>
         {(categories ? list : Array.from({ length: 4 })).map((cat, i) => (
           <Grid item xs={6} sm={4} md={3} lg key={cat?.id ?? i}>
@@ -316,6 +451,8 @@ export const BestViewed = () => {
   const products = useLoad(() =>
     catalog.getProducts({ sort: 'popular', limit: 12 })
   );
+  // Phones: the top four in two rows, then the full list.
+  const phone = useMediaQuery((t) => t.breakpoints.down('md'));
   const rail = useRef(null);
   const scroll = (dir) =>
     rail.current?.scrollBy({
@@ -323,6 +460,44 @@ export const BestViewed = () => {
       behavior: 'smooth',
     });
   if (products && !products.length) return null;
+  if (phone) {
+    return (
+      <Box component="section" aria-labelledby="best-viewed-title">
+        <SectionTitle id="best-viewed-title">
+          Best viewed this week
+        </SectionTitle>
+        <Box
+          data-testid="best-viewed"
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+            gap: 1.5,
+          }}
+        >
+          {(products || Array.from({ length: 4 }))
+            .slice(0, 4)
+            .map((p, i) =>
+              p ? (
+                <ProductCard key={p.id} product={p} compact />
+              ) : (
+                <ProductCardSkeleton key={i} compact />
+              )
+            )}
+        </Box>
+        <Box sx={{ textAlign: 'center', mt: 2.5 }}>
+          <Button
+            component={RouterLink}
+            to="/products?sort=popular"
+            variant="contained"
+            size="large"
+            sx={{ borderRadius: 99, px: 4 }}
+          >
+            View more
+          </Button>
+        </Box>
+      </Box>
+    );
+  }
   return (
     <Box component="section" aria-labelledby="best-viewed-title">
       <SectionTitle id="best-viewed-title">Best viewed this week</SectionTitle>
