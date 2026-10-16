@@ -196,6 +196,13 @@ computer): a backup on the same disk doesn't survive that disk.
 - **Retention**: searches and deal events 400 days, product views 3 years,
   the audit log 2 years, sent emails 90 days. Orders, invoices, the ledger
   and stock movements are kept.
+- **Installable app**: shoppers can add the shop to their home screen. Its
+  name and icons come from Store settings (the logo, else the favicon, else a
+  plain bag icon), served at `/api/rest/manifest.webmanifest` and
+  `/api/rest/app-icon/<size>.png`. Production builds include a service worker
+  that keeps the app and the catalogue usable offline (cart, checkout and
+  account always need a connection) and shows "A new version is ready" after a
+  deploy. Installing needs HTTPS (or `localhost`), e.g. through the tunnel.
 
 ## Tests
 
@@ -208,7 +215,8 @@ npm run test:e2e                                # Playwright end to end
 
 The API and e2e tests need the Docker database (`npm run stack`). The e2e
 suite starts its own API on port 4100 (database `carlos_shop_e2e`) and web
-app on port 3100, in US dollars with 8% tax. Run API tests one at a time
+app on port 3100, in US dollars with 8% tax. Files ending in
+`mobile.spec.js` run on a phone (Pixel 7); the rest on desktop Chrome. Run API tests one at a time
 (`--runInBand`, as `npm test` does).
 
 **On GitHub:** every pull request and push to `main` runs lint, the web unit

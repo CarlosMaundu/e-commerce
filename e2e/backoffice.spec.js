@@ -533,6 +533,10 @@ test('idle staff are warned, can stay signed in, and are signed out at the timeo
   await page.clock.install();
   await signInAdmin(page);
   await page.goto('/admin/orders');
+  // The page (and its idle timer) must be running before time moves on.
+  await expect(
+    page.getByRole('heading', { name: 'Order list', level: 1 })
+  ).toBeVisible();
   // Default idle timeout: 60 minutes; the warning comes 2 minutes before.
   await page.clock.fastForward('58:30');
   const dialog = page.getByTestId('session-timeout');

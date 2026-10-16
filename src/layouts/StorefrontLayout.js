@@ -8,6 +8,7 @@ import PageBreadcrumbs from '../components/common/PageBreadcrumbs';
 import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
 import ImpersonationBanner from '../components/ImpersonationBanner';
+import InstallPrompt from '../components/InstallPrompt';
 import { useStore } from '../context/StoreContext';
 import MobileBottomNav, {
   BOTTOM_NAV_HEIGHT,
@@ -67,6 +68,7 @@ const StorefrontLayout = () => {
         />
       )}
       <MobileBottomNav />
+      <InstallPrompt />
     </Box>
   );
 };

@@ -98,6 +98,40 @@ label,
   }
 }
 
+/* Plain HTML (product descriptions, policy pages): the spacing the shop has
+   always had, now without a CSS framework. MUI components set their own. */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  line-height: 1.2;
+}
+p {
+  margin-top: 0;
+  margin-bottom: 1rem;
+}
+ul,
+ol {
+  margin-top: 0;
+  margin-bottom: 1rem;
+  padding-left: 2rem;
+}
+a {
+  color: #2f7cf6;
+}
+img,
+svg {
+  vertical-align: middle;
+}
+table {
+  border-collapse: collapse;
+}
+
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;

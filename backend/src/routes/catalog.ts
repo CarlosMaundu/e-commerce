@@ -23,6 +23,7 @@ import {
 import { getStore } from '../lib/store';
 import { publicFinance } from '../lib/finance';
 import { authenticate, customersOnly, notWhileImpersonating, optionalAuth } from '../middleware/auth';
+import { ICON_SIZES, appIcon, appManifest } from '../lib/appIcon';
 
 interface CategoryRow {
   id: number;
@@ -475,6 +476,27 @@ export const catalogRoutes = () => {
         );
       }
       res.status(204).end();
+    })
+  );
+
+  // The installed app: its name and icons follow Store settings.
+  router.get(
+    '/manifest.webmanifest',
+    handler(async (_req, res) => {
+      res.set('Cache-Control', 'no-cache');
+      res.type('application/manifest+json').send(JSON.stringify(await appManifest()));
+    })
+  );
+  router.get(
+    '/app-icon/:file',
+    handler(async (req, res) => {
+      const m = /^(\d+)(-maskable)?\.png$/.exec(req.params.file);
+      const size = m ? Number(m[1]) : 0;
+      if (!ICON_SIZES.includes(size)) fail(404, 'No such icon.');
+      const png = await appIcon(size, Boolean(m?.[2]));
+      // Links carry ?v=<logo fingerprint>, so a new logo is a new address.
+      res.set('Cache-Control', req.query.v ? 'public, max-age=31536000, immutable' : 'public, max-age=3600');
+      res.type('png').send(png);
     })
   );
 
