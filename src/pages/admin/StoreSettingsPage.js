@@ -412,6 +412,13 @@ const StoreSettingsPage = () => {
                             minRows: 2,
                           })}
                           {heroField('member', 'link', 'Arrow link')}
+                          <ImageField
+                            label="Member photo"
+                            value={form.hero?.member?.image || ''}
+                            onChange={setHero('member', 'image')}
+                            onUploading={setUploading}
+                            hint="Optional. Shown behind the card under a dark gradient, so the text stays readable. Landscape, at least 900 px wide."
+                          />
                         </Stack>
                       </Grid>
                     </Grid>

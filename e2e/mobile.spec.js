@@ -3,6 +3,7 @@
 // Back closes, scroll position kept on Back, a header that gets out of the
 // way, and no page wider than the screen.
 const { test, expect } = require('@playwright/test');
+const { PASSWORD, createUser, resetUsers } = require('./backend');
 
 const noSideScroll = async (page) => {
   const { scroll, client } = await page.evaluate(() => ({
@@ -154,13 +155,41 @@ test('home on a phone: offer carousel, category circles, a moving picks row, fou
   ).toBeVisible();
 });
 
-test('the phone menu has categories but no second search box', async ({
+test('the phone header greets you instead of showing the logo; the bell opens your notifications', async ({
   page,
 }) => {
+  await resetUsers();
+  await createUser({
+    email: 'cam@example.com',
+    firstname: 'Cam',
+    lastname: 'Customer',
+  });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Open menu' }).click();
-  const menu = page.locator('.MuiDrawer-paper');
-  await expect(menu.getByRole('link', { name: 'All products' })).toBeVisible();
-  await expect(menu.getByRole('button', { name: /search/i })).toHaveCount(0);
-  await expect(menu.getByRole('textbox')).toHaveCount(0);
+  const banner = page.getByRole('banner');
+  // Guests: a welcome that leads to sign in; no logo, no menu button.
+  await expect(banner.getByTestId('phone-greeting')).toContainText(
+    'Hi, welcome'
+  );
+  await expect(banner.getByRole('link', { name: /home$/ })).toHaveCount(0);
+  await expect(banner.getByRole('button', { name: 'Open menu' })).toHaveCount(
+    0
+  );
+  await banner.getByTestId('phone-greeting').click();
+  await expect(page).toHaveURL(/\/login/);
+
+  await page.getByLabel('Email Address').fill('cam@example.com');
+  await page.locator('input[name="password"]').fill(PASSWORD);
+  await page.getByRole('button', { name: /^sign in$/i }).click();
+  await expect(page).not.toHaveURL(/\/login/);
+  await page.goto('/');
+  await expect(banner.getByTestId('phone-greeting')).toContainText('Hi, Cam');
+  await banner.getByRole('button', { name: /^Notifications/ }).click();
+  const sheet = page.getByRole('dialog', { name: 'Notifications' });
+  await expect(sheet).toContainText('You’re all caught up');
+  await page.goBack(); // Back closes it
+  await expect(sheet).toBeHidden();
+
+  // The greeting opens the account menu.
+  await banner.getByTestId('phone-greeting').click();
+  await expect(page.getByRole('menuitem', { name: 'My orders' })).toBeVisible();
 });

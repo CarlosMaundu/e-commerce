@@ -276,6 +276,8 @@ const MemberCard = ({ hero }) => {
       aria-label={hero.title || 'Members'}
       data-testid="hero-member"
       sx={{
+        position: 'relative',
+        overflow: 'hidden',
         borderRadius: 1,
         bgcolor: 'ink.main',
         color: 'common.white',
@@ -284,8 +286,37 @@ const MemberCard = ({ hero }) => {
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
+        // Content above the optional photo and its gradient.
+        '& > *': { position: 'relative' },
       }}
     >
+      {hero.image && (
+        <>
+          <Box
+            component="img"
+            src={hero.image}
+            alt=""
+            data-testid="hero-member-image"
+            sx={{
+              position: 'absolute !important',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+            }}
+          />
+          {/* The card's black, deepest where the text sits. */}
+          <Box
+            aria-hidden
+            sx={{
+              position: 'absolute !important',
+              inset: 0,
+              background:
+                'linear-gradient(180deg, rgba(27,33,36,0.92) 0%, rgba(27,33,36,0.55) 55%, rgba(27,33,36,0.88) 100%)',
+            }}
+          />
+        </>
+      )}
       <Box>
         {hero.eyebrow && (
           <Typography sx={{ ...eyebrowSx, mb: 1.5, color: alpha('#fff', 0.7) }}>
@@ -350,7 +381,7 @@ const PhoneHeroCarousel = ({ hero }) => {
       cta: hero.main.ctaLabel,
     },
     { ...hero.side, image: hero.side.image || defaultSideImage },
-    { ...hero.member, image: '' },
+    { ...hero.member },
   ].filter((s) => s.title);
   const reduced = useMediaQuery('(prefers-reduced-motion: reduce)');
 

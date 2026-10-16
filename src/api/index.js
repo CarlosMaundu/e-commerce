@@ -307,6 +307,25 @@ export const adminCatalog = {
 };
 
 export const account = {
+  /** The shopper's bell: { items, total, unread }. */
+  async notifications({ all = false } = {}) {
+    const { data } = await http().get('/rest/account/notifications', {
+      params: all ? { all: 1 } : {},
+      headers: { 'X-Background': '1' }, // polling isn't activity
+    });
+    return data;
+  },
+  async notificationsRead() {
+    await http().post('/rest/account/notifications/read');
+  },
+  async notificationsClear() {
+    await http().post('/rest/account/notifications/clear');
+  },
+  async dismissNotification(key) {
+    await http().delete(
+      `/rest/account/notifications/${encodeURIComponent(key)}`
+    );
+  },
   async getProfile() {
     const { data } = await http().get('/rest/account');
     return userFromApi(data);
