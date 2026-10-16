@@ -4,6 +4,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import PropTypes from 'prop-types';
@@ -256,6 +257,10 @@ const UsersSection = () => {
 
   const [formMode, setFormMode] = useState(null); // 'create' | 'edit' | null
   const [editing, setEditing] = useState(null);
+  // While the dialog fades out it keeps showing what it was opened for.
+  const lastMode = useRef('create');
+  if (formMode) lastMode.current = formMode;
+  const shownMode = formMode || lastMode.current;
   const [resetTarget, setResetTarget] = useState(null);
   const [resetting, setResetting] = useState(false);
 
@@ -382,7 +387,6 @@ const UsersSection = () => {
       if (updated.id === currentUser?.id) updateUser(updated);
       notify.success(MESSAGES.users.updated);
       setFormMode(null);
-      setEditing(null);
       return true;
     } catch (error) {
       notify.error(error, MESSAGES.users.updateFailed);
@@ -666,8 +670,8 @@ const UsersSection = () => {
 
       <UserFormDialog
         open={formMode !== null}
-        mode={formMode || 'create'}
-        isSelf={formMode === 'edit' && editing?.id === currentUser?.id}
+        mode={shownMode}
+        isSelf={shownMode === 'edit' && editing?.id === currentUser?.id}
         roles={
           // Keep the user's current role selectable even if not assignable.
           editing && !assignableRoles.some((r) => r.code === editing.role)
@@ -678,7 +682,7 @@ const UsersSection = () => {
             : assignableRoles
         }
         initialValues={
-          formMode === 'edit' && editing
+          shownMode === 'edit' && editing
             ? {
                 name: editing.name || '',
                 email: editing.email || '',
@@ -688,11 +692,8 @@ const UsersSection = () => {
               }
             : EMPTY_FORM
         }
-        onClose={() => {
-          setFormMode(null);
-          setEditing(null);
-        }}
-        onSubmit={formMode === 'edit' ? handleEdit : handleCreate}
+        onClose={() => setFormMode(null)}
+        onSubmit={shownMode === 'edit' ? handleEdit : handleCreate}
       />
 
       <UserActivityDialog
