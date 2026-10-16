@@ -85,7 +85,15 @@ export const app = createApp({
 
 export const PASSWORD = 'Str0ng!Pass1';
 
-export const resetDatabase = async () => {
+// Resets run one after another: if one overruns a timeout, the next waits
+// for it instead of fighting it for locks (which deadlocks).
+let resetting: Promise<void> = Promise.resolve();
+export const resetDatabase = () => {
+  resetting = resetting.catch(() => undefined).then(doReset);
+  return resetting;
+};
+
+const doReset = async () => {
   clearSettingsCache();
   await query(
     `TRUNCATE audit_logs, auth_tokens, sessions, users, products, categories, coupons, orders,
