@@ -1,6 +1,7 @@
 // src/layouts/MobileBottomNav.js — the shop's main menu on phones: Home,
 // Explore, Wishlist, Bag and Me, fixed to the bottom of the screen. "Me"
-// asks guests to sign in.
+// opens the phone menu (account, help, shop pages); tapping the tab you're
+// on scrolls back to the top.
 import React, { useContext } from 'react';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
@@ -23,7 +24,7 @@ const MobileBottomNav = () => {
   const { pathname } = useLocation();
   const cartCount = useSelector(selectCartCount);
   const wishlistCount = useSelector((s) => s.wishlist.items.length);
-  const me = user ? (isStaff(user) ? '/admin/profile' : '/account') : '/login';
+  const me = user && isStaff(user) ? '/admin/profile' : '/me';
   const items = [
     { label: 'Home', to: '/', icon: <FiHome />, active: pathname === '/' },
     {
@@ -51,9 +52,9 @@ const MobileBottomNav = () => {
       to: me,
       icon: <FiUser />,
       active:
+        pathname === '/me' ||
         (pathname.startsWith('/account') && !pathname.includes('wishlist')) ||
         pathname === '/login',
-      state: user ? undefined : { from: '/account' },
     },
   ];
 
@@ -75,6 +76,8 @@ const MobileBottomNav = () => {
         border: 1,
         borderColor: 'divider',
         boxShadow: '0 12px 32px rgba(27,33,36,0.14)',
+        // Stays put while pages slide (see navigation.js).
+        viewTransitionName: 'app-tabbar',
       }}
     >
       {items.map((it) => (
@@ -82,8 +85,13 @@ const MobileBottomNav = () => {
           key={it.label}
           component={RouterLink}
           to={it.to}
-          state={it.state}
           aria-current={it.active ? 'page' : undefined}
+          onClick={() => {
+            // Tapping the tab you're on goes back to the top of it.
+            if (it.active && it.to === pathname) {
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+          }}
           sx={{
             flex: 1,
             display: 'flex',
@@ -94,6 +102,9 @@ const MobileBottomNav = () => {
             textDecoration: 'none',
             color: it.active ? 'primary.main' : 'text.secondary',
             fontSize: 20,
+            borderRadius: 1,
+            transition: 'transform 120ms ease',
+            '&:active': { transform: 'scale(0.92)' },
           }}
         >
           <Badge

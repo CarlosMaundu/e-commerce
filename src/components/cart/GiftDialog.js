@@ -8,7 +8,6 @@ import {
   Box,
   Button,
   Checkbox,
-  Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
@@ -22,6 +21,7 @@ import { alpha } from '@mui/material/styles';
 import { FiCheck, FiGift, FiMessageSquare, FiX } from 'react-icons/fi';
 import OptionRows from '../common/OptionRows';
 import { formatMoney } from '../../utils/format';
+import ResponsiveSheet from '../common/ResponsiveSheet';
 
 const MESSAGE_MAX = 60;
 
@@ -179,7 +179,7 @@ const GiftDialog = ({ open, item, options, onClose, onSave, saving }) => {
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+    <ResponsiveSheet open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle sx={{ pr: 6 }}>
         Gift this item to a loved one?
         <IconButton
@@ -319,7 +319,7 @@ const GiftDialog = ({ open, item, options, onClose, onSave, saving }) => {
           {saving ? 'Saving…' : 'Save'}
         </Button>
       </DialogActions>
-    </Dialog>
+    </ResponsiveSheet>
   );
 };
 

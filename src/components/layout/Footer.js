@@ -27,7 +27,7 @@ import payment2 from '../../images/payment2.png';
 import payment3 from '../../images/payment3.png';
 import payment4 from '../../images/payment4.png';
 
-const COLUMNS = [
+export const COLUMNS = [
   {
     title: 'Shop',
     links: [
@@ -56,11 +56,19 @@ const COLUMNS = [
   },
 ];
 
-const SOCIALS = [
+export const SOCIALS = [
   { key: 'facebook', label: 'Facebook', Icon: FiFacebook },
   { key: 'x', label: 'X (Twitter)', Icon: FiTwitter },
   { key: 'instagram', label: 'Instagram', Icon: FiInstagram },
   { key: 'tiktok', label: 'TikTok', Icon: FiMusic },
+];
+
+const COMPACT_LINKS = [
+  ['Help', '/support'],
+  ['FAQs', '/faq'],
+  ['Returns', '/policies/refunds'],
+  ['Terms', '/policies/terms'],
+  ['Privacy', '/policies/privacy'],
 ];
 
 const linkSx = {
@@ -69,9 +77,8 @@ const linkSx = {
   '&:hover': { color: 'primary.main' },
 };
 
-const Footer = () => {
-  const shop = useStore();
-  const socials = SOCIALS.filter((x) => shop.social?.[x.key]);
+/** Email sign-up for deals; in the footer and on the phone menu. */
+export const NewsletterForm = () => {
   const notify = useNotify();
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
@@ -92,16 +99,89 @@ const Footer = () => {
   };
 
   return (
+    <>
+      <Box
+        component="form"
+        onSubmit={subscribe}
+        sx={{ display: 'flex', gap: 1.5, maxWidth: 420 }}
+      >
+        <InputBase
+          type="email"
+          required
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Your email"
+          inputProps={{ 'aria-label': 'Your email for the newsletter' }}
+          sx={{
+            flex: 1,
+            bgcolor: 'background.neutralDeep',
+            borderRadius: 1,
+            px: 2,
+            height: 44,
+            minWidth: 0,
+          }}
+        />
+        <Button
+          type="submit"
+          variant="contained"
+          disabled={busy}
+          endIcon={<FiArrowRight />}
+          sx={{ height: 44 }}
+        >
+          Subscribe
+        </Button>
+      </Box>
+      <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
+        Deals and new arrivals, about once a week.
+      </Typography>
+    </>
+  );
+};
+
+const Footer = () => {
+  const shop = useStore();
+  const socials = SOCIALS.filter((x) => shop.social?.[x.key]);
+
+  return (
     <Box
       component="footer"
       sx={{
         bgcolor: 'background.neutral',
         borderTop: 1,
         borderColor: 'divider',
-        mt: 8,
+        mt: { xs: 5, md: 8 },
       }}
     >
-      <Container maxWidth="xl" sx={{ py: { xs: 5, md: 7 } }}>
+      {/* Phones: the links live on the Me menu; here just the essentials. */}
+      <Container
+        maxWidth="xl"
+        sx={{ display: { xs: 'block', md: 'none' }, pt: 2.5 }}
+      >
+        <Stack
+          direction="row"
+          flexWrap="wrap"
+          columnGap={2}
+          rowGap={1}
+          component="nav"
+          aria-label="Shop information"
+        >
+          {COMPACT_LINKS.map(([label, to]) => (
+            <Typography
+              key={label}
+              component={RouterLink}
+              to={to}
+              variant="body2"
+              sx={linkSx}
+            >
+              {label}
+            </Typography>
+          ))}
+        </Stack>
+      </Container>
+      <Container
+        maxWidth="xl"
+        sx={{ py: { md: 7 }, display: { xs: 'none', md: 'block' } }}
+      >
         <Grid container spacing={5}>
           <Grid item xs={12} md={5}>
             <Typography
@@ -114,38 +194,9 @@ const Footer = () => {
             >
               {shop.tagline || shop.name}
             </Typography>
-            <Box
-              component="form"
-              onSubmit={subscribe}
-              sx={{ display: 'flex', gap: 1.5, mt: 4, maxWidth: 420 }}
-            >
-              <InputBase
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Your email"
-                inputProps={{ 'aria-label': 'Your email for the newsletter' }}
-                sx={{
-                  flex: 1,
-                  bgcolor: 'background.neutralDeep',
-                  borderRadius: 1,
-                  px: 2,
-                  height: 40,
-                }}
-              />
-              <Button
-                type="submit"
-                variant="contained"
-                disabled={busy}
-                endIcon={<FiArrowRight />}
-              >
-                Subscribe
-              </Button>
+            <Box sx={{ mt: 4 }}>
+              <NewsletterForm />
             </Box>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
-              Deals and new arrivals, about once a week.
-            </Typography>
           </Grid>
           {COLUMNS.map((col) => (
             <Grid item xs={6} sm={4} md={2} key={col.title}>
@@ -204,7 +255,7 @@ const Footer = () => {
           )}
         </Grid>
       </Container>
-      <Box sx={{ borderTop: 1, borderColor: 'divider' }}>
+      <Box sx={{ borderTop: { md: 1 }, borderColor: 'divider' }}>
         <Container maxWidth="xl">
           <Stack
             direction={{ xs: 'column', sm: 'row' }}

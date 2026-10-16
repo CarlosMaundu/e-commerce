@@ -9,7 +9,6 @@ import {
   Chip,
   Container,
   Divider,
-  Drawer,
   IconButton,
   MenuItem,
   Select,
@@ -23,6 +22,7 @@ import PageBreadcrumbs from '../components/common/PageBreadcrumbs';
 import HeroSection from '../components/layout/HeroSection';
 import ProductCard from '../components/common/ProductCard';
 import { ProductCardSkeleton } from '../components/skeletons';
+import ResponsiveSheet from '../components/common/ResponsiveSheet';
 import ProductFilters, {
   useProductQuery,
 } from '../components/products/ProductFilters';
@@ -416,17 +416,10 @@ const ProductsPage = () => {
       </Box>
 
       {/* Phones: filters slide up from the bottom. */}
-      <Drawer
-        anchor="bottom"
-        open={drawerOpen}
+      <ResponsiveSheet
+        open={drawerOpen && !desktop}
         onClose={() => setDrawerOpen(false)}
-        PaperProps={{
-          sx: {
-            borderTopLeftRadius: 16,
-            borderTopRightRadius: 16,
-            maxHeight: '85vh',
-          },
-        }}
+        aria-labelledby="filters-title"
       >
         <Stack
           direction="row"
@@ -439,7 +432,9 @@ const ProductsPage = () => {
             borderColor: 'divider',
           }}
         >
-          <Typography variant="h6">Filters</Typography>
+          <Typography variant="h6" id="filters-title">
+            Filters
+          </Typography>
           <IconButton
             aria-label="Close filters"
             onClick={() => setDrawerOpen(false)}
@@ -447,7 +442,9 @@ const ProductsPage = () => {
             <FiX />
           </IconButton>
         </Stack>
-        <Box sx={{ p: 2, overflowY: 'auto' }}>{panel}</Box>
+        <Box sx={{ p: 2, overflowY: 'auto', flex: '1 1 auto', minHeight: 0 }}>
+          {panel}
+        </Box>
         <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
           <Button
             variant="contained"
@@ -460,7 +457,7 @@ const ProductsPage = () => {
               : 'Show results'}
           </Button>
         </Box>
-      </Drawer>
+      </ResponsiveSheet>
     </Container>
   );
 };

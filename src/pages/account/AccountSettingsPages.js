@@ -10,7 +10,6 @@ import {
   Avatar,
   Box,
   Button,
-  Dialog,
   DialogContent,
   DialogTitle,
   Grid,
@@ -37,6 +36,7 @@ import { PAGE_SIZE, Pill } from '../../components/admin/DataTable';
 import AccountTable from '../../components/account/AccountTable';
 import AddressForm, { countryName } from '../../components/account/AddressForm';
 import ConfirmationDialog from '../../components/common/ConfirmationDialog';
+import ResponsiveSheet from '../../components/common/ResponsiveSheet';
 
 // ---------- Profile ----------
 
@@ -529,7 +529,7 @@ export const AddressesPage = () => {
           ))}
       </AccountTable>
 
-      <Dialog
+      <ResponsiveSheet
         open={Boolean(editing)}
         onClose={() => setEditing(null)}
         fullWidth
@@ -547,7 +547,7 @@ export const AddressesPage = () => {
             />
           )}
         </DialogContent>
-      </Dialog>
+      </ResponsiveSheet>
       <ConfirmationDialog
         open={Boolean(deleting)}
         title="Delete this address?"

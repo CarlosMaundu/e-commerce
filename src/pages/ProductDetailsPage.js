@@ -557,7 +557,6 @@ const ProductDetailsPage = () => {
       .related(id)
       .then((list) => active && setRelated(list))
       .catch(() => {});
-    window.scrollTo(0, 0);
     return () => {
       active = false;
     };

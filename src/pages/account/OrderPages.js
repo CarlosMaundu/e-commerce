@@ -13,7 +13,6 @@ import {
   Box,
   Button,
   Checkbox,
-  Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
@@ -71,6 +70,7 @@ import {
   LinesSkeleton,
   TimelineSkeleton,
 } from '../../components/skeletons';
+import ResponsiveSheet from '../../components/common/ResponsiveSheet';
 
 const FILTERS = [
   { label: 'All', value: '' },
@@ -565,7 +565,12 @@ const ReturnDialog = ({ order, item, reasons, onClose, onDone }) => {
     }
   };
   return (
-    <Dialog open onClose={busy ? undefined : onClose} fullWidth maxWidth="xs">
+    <ResponsiveSheet
+      open
+      onClose={busy ? undefined : onClose}
+      fullWidth
+      maxWidth="xs"
+    >
       <form onSubmit={submit}>
         <DialogTitle>Return {item.title}</DialogTitle>
         <DialogContent>
@@ -645,7 +650,7 @@ const ReturnDialog = ({ order, item, reasons, onClose, onDone }) => {
           </Button>
         </DialogActions>
       </form>
-    </Dialog>
+    </ResponsiveSheet>
   );
 };
 

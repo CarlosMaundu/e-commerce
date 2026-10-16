@@ -4,18 +4,12 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { Link as RouterLink } from 'react-router-dom';
-import {
-  Box,
-  Button,
-  Dialog,
-  DialogContent,
-  Stack,
-  Typography,
-} from '@mui/material';
+import { Box, Button, DialogContent, Stack, Typography } from '@mui/material';
 import { keyframes } from '@mui/system';
 import { alpha } from '@mui/material/styles';
 import { FiCheck } from 'react-icons/fi';
 import { formatDateTime, formatMoney } from '../../utils/format';
+import ResponsiveSheet from '../common/ResponsiveSheet';
 
 const pop = keyframes`
   0% { transform: scale(0.4); opacity: 0; }
@@ -48,7 +42,7 @@ const OrderSuccessDialog = ({ open, order, onClose }) => {
     ['Date', formatDateTime(order.placedAt)],
   ];
   return (
-    <Dialog
+    <ResponsiveSheet
       open={open}
       onClose={onClose}
       maxWidth="xs"
@@ -155,7 +149,7 @@ const OrderSuccessDialog = ({ open, order, onClose }) => {
           </Button>
         </Stack>
       </DialogContent>
-    </Dialog>
+    </ResponsiveSheet>
   );
 };
 

@@ -83,6 +83,8 @@ export const filterQuery = z.object({
   in_stock: flag,
   on_sale: flag,
   featured: flag,
+  // Suggestions while typing: not a search, so it isn't logged.
+  suggest: flag,
   tag: z.any().transform((v) => csv(v).map((t) => t.slice(0, 60)).slice(0, 20)).optional(),
   attr: z
     .record(z.any())
@@ -182,7 +184,7 @@ export const catalogRoutes = () => {
       const q = parse(filterQuery, req.query);
       const { total, match, products } = await listProducts(q, { status: 'published' });
       // Searches for the Search report (first page only; results found exactly).
-      if (q.search && (q.page || 1) === 1) {
+      if (q.search && !q.suggest && (q.page || 1) === 1) {
         const visitor = visitorId(req);
         await logSearch(q.search, match === 'exact' ? total : 0, visitor, req.auth?.userId ?? null);
       }

@@ -90,6 +90,11 @@ describe('data for reports', () => {
     // Paging through results isn't a new search.
     await request(app).get('/api/rest/products').query({ search: 'jacket', page: 2, limit: 1 }).set('User-Agent', 'tablet');
     expect((await query('SELECT count(*)::int AS n FROM search_queries')).rows[0].n).toBe(3);
+    // Suggestions shown while typing aren't searches either.
+    const suggested = await request(app).get('/api/rest/products')
+      .query({ search: 'denim', limit: 6, suggest: 1 }).set('User-Agent', 'watch').expect(200);
+    expect(suggested.body.data.length).toBeGreaterThan(0);
+    expect((await query('SELECT count(*)::int AS n FROM search_queries')).rows[0].n).toBe(3);
   });
 
   test('cost prices: demo products come with costs; staff edit them, fill missing ones from a margin, and use them for past orders', async () => {

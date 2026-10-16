@@ -1,10 +1,12 @@
 // src/App.js
 import React, { lazy, Suspense, useContext } from 'react';
 import {
-  BrowserRouter as Router,
+  createBrowserRouter,
+  createRoutesFromElements,
   Navigate,
+  Outlet,
   Route,
-  Routes,
+  RouterProvider,
   useLocation,
 } from 'react-router-dom';
 import { Provider } from 'react-redux';
@@ -16,7 +18,7 @@ import theme from './styles/theme';
 import store, { persistor } from './redux/store';
 import { AuthContext, AuthProvider } from './context/AuthContext';
 import { NotificationProvider } from './notification/NotificationProvider';
-import ScrollToTop from './components/ScrollToTop';
+import { ScrollMemory, withPageTransitions } from './navigation';
 import PageSkeleton from './components/common/PageSkeleton';
 import PrivateRoute from './components/PrivateRoute';
 import AdminRoute from './components/AdminRoute';
@@ -44,6 +46,7 @@ import StaffNotice from './components/StaffNotice';
 const lazyNamed = (load, name) =>
   lazy(() => load().then((m) => ({ default: m[name] })));
 const WishlistPage = lazy(() => import('./pages/WishlistPage'));
+const MePage = lazy(() => import('./pages/MePage'));
 const CheckoutPage = lazy(() => import('./pages/CheckoutPage'));
 const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage'));
 const PolicyPage = lazy(() => import('./pages/PolicyPage'));
@@ -266,6 +269,446 @@ const Account = ({ children }) => (
   </Private>
 );
 
+/** Every page: scroll memory, then the page (its skeleton while it loads). */
+const Frame = () => (
+  <>
+    <ScrollMemory />
+    <Suspense fallback={<PageSkeleton />}>
+      <Outlet />
+    </Suspense>
+  </>
+);
+
+const router = withPageTransitions(
+  createBrowserRouter(
+    createRoutesFromElements(
+      <Route element={<Frame />}>
+        <Route element={<StorefrontLayout />}>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/products" element={<ProductsPage />} />
+          <Route path="/me" element={<MePage />} />
+          <Route path="/products/:id" element={<ProductDetailsPage />} />
+          <Route
+            path="/cart"
+            element={
+              <ShopperOnly>
+                <CartPage />
+              </ShopperOnly>
+            }
+          />
+          <Route
+            path="/wishlist"
+            element={
+              <ShopperOnly>
+                <WishlistPage />
+              </ShopperOnly>
+            }
+          />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<SignupPage />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
+          <Route path="/policies/:slug" element={<PolicyPage />} />
+          <Route path="/support" element={<SupportPage />} />
+          <Route path="/faq" element={<FaqPage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route
+            path="/information/support"
+            element={<Navigate to="/support" replace />}
+          />
+          <Route
+            path="/information/faq"
+            element={<Navigate to="/faq" replace />}
+          />
+          <Route
+            path="/information/about"
+            element={<Navigate to="/about" replace />}
+          />
+          <Route
+            path="/information/terms"
+            element={<Navigate to="/policies/terms" replace />}
+          />
+          <Route
+            path="/information/privacy"
+            element={<Navigate to="/policies/privacy" replace />}
+          />
+          <Route path="/information/:slug" element={<InformationPage />} />
+          <Route
+            path="/checkout"
+            element={
+              <Private>
+                <ShopperOnly>
+                  <CheckoutPage />
+                </ShopperOnly>
+              </Private>
+            }
+          />
+
+          <Route
+            path="/account"
+            element={
+              <Account>
+                <AccountLayout />
+              </Account>
+            }
+          >
+            <Route index element={<AccountOverviewPage />} />
+            <Route path="profile" element={<ProfilePage />} />
+            <Route path="security" element={<SecurityPage />} />
+            <Route path="addresses" element={<AddressesPage />} />
+            <Route path="orders" element={<OrdersPage />} />
+            <Route path="orders/:id" element={<OrderDetailPage />} />
+            <Route path="track" element={<TrackOrderPage />} />
+            <Route path="invoices" element={<InvoicesPage />} />
+            <Route path="invoices/:id" element={<InvoicePage />} />
+            <Route path="returns" element={<ReturnsPage />} />
+            <Route path="returns/:id" element={<ReturnPage />} />
+            <Route path="refunds" element={<CustomerRefundsPage />} />
+            <Route path="support" element={<SupportRequestsPage />} />
+            <Route path="support/:number" element={<SupportRequestPage />} />
+            <Route path="wishlist" element={<AccountWishlistPage />} />
+          </Route>
+
+          <Route path="*" element={<NotFoundPage />} />
+        </Route>
+
+        <Route
+          path="/admin"
+          element={
+            <Private>
+              <AdminRoute>
+                <AdminLayout />
+              </AdminRoute>
+            </Private>
+          }
+        >
+          <Route index element={<AdminHome />} />
+          <Route
+            path="orders"
+            element={
+              <AdminRoute permissions={ORDERS_VIEW}>
+                <AdminOrdersPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="orders/:id"
+            element={
+              <AdminRoute permissions={ORDERS_VIEW}>
+                <AdminOrderDetailPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="returns"
+            element={
+              <AdminRoute permissions={['orders.returns.view']}>
+                <AdminReturnsPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="returns/:id"
+            element={
+              <AdminRoute permissions={['orders.returns.view']}>
+                <AdminReturnDetail />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="payment-methods"
+            element={
+              <AdminRoute permissions={['admin.payments.manage']}>
+                <PaymentMethodsPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="promos"
+            element={
+              <AdminRoute permissions={['marketing.promos.view']}>
+                <PromoCodesPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="promos/:code"
+            element={
+              <AdminRoute permissions={['marketing.promos.view']}>
+                <PromoCodePage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="products"
+            element={
+              <AdminRoute permissions={['catalog.products.view']}>
+                <ProductListPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="products/costs"
+            element={
+              <AdminRoute permissions={['catalog.products.update']}>
+                <CostPricesPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="products/new"
+            element={
+              <AdminRoute permissions={['catalog.products.create']}>
+                <ProductFormPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="products/:id"
+            element={
+              <AdminRoute permissions={['catalog.products.view']}>
+                <ProductFormPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="categories"
+            element={
+              <AdminRoute prefix="catalog.categories.">
+                <CategoriesPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="brands"
+            element={
+              <AdminRoute prefix="catalog.brands.">
+                <BrandsPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="products/categories"
+            element={<Navigate to="/admin/categories" replace />}
+          />
+          <Route
+            path="products/brands"
+            element={<Navigate to="/admin/brands" replace />}
+          />
+          <Route path="profile" element={<StaffProfilePage />} />
+          <Route
+            path="security"
+            element={
+              <AdminRoute permissions={['admin.security.view']}>
+                <SecuritySettingsPage />
+              </AdminRoute>
+            }
+          />
+          <Route path="soon/:feature" element={<ComingSoonPage />} />
+          <Route
+            path="orders/new"
+            element={
+              <AdminRoute permissions={['orders.orders.create']}>
+                <CreateOrderPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="invoices"
+            element={
+              <AdminRoute permissions={['orders.invoices.view']}>
+                <AdminInvoicesPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="invoices/:id"
+            element={
+              <AdminRoute permissions={['orders.invoices.view']}>
+                <InvoiceDetailPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="payments"
+            element={
+              <AdminRoute permissions={['orders.invoices.view']}>
+                <PaymentsPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="refunds"
+            element={
+              <AdminRoute permissions={['orders.invoices.view']}>
+                <RefundsPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="refund-settings"
+            element={
+              <AdminRoute permissions={['admin.refunds.manage']}>
+                <RefundSettingsPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="ledger"
+            element={
+              <AdminRoute permissions={['admin.ledger.view']}>
+                <LedgerPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="delivery"
+            element={
+              <AdminRoute permissions={['admin.delivery.manage']}>
+                <DeliverySettingsPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="finance"
+            element={
+              <AdminRoute permissions={['admin.finance.manage']}>
+                <FinanceSettingsPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="settings"
+            element={
+              <AdminRoute permissions={['admin.settings.manage']}>
+                <StoreSettingsPage />
+              </AdminRoute>
+            }
+          />
+          <Route path="notifications" element={<AdminNotificationsPage />} />
+          <Route
+            path="support"
+            element={
+              <AdminRoute permissions={['support.tickets.view']}>
+                <SupportInboxPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="support/:id"
+            element={
+              <AdminRoute permissions={['support.tickets.view']}>
+                <SupportTicketPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="faq"
+            element={
+              <AdminRoute permissions={['admin.settings.manage']}>
+                <FaqAdminPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="legal"
+            element={
+              <AdminRoute permissions={['admin.settings.manage']}>
+                <LegalPagesPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="legal/:slug"
+            element={
+              <AdminRoute permissions={['admin.settings.manage']}>
+                <LegalPageEditor />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="reports/:name"
+            element={
+              <AdminRoute
+                permissions={['reports.view', 'reports.finance.view']}
+              >
+                <ReportPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="reports/sla"
+            element={
+              <AdminRoute permissions={['orders.orders.view']}>
+                <SlaReportPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="reports/sla/:id"
+            element={
+              <AdminRoute permissions={['orders.orders.view']}>
+                <SlaOrderPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="audit"
+            element={
+              <AdminRoute permissions={['admin.audit.view']}>
+                <AuditLogPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="users"
+            element={
+              <AdminRoute permissions={USERS_VIEW}>
+                <UsersSection />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="users/:id"
+            element={
+              <AdminRoute permissions={USERS_VIEW}>
+                <UserAccountPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="roles"
+            element={
+              <AdminRoute permissions={['admin.roles.view']}>
+                <AdminRolesPage />
+              </AdminRoute>
+            }
+          />
+          <Route path="dashboard" element={<Navigate to="/admin" replace />} />
+          <Route path="*" element={<Navigate to="/admin" replace />} />
+        </Route>
+
+        <Route
+          path="/profile"
+          element={
+            <Private>
+              <LegacyProfileRedirect />
+            </Private>
+          }
+        />
+        <Route
+          path="/dashboard"
+          element={
+            <Private>
+              <LegacyProfileRedirect />
+            </Private>
+          }
+        />
+      </Route>
+    )
+  )
+);
+
 const App = () => (
   <ThemeProvider theme={theme}>
     <CssBaseline />
@@ -274,475 +717,7 @@ const App = () => (
         <NotificationProvider>
           <AuthProvider>
             <StoreProvider>
-              <Router>
-                <ScrollToTop />
-                <Suspense fallback={<PageSkeleton />}>
-                  <Routes>
-                    <Route element={<StorefrontLayout />}>
-                      <Route path="/" element={<HomePage />} />
-                      <Route path="/products" element={<ProductsPage />} />
-                      <Route
-                        path="/products/:id"
-                        element={<ProductDetailsPage />}
-                      />
-                      <Route
-                        path="/cart"
-                        element={
-                          <ShopperOnly>
-                            <CartPage />
-                          </ShopperOnly>
-                        }
-                      />
-                      <Route
-                        path="/wishlist"
-                        element={
-                          <ShopperOnly>
-                            <WishlistPage />
-                          </ShopperOnly>
-                        }
-                      />
-                      <Route path="/login" element={<LoginPage />} />
-                      <Route path="/register" element={<SignupPage />} />
-                      <Route
-                        path="/reset-password"
-                        element={<ResetPassword />}
-                      />
-                      <Route
-                        path="/verify-email"
-                        element={<VerifyEmailPage />}
-                      />
-                      <Route path="/policies/:slug" element={<PolicyPage />} />
-                      <Route path="/support" element={<SupportPage />} />
-                      <Route path="/faq" element={<FaqPage />} />
-                      <Route path="/about" element={<AboutPage />} />
-                      <Route
-                        path="/information/support"
-                        element={<Navigate to="/support" replace />}
-                      />
-                      <Route
-                        path="/information/faq"
-                        element={<Navigate to="/faq" replace />}
-                      />
-                      <Route
-                        path="/information/about"
-                        element={<Navigate to="/about" replace />}
-                      />
-                      <Route
-                        path="/information/terms"
-                        element={<Navigate to="/policies/terms" replace />}
-                      />
-                      <Route
-                        path="/information/privacy"
-                        element={<Navigate to="/policies/privacy" replace />}
-                      />
-                      <Route
-                        path="/information/:slug"
-                        element={<InformationPage />}
-                      />
-                      <Route
-                        path="/checkout"
-                        element={
-                          <Private>
-                            <ShopperOnly>
-                              <CheckoutPage />
-                            </ShopperOnly>
-                          </Private>
-                        }
-                      />
-
-                      <Route
-                        path="/account"
-                        element={
-                          <Account>
-                            <AccountLayout />
-                          </Account>
-                        }
-                      >
-                        <Route index element={<AccountOverviewPage />} />
-                        <Route path="profile" element={<ProfilePage />} />
-                        <Route path="security" element={<SecurityPage />} />
-                        <Route path="addresses" element={<AddressesPage />} />
-                        <Route path="orders" element={<OrdersPage />} />
-                        <Route
-                          path="orders/:id"
-                          element={<OrderDetailPage />}
-                        />
-                        <Route path="track" element={<TrackOrderPage />} />
-                        <Route path="invoices" element={<InvoicesPage />} />
-                        <Route path="invoices/:id" element={<InvoicePage />} />
-                        <Route path="returns" element={<ReturnsPage />} />
-                        <Route path="returns/:id" element={<ReturnPage />} />
-                        <Route
-                          path="refunds"
-                          element={<CustomerRefundsPage />}
-                        />
-                        <Route
-                          path="support"
-                          element={<SupportRequestsPage />}
-                        />
-                        <Route
-                          path="support/:number"
-                          element={<SupportRequestPage />}
-                        />
-                        <Route
-                          path="wishlist"
-                          element={<AccountWishlistPage />}
-                        />
-                      </Route>
-
-                      <Route path="*" element={<NotFoundPage />} />
-                    </Route>
-
-                    <Route
-                      path="/admin"
-                      element={
-                        <Private>
-                          <AdminRoute>
-                            <AdminLayout />
-                          </AdminRoute>
-                        </Private>
-                      }
-                    >
-                      <Route index element={<AdminHome />} />
-                      <Route
-                        path="orders"
-                        element={
-                          <AdminRoute permissions={ORDERS_VIEW}>
-                            <AdminOrdersPage />
-                          </AdminRoute>
-                        }
-                      />
-                      <Route
-                        path="orders/:id"
-                        element={
-                          <AdminRoute permissions={ORDERS_VIEW}>
-                            <AdminOrderDetailPage />
-                          </AdminRoute>
-                        }
-                      />
-                      <Route
-                        path="returns"
-                        element={
-                          <AdminRoute permissions={['orders.returns.view']}>
-                            <AdminReturnsPage />
-                          </AdminRoute>
-                        }
-                      />
-                      <Route
-                        path="returns/:id"
-                        element={
-                          <AdminRoute permissions={['orders.returns.view']}>
-                            <AdminReturnDetail />
-                          </AdminRoute>
-                        }
-                      />
-                      <Route
-                        path="payment-methods"
-                        element={
-                          <AdminRoute permissions={['admin.payments.manage']}>
-                            <PaymentMethodsPage />
-                          </AdminRoute>
-                        }
-                      />
-                      <Route
-                        path="promos"
-                        element={
-                          <AdminRoute permissions={['marketing.promos.view']}>
-                            <PromoCodesPage />
-                          </AdminRoute>
-                        }
-                      />
-                      <Route
-                        path="promos/:code"
-                        element={
-                          <AdminRoute permissions={['marketing.promos.view']}>
-                            <PromoCodePage />
-                          </AdminRoute>
-                        }
-                      />
-                      <Route
-                        path="products"
-                        element={
-                          <AdminRoute permissions={['catalog.products.view']}>
-                            <ProductListPage />
-                          </AdminRoute>
-                        }
-                      />
-                      <Route
-                        path="products/costs"
-                        element={
-                          <AdminRoute permissions={['catalog.products.update']}>
-                            <CostPricesPage />
-                          </AdminRoute>
-                        }
-                      />
-                      <Route
-                        path="products/new"
-                        element={
-                          <AdminRoute permissions={['catalog.products.create']}>
-                            <ProductFormPage />
-                          </AdminRoute>
-                        }
-                      />
-                      <Route
-                        path="products/:id"
-                        element={
-                          <AdminRoute permissions={['catalog.products.view']}>
-                            <ProductFormPage />
-                          </AdminRoute>
-                        }
-                      />
-                      <Route
-                        path="categories"
-                        element={
-                          <AdminRoute prefix="catalog.categories.">
-                            <CategoriesPage />
-                          </AdminRoute>
-                        }
-                      />
-                      <Route
-                        path="brands"
-                        element={
-                          <AdminRoute prefix="catalog.brands.">
-                            <BrandsPage />
-                          </AdminRoute>
-                        }
-                      />
-                      <Route
-                        path="products/categories"
-                        element={<Navigate to="/admin/categories" replace />}
-                      />
-                      <Route
-                        path="products/brands"
-                        element={<Navigate to="/admin/brands" replace />}
-                      />
-                      <Route path="profile" element={<StaffProfilePage />} />
-                      <Route
-                        path="security"
-                        element={
-                          <AdminRoute permissions={['admin.security.view']}>
-                            <SecuritySettingsPage />
-                          </AdminRoute>
-                        }
-                      />
-                      <Route
-                        path="soon/:feature"
-                        element={<ComingSoonPage />}
-                      />
-                      <Route
-                        path="orders/new"
-                        element={
-                          <AdminRoute permissions={['orders.orders.create']}>
-                            <CreateOrderPage />
-                          </AdminRoute>
-                        }
-                      />
-                      <Route
-                        path="invoices"
-                        element={
-                          <AdminRoute permissions={['orders.invoices.view']}>
-                            <AdminInvoicesPage />
-                          </AdminRoute>
-                        }
-                      />
-                      <Route
-                        path="invoices/:id"
-                        element={
-                          <AdminRoute permissions={['orders.invoices.view']}>
-                            <InvoiceDetailPage />
-                          </AdminRoute>
-                        }
-                      />
-                      <Route
-                        path="payments"
-                        element={
-                          <AdminRoute permissions={['orders.invoices.view']}>
-                            <PaymentsPage />
-                          </AdminRoute>
-                        }
-                      />
-                      <Route
-                        path="refunds"
-                        element={
-                          <AdminRoute permissions={['orders.invoices.view']}>
-                            <RefundsPage />
-                          </AdminRoute>
-                        }
-                      />
-                      <Route
-                        path="refund-settings"
-                        element={
-                          <AdminRoute permissions={['admin.refunds.manage']}>
-                            <RefundSettingsPage />
-                          </AdminRoute>
-                        }
-                      />
-                      <Route
-                        path="ledger"
-                        element={
-                          <AdminRoute permissions={['admin.ledger.view']}>
-                            <LedgerPage />
-                          </AdminRoute>
-                        }
-                      />
-                      <Route
-                        path="delivery"
-                        element={
-                          <AdminRoute permissions={['admin.delivery.manage']}>
-                            <DeliverySettingsPage />
-                          </AdminRoute>
-                        }
-                      />
-                      <Route
-                        path="finance"
-                        element={
-                          <AdminRoute permissions={['admin.finance.manage']}>
-                            <FinanceSettingsPage />
-                          </AdminRoute>
-                        }
-                      />
-                      <Route
-                        path="settings"
-                        element={
-                          <AdminRoute permissions={['admin.settings.manage']}>
-                            <StoreSettingsPage />
-                          </AdminRoute>
-                        }
-                      />
-                      <Route
-                        path="notifications"
-                        element={<AdminNotificationsPage />}
-                      />
-                      <Route
-                        path="support"
-                        element={
-                          <AdminRoute permissions={['support.tickets.view']}>
-                            <SupportInboxPage />
-                          </AdminRoute>
-                        }
-                      />
-                      <Route
-                        path="support/:id"
-                        element={
-                          <AdminRoute permissions={['support.tickets.view']}>
-                            <SupportTicketPage />
-                          </AdminRoute>
-                        }
-                      />
-                      <Route
-                        path="faq"
-                        element={
-                          <AdminRoute permissions={['admin.settings.manage']}>
-                            <FaqAdminPage />
-                          </AdminRoute>
-                        }
-                      />
-                      <Route
-                        path="legal"
-                        element={
-                          <AdminRoute permissions={['admin.settings.manage']}>
-                            <LegalPagesPage />
-                          </AdminRoute>
-                        }
-                      />
-                      <Route
-                        path="legal/:slug"
-                        element={
-                          <AdminRoute permissions={['admin.settings.manage']}>
-                            <LegalPageEditor />
-                          </AdminRoute>
-                        }
-                      />
-                      <Route
-                        path="reports/:name"
-                        element={
-                          <AdminRoute
-                            permissions={[
-                              'reports.view',
-                              'reports.finance.view',
-                            ]}
-                          >
-                            <ReportPage />
-                          </AdminRoute>
-                        }
-                      />
-                      <Route
-                        path="reports/sla"
-                        element={
-                          <AdminRoute permissions={['orders.orders.view']}>
-                            <SlaReportPage />
-                          </AdminRoute>
-                        }
-                      />
-                      <Route
-                        path="reports/sla/:id"
-                        element={
-                          <AdminRoute permissions={['orders.orders.view']}>
-                            <SlaOrderPage />
-                          </AdminRoute>
-                        }
-                      />
-                      <Route
-                        path="audit"
-                        element={
-                          <AdminRoute permissions={['admin.audit.view']}>
-                            <AuditLogPage />
-                          </AdminRoute>
-                        }
-                      />
-                      <Route
-                        path="users"
-                        element={
-                          <AdminRoute permissions={USERS_VIEW}>
-                            <UsersSection />
-                          </AdminRoute>
-                        }
-                      />
-                      <Route
-                        path="users/:id"
-                        element={
-                          <AdminRoute permissions={USERS_VIEW}>
-                            <UserAccountPage />
-                          </AdminRoute>
-                        }
-                      />
-                      <Route
-                        path="roles"
-                        element={
-                          <AdminRoute permissions={['admin.roles.view']}>
-                            <AdminRolesPage />
-                          </AdminRoute>
-                        }
-                      />
-                      <Route
-                        path="dashboard"
-                        element={<Navigate to="/admin" replace />}
-                      />
-                      <Route
-                        path="*"
-                        element={<Navigate to="/admin" replace />}
-                      />
-                    </Route>
-
-                    <Route
-                      path="/profile"
-                      element={
-                        <Private>
-                          <LegacyProfileRedirect />
-                        </Private>
-                      }
-                    />
-                    <Route
-                      path="/dashboard"
-                      element={
-                        <Private>
-                          <LegacyProfileRedirect />
-                        </Private>
-                      }
-                    />
-                  </Routes>
-                </Suspense>
-              </Router>
+              <RouterProvider router={router} />
             </StoreProvider>
           </AuthProvider>
         </NotificationProvider>

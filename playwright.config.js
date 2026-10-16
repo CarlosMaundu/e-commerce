@@ -27,7 +27,19 @@ module.exports = defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    {
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+      testIgnore: /mobile\.spec\.js/,
+    },
+    // The shop on a phone: the bottom menu, sheets, search and scrolling.
+    {
+      name: 'phone',
+      use: { ...devices['Pixel 7'] },
+      testMatch: /mobile\.spec\.js$/,
+    },
+  ],
   webServer: [
     {
       // Fresh demo catalog every run, so stock and products are predictable.

@@ -36,6 +36,7 @@ const StorefrontLayout = () => (
   <Box
     sx={{
       minHeight: '100vh',
+      '@supports (min-height: 100dvh)': { minHeight: '100dvh' },
       display: 'flex',
       flexDirection: 'column',
       overflowX: 'clip',

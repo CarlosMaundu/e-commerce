@@ -18,6 +18,86 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Phones: taps feel like an app — no grey flash, no double-tap zoom delay
+   on controls, and sheets don't drag the page behind them. */
+html {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+a,
+button,
+input,
+select,
+textarea,
+label,
+[role='button'],
+[role='tab'],
+[role='option'] {
+  touch-action: manipulation;
+}
+.MuiDrawer-paper,
+.MuiDialog-paper {
+  overscroll-behavior: contain;
+}
+
+/* Page transitions on phones (see src/navigation.js): forward slides the new
+   page in from the right, back slides it away to the right, switching tabs
+   cross-fades. The header and the bottom menu stay still. */
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 260ms;
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  html[data-nav='forward']::view-transition-old(root) {
+    animation-name: page-out-left;
+  }
+  html[data-nav='forward']::view-transition-new(root) {
+    animation-name: page-in-right;
+  }
+  html[data-nav='back']::view-transition-old(root) {
+    animation-name: page-out-right;
+    z-index: 1;
+  }
+  html[data-nav='back']::view-transition-new(root) {
+    animation-name: page-in-left;
+  }
+  html[data-nav='tab']::view-transition-old(root),
+  html[data-nav='tab']::view-transition-new(root) {
+    animation-duration: 160ms;
+  }
+}
+::view-transition-group(app-header),
+::view-transition-group(app-tabbar),
+::view-transition-old(app-header),
+::view-transition-new(app-header),
+::view-transition-old(app-tabbar),
+::view-transition-new(app-tabbar) {
+  animation: none;
+}
+@keyframes page-in-right {
+  from {
+    transform: translateX(100%);
+  }
+}
+@keyframes page-out-left {
+  to {
+    transform: translateX(-25%);
+    opacity: 0.6;
+  }
+}
+@keyframes page-out-right {
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes page-in-left {
+  from {
+    transform: translateX(-25%);
+    opacity: 0.6;
+  }
+}
+
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
