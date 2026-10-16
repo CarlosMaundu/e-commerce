@@ -3,10 +3,16 @@
 // wording, links and photos come from Back office → Store settings; the
 // bundled photos are only defaults. `compact` shows just the offer card
 // (product list page).
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 import { Link as RouterLink } from 'react-router-dom';
-import { Box, Button, IconButton, Typography } from '@mui/material';
+import {
+  Box,
+  Button,
+  IconButton,
+  Typography,
+  useMediaQuery,
+} from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import { FiArrowRight } from 'react-icons/fi';
 import { useStore } from '../../context/StoreContext';
@@ -324,9 +330,203 @@ const MemberCard = ({ hero }) => {
 };
 MemberCard.propTypes = { hero: PropTypes.object.isRequired };
 
+// ---------- phones: a carousel of photo cards ----------
+
+const SLIDE_MS = 5000;
+
+/**
+ * Phones: the three hero cards as wide photo cards in a row you swipe
+ * through. It moves on by itself every few seconds (not while touched, and
+ * not at all with reduced motion), wraps round, and shows dots.
+ */
+const PhoneHeroCarousel = ({ hero }) => {
+  const rowRef = useRef(null);
+  const [index, setIndex] = useState(0);
+  const [held, setHeld] = useState(false);
+  const slides = [
+    {
+      ...hero.main,
+      image: hero.main.image || defaultMainImage,
+      cta: hero.main.ctaLabel,
+    },
+    { ...hero.side, image: hero.side.image || defaultSideImage },
+    { ...hero.member, image: '' },
+  ].filter((s) => s.title);
+  const reduced = useMediaQuery('(prefers-reduced-motion: reduce)');
+
+  useEffect(() => {
+    const el = rowRef.current;
+    if (!el) return undefined;
+    const onScroll = () => {
+      const w = el.firstElementChild?.offsetWidth || el.clientWidth;
+      setIndex(Math.round(el.scrollLeft / (w + 12)));
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, []);
+
+  const go = (i) => {
+    const el = rowRef.current;
+    const card = el?.children[i];
+    if (card) {
+      el.scrollTo({
+        left: card.offsetLeft - el.offsetLeft,
+        behavior: 'smooth',
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (held || reduced || slides.length < 2) return undefined;
+    const t = setTimeout(() => go((index + 1) % slides.length), SLIDE_MS);
+    return () => clearTimeout(t);
+  }, [index, held, reduced, slides.length]);
+
+  return (
+    <Box
+      component="section"
+      aria-roledescription="carousel"
+      aria-label="Offers"
+      data-testid="hero-carousel"
+      sx={{ mt: 2 }}
+    >
+      <Box
+        ref={rowRef}
+        onTouchStart={() => setHeld(true)}
+        onTouchEnd={() => setHeld(false)}
+        onPointerEnter={() => setHeld(true)}
+        onPointerLeave={() => setHeld(false)}
+        sx={{
+          display: 'flex',
+          gap: 1.5,
+          mx: -2,
+          px: 2,
+          overflowX: 'auto',
+          scrollSnapType: 'x mandatory',
+          scrollPaddingInline: 16,
+          overscrollBehaviorX: 'contain',
+          scrollbarWidth: 'none',
+          '&::-webkit-scrollbar': { display: 'none' },
+        }}
+      >
+        {slides.map((s, i) => (
+          <Box
+            key={i}
+            role="group"
+            aria-roledescription="slide"
+            aria-label={`${i + 1} of ${slides.length}: ${s.title}`}
+            sx={{
+              position: 'relative',
+              flex: '0 0 88%',
+              aspectRatio: '16 / 9',
+              borderRadius: 1,
+              overflow: 'hidden',
+              scrollSnapAlign: 'start',
+              bgcolor: 'ink.main',
+              color: 'common.white',
+              boxShadow: '0 12px 24px rgba(27,33,36,0.16)',
+            }}
+          >
+            {s.image && (
+              <Box
+                component="img"
+                src={s.image}
+                alt=""
+                loading={i === 0 ? 'eager' : 'lazy'}
+                sx={{
+                  position: 'absolute',
+                  inset: 0,
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                }}
+              />
+            )}
+            <Box
+              sx={{
+                position: 'absolute',
+                inset: 0,
+                p: 2.25,
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'flex-end',
+                alignItems: 'flex-start',
+                gap: 1,
+                background:
+                  'linear-gradient(90deg, rgba(27,33,36,0.78) 0%, rgba(27,33,36,0.35) 60%, rgba(27,33,36,0.1) 100%)',
+              }}
+            >
+              {s.eyebrow && (
+                <Typography sx={{ ...eyebrowSx, fontSize: '0.68rem' }}>
+                  {s.eyebrow}
+                </Typography>
+              )}
+              <Typography
+                component="h2"
+                sx={{
+                  fontWeight: 800,
+                  fontSize: '1.3rem',
+                  lineHeight: 1.15,
+                  maxWidth: '75%',
+                }}
+              >
+                {s.title}
+              </Typography>
+              <Button
+                {...linkProps(s.link)}
+                variant="outlined"
+                size="small"
+                sx={{
+                  mt: 0.5,
+                  color: 'common.white',
+                  borderColor: 'rgba(255,255,255,0.85)',
+                  borderRadius: 99,
+                  '&:hover': { borderColor: 'common.white' },
+                }}
+              >
+                {s.cta || 'Shop now'}
+              </Button>
+            </Box>
+          </Box>
+        ))}
+      </Box>
+      {slides.length > 1 && (
+        <Box
+          sx={{ display: 'flex', justifyContent: 'center', gap: 0.75, mt: 1.5 }}
+        >
+          {slides.map((s, i) => (
+            <Box
+              key={i}
+              component="button"
+              type="button"
+              aria-label={`Show offer ${i + 1}`}
+              aria-current={i === index}
+              onClick={() => go(i)}
+              sx={{
+                p: 0,
+                border: 0,
+                height: 6,
+                width: i === index ? 20 : 6,
+                borderRadius: 3,
+                cursor: 'pointer',
+                bgcolor: i === index ? 'text.primary' : 'divider',
+                transition: 'width 200ms ease',
+              }}
+            />
+          ))}
+        </Box>
+      )}
+    </Box>
+  );
+};
+PhoneHeroCarousel.propTypes = { hero: PropTypes.object.isRequired };
+
 const HeroSection = ({ compact = false }) => {
   const { hero } = useStore();
+  const theme = useTheme();
+  const phone = useMediaQuery(theme.breakpoints.down('md'));
   if (compact) return <MainCard hero={hero.main} compact />;
+  if (phone) return <PhoneHeroCarousel hero={hero} />;
   return (
     <Box
       sx={{

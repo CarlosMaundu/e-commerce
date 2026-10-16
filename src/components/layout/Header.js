@@ -775,14 +775,6 @@ const Header = () => {
                 <FiX />
               </IconButton>
             </Stack>
-            <Button
-              variant="outlined"
-              startIcon={<FiSearch />}
-              onClick={() => closeMenuThen(() => setSearchOpen(true))}
-              sx={{ justifyContent: 'flex-start', height: 44 }}
-            >
-              Search products
-            </Button>
             <Typography
               {...menuLink('/products?on_sale=1')}
               sx={{

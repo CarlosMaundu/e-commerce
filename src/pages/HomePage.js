@@ -8,6 +8,7 @@ import CustomerExperienceSection from '../components/layout/CustomerExperienceSe
 import {
   BestViewed,
   BrandsStrip,
+  CategoryCircles,
   CuratedPicks,
   FeaturedGrid,
 } from '../components/home/HomeSections';
@@ -16,6 +17,7 @@ import { PromoBanner } from '../components/promotions/Promotions';
 const HomePage = () => (
   <Container maxWidth="xl" sx={{ pb: { xs: 6, md: 9 } }}>
     <HeroSection />
+    <CategoryCircles />
     <Stack spacing={{ xs: 6, md: 9 }} sx={{ mt: { xs: 5, md: 7 } }}>
       <BrandsStrip />
       <CustomerExperienceSection />
