@@ -1,5 +1,6 @@
 // src/routes/auth.ts — sign-up, sign-in (password and Google), sessions,
 // password reset. Mounted at /api/rest (OpenCart route names).
+import { PgStore } from '../lib/rateLimitStore';
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
@@ -36,8 +37,9 @@ const email = z
   .toLowerCase()
   .email('Please enter a valid email address.');
 
-const limiter = (max: number, message: string) =>
+const limiter = (name: string, max: number, message: string) =>
   rateLimit({
+    store: new PgStore(`auth-${name}`),
     windowMs: 15 * 60 * 1000,
     limit: max,
     standardHeaders: true,
@@ -46,8 +48,8 @@ const limiter = (max: number, message: string) =>
     skip: () => process.env.NODE_ENV === 'test',
   });
 
-const loginLimiter = limiter(30, 'Too many sign-in attempts. Please wait a few minutes and try again.');
-const emailLimiter = limiter(10, 'Too many requests. Please wait a few minutes and try again.');
+const loginLimiter = limiter('login', 30, 'Too many sign-in attempts. Please wait a few minutes and try again.');
+const emailLimiter = limiter('email', 10, 'Too many requests. Please wait a few minutes and try again.');
 
 /** Creates a single-use emailed token and returns the raw value. */
 export const issueEmailToken = async (userId: number, purpose: 'reset' | 'setup' | 'verify') => {

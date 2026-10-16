@@ -3,6 +3,7 @@
 // orders: a card payment link with a QR code, or an M-Pesa prompt sent to the
 // customer's phone. Safaricom confirms M-Pesa payments on the callback; staff
 // screens also poll, so a payment is recorded whichever arrives first.
+import { announce } from '../lib/changes';
 import crypto from 'crypto';
 import { Router } from 'express';
 import { z } from 'zod';
@@ -222,6 +223,7 @@ export const adminPaymentRoutes = ({ payments, mpesa }: { payments: PaymentGatew
       }
     }
     const saved = await saveProvider(code, { ...b, settings, secrets }, req.auth!.userId);
+    void announce('payments');
     audit(req, 'payments.provider_saved', `payment_provider:${code}`, { enabled: b.enabled, mode: b.mode });
     ok(res, toContractProvider(saved));
   }));
@@ -258,6 +260,7 @@ export const adminPaymentRoutes = ({ payments, mpesa }: { payments: PaymentGatew
       result = { ok: false, message: error?.messages?.[0] || error?.message || 'The test failed.' };
     }
     await recordTest(code, result.ok, result.message);
+    void announce('payments');
     audit(req, 'payments.provider_tested', `payment_provider:${code}`, { ok: result.ok });
     ok(res, { ...result, provider: toContractProvider(provider(code)) });
   }));

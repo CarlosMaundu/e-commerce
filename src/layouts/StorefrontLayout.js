@@ -1,5 +1,6 @@
 // src/layouts/StorefrontLayout.js — header, page, footer for shopper pages.
-import React from 'react';
+import PageSkeleton from '../components/common/PageSkeleton';
+import React, { Suspense } from 'react';
 import PropTypes from 'prop-types';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Box, Stack, Typography } from '@mui/material';
@@ -44,7 +45,10 @@ const StorefrontLayout = () => (
     <AnnouncementBar />
     <Header />
     <Box component="main" sx={{ flex: 1 }}>
-      <Outlet />
+      {/* Pages load when first opened; their skeleton shows meanwhile. */}
+      <Suspense fallback={<PageSkeleton />}>
+        <Outlet />
+      </Suspense>
     </Box>
     <Footer />
     {/* Room for the phone menu so it never covers the footer. */}

@@ -8,7 +8,7 @@ import { hashPassword, passwordSchema, verifyPassword } from '../lib/security';
 import { impersonatorOf, revokeAllSessions } from '../lib/sessions';
 import { enforcePasswordPolicy } from '../lib/settings';
 import { findUserById, toContractUser } from '../lib/users';
-import { singleImage, uploadedUrl } from '../lib/uploads';
+import { singleImage, storeUpload } from '../lib/uploads';
 import { authenticate, notWhileImpersonating } from '../middleware/auth';
 import { toContractActivity, toContractSession } from './adminSecurity';
 
@@ -99,7 +99,7 @@ export const accountRoutes = () => {
     singleImage,
     handler(async (req, res) => {
       if (!req.file) fail(400, 'Please choose a photo to upload.');
-      const url = uploadedUrl(req.file!);
+      const url = await storeUpload(req.file!, { maxSize: 512 });
       await query('UPDATE users SET avatar = $2, updated_at = now() WHERE id = $1', [req.auth!.userId, url]);
       audit(req, 'account.updated', `user:${req.auth!.userId}`, { fields: ['avatar'] });
       ok(res, toContractUser(await findUserById(req.auth!.userId), req.auth!.permissions), 201);

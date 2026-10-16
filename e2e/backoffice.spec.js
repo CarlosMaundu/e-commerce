@@ -298,7 +298,12 @@ test('categories and brands are tables with add dialogs; variation photos stay l
 
   // Linked photos load from the product (regression: they used to show 0).
   await page.goto('/admin/products?search=crew-neck');
+  // Wait for the search result before opening it (the list re-renders).
+  await expect(
+    page.getByText(/Showing\s*1–1\s*out of\s*1\s*products/)
+  ).toBeVisible();
   await page.getByRole('link', { name: 'Cotton crew-neck shirt' }).click();
+  await expect(page).toHaveURL(/\/admin\/products\/\d+$/);
   await page.getByRole('button', { name: /Variations/ }).click();
   await expect(
     page.getByRole('button', { name: 'Link images to Black' })

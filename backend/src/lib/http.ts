@@ -1,4 +1,5 @@
 // src/lib/http.ts — the OpenCart response envelope and typed HTTP errors.
+import { reportError } from './monitoring';
 import { Response, Request, NextFunction, RequestHandler } from 'express';
 import { z, ZodError, ZodTypeAny } from 'zod';
 
@@ -71,10 +72,10 @@ export const errorHandler = (error: unknown, req: Request, res: Response, _next:
     });
     return;
   }
-  console.error(`[${req.method} ${req.path}]`, error);
+  reportError(error, req);
   res.status(500).json({
     success: 0,
-    error: ['Something went wrong on our side. Please try again.'],
+    error: [`Something went wrong on our side. Please try again.${req.id ? ` (Reference ${req.id.slice(0, 8)})` : ''}`],
     data: {},
   });
 };

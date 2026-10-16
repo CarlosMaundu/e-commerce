@@ -408,21 +408,27 @@ export const SearchField = ({
   const [suggestions, setSuggestions] = useState([]);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
-  const first = useRef(true);
+  // The search already applied (the one the list opened with, at first).
+  const applied = useRef(value.trim());
+  const apply = (q) => {
+    applied.current = q;
+    submitRef.current?.(q);
+  };
 
   // Server lists: apply after a short pause, or straight away when cleared.
+  // Only changes are applied, so opening a list (or React re-running this
+  // effect) never re-sends its search, which could undo a click away.
   useEffect(() => {
-    if (first.current) {
-      first.current = false;
-      return undefined;
-    }
     if (!submitRef.current) return undefined;
-    if (!value.trim()) {
-      submitRef.current('');
+    const q = value.trim();
+    if (q === applied.current) return undefined;
+    if (!q) {
+      apply('');
       return undefined;
     }
-    const t = setTimeout(() => submitRef.current(value.trim()), delay);
+    const t = setTimeout(() => apply(q), delay);
     return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, delay]);
 
   // Predictive suggestions.
@@ -465,7 +471,7 @@ export const SearchField = ({
         if (showList && active >= 0) go(suggestions[active]);
         else {
           setOpen(false);
-          submitRef.current?.(value.trim());
+          apply(value.trim());
         }
       }}
       sx={{ flex: 1, maxWidth: { md: 420 }, position: 'relative' }}

@@ -27,7 +27,8 @@ export const removeOldData = async () => {
     (await del(`DELETE FROM promotion_events WHERE created_at < now() - make_interval(days => $1)`, RETENTION.deal_events)) +
     (await del(`DELETE FROM product_views WHERE day < current_date - $1::int`, RETENTION.product_views)) +
     (await del(`DELETE FROM audit_logs WHERE created_at < now() - make_interval(days => $1)`, RETENTION.audit_log)) +
-    (await del(`DELETE FROM email_outbox WHERE sent_at < now() - make_interval(days => $1)`, RETENTION.sent_emails))
+    (await del(`DELETE FROM email_outbox WHERE sent_at < now() - make_interval(days => $1)`, RETENTION.sent_emails)) +
+    (await del(`DELETE FROM rate_limits WHERE reset_at < now() - make_interval(days => $1)`, 1))
   );
 };
 

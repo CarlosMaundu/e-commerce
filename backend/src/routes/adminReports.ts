@@ -2,6 +2,7 @@
 //   GET /admin/reports/sla       orders in a period with their SLA, summary
 //   GET /admin/reports/sla/:id   one order: each stage, its time, who moved it
 //   GET/PUT /admin/sla-settings  stage targets (Store settings → Fulfilment SLA)
+import { announce } from '../lib/changes';
 import { config } from '../config';
 import { Router } from 'express';
 import { z } from 'zod';
@@ -60,6 +61,7 @@ export const adminReportRoutes = () => {
   router.put('/sla-settings', requirePermission('admin.settings.manage'), handler(async (req, res) => {
     const merged = parse(slaSchema, mergeSla(req.body || {}));
     await saveSla(merged, req.auth!.userId);
+    void announce('sla');
     audit(req, 'admin.sla_settings_updated', 'sla_settings', {});
     ok(res, { settings: merged });
   }));

@@ -12,6 +12,7 @@ import { loadProviders } from './lib/paymentProviders';
 import { backfillAccounting } from './lib/accounting';
 import { fixLegacyData } from './lib/dataFixes';
 import { startJobs } from './lib/jobs';
+import { listenForChanges } from './lib/changes';
 import { stripeGateway } from './lib/payments';
 import { darajaGateway } from './lib/mpesa';
 
@@ -35,6 +36,8 @@ const main = async () => {
   const payments = stripeGateway();
   const mpesa = darajaGateway();
   startJobs({ payments, mpesa });
+  // Settings saved on another API server reload here too.
+  await listenForChanges();
   createApp({ payments, mpesa }).listen(config.port, () => {
     console.log(`Carlos Shop API listening on :${config.port}`);
   });

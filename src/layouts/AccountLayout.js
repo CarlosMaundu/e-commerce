@@ -1,7 +1,8 @@
 // src/layouts/AccountLayout.js — the customer's account area: a sidebar
 // (who you are and every account page) beside the page, using the full
 // shop width. On phones the links become a scrollable row of pills.
-import React, { useContext } from 'react';
+import PageSkeleton from '../components/common/PageSkeleton';
+import React, { Suspense, useContext } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import {
@@ -267,7 +268,10 @@ const AccountLayout = () => {
         </Box>
 
         <Box component="section" sx={{ minWidth: 0 }}>
-          <Outlet />
+          {/* Pages load when first opened; their skeleton shows meanwhile. */}
+          <Suspense fallback={<PageSkeleton variant="form" />}>
+            <Outlet />
+          </Suspense>
         </Box>
       </Box>
     </Container>

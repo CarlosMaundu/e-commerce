@@ -98,7 +98,7 @@ const doReset = async () => {
   await query(
     `TRUNCATE audit_logs, auth_tokens, sessions, users, products, categories, coupons, orders,
        order_items, order_history, returns, cart_items, checkout_state, wishlist_items, addresses,
-       newsletter_subscribers, brands, promotions, role_permissions, roles, permissions, sla_settings, legal_pages, support_tickets, support_messages, faq_items, store_settings, payment_providers, search_queries, stock_movements RESTART IDENTITY CASCADE`
+       newsletter_subscribers, brands, promotions, role_permissions, roles, permissions, sla_settings, legal_pages, support_tickets, support_messages, faq_items, store_settings, payment_providers, search_queries, stock_movements, finance_settings, rate_limits RESTART IDENTITY CASCADE`
   );
   await loadFinance(); // before seeding, which prices in the shop's currency
   await loadDelivery();

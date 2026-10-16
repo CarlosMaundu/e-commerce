@@ -283,6 +283,7 @@ test.describe('admin user management', () => {
       dialog.getByRole('combobox', { name: /role/i })
     ).toHaveAttribute('aria-disabled', 'true');
     await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(dialog).toBeHidden();
 
     await page.getByRole('button', { name: 'Add user' }).click();
     await page

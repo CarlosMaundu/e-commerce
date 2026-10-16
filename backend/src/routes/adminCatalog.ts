@@ -7,7 +7,7 @@ import { query, transaction } from '../db';
 import { audit } from '../lib/audit';
 import { fail, handler, ok, parse } from '../lib/http';
 import { cleanRichText } from '../lib/richText';
-import { singleImage, uploadedUrl } from '../lib/uploads';
+import { singleImage, storeUpload } from '../lib/uploads';
 import { authenticate, requireAnyPermission, requirePermission } from '../middleware/auth';
 import {
   buildWhere,
@@ -573,7 +573,7 @@ export const adminCatalogRoutes = () => {
     singleImage,
     handler(async (req, res) => {
       if (!req.file) fail(400, 'Please choose a file to upload.');
-      const url = uploadedUrl(req.file!);
+      const url = await storeUpload(req.file!);
       audit(req, 'catalog.file_uploaded', url, { size: req.file!.size });
       ok(res, { url, filename: req.file!.originalname, size: req.file!.size }, 201);
     })
