@@ -30,7 +30,7 @@ import { alpha, useTheme } from '@mui/material/styles';
 import {
   FiChevronDown,
   FiChevronUp,
-  FiGrid,
+  FiTrendingUp,
   FiHeart,
   FiArrowLeft,
   FiMenu,
@@ -66,6 +66,56 @@ const squareButtonSx = {
   bgcolor: 'background.neutral',
   color: 'text.primary',
   '&:hover': { bgcolor: 'background.neutralDeep' },
+};
+
+/**
+ * A category's photo (from the back office), or a tinted tile with its
+ * first letter when it has none; "New & trending" gets its trend icon.
+ */
+const CategoryThumb = ({ category, size = 48, tone }) => {
+  const sx = {
+    width: size,
+    height: size,
+    borderRadius: '8px',
+    flexShrink: 0,
+    overflow: 'hidden',
+  };
+  if (category.image) {
+    return (
+      <Box
+        component="img"
+        src={category.image}
+        alt=""
+        loading="lazy"
+        sx={{ ...sx, objectFit: 'cover', bgcolor: 'background.paper' }}
+      />
+    );
+  }
+  return (
+    <Box
+      aria-hidden
+      sx={{
+        ...sx,
+        display: 'grid',
+        placeItems: 'center',
+        color: tone,
+        bgcolor: alpha(tone, 0.12),
+        fontWeight: 800,
+        fontSize: size * 0.4,
+      }}
+    >
+      {category.id === NEW_AND_TRENDING.id ? (
+        <FiTrendingUp />
+      ) : (
+        category.name.charAt(0).toUpperCase()
+      )}
+    </Box>
+  );
+};
+CategoryThumb.propTypes = {
+  category: PropTypes.object.isRequired,
+  size: PropTypes.number,
+  tone: PropTypes.string.isRequired,
 };
 
 /** "Shop by category" panel opened from the Categories button. */
@@ -133,8 +183,8 @@ const CategoryPanel = ({ anchorEl, onClose, items }) => {
                 display: 'flex',
                 alignItems: 'center',
                 gap: 2,
-                p: 2,
-                minHeight: 80,
+                p: 1.5,
+                minHeight: 72,
                 borderRadius: '8px',
                 bgcolor: 'background.neutral',
                 color: 'text.primary',
@@ -144,20 +194,7 @@ const CategoryPanel = ({ anchorEl, onClose, items }) => {
                 '&:hover': { bgcolor: 'background.neutralDeep' },
               }}
             >
-              <Box
-                sx={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: '8px',
-                  display: 'grid',
-                  placeItems: 'center',
-                  color: tone,
-                  bgcolor: alpha(tone, 0.12),
-                  flexShrink: 0,
-                }}
-              >
-                <FiGrid />
-              </Box>
+              <CategoryThumb category={c} tone={tone} />
               {c.name}
             </Box>
           );
@@ -770,12 +807,28 @@ const Header = () => {
             <Typography variant="overline" color="text.secondary">
               Categories
             </Typography>
-            {[NEW_AND_TRENDING, ...categoryLinks].map((c) => (
+            {[NEW_AND_TRENDING, ...categoryLinks].map((c, i) => (
               <Typography
                 key={c.id}
                 {...menuLink(c.to)}
-                sx={{ color: 'text.primary', textDecoration: 'none' }}
+                sx={{
+                  color: 'text.primary',
+                  textDecoration: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1.5,
+                  minHeight: 44,
+                }}
               >
+                <CategoryThumb
+                  category={c}
+                  size={36}
+                  tone={
+                    i % 2
+                      ? theme.palette.warning.main
+                      : theme.palette.primary.main
+                  }
+                />
                 {c.name}
               </Typography>
             ))}

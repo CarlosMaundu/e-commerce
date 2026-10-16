@@ -22,7 +22,7 @@ import {
 import { canShop } from '../auth/permissions';
 import { useNotify } from '../notification/NotificationProvider';
 import { MESSAGES } from '../notification/messages';
-import { resetToGuest, syncCartAfterSignIn } from '../redux/cartSlice';
+import { resetToGuest, syncCart } from '../redux/cartSlice';
 import {
   resetWishlistToGuest,
   syncWishlistAfterSignIn,
@@ -46,7 +46,7 @@ export const AuthProvider = ({ children }) => {
     const wasSignedIn = syncedFor.current !== null;
     syncedFor.current = id;
     if (id !== null && canShop(user)) {
-      dispatch(syncCartAfterSignIn());
+      dispatch(syncCart());
       dispatch(syncWishlistAfterSignIn());
     } else if (wasSignedIn || id !== null) {
       // Signed out, or a back-office account (they don't shop).

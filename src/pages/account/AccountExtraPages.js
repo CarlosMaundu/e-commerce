@@ -41,6 +41,7 @@ import AccountTable from '../../components/account/AccountTable';
 import { formatDate, formatMoney } from '../../utils/format';
 import { InvoiceSkeleton } from '../../components/skeletons';
 import { ItemRowsSkeleton } from '../../components/skeletons';
+import { offerInstall } from '../../components/InstallPrompt';
 
 const ACTIVE = ['awaiting_payment', 'pending', 'processing', 'shipped'];
 
@@ -53,6 +54,11 @@ export const TrackOrderPage = () => {
   const [found, setFound] = useState(null);
   const [problem, setProblem] = useState('');
   const [busy, setBusy] = useState(false);
+  // Tracking an order: offer the app, for next time.
+  useEffect(() => {
+    const t = setTimeout(offerInstall, 1500);
+    return () => clearTimeout(t);
+  }, []);
 
   useEffect(() => {
     ordersApi

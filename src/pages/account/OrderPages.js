@@ -71,6 +71,7 @@ import {
   TimelineSkeleton,
 } from '../../components/skeletons';
 import ResponsiveSheet from '../../components/common/ResponsiveSheet';
+import { offerInstall } from '../../components/InstallPrompt';
 
 const FILTERS = [
   { label: 'All', value: '' },
@@ -803,7 +804,11 @@ export const OrderDetailPage = () => {
       <OrderSuccessDialog
         open={celebrate}
         order={order}
-        onClose={() => setCelebrate(false)}
+        onClose={() => {
+          setCelebrate(false);
+          // A good moment to offer the app (once; "Not now" waits 30 days).
+          offerInstall();
+        }}
       />
       {justPlaced && (
         <Alert severity="success" sx={{ mb: 3 }}>

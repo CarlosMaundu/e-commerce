@@ -67,14 +67,30 @@ const StoreContext = createContext({
   reload: () => {},
 });
 
-const setFavicon = (href) => {
-  let link = document.querySelector("link[rel~='icon']");
-  if (!link) {
-    link = document.createElement('link');
-    link.rel = 'icon';
-    document.head.appendChild(link);
+const headTag = (selector, create) => {
+  let el = document.head.querySelector(selector);
+  if (!el) {
+    el = create();
+    document.head.appendChild(el);
   }
-  link.href = href;
+  return el;
+};
+const setLink = (rel, href) => {
+  headTag(`link[rel='${rel}']`, () =>
+    Object.assign(document.createElement('link'), { rel })
+  ).href = href;
+};
+const setMeta = (name, content) => {
+  headTag(`meta[name='${name}']`, () =>
+    Object.assign(document.createElement('meta'), { name })
+  ).content = content;
+};
+
+/** Changes whenever the logo does, so browsers fetch the new icons. */
+const iconKey = (src) => {
+  let h = 0;
+  for (const ch of src || 'default') h = (h * 31 + ch.charCodeAt(0)) | 0;
+  return (h >>> 0).toString(36);
 };
 
 export const StoreProvider = ({ children }) => {
@@ -113,7 +129,17 @@ export const StoreProvider = ({ children }) => {
     document.title = settings.tagline
       ? `${settings.name} — ${settings.tagline}`
       : settings.name;
-    if (settings.favicon) setFavicon(settings.favicon);
+    // Tab icon, home-screen name and icon, and the installed app's manifest
+    // (made by the API from the same settings) all follow Store settings.
+    const v = iconKey(settings.logo || settings.favicon);
+    setLink('icon', settings.favicon || `/api/rest/app-icon/64.png?v=${v}`);
+    setLink('apple-touch-icon', `/api/rest/app-icon/180.png?v=${v}`);
+    setLink('manifest', `/api/rest/manifest.webmanifest?v=${v}`);
+    setMeta('apple-mobile-web-app-title', settings.name);
+    setMeta(
+      'description',
+      settings.tagline || `Shop online at ${settings.name}.`
+    );
   }, [settings]);
 
   const value = useMemo(

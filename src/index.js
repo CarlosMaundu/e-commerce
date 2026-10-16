@@ -1,53 +1,22 @@
 // src/index.js
-
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import App from './App';
 import { AppErrorBoundary } from './monitoring';
-import { Provider } from 'react-redux';
-import store, { persistor } from './redux/store';
 import reportWebVitals from './reportWebVitals';
+import { register as registerServiceWorker } from './serviceWorkerRegistration';
 
-// Import Bootstrap CSS
-import 'bootstrap/dist/css/bootstrap.min.css';
-
-// Import ThemeProvider and createTheme from Material-UI
-import { ThemeProvider, createTheme } from '@mui/material/styles';
-import CssBaseline from '@mui/material/CssBaseline';
-
-// For redux-persist
-import { PersistGate } from 'redux-persist/integration/react';
-
-// Create a theme instance with palette definitions
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: '#007bff', // Bootstrap primary color
-    },
-    secondary: {
-      main: '#6c757d', // Bootstrap secondary color
-    },
-  },
-});
-
-const container = document.getElementById('root');
-const root = createRoot(container);
-
-root.render(
+// App.js provides the theme, store and router.
+createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <Provider store={store}>
-      {/* PersistGate ensures the store is rehydrated before rendering the app */}
-      <PersistGate loading={null} persistor={persistor}>
-        <ThemeProvider theme={theme}>
-          <CssBaseline />
-          <AppErrorBoundary>
-            <App />
-          </AppErrorBoundary>
-        </ThemeProvider>
-      </PersistGate>
-    </Provider>
+    <AppErrorBoundary>
+      <App />
+    </AppErrorBoundary>
   </React.StrictMode>
 );
+
+// Installable app: offline browsing and a notice when a new version is ready.
+registerServiceWorker();
 
 reportWebVitals();

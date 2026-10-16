@@ -79,3 +79,28 @@ test('unknown pages show a helpful not-found page', async ({ page }) => {
     page.getByRole('heading', { name: 'Page not found' })
   ).toBeVisible();
 });
+
+test('the Categories menu shows each category’s photo', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Categories' }).click();
+  const panel = page.getByRole('navigation', { name: 'Categories' });
+  const women = panel.getByRole('link', { name: 'Women' });
+  await expect(women.locator('img')).toHaveAttribute('src', /\S/);
+  await women.click();
+  await expect(page).toHaveURL(/\/products\?category=\d+$/);
+});
+
+test('the installed app is named after the shop, with its own icons', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const href = await page.locator('link[rel="manifest"]').getAttribute('href');
+  const manifest = await (await page.request.get(href)).json();
+  expect(manifest.name).toBe('Carlos Shop');
+  expect(JSON.stringify(manifest)).not.toMatch(/React/);
+  const icon = await page.request.get(manifest.icons[0].src);
+  expect(icon.headers()['content-type']).toBe('image/png');
+  await expect(
+    page.locator('meta[name="apple-mobile-web-app-title"]')
+  ).toHaveAttribute('content', 'Carlos Shop');
+});

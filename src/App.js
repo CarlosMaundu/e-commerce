@@ -19,6 +19,7 @@ import store, { persistor } from './redux/store';
 import { AuthContext, AuthProvider } from './context/AuthContext';
 import { NotificationProvider } from './notification/NotificationProvider';
 import { ScrollMemory, withPageTransitions } from './navigation';
+import AppStatus from './components/AppStatus';
 import PageSkeleton from './components/common/PageSkeleton';
 import PrivateRoute from './components/PrivateRoute';
 import AdminRoute from './components/AdminRoute';
@@ -273,6 +274,7 @@ const Account = ({ children }) => (
 const Frame = () => (
   <>
     <ScrollMemory />
+    <AppStatus />
     <Suspense fallback={<PageSkeleton />}>
       <Outlet />
     </Suspense>

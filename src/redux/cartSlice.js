@@ -67,6 +67,24 @@ export const syncCartAfterSignIn = createAsyncThunk(
   })
 );
 
+// While the account cart is loading after sign-in, cart actions wait for it:
+// done in the guest cart meanwhile, they'd be lost when the account cart
+// replaces it (e.g. "Add to cart" tapped right as the page opens).
+let syncing = null;
+const afterSync = async () => {
+  if (syncing) await syncing.catch(() => {});
+};
+
+/** Signs the cart in: dispatch this, not syncCartAfterSignIn directly. */
+export const syncCart = () => (dispatch) => {
+  const pending = dispatch(syncCartAfterSignIn());
+  syncing = pending;
+  pending.finally(() => {
+    if (syncing === pending) syncing = null;
+  });
+  return pending;
+};
+
 export const loadCart = createAsyncThunk(
   'cart/load',
   run(() => cartApi.get())
@@ -79,6 +97,7 @@ export const addToCart = createAsyncThunk(
       { product, quantity = 1, options = {}, variant = null },
       { getState }
     ) => {
+      await afterSync();
       if (getState().cart.mode !== 'server') {
         return { guest: { product, quantity, options, variant } };
       }
@@ -92,6 +111,7 @@ export const addToCart = createAsyncThunk(
 export const setCartQuantity = createAsyncThunk(
   'cart/setQuantity',
   run(async ({ key, quantity }, { getState }) => {
+    await afterSync();
     if (getState().cart.mode !== 'server') return { guest: { key, quantity } };
     return { server: await cartApi.update(key, quantity) };
   })
@@ -100,6 +120,7 @@ export const setCartQuantity = createAsyncThunk(
 export const removeFromCart = createAsyncThunk(
   'cart/remove',
   run(async (key, { getState }) => {
+    await afterSync();
     if (getState().cart.mode !== 'server') return { guest: { key } };
     return { server: await cartApi.remove(key) };
   })
