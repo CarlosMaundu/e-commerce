@@ -2,6 +2,7 @@
 //   GET /admin/reports/sla       orders in a period with their SLA, summary
 //   GET /admin/reports/sla/:id   one order: each stage, its time, who moved it
 //   GET/PUT /admin/sla-settings  stage targets (Store settings → Fulfilment SLA)
+import { config } from '../config';
 import { Router } from 'express';
 import { z } from 'zod';
 import { query } from '../db';
@@ -10,7 +11,8 @@ import { fail, handler, ok, parse } from '../lib/http';
 import { loadOrder, orderRef, statusName } from '../lib/orders';
 import { DELIVERED_AT_SQL, mergeSla, orderSla, saveSla, sla, slaSchema, SlaState } from '../lib/sla';
 import { authenticate, requireAnyPermission, requirePermission } from '../middleware/auth';
-import { parsePeriod, periodQuery } from '../lib/reports/common';
+import { inRange, inShopCurrency, parsePeriod, periodQuery } from '../lib/reports/common';
+import { finance } from '../lib/finance';
 import { inventoryReport, productsReport, salesReport } from '../lib/reports/core';
 import { customersReport, financeReport, promotionsReport, searchReport, serviceReport } from '../lib/reports/more';
 import { hasPermission } from '../lib/users';
@@ -82,7 +84,24 @@ export const adminReportRoutes = () => {
       fail(400, 'The start date must be on or before the end date.');
     }
     res.set('Cache-Control', 'no-store');
-    ok(res, await report.run(period, q));
+    const out: any = await report.run(period, q);
+    // Totals are in the shop's currency; say what was left out.
+    if (req.params.name !== 'inventory' && req.params.name !== 'search') {
+      const other = (await query(
+        `SELECT o.currency, count(*)::int AS n FROM orders o
+         WHERE o.placed_at IS NOT NULL AND o.status <> 'cancelled' AND NOT (${inShopCurrency('o')})
+           AND ${inRange('o.placed_at', '$1', '$2')} GROUP BY 1 ORDER BY 2 DESC`,
+        [period!.from, period!.to]
+      )).rows;
+      if (other.length) {
+        const n = other.reduce((s: number, r: any) => s + r.n, 0);
+        out.notes = [
+          ...(out.notes || []),
+          `${n} order${n === 1 ? '' : 's'} in ${other.map((r: any) => r.currency).join(', ')} ${n === 1 ? 'isn’t' : 'aren’t'} included: totals are in ${finance().currency} only.`,
+        ];
+      }
+    }
+    ok(res, out);
   }));
 
   router.get('/reports/sla', requirePermission('orders.orders.view'), handler(async (req, res) => {
@@ -95,11 +114,11 @@ export const adminReportRoutes = () => {
     }
     if (q.date_from) {
       params.push(q.date_from);
-      where.push(`o.placed_at >= ($${params.length}::date)::timestamp AT TIME ZONE 'Africa/Nairobi'`);
+      where.push(`o.placed_at >= ($${params.length}::date)::timestamp AT TIME ZONE '${config.shopTimezone}'`);
     }
     if (q.date_to) {
       params.push(q.date_to);
-      where.push(`o.placed_at < ($${params.length}::date + 1)::timestamp AT TIME ZONE 'Africa/Nairobi'`);
+      where.push(`o.placed_at < ($${params.length}::date + 1)::timestamp AT TIME ZONE '${config.shopTimezone}'`);
     }
     if (q.shipping_method) {
       params.push(q.shipping_method.split(','));

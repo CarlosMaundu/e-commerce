@@ -3,6 +3,7 @@
 // sales; their refunds are taken off for net sales), in the shop's time zone.
 import { query } from '../../db';
 import {
+  inShopCurrency,
   bucketOf,
   buckets,
   Card,
@@ -14,9 +15,10 @@ import {
   Period,
   Report,
   round2,
-} from './common';
+ } from './common';
 
-const VALID = `o.placed_at IS NOT NULL AND o.status <> 'cancelled'`;
+// Placed, not cancelled, in the shop's currency.
+const valid = () => `o.placed_at IS NOT NULL AND o.status <> 'cancelled' AND ${inShopCurrency('o')}`;
 // "By delivery option" → "Delivery option" for the first column's heading.
 const heading = (title: string) => {
   const t = title.replace(/^By /, '');
@@ -47,19 +49,19 @@ const salesTotals = async (from: string, to: string) => {
        COALESCE(sum(o.discount), 0) AS discounts, COALESCE(sum(o.shipping_total), 0) AS delivery,
        COALESCE(sum(o.tax_total), 0) AS tax,
        (SELECT COALESCE(sum(oi.quantity), 0) FROM order_items oi JOIN orders o ON o.id = oi.order_id
-         WHERE ${VALID} AND ${inRange('o.placed_at', '$1', '$2')})::int AS items
-     FROM orders o WHERE ${VALID} AND ${inRange('o.placed_at', '$1', '$2')}`,
+         WHERE ${valid()} AND ${inRange('o.placed_at', '$1', '$2')})::int AS items
+     FROM orders o WHERE ${valid()} AND ${inRange('o.placed_at', '$1', '$2')}`,
     [from, to]
   )).rows[0];
   const refunds = num((await query(
-    `SELECT COALESCE(sum(amount), 0) AS n FROM refunds WHERE status = 'processed' AND ${inRange('processed_at', '$1', '$2')}`,
+    `SELECT COALESCE(sum(amount), 0) AS n FROM refunds WHERE status = 'processed' AND order_id IN (SELECT o.id FROM orders o WHERE ${inShopCurrency('o')}) AND ${inRange('processed_at', '$1', '$2')}`,
     [from, to]
   )).rows[0].n);
   // Profit only where a cost price is known.
   const cost = (await query(
     `SELECT COALESCE(sum(oi.total) FILTER (WHERE oi.unit_cost IS NOT NULL), 0) AS costed_revenue,
        COALESCE(sum(oi.unit_cost * oi.quantity), 0) AS cogs, COALESCE(sum(oi.total), 0) AS revenue
-     FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE ${VALID} AND ${inRange('o.placed_at', '$1', '$2')}`,
+     FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE ${valid()} AND ${inRange('o.placed_at', '$1', '$2')}`,
     [from, to]
   )).rows[0];
   const sales = num(o.sales);
@@ -85,20 +87,20 @@ const salesSeries = async (from: string, to: string, group: string) =>
     `SELECT ${bucketOf('o.placed_at', group)} AS bucket, count(*)::int AS orders, COALESCE(sum(o.total), 0) AS sales,
        COALESCE(sum(o.discount), 0) AS discounts, COALESCE(sum(o.tax_total), 0) AS tax,
        COALESCE(sum((SELECT sum(quantity) FROM order_items WHERE order_id = o.id)), 0)::int AS items
-     FROM orders o WHERE ${VALID} AND ${inRange('o.placed_at', '$1', '$2')} GROUP BY 1`,
+     FROM orders o WHERE ${valid()} AND ${inRange('o.placed_at', '$1', '$2')} GROUP BY 1`,
     [from, to]
   )).rows;
 const refundSeries = async (from: string, to: string, group: string) =>
   (await query(
     `SELECT ${bucketOf('processed_at', group)} AS bucket, COALESCE(sum(amount), 0) AS refunds
-     FROM refunds WHERE status = 'processed' AND ${inRange('processed_at', '$1', '$2')} GROUP BY 1`,
+     FROM refunds WHERE status = 'processed' AND order_id IN (SELECT o.id FROM orders o WHERE ${inShopCurrency('o')}) AND ${inRange('processed_at', '$1', '$2')} GROUP BY 1`,
     [from, to]
   )).rows;
 
 const breakdown = async (from: string, to: string, by: string, label: string, name: (v: string) => string) => {
   const rows = (await query(
     `SELECT ${by} AS key, count(*)::int AS orders, COALESCE(sum(o.total), 0) AS sales
-     FROM orders o WHERE ${VALID} AND ${inRange('o.placed_at', '$1', '$2')} GROUP BY 1 ORDER BY 3 DESC`,
+     FROM orders o WHERE ${valid()} AND ${inRange('o.placed_at', '$1', '$2')} GROUP BY 1 ORDER BY 3 DESC`,
     [from, to]
   )).rows;
   const total = rows.reduce((s, r) => s + num(r.sales), 0);
@@ -215,7 +217,7 @@ export const productsReport = async (p: Period, f: { category?: number; brand?: 
          sum(oi.total) AS revenue,
          sum(oi.total) FILTER (WHERE oi.unit_cost IS NOT NULL) AS costed, sum(oi.unit_cost * oi.quantity) AS cogs
        FROM order_items oi JOIN orders o ON o.id = oi.order_id
-       WHERE ${VALID} AND ${inRange('o.placed_at', '$1', '$2')} GROUP BY 1),
+       WHERE ${valid()} AND ${inRange('o.placed_at', '$1', '$2')} GROUP BY 1),
      seen AS (SELECT product_id, sum(views)::int AS views FROM product_views WHERE day BETWEEN $1::date AND $2::date GROUP BY 1),
      back AS (
        SELECT oi.product_id, sum(r.quantity)::int AS returned FROM returns r JOIN order_items oi ON oi.id = r.order_item_id
@@ -254,7 +256,7 @@ export const productsReport = async (p: Period, f: { category?: number; brand?: 
   const prevUnits = p.compare
     ? num((await query(
         `SELECT COALESCE(sum(oi.quantity), 0) AS n FROM order_items oi JOIN orders o ON o.id = oi.order_id
-         JOIN products pr ON pr.id = oi.product_id WHERE ${VALID} AND ${inRange('o.placed_at', '$1', '$2')} ${where}`,
+         JOIN products pr ON pr.id = oi.product_id WHERE ${valid()} AND ${inRange('o.placed_at', '$1', '$2')} ${where}`,
         [p.compare.from, p.compare.to, ...params.slice(2)]
       )).rows[0].n)
     : null;
@@ -281,7 +283,7 @@ export const productsReport = async (p: Period, f: { category?: number; brand?: 
   const variants = (await query(
     `SELECT pr.name, oi.options, sum(oi.quantity)::int AS units, sum(oi.total) AS revenue
      FROM order_items oi JOIN orders o ON o.id = oi.order_id JOIN products pr ON pr.id = oi.product_id
-     WHERE ${VALID} AND ${inRange('o.placed_at', '$1', '$2')} AND oi.options <> '{}'::jsonb ${where}
+     WHERE ${valid()} AND ${inRange('o.placed_at', '$1', '$2')} AND oi.options <> '{}'::jsonb ${where}
      GROUP BY 1, 2 ORDER BY 3 DESC`,
     params
   )).rows;
@@ -380,10 +382,10 @@ export const inventoryReport = async (p: Period, f: { product?: number }): Promi
      sold AS (
        SELECT oi.product_id, oi.variant_id, sum(oi.quantity)::int AS units, max(o.placed_at) AS last_sale
        FROM order_items oi JOIN orders o ON o.id = oi.order_id
-       WHERE ${VALID} AND ${inRange('o.placed_at', '$1', '$2')} GROUP BY 1, 2),
+       WHERE ${valid()} AND ${inRange('o.placed_at', '$1', '$2')} GROUP BY 1, 2),
      last AS (
        SELECT oi.product_id, oi.variant_id, max(o.placed_at) AS last_sale
-       FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE ${VALID} GROUP BY 1, 2)
+       FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE ${valid()} GROUP BY 1, 2)
      SELECT i.*, COALESCE(s.units, 0) AS units, l.last_sale
      FROM items i
      LEFT JOIN sold s ON s.product_id = i.product_id AND s.variant_id IS NOT DISTINCT FROM i.variant_id

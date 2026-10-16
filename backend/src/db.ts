@@ -2,7 +2,13 @@
 import { Pool, PoolClient, QueryResultRow } from 'pg';
 import { config } from './config';
 
-export const pool = new Pool({ connectionString: config.databaseUrl, max: 10 });
+// Every connection works in the shop's time zone, so current_date, day
+// buckets and ::date conversions all mean the shop's day.
+export const pool = new Pool({
+  connectionString: config.databaseUrl,
+  max: 10,
+  options: `-c timezone=${config.shopTimezone}`,
+});
 
 export const query = <T extends QueryResultRow = any>(text: string, params: unknown[] = []) =>
   pool.query<T>(text, params);

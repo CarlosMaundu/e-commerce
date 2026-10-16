@@ -1,12 +1,14 @@
 // src/lib/reports/more.ts — Customers, Promotions, Returns & service,
 // Finance and Search reports.
+import { config } from '../../config';
 import { query } from '../../db';
 import { finance } from '../finance';
 import { RETURN_REASONS } from '../orders';
 import { SUPPORT_CATEGORIES } from '../../routes/support';
-import { bucketOf, buckets, Card, change, fill, inRange, num, pct, Period, Report, round2 } from './common';
+import { bucketOf, buckets, Card, change, fill, inRange, inShopCurrency, num, pct, Period, Report, round2 } from './common';
 
-const VALID = `o.placed_at IS NOT NULL AND o.status <> 'cancelled'`;
+// Placed, not cancelled, in the shop's currency.
+const valid = () => `o.placed_at IS NOT NULL AND o.status <> 'cancelled' AND ${inShopCurrency('o')}`;
 const card = (key: string, label: string, value: number, format: Card['format'], prev?: number | null, extra: Partial<Card> = {}): Card => ({
   key,
   label,
@@ -25,7 +27,7 @@ const customerTotals = async (from: string, to: string) => {
     `WITH buyers AS (
        SELECT o.user_id, count(*)::int AS orders, sum(o.total) AS spent,
          (SELECT min(placed_at) FROM orders f WHERE f.user_id = o.user_id AND f.placed_at IS NOT NULL AND f.status <> 'cancelled') AS first_order
-       FROM orders o WHERE ${VALID} AND o.user_id IS NOT NULL AND ${inRange('o.placed_at', '$1', '$2')} GROUP BY 1)
+       FROM orders o WHERE ${valid()} AND o.user_id IS NOT NULL AND ${inRange('o.placed_at', '$1', '$2')} GROUP BY 1)
      SELECT count(*)::int AS buyers,
        count(*) FILTER (WHERE ${inRange('first_order', '$1', '$2')})::int AS first_time,
        count(*) FILTER (WHERE orders > 1)::int AS ordered_twice,
@@ -56,7 +58,7 @@ export const customersReport = async (p: Period): Promise<Report> => {
   // All-time repeat rate: customers with two or more orders.
   const repeat = (await query(
     `SELECT count(*)::int AS buyers, count(*) FILTER (WHERE n > 1)::int AS repeat
-     FROM (SELECT user_id, count(*) AS n FROM orders o WHERE ${VALID} AND user_id IS NOT NULL GROUP BY 1) s`
+     FROM (SELECT user_id, count(*) AS n FROM orders o WHERE ${valid()} AND user_id IS NOT NULL GROUP BY 1) s`
   )).rows[0];
   const labels = buckets(p, p.group);
   const series = (await query(
@@ -64,7 +66,7 @@ export const customersReport = async (p: Period): Promise<Report> => {
        count(DISTINCT o.user_id) FILTER (WHERE o.placed_at = (SELECT min(placed_at) FROM orders f
          WHERE f.user_id = o.user_id AND f.placed_at IS NOT NULL AND f.status <> 'cancelled'))::int AS first_time,
        count(DISTINCT o.user_id)::int AS buyers
-     FROM orders o WHERE ${VALID} AND o.user_id IS NOT NULL AND ${inRange('o.placed_at', '$1', '$2')} GROUP BY 1`,
+     FROM orders o WHERE ${valid()} AND o.user_id IS NOT NULL AND ${inRange('o.placed_at', '$1', '$2')} GROUP BY 1`,
     [p.from, p.to]
   )).rows;
   const top = (await query(
@@ -72,13 +74,13 @@ export const customersReport = async (p: Period): Promise<Report> => {
        count(*)::int AS orders, sum(o.total) AS spent, max(o.placed_at) AS last_order,
        (SELECT count(*)::int FROM orders a WHERE a.user_id = u.id AND a.placed_at IS NOT NULL AND a.status <> 'cancelled') AS lifetime
      FROM orders o JOIN users u ON u.id = o.user_id
-     WHERE ${VALID} AND ${inRange('o.placed_at', '$1', '$2')} GROUP BY u.id ORDER BY spent DESC`,
+     WHERE ${valid()} AND ${inRange('o.placed_at', '$1', '$2')} GROUP BY u.id ORDER BY spent DESC`,
     [p.from, p.to]
   )).rows;
   const places = (await query(
     `SELECT initcap(trim(o.shipping_address->>'city')) AS city, count(DISTINCT o.user_id)::int AS customers,
        count(*)::int AS orders, sum(o.total) AS sales
-     FROM orders o WHERE ${VALID} AND ${inRange('o.placed_at', '$1', '$2')}
+     FROM orders o WHERE ${valid()} AND ${inRange('o.placed_at', '$1', '$2')}
      GROUP BY 1 ORDER BY sales DESC`,
     [p.from, p.to]
   )).rows;
@@ -141,7 +143,7 @@ export const promotionsReport = async (p: Period): Promise<Report> => {
          COALESCE(sum(o.discount), 0) AS discount, COALESCE(sum(o.total) FILTER (WHERE o.coupon_code IS NOT NULL), 0) AS code_sales,
          COALESCE(avg(o.total) FILTER (WHERE o.coupon_code IS NOT NULL), 0) AS aov_code,
          COALESCE(avg(o.total) FILTER (WHERE o.coupon_code IS NULL), 0) AS aov_plain
-       FROM orders o WHERE ${VALID} AND ${inRange('o.placed_at', '$1', '$2')}`,
+       FROM orders o WHERE ${valid()} AND ${inRange('o.placed_at', '$1', '$2')}`,
       [from, to]
     )).rows[0];
   const cur = await totals(p.from, p.to);
@@ -150,7 +152,7 @@ export const promotionsReport = async (p: Period): Promise<Report> => {
     `SELECT o.coupon_code AS code, c.audience, count(*)::int AS uses, count(DISTINCT o.user_id)::int AS customers,
        sum(o.discount) AS discount, sum(o.total) AS sales, avg(o.total) AS aov
      FROM orders o LEFT JOIN coupons c ON c.code = o.coupon_code
-     WHERE ${VALID} AND o.coupon_code IS NOT NULL AND ${inRange('o.placed_at', '$1', '$2')}
+     WHERE ${valid()} AND o.coupon_code IS NOT NULL AND ${inRange('o.placed_at', '$1', '$2')}
      GROUP BY 1, 2 ORDER BY sales DESC`,
     [p.from, p.to]
   )).rows;
@@ -158,7 +160,7 @@ export const promotionsReport = async (p: Period): Promise<Report> => {
   const followUp = (await query(
     `WITH firsts AS (
        SELECT DISTINCT ON (o.user_id) o.user_id, o.coupon_code, o.placed_at
-       FROM orders o WHERE ${VALID} AND o.user_id IS NOT NULL ORDER BY o.user_id, o.placed_at)
+       FROM orders o WHERE ${valid()} AND o.user_id IS NOT NULL ORDER BY o.user_id, o.placed_at)
      SELECT f.coupon_code AS code, count(*)::int AS first_orders,
        count(*) FILTER (WHERE EXISTS (SELECT 1 FROM orders o2 WHERE o2.user_id = f.user_id
          AND o2.placed_at > f.placed_at AND o2.status <> 'cancelled'))::int AS came_back
@@ -169,7 +171,7 @@ export const promotionsReport = async (p: Period): Promise<Report> => {
   const series = (await query(
     `SELECT ${bucketOf('o.placed_at', p.group)} AS bucket, count(*) FILTER (WHERE o.coupon_code IS NOT NULL)::int AS uses,
        COALESCE(sum(o.discount), 0) AS discount
-     FROM orders o WHERE ${VALID} AND ${inRange('o.placed_at', '$1', '$2')} GROUP BY 1`,
+     FROM orders o WHERE ${valid()} AND ${inRange('o.placed_at', '$1', '$2')} GROUP BY 1`,
     [p.from, p.to]
   )).rows;
   const share = pct(cur.with_code, cur.orders);
@@ -189,9 +191,9 @@ export const promotionsReport = async (p: Period): Promise<Report> => {
        count(e.*) FILTER (WHERE e.kind = 'click' AND e.placement = 'strip')::int AS strip_clicks,
        count(e.*) FILTER (WHERE e.kind = 'click' AND e.placement = 'banner')::int AS banner_clicks,
        (SELECT count(*)::int FROM orders o WHERE pr.code IS NOT NULL AND o.coupon_code = pr.code
-          AND ${VALID} AND ${inRange('o.placed_at', '$1', '$2')}) AS code_orders,
+          AND ${valid()} AND ${inRange('o.placed_at', '$1', '$2')}) AS code_orders,
        (SELECT COALESCE(sum(o.total), 0) FROM orders o WHERE pr.code IS NOT NULL AND o.coupon_code = pr.code
-          AND ${VALID} AND ${inRange('o.placed_at', '$1', '$2')}) AS code_sales
+          AND ${valid()} AND ${inRange('o.placed_at', '$1', '$2')}) AS code_sales
      FROM promotions pr
      LEFT JOIN promotion_events e ON e.promotion_id = pr.id AND e.day BETWEEN $1::date AND $2::date
      GROUP BY pr.id ORDER BY count(e.*) FILTER (WHERE e.kind = 'click') DESC, pr.position`,
@@ -301,13 +303,13 @@ export const serviceReport = async (p: Period): Promise<Report> => {
       `SELECT count(*)::int AS returns, COALESCE(sum(quantity), 0)::int AS units,
          count(*) FILTER (WHERE status = 'rejected')::int AS rejected,
          (SELECT COALESCE(sum(oi.quantity), 0) FROM order_items oi JOIN orders o ON o.id = oi.order_id
-           WHERE ${VALID} AND ${inRange('o.placed_at', '$1', '$2')})::int AS sold
+           WHERE ${valid()} AND ${inRange('o.placed_at', '$1', '$2')})::int AS sold
        FROM returns WHERE ${inRange('created_at', '$1', '$2')}`,
       [from, to]
     )).rows[0];
     const f = (await query(
       `SELECT COALESCE(sum(amount), 0) AS refunded, COALESCE(sum(restocking_fee), 0) AS fees, count(*)::int AS refunds
-       FROM refunds WHERE status = 'processed' AND ${inRange('processed_at', '$1', '$2')}`,
+       FROM refunds WHERE status = 'processed' AND order_id IN (SELECT o.id FROM orders o WHERE ${inShopCurrency('o')}) AND ${inRange('processed_at', '$1', '$2')}`,
       [from, to]
     )).rows[0];
     const speed = (await query(
@@ -347,7 +349,7 @@ export const serviceReport = async (p: Period): Promise<Report> => {
   const products = (await query(
     `SELECT oi.product_id, pr.name, sum(r.quantity)::int AS returned,
        (SELECT COALESCE(sum(x.quantity), 0) FROM order_items x JOIN orders o ON o.id = x.order_id
-         WHERE x.product_id = oi.product_id AND ${VALID} AND ${inRange('o.placed_at', '$1', '$2')})::int AS sold
+         WHERE x.product_id = oi.product_id AND ${valid()} AND ${inRange('o.placed_at', '$1', '$2')})::int AS sold
      FROM returns r JOIN order_items oi ON oi.id = r.order_item_id JOIN products pr ON pr.id = oi.product_id
      WHERE ${inRange('r.created_at', '$1', '$2')} GROUP BY 1, 2 ORDER BY 3 DESC`,
     [p.from, p.to]
@@ -439,14 +441,14 @@ export const financeReport = async (p: Period): Promise<Report> => {
   const aging = (await query(
     `SELECT CASE WHEN age < 31 THEN '0–30 days' WHEN age < 61 THEN '31–60 days' WHEN age < 91 THEN '61–90 days' ELSE 'Over 90 days' END AS bucket,
        count(*)::int AS invoices, sum(owed) AS owed
-     FROM (SELECT (current_date - (i.issued_at AT TIME ZONE 'Africa/Nairobi')::date) AS age, i.total - i.amount_paid AS owed
-           FROM invoices i WHERE i.status IN ('issued', 'partially_paid')) s
+     FROM (SELECT (current_date - (i.issued_at AT TIME ZONE '${config.shopTimezone}')::date) AS age, i.total - i.amount_paid AS owed
+           FROM invoices i WHERE i.status IN ('issued', 'partially_paid') AND ${inShopCurrency('i')}) s
      GROUP BY 1 ORDER BY min(age)`
   )).rows;
   const owed = aging.reduce((s, r) => s + num(r.owed), 0);
   const overdue = num((await query(
-    `SELECT COALESCE(sum(total - amount_paid), 0) AS n FROM invoices
-     WHERE status IN ('issued', 'partially_paid') AND due_at IS NOT NULL AND due_at < now()`
+    `SELECT COALESCE(sum(total - amount_paid), 0) AS n FROM invoices i
+     WHERE status IN ('issued', 'partially_paid') AND ${inShopCurrency('i')} AND due_at IS NOT NULL AND due_at < now()`
   )).rows[0].n);
   const cod = (await query(
     `SELECT o.id, o.number, o.status, o.placed_at, i.total - i.amount_paid AS owed,
@@ -457,10 +459,10 @@ export const financeReport = async (p: Period): Promise<Report> => {
        AND i.status IN ('issued', 'partially_paid') ORDER BY o.placed_at`
   )).rows;
   const payments = (await query(
-    `SELECT (received_at AT TIME ZONE 'Africa/Nairobi')::date AS day, method,
+    `SELECT (received_at AT TIME ZONE '${config.shopTimezone}')::date AS day, method,
        COALESCE(sum(amount) FILTER (WHERE kind = 'payment'), 0) AS received,
        COALESCE(sum(amount) FILTER (WHERE kind = 'refund'), 0) AS refunded, count(*)::int AS count
-     FROM payments WHERE status = 'succeeded' AND ${inRange('received_at', '$1', '$2')}
+     FROM payments p WHERE status = 'succeeded' AND ${inShopCurrency('p')} AND ${inRange('received_at', '$1', '$2')}
      GROUP BY 1, 2 ORDER BY 1 DESC, 2`,
     [p.from, p.to]
   )).rows;
@@ -472,7 +474,7 @@ export const financeReport = async (p: Period): Promise<Report> => {
   // VAT from the ledger: credited on sales, debited when refunded.
   const vat = (await query(
     `SELECT COALESCE(sum(credit), 0) AS output, COALESCE(sum(debit), 0) AS returned
-     FROM ledger_entries WHERE account = 'vat_payable' AND ${inRange('occurred_at', '$1', '$2')}`,
+     FROM ledger_entries le WHERE account = 'vat_payable' AND ${inShopCurrency('le')} AND ${inRange('occurred_at', '$1', '$2')}`,
     [p.from, p.to]
   )).rows[0];
   const vatNet = round2(num(vat.output) - num(vat.returned));

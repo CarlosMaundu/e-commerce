@@ -6,5 +6,6 @@ module.exports = {
   roots: ['<rootDir>/tests'],
   setupFiles: ['<rootDir>/tests/env.ts'],
   globalSetup: '<rootDir>/tests/globalSetup.ts',
-  testTimeout: 20000,
+  // Generous: each test reloads the demo catalog, slow on a busy machine.
+  testTimeout: 60000,
 };

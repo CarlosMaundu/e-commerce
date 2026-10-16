@@ -1,8 +1,9 @@
 // src/routes/catalog.ts — storefront catalog, brands, reviews, promotions and
 // newsletter (OpenCart routes plus documented extensions).
-import crypto from 'crypto';
+import { config } from '../config';
 import rateLimit from 'express-rate-limit';
 import { logSearch, relatedMatch } from '../lib/search';
+import { visitorId } from '../lib/visitor';
 import { getRefundSettings } from '../lib/refunds';
 import { Router } from 'express';
 import { z } from 'zod';
@@ -180,11 +181,7 @@ export const catalogRoutes = () => {
       const { total, match, products } = await listProducts(q, { status: 'published' });
       // Searches for the Search report (first page only; results found exactly).
       if (q.search && (q.page || 1) === 1) {
-        const visitor = crypto
-          .createHash('sha256')
-          .update(`${req.ip}|${req.get('user-agent') || ''}`)
-          .digest('hex')
-          .slice(0, 32);
+        const visitor = visitorId(req);
         await logSearch(q.search, match === 'exact' ? total : 0, visitor, req.auth?.userId ?? null);
       }
       res.set('X-Total-Count', String(total));
@@ -464,15 +461,11 @@ export const catalogRoutes = () => {
         req.body
       );
       const id = Number(req.params.id);
-      const visitor = crypto
-        .createHash('sha256')
-        .update(`${req.ip}|${req.get('user-agent') || ''}`)
-        .digest('hex')
-        .slice(0, 32);
+      const visitor = visitorId(req);
       if (Number.isInteger(id) && id > 0) {
         await query(
           `INSERT INTO promotion_events (promotion_id, kind, placement, visitor, user_id, day)
-           SELECT id, $2, $3, $4, $5, (now() AT TIME ZONE 'Africa/Nairobi')::date FROM promotions WHERE id = $1
+           SELECT id, $2, $3, $4, $5, (now() AT TIME ZONE '${config.shopTimezone}')::date FROM promotions WHERE id = $1
            ON CONFLICT DO NOTHING`,
           [id, b.kind, b.placement, visitor, req.auth?.userId ?? null]
         );

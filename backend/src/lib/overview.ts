@@ -3,11 +3,16 @@
 // the chosen period (7, 30 or 90 days) and is compared with the period before.
 import { query } from '../db';
 import { round2 } from './pricing';
+import { shopCurrencyCode } from './reports/common';
 
 export const OVERVIEW_PERIODS = [7, 30, 90, 180, 365] as const;
 
 // Orders that count as sales: placed, and neither cancelled nor refunded.
-const VALID = `placed_at IS NOT NULL AND status NOT IN ('cancelled', 'refunded')`;
+// Placed, kept, and in the shop's currency (totals in two currencies aren't added).
+const valid = () => {
+  const cur = shopCurrencyCode();
+  return `placed_at IS NOT NULL AND status NOT IN ('cancelled', 'refunded')${cur ? ` AND currency = '${cur}'` : ''}`;
+};
 const CUR = `placed_at >= now() - make_interval(days => $1)`;
 const PREV = `placed_at >= now() - make_interval(days => $1 * 2) AND placed_at < now() - make_interval(days => $1)`;
 
@@ -19,12 +24,12 @@ export const storeOverview = async (days: number) => {
   const totals = (
     await query(
       `SELECT
-         COALESCE(sum(total) FILTER (WHERE ${VALID} AND ${CUR}), 0) AS revenue,
-         COALESCE(sum(total) FILTER (WHERE ${VALID} AND ${PREV}), 0) AS prev_revenue,
+         COALESCE(sum(total) FILTER (WHERE ${valid()} AND ${CUR}), 0) AS revenue,
+         COALESCE(sum(total) FILTER (WHERE ${valid()} AND ${PREV}), 0) AS prev_revenue,
          count(*) FILTER (WHERE placed_at IS NOT NULL AND ${CUR})::int AS orders,
          count(*) FILTER (WHERE placed_at IS NOT NULL AND ${PREV})::int AS prev_orders,
-         count(*) FILTER (WHERE ${VALID} AND ${CUR})::int AS valid_orders,
-         count(*) FILTER (WHERE ${VALID} AND ${PREV})::int AS prev_valid_orders,
+         count(*) FILTER (WHERE ${valid()} AND ${CUR})::int AS valid_orders,
+         count(*) FILTER (WHERE ${valid()} AND ${PREV})::int AS prev_valid_orders,
          count(*) FILTER (WHERE placed_at IS NOT NULL AND status IN ('pending', 'processing'))::int AS awaiting
        FROM orders`,
       p
@@ -76,11 +81,11 @@ export const storeOverview = async (days: number) => {
       `WITH buckets AS (
          SELECT generate_series(date_trunc('${unit}', now()) - ${step} * ($1 - 1), date_trunc('${unit}', now()), ${step}) AS d)
        SELECT to_char(d, 'YYYY-MM-DD') AS date,
-         COALESCE((SELECT sum(total) FROM orders WHERE ${VALID} AND placed_at >= d AND placed_at < d + ${step}), 0) AS revenue,
-         (SELECT count(*) FROM orders WHERE ${VALID} AND placed_at >= d AND placed_at < d + ${step})::int AS orders,
-         COALESCE((SELECT sum(total) FROM orders WHERE ${VALID}
+         COALESCE((SELECT sum(total) FROM orders WHERE ${valid()} AND placed_at >= d AND placed_at < d + ${step}), 0) AS revenue,
+         (SELECT count(*) FROM orders WHERE ${valid()} AND placed_at >= d AND placed_at < d + ${step})::int AS orders,
+         COALESCE((SELECT sum(total) FROM orders WHERE ${valid()}
            AND placed_at >= d - interval '1 year' AND placed_at < d - interval '1 year' + ${step}), 0) AS last_year_revenue,
-         (SELECT count(*) FROM orders WHERE ${VALID}
+         (SELECT count(*) FROM orders WHERE ${valid()}
            AND placed_at >= d - interval '1 year' AND placed_at < d - interval '1 year' + ${step})::int AS last_year_orders
        FROM buckets ORDER BY d`,
       [buckets]
@@ -95,7 +100,7 @@ export const storeOverview = async (days: number) => {
   const lastYear = (
     await query(
       `SELECT COALESCE(sum(total), 0) AS revenue, count(*)::int AS orders FROM orders
-       WHERE ${VALID} AND placed_at >= now() - make_interval(days => $1) - interval '1 year'
+       WHERE ${valid()} AND placed_at >= now() - make_interval(days => $1) - interval '1 year'
          AND placed_at < now() - interval '1 year'`,
       p
     )
@@ -139,7 +144,7 @@ export const storeOverview = async (days: number) => {
   const locations = (
     await query(
       `SELECT initcap(trim(shipping_address->>'city')) AS city, count(*)::int AS orders
-       FROM orders WHERE ${VALID} AND ${CUR} AND COALESCE(trim(shipping_address->>'city'), '') <> ''
+       FROM orders WHERE ${valid()} AND ${CUR} AND COALESCE(trim(shipping_address->>'city'), '') <> ''
        GROUP BY 1 ORDER BY orders DESC`,
       p
     )

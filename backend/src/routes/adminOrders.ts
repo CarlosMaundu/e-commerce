@@ -1,4 +1,5 @@
 // src/routes/adminOrders.ts — order management, returns and dashboard figures.
+import { config } from '../config';
 import { Router } from 'express';
 import { z } from 'zod';
 import { pool, query, transaction } from '../db';
@@ -75,11 +76,11 @@ export const adminOrderRoutes = ({ payments }: { payments: PaymentGateway | null
     }
     if (q.date_from) {
       params.push(q.date_from);
-      where.push(`o.placed_at >= ($${params.length}::date)::timestamp AT TIME ZONE 'Africa/Nairobi'`);
+      where.push(`o.placed_at >= ($${params.length}::date)::timestamp AT TIME ZONE '${config.shopTimezone}'`);
     }
     if (q.date_to) {
       params.push(q.date_to);
-      where.push(`o.placed_at < ($${params.length}::date + 1)::timestamp AT TIME ZONE 'Africa/Nairobi'`);
+      where.push(`o.placed_at < ($${params.length}::date + 1)::timestamp AT TIME ZONE '${config.shopTimezone}'`);
     }
     const whereSql = `WHERE ${where.join(' AND ')}`;
     const base = 'FROM orders o LEFT JOIN users u ON u.id = o.user_id';

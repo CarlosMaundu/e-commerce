@@ -3,6 +3,7 @@
 // prompt on the customer's phone) and the status query used to confirm a
 // payment. Sandbox and production differ only in the host. Tests inject a fake.
 import { fail } from './http';
+import { compactTimestamp } from './time';
 import { MpesaConfig } from './paymentProviders';
 
 export interface MpesaGateway {
@@ -27,8 +28,8 @@ const host = (cfg: MpesaConfig) => (cfg.sandbox ? 'https://sandbox.safaricom.co.
 
 const timestamp = () => {
   // Daraja wants Nairobi time, YYYYMMDDHHmmss.
-  const t = new Date(Date.now() + 3 * 3600 * 1000).toISOString();
-  return t.slice(0, 19).replace(/[-T:]/g, '');
+  // Safaricom's clock: Nairobi time, whatever the shop's time zone.
+  return compactTimestamp('Africa/Nairobi');
 };
 
 const tokens = new Map<string, { token: string; until: number }>();
