@@ -1,4 +1,6 @@
 // src/app.ts — Express app factory (tests build it with their own options).
+import { query } from './db';
+import { requestLogger } from './lib/monitoring';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express from 'express';
@@ -45,6 +47,7 @@ export const createApp = ({
   app.set('trust proxy', config.trustProxy); // visitors' real IPs for rate limits
   app.disable('x-powered-by');
 
+  app.use(requestLogger);
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'same-site' } }));
   app.use(
     cors({
@@ -58,7 +61,15 @@ export const createApp = ({
   app.use(express.json({ limit: '100kb' }));
   app.use(cookieParser());
 
-  app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
+  // Healthy only when the database answers (Docker and uptime checks use this).
+  app.get('/api/health', async (_req, res) => {
+    try {
+      await query('SELECT 1');
+      res.json({ status: 'ok', database: 'ok' });
+    } catch {
+      res.status(503).json({ status: 'unavailable', database: 'down' });
+    }
+  });
 
   app.use('/api/rest', authRoutes({ verifyGoogle }));
   app.use('/api/rest/account', accountRoutes());

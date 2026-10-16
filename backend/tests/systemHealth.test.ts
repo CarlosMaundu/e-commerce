@@ -83,4 +83,64 @@ describe('system health', () => {
     expect((await query(`SELECT count(*)::int AS n FROM audit_logs WHERE action = 'old'`)).rows[0].n).toBe(0);
     expect((await query('SELECT count(*)::int AS n FROM stock_movements')).rows[0].n).toBe(stock);
   });
+
+  test('settings saved on one server reload on every server (Postgres NOTIFY)', async () => {
+    const { listenForChanges, announce } = await import('../src/lib/changes');
+    const { finance } = await import('../src/lib/finance');
+    const stop = await listenForChanges();
+    try {
+      const before = finance().tax_label;
+      // Another server saved a new tax label straight to the database.
+      await query(
+        `INSERT INTO finance_settings (id, settings) VALUES (1, jsonb_build_object('tax_label', 'GST'))
+         ON CONFLICT (id) DO UPDATE SET settings = finance_settings.settings || jsonb_build_object('tax_label', 'GST')`
+      );
+      expect(finance().tax_label).toBe(before);
+      await announce('finance');
+      for (let i = 0; i < 40 && finance().tax_label !== 'GST'; i += 1) await new Promise((r) => setTimeout(r, 50));
+      expect(finance().tax_label).toBe('GST');
+    } finally {
+      await stop();
+    }
+  });
+
+  test('rate limits are counted in the database, shared by every server', async () => {
+    const { PgStore } = await import('../src/lib/rateLimitStore');
+    const store = new PgStore('test');
+    store.init({ windowMs: 60_000 } as any);
+    const other = new PgStore('test'); // a second server
+    other.init({ windowMs: 60_000 } as any);
+    expect((await store.increment('1.2.3.4')).totalHits).toBe(1);
+    expect((await other.increment('1.2.3.4')).totalHits).toBe(2);
+    expect((await store.get('1.2.3.4'))!.totalHits).toBe(2);
+    // A window that has ended starts again.
+    await query(`UPDATE rate_limits SET reset_at = now() - interval '1 second'`);
+    expect((await other.increment('1.2.3.4')).totalHits).toBe(1);
+    await store.resetKey('1.2.3.4');
+    expect(await store.get('1.2.3.4')).toBeUndefined();
+  });
+
+  test('uploaded photos are resized and their location data removed', async () => {
+    const sharp = (await import('sharp')).default;
+    const path = await import('path');
+    await createUser('cat@example.com', 'catalog_manager');
+    const { token } = await signIn('cat@example.com');
+    // A 3000×2000 camera photo with GPS data.
+    const photo = await sharp({ create: { width: 3000, height: 2000, channels: 3, background: '#88aa44' } })
+      .jpeg()
+      .withMetadata({ exif: { IFD3: { GPSLatitude: '1/1 17/1 0/1', GPSLatitudeRef: 'S' } } })
+      .toBuffer();
+    expect((await sharp(photo).metadata()).exif).toBeDefined();
+    const res = await request(app).post('/api/admin/files').set(bearer(token)).attach('file', photo, 'photo.jpg');
+    expect(res.status).toBeLessThan(300);
+    const url: string = res.body.data.location ?? res.body.data.url ?? res.body.data;
+    expect(url).toMatch(/^\/uploads\/.+\.jpg$/);
+    const meta = await sharp(path.join(process.env.UPLOADS_DIR!, path.basename(url))).metadata();
+    expect(Math.max(meta.width!, meta.height!)).toBe(1600);
+    expect(meta.exif).toBeUndefined();
+    // Not an image at all.
+    const bad = await request(app).post('/api/admin/files').set(bearer(token))
+      .attach('file', Buffer.from('not an image'), { filename: 'x.jpg', contentType: 'image/jpeg' });
+    expect(bad.status).toBe(400);
+  });
 });

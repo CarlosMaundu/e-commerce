@@ -2,7 +2,9 @@
 // grouped links with dot markers and attention badges, help card) and a top
 // bar (page title, global search with ⌘K, storefront link, notifications and
 // the account menu). Items are shown by permission.
+import PageSkeleton from '../components/common/PageSkeleton';
 import React, {
+  Suspense,
   createContext,
   useCallback,
   useContext,
@@ -1242,7 +1244,10 @@ const AdminLayout = () => {
               mx: 'auto',
             }}
           >
-            <Outlet />
+            {/* Pages load when first opened; their skeleton shows meanwhile. */}
+            <Suspense fallback={<PageSkeleton variant="admin" />}>
+              <Outlet />
+            </Suspense>
           </Box>
           <HelpCard hidden={helpHidden} />
           <SessionTimeout />

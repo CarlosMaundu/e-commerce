@@ -14,6 +14,7 @@ support requests and reports.
 - [Payments](#payments)
 - [Testing locally with M-Pesa (public callback)](#testing-locally-with-m-pesa-public-callback)
 - [Backups](#backups)
+- [Operations](#operations)
 - [Tests](#tests)
 - [Project layout](#project-layout)
 - [Working on the code](#working-on-the-code)
@@ -173,6 +174,28 @@ npm run restore -- backups/carlos_shop-2026-10-15-0200.sql.gz   # replaces all d
 
 Copy `./backups` somewhere off the machine too (cloud drive, another
 computer): a backup on the same disk doesn't survive that disk.
+
+## Operations
+
+- **Background jobs** run inside the API every minute: placing card orders
+  Stripe shows as paid, settling card links and M-Pesa prompts, sending and
+  retrying emails, and (every 6 hours) removing old analytics. Each job takes
+  a database lock, so with several API servers only one runs it.
+- **Several API servers**: settings saved on one server reload on the others
+  (Postgres `NOTIFY`), and rate limits are counted in the database.
+- **Logs**: one JSON line per request with a request id (also returned as
+  `X-Request-Id` and shown in error messages as a reference). Turn off with
+  `LOG_REQUESTS=false`.
+- **Error tracking**: set `SENTRY_DSN` (API) and `REACT_APP_SENTRY_DSN` (web,
+  at build time) to send unexpected errors to Sentry.
+- **Health**: `/api/health` answers 200 only when the database does; point an
+  uptime monitor at it.
+- **Images**: uploads are resized (1600 px, avatars 512 px), turned upright
+  and stripped of metadata such as GPS location. Set `S3_*` in
+  `backend/.env` to store them in S3-compatible storage behind a CDN.
+- **Retention**: searches and deal events 400 days, product views 3 years,
+  the audit log 2 years, sent emails 90 days. Orders, invoices, the ledger
+  and stock movements are kept.
 
 ## Tests
 

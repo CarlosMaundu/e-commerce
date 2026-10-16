@@ -4,6 +4,7 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import App from './App';
+import { AppErrorBoundary } from './monitoring';
 import { Provider } from 'react-redux';
 import store, { persistor } from './redux/store';
 import reportWebVitals from './reportWebVitals';
@@ -42,7 +43,9 @@ root.render(
       <PersistGate loading={null} persistor={persistor}>
         <ThemeProvider theme={theme}>
           <CssBaseline />
-          <App />
+          <AppErrorBoundary>
+            <App />
+          </AppErrorBoundary>
         </ThemeProvider>
       </PersistGate>
     </Provider>

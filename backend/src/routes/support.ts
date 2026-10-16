@@ -12,6 +12,7 @@
 //   PUT  /admin/support/:id                  { status }
 // New requests email the customer an acknowledgement and the shop an alert;
 // staff replies email the customer.
+import { PgStore } from '../lib/rateLimitStore';
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
@@ -47,6 +48,7 @@ const staffLink = (id: number) => `${base()}/admin/support/${id}`;
 const text = (max: number, message: string) => z.string().trim().min(1, message).max(max);
 
 const formLimiter = rateLimit({
+    store: new PgStore('support'),
   windowMs: 15 * 60 * 1000,
   limit: 10,
   standardHeaders: true,

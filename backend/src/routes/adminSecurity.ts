@@ -2,6 +2,7 @@
 // administration and security modules: act as a customer, unlock accounts,
 // sign users out, user activity, the audit log, sign-in sessions and the
 // security settings.
+import { announce } from '../lib/changes';
 import { Router } from 'express';
 import { z } from 'zod';
 import { query } from '../db';
@@ -310,6 +311,7 @@ export const adminSecurityRoutes = () => {
         accounts: { ...current.accounts, ...body.accounts },
       });
       await saveSettings(merged, req.auth!.userId);
+      void announce('security');
       audit(req, 'admin.security_settings_updated', 'security_settings', { sections: Object.keys(body) });
       ok(res, { settings: merged });
     })
@@ -381,6 +383,7 @@ export const adminSecurityRoutes = () => {
     handler(async (req, res) => {
       const merged = parse(deliverySchema, mergeDelivery(delivery(), req.body || {}));
       await saveDelivery(merged, req.auth!.userId);
+      void announce('delivery');
       audit(req, 'admin.delivery_settings_updated', 'delivery_settings', { sections: Object.keys(req.body || {}) });
       ok(res, { settings: merged });
     })
@@ -414,6 +417,7 @@ export const adminSecurityRoutes = () => {
       const merged = parse(financeSchema, { ...finance(), ...(req.body || {}) });
       const before = finance();
       await saveFinance(merged, req.auth!.userId);
+      void announce('finance');
       audit(req, 'admin.finance_settings_updated', 'finance_settings', {
         changed: Object.keys(merged).filter((k) => (merged as any)[k] !== (before as any)[k]),
       });

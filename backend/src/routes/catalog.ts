@@ -1,5 +1,6 @@
 // src/routes/catalog.ts — storefront catalog, brands, reviews, promotions and
 // newsletter (OpenCart routes plus documented extensions).
+import { PgStore } from '../lib/rateLimitStore';
 import { config } from '../config';
 import rateLimit from 'express-rate-limit';
 import { logSearch, relatedMatch } from '../lib/search';
@@ -162,6 +163,7 @@ const startOfTomorrow = () => {
 
 // Deal views and clicks: plenty for real shoppers, not for floods.
 const dealLimiter = rateLimit({
+    store: new PgStore('deals'),
   windowMs: 60 * 1000,
   limit: 60,
   standardHeaders: true,
