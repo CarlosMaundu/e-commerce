@@ -1,6 +1,8 @@
 // src/components/account/AccountTable.js — the table used across the
 // customer's account (invoices, refunds, support, addresses): a bordered
 // panel, small uppercase headings, loading rows, an empty state and paging.
+// On phones each row becomes a card: the first column as its title, the
+// others as "label  value" lines, so nothing scrolls sideways.
 import React from 'react';
 import PropTypes from 'prop-types';
 import {
@@ -28,6 +30,51 @@ const AccountTable = ({
   itemsLabel,
 }) => {
   const rows = React.Children.toArray(children).filter(Boolean);
+  const labels = Object.fromEntries(
+    columns
+      .slice(1)
+      .map((c, i) => [
+        `& tbody td:nth-of-type(${i + 2})::before`,
+        { content: JSON.stringify(c.label || '') },
+      ])
+  );
+  const cards = {
+    '& thead': { display: 'none' },
+    '& table, & tbody, & tr, & td': { display: 'block', width: '100%' },
+    '& tbody tr': {
+      px: 2,
+      py: 1.5,
+      borderBottom: 1,
+      borderColor: 'divider',
+    },
+    '& tbody tr:last-of-type': { borderBottom: 0 },
+    '& tbody td': {
+      border: 0,
+      p: 0,
+      py: 0.375,
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: 2,
+      textAlign: 'right',
+      '&::before': {
+        color: 'text.secondary',
+        fontSize: '0.8rem',
+        textAlign: 'left',
+        flexShrink: 0,
+      },
+    },
+    '& tbody td:first-of-type': {
+      fontWeight: 600,
+      justifyContent: 'flex-start',
+      textAlign: 'left',
+      pb: 0.75,
+    },
+    // Loading and empty rows span the table: no labels there.
+    '& tbody td[colspan]': { display: 'block', textAlign: 'left' },
+    '& tbody td[colspan]::before': { content: 'none' },
+    ...labels,
+  };
   return (
     <Box
       sx={{
@@ -38,7 +85,7 @@ const AccountTable = ({
         bgcolor: 'background.paper',
       }}
     >
-      <TableContainer>
+      <TableContainer sx={{ '@media (max-width: 599.95px)': cards }}>
         <Table aria-label={label}>
           <TableHead
             sx={{

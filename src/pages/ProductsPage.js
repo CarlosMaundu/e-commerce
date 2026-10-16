@@ -1,5 +1,6 @@
 // src/pages/ProductsPage.js — Aurora-style catalogue: compact hero,
 // breadcrumb, results bar, filter sidebar and product grid.
+import PropTypes from 'prop-types';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
@@ -53,6 +54,59 @@ const findCategory = (tree, id) => {
     if (sub) return { category: sub, parent: c };
   }
   return { category: null, parent: null };
+};
+
+/**
+ * Phones: categories as a row of chips you swipe through — the top level,
+ * or a category's subcategories once one is chosen.
+ */
+const CategoryChips = ({ categories, chosen, category, parent, onPick }) => {
+  const top = parent || (category?.subcategories?.length ? category : null);
+  const items = top ? [top, ...(top.subcategories || [])] : categories;
+  const selected = (c) => chosen.length === 1 && String(c.id) === chosen[0];
+  return (
+    <Stack
+      direction="row"
+      spacing={1}
+      component="nav"
+      aria-label="Categories"
+      sx={{
+        mx: -2,
+        px: 2,
+        pb: 2,
+        overflowX: 'auto',
+        scrollbarWidth: 'none',
+        '&::-webkit-scrollbar': { display: 'none' },
+      }}
+    >
+      <Chip
+        label="All"
+        onClick={() => onPick(null)}
+        color={chosen.length ? 'default' : 'primary'}
+        variant={chosen.length ? 'outlined' : 'filled'}
+        aria-pressed={!chosen.length}
+      />
+      {items.map((c) => (
+        <Chip
+          key={c.id}
+          label={c.name}
+          onClick={() => onPick(String(c.id))}
+          color={selected(c) ? 'primary' : 'default'}
+          variant={selected(c) ? 'filled' : 'outlined'}
+          aria-pressed={selected(c)}
+          sx={{ flexShrink: 0 }}
+        />
+      ))}
+    </Stack>
+  );
+};
+
+CategoryChips.propTypes = {
+  categories: PropTypes.array.isRequired,
+  chosen: PropTypes.array.isRequired,
+  category: PropTypes.object,
+  parent: PropTypes.object,
+  onPick: PropTypes.func.isRequired,
 };
 
 const ProductsPage = () => {
@@ -314,6 +368,15 @@ const ProductsPage = () => {
           ))}
         </Select>
       </Box>
+      {!desktop && categories.length > 0 && (
+        <CategoryChips
+          categories={categories}
+          chosen={filters.categoryIds}
+          category={category}
+          parent={parent}
+          onPick={(id) => update({ category: id })}
+        />
+      )}
       <Divider />
 
       <Box
