@@ -569,7 +569,9 @@ export const BestViewed = () => {
 
 // ---------- featured grid ----------
 
-const FEATURED_COUNT = 15; // 3 rows × 5 columns on desktop
+// 2 rows × 7 columns on desktop. Narrower screens show only full rows:
+// 12 at 3 or 4 columns, all 14 at 2 — never one card alone on a row.
+const FEATURED_COUNT = 14;
 
 export const FeaturedGrid = () => {
   const products = useLoad(async () => {
@@ -600,12 +602,15 @@ export const FeaturedGrid = () => {
             xs: 'repeat(2, minmax(0, 1fr))',
             sm: 'repeat(3, minmax(0, 1fr))',
             md: 'repeat(4, minmax(0, 1fr))',
-            lg: 'repeat(5, minmax(0, 1fr))',
+            lg: 'repeat(7, minmax(0, 1fr))',
           },
           gap: { xs: 1, md: 1.5 },
+          '@media (min-width: 600px) and (max-width: 1199.95px)': {
+            '& > :nth-of-type(n + 13)': { display: 'none' },
+          },
         }}
       >
-        {(products || Array.from({ length: 10 })).map((p, i) =>
+        {(products || Array.from({ length: FEATURED_COUNT })).map((p, i) =>
           p ? (
             <ProductCard key={p.id} product={p} />
           ) : (

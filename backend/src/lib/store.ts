@@ -44,7 +44,7 @@ const heroSchema = z
       .object({ eyebrow: text(60), title: text(60), link: target.default(''), image: image.default('') })
       .default({}),
     member: z
-      .object({ eyebrow: text(60), title: text(60), text: text(160), link: target.default('') })
+      .object({ eyebrow: text(60), title: text(60), text: text(160), link: target.default(''), image: image.default('') })
       .default({}),
   })
   .default({});
@@ -94,6 +94,7 @@ export const DEFAULT_STORE: StoreSettings = {
       title: 'More perks. Zero fuss.',
       text: 'Early access, member pricing and free express delivery.',
       link: '/signup',
+      image: '', // optional photo behind the card, under a dark gradient
     },
   },
 };

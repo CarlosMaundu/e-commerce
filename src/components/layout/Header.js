@@ -14,7 +14,6 @@ import {
   Button,
   Container,
   Divider,
-  Drawer,
   IconButton,
   InputBase,
   Menu,
@@ -33,10 +32,9 @@ import {
   FiTrendingUp,
   FiHeart,
   FiArrowLeft,
-  FiMenu,
   FiSearch,
   FiShoppingBag,
-  FiX,
+  FiUser,
 } from 'react-icons/fi';
 import { AuthContext } from '../../context/AuthContext';
 import { fetchCategories } from '../../redux/categoriesSlice';
@@ -49,8 +47,8 @@ import { useStore } from '../../context/StoreContext';
 import BrandMark from '../common/BrandMark';
 import { SEARCH_SCOPES, scopeFromParams } from './searchScopes';
 import SearchSheet from './SearchSheet';
+import CustomerBell from './CustomerBell';
 import useHideOnScroll from '../../hooks/useHideOnScroll';
-import useBackToClose from '../../hooks/useBackToClose';
 import { initialsOf } from '../common/BrandMark';
 
 const NEW_AND_TRENDING = {
@@ -209,6 +207,90 @@ CategoryPanel.propTypes = {
   items: PropTypes.array.isRequired,
 };
 
+/**
+ * Phones: a round photo (or initials) with "Hi, Carlos"; guests see a
+ * welcome and a way to sign in.
+ */
+const Greeting = ({ user, loading, onOpen }) => {
+  if (loading) {
+    return (
+      <Stack
+        direction="row"
+        spacing={1.25}
+        alignItems="center"
+        sx={{ flex: 1 }}
+      >
+        <Skeleton variant="circular" width={44} height={44} />
+        <Skeleton variant="text" width={110} />
+      </Stack>
+    );
+  }
+  const first = user?.name?.split(' ')[0] || '';
+  return (
+    <Box
+      component="button"
+      type="button"
+      onClick={onOpen}
+      aria-label={user ? 'Your account menu' : 'Sign in or create an account'}
+      aria-haspopup={user ? 'menu' : undefined}
+      data-testid="phone-greeting"
+      sx={{
+        flex: 1,
+        minWidth: 0,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.25,
+        p: 0,
+        border: 0,
+        bgcolor: 'transparent',
+        font: 'inherit',
+        color: 'text.primary',
+        textAlign: 'left',
+        cursor: 'pointer',
+      }}
+    >
+      <Avatar
+        src={user?.avatar || undefined}
+        alt=""
+        sx={{
+          width: 44,
+          height: 44,
+          fontSize: 15,
+          fontWeight: 800,
+          bgcolor: user ? 'highlight.main' : 'background.neutral',
+          color: user ? 'text.primary' : 'text.secondary',
+        }}
+      >
+        {user ? initialsOf(user.name) : <FiUser />}
+      </Avatar>
+      <Box sx={{ minWidth: 0 }}>
+        <Typography
+          noWrap
+          sx={{ fontWeight: 700, fontSize: '1rem', lineHeight: 1.25 }}
+        >
+          {user ? `Hi, ${first}` : 'Hi, welcome'}
+        </Typography>
+        <Typography
+          noWrap
+          variant="caption"
+          component="div"
+          sx={{
+            color: user ? 'text.secondary' : 'primary.main',
+            fontWeight: 600,
+          }}
+        >
+          {user ? 'Welcome back 👋' : 'Sign in or create an account'}
+        </Typography>
+      </Box>
+    </Box>
+  );
+};
+Greeting.propTypes = {
+  user: PropTypes.object,
+  loading: PropTypes.bool,
+  onOpen: PropTypes.func.isRequired,
+};
+
 const Header = () => {
   const shop = useStore();
   const { user, loading, logout } = useContext(AuthContext);
@@ -227,20 +309,9 @@ const Header = () => {
   const [scope, setScope] = useState('');
   const [categoryAnchor, setCategoryAnchor] = useState(null);
   const [userMenuAnchor, setUserMenuAnchor] = useState(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   // Phones: the header slides away while scrolling down the page.
-  const hidden = useHideOnScroll(isMobile && !drawerOpen && !searchOpen);
-  const closeMenuThen = useBackToClose(drawerOpen, () => setDrawerOpen(false));
-  /** Menu links: close the menu (and its Back entry), then go. */
-  const menuLink = (to) => ({
-    component: RouterLink,
-    to,
-    onClick: (e) => {
-      e.preventDefault();
-      closeMenuThen(() => navigate(to));
-    },
-  });
+  const hidden = useHideOnScroll(isMobile && !searchOpen);
   const [showPromo, setShowPromo] = useState(() => {
     try {
       return sessionStorage.getItem('promo-hidden') !== '1';
@@ -276,7 +347,6 @@ const Header = () => {
       SEARCH_SCOPES.find((s) => s.value === scope)?.params
     );
     if (query.trim()) params.set('search', query.trim());
-    setDrawerOpen(false);
     navigate(`/products${params.toString() ? `?${params}` : ''}`);
   };
 
@@ -419,38 +489,41 @@ const Header = () => {
             spacing={{ xs: 1, md: 3 }}
             sx={{ minHeight: { xs: 64, md: 84 } }}
           >
-            {isMobile &&
-              (location.pathname === '/' ? (
-                <IconButton
-                  aria-label="Open menu"
-                  onClick={() => setDrawerOpen(true)}
-                  sx={squareButtonSx}
-                >
-                  <FiMenu />
-                </IconButton>
-              ) : (
-                <IconButton
-                  aria-label="Back"
-                  onClick={() =>
-                    window.history.length > 1 ? navigate(-1) : navigate('/')
-                  }
-                  sx={squareButtonSx}
-                >
-                  <FiArrowLeft />
-                </IconButton>
-              ))}
-            <Box
-              component={RouterLink}
-              to="/"
-              aria-label={`${shop.name} home`}
-              sx={{ textDecoration: 'none', flexShrink: 0 }}
-            >
-              <BrandMark
-                size={isMobile ? 36 : 44}
-                showName={!isMobile}
-                fontSize="1.4rem"
+            {isMobile && location.pathname !== '/' && (
+              <IconButton
+                aria-label="Back"
+                onClick={() =>
+                  window.history.length > 1 ? navigate(-1) : navigate('/')
+                }
+                sx={squareButtonSx}
+              >
+                <FiArrowLeft />
+              </IconButton>
+            )}
+            {isMobile ? (
+              // Phones: who you are instead of the logo; tap for your menu
+              // (or to sign in).
+              <Greeting
+                user={user}
+                loading={loading}
+                onOpen={(e) =>
+                  user
+                    ? setUserMenuAnchor(e.currentTarget)
+                    : navigate('/login', {
+                        state: { from: location.pathname },
+                      })
+                }
               />
-            </Box>
+            ) : (
+              <Box
+                component={RouterLink}
+                to="/"
+                aria-label={`${shop.name} home`}
+                sx={{ textDecoration: 'none', flexShrink: 0 }}
+              >
+                <BrandMark size={44} showName fontSize="1.4rem" />
+              </Box>
+            )}
 
             {!isMobile && (
               <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
@@ -480,7 +553,13 @@ const Header = () => {
               items={panelItems}
             />
 
-            <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+            <Box
+              sx={{
+                flex: 1,
+                display: { xs: 'none', md: 'flex' },
+                justifyContent: 'center',
+              }}
+            >
               {!isMobile && searchForm}
             </Box>
 
@@ -523,52 +602,59 @@ const Header = () => {
                   <FiSearch />
                 </IconButton>
               )}
+              {user && shopper && <CustomerBell sx={squareButtonSx} />}
               {loading ? (
-                <Skeleton
-                  variant="rounded"
-                  width={isMobile ? 44 : 140}
-                  height={44}
-                />
+                !isMobile && (
+                  <Skeleton variant="rounded" width={140} height={44} />
+                )
               ) : user ? (
                 <>
-                  <Button
-                    aria-label="User account"
-                    onClick={(e) => setUserMenuAnchor(e.currentTarget)}
-                    endIcon={!isMobile && <FiChevronDown />}
-                    sx={{
-                      ...darkButtonSx,
-                      pl: 0.75,
-                      pr: isMobile ? 0.75 : 2,
-                      minWidth: 0,
-                      gap: 0.5,
-                    }}
-                  >
-                    <Avatar
-                      src={user.avatar || undefined}
-                      alt=""
+                  {!isMobile && (
+                    <Button
+                      aria-label="User account"
+                      onClick={(e) => setUserMenuAnchor(e.currentTarget)}
+                      endIcon={!isMobile && <FiChevronDown />}
                       sx={{
-                        width: 32,
-                        height: 32,
-                        fontSize: 12,
-                        fontWeight: 800,
-                        bgcolor: 'highlight.main',
-                        color: 'text.primary',
+                        ...darkButtonSx,
+                        pl: 0.75,
+                        pr: isMobile ? 0.75 : 2,
+                        minWidth: 0,
+                        gap: 0.5,
                       }}
                     >
-                      {initialsOf(user.name)}
-                    </Avatar>
-                    {!isMobile && (
-                      <Box component="span" sx={{ ml: 0.75 }}>
-                        Hi, {firstName}
-                      </Box>
-                    )}
-                  </Button>
+                      <Avatar
+                        src={user.avatar || undefined}
+                        alt=""
+                        sx={{
+                          width: 32,
+                          height: 32,
+                          fontSize: 12,
+                          fontWeight: 800,
+                          bgcolor: 'highlight.main',
+                          color: 'text.primary',
+                        }}
+                      >
+                        {initialsOf(user.name)}
+                      </Avatar>
+                      {!isMobile && (
+                        <Box component="span" sx={{ ml: 0.75 }}>
+                          Hi, {firstName}
+                        </Box>
+                      )}
+                    </Button>
+                  )}
                   <Menu
                     anchorEl={userMenuAnchor}
                     open={Boolean(userMenuAnchor)}
                     onClose={closeUserMenu}
-                    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                    transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                    anchorOrigin={{
+                      vertical: 'bottom',
+                      horizontal: isMobile ? 'left' : 'right',
+                    }}
+                    transformOrigin={{
+                      vertical: 'top',
+                      horizontal: isMobile ? 'left' : 'right',
+                    }}
                     slotProps={{
                       paper: {
                         sx: {
@@ -634,9 +720,11 @@ const Header = () => {
                   </Menu>
                 </>
               ) : (
-                <Button component={RouterLink} to="/login" sx={darkButtonSx}>
-                  Sign in
-                </Button>
+                !isMobile && (
+                  <Button component={RouterLink} to="/login" sx={darkButtonSx}>
+                    Sign in
+                  </Button>
+                )
               )}
             </Stack>
           </Stack>
@@ -755,84 +843,6 @@ const Header = () => {
         {/* The promo strip rides in the sticky bar on desktop; on phones it
           scrolls away with the page. */}
         {!isMobile && promo}
-
-        <Drawer
-          open={drawerOpen}
-          onClose={() => closeMenuThen()}
-          PaperProps={{ sx: { width: 320, p: 2 } }}
-        >
-          <Stack spacing={2}>
-            <Stack
-              direction="row"
-              justifyContent="space-between"
-              alignItems="center"
-            >
-              <BrandMark size={36} fontSize="1.15rem" />
-              <IconButton
-                aria-label="Close menu"
-                onClick={() => closeMenuThen()}
-              >
-                <FiX />
-              </IconButton>
-            </Stack>
-            <Typography
-              {...menuLink('/products?on_sale=1')}
-              sx={{
-                color: 'warning.main',
-                fontWeight: 700,
-                textDecoration: 'none',
-              }}
-            >
-              Today’s deals
-            </Typography>
-            <Typography
-              {...menuLink('/products')}
-              sx={{
-                color: 'text.primary',
-                fontWeight: 600,
-                textDecoration: 'none',
-              }}
-            >
-              All products
-            </Typography>
-            <Divider />
-            <Typography variant="overline" color="text.secondary">
-              Categories
-            </Typography>
-            {[NEW_AND_TRENDING, ...categoryLinks].map((c, i) => (
-              <Typography
-                key={c.id}
-                {...menuLink(c.to)}
-                sx={{
-                  color: 'text.primary',
-                  textDecoration: 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1.5,
-                  minHeight: 44,
-                }}
-              >
-                <CategoryThumb
-                  category={c}
-                  size={36}
-                  tone={
-                    i % 2
-                      ? theme.palette.warning.main
-                      : theme.palette.primary.main
-                  }
-                />
-                {c.name}
-              </Typography>
-            ))}
-            <Divider />
-            <Typography
-              {...menuLink('/support')}
-              sx={{ color: 'text.secondary', textDecoration: 'none' }}
-            >
-              Help center
-            </Typography>
-          </Stack>
-        </Drawer>
       </AppBar>
       {isMobile && promo}
       {isMobile && (

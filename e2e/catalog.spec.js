@@ -7,7 +7,7 @@ test.beforeEach(async () => {
   await resetUsers();
 });
 
-test('home shows brands, this week’s most viewed and 15 featured products', async ({
+test('home shows brands, this week’s most viewed and 14 featured products (2 rows of 7)', async ({
   page,
 }) => {
   await page.goto('/');
@@ -16,7 +16,7 @@ test('home shows brands, this week’s most viewed and 15 featured products', as
   ).toBeVisible();
   await expect(
     page.getByTestId('featured-grid').getByTestId('product-card')
-  ).toHaveCount(15);
+  ).toHaveCount(14);
   await expect(
     page.getByRole('button', { name: 'View deal' }).first()
   ).toBeVisible();

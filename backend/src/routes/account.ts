@@ -10,11 +10,49 @@ import { enforcePasswordPolicy } from '../lib/settings';
 import { findUserById, toContractUser } from '../lib/users';
 import { singleImage, storeUpload } from '../lib/uploads';
 import { authenticate, notWhileImpersonating } from '../middleware/auth';
+import { customerNotifications } from '../lib/customerNotifications';
+import { clearNotifications, dismissNotification, markNotificationsRead } from '../lib/notifications';
 import { toContractActivity, toContractSession } from './adminSecurity';
 
 export const accountRoutes = () => {
   const router = Router();
   router.use(authenticate);
+
+  // The shopper's bell: order, return, refund and support updates. Staff
+  // viewing as the customer can look, but don't mark anything for them.
+  const asThemselves = notWhileImpersonating(
+    'You’re viewing as this customer, so their notifications stay as they are.'
+  );
+  router.get(
+    '/notifications',
+    handler(async (req, res) => {
+      ok(res, await customerNotifications(req.auth!.userId, req.query.all ? 200 : 20));
+    })
+  );
+  router.post(
+    '/notifications/read',
+    asThemselves,
+    handler(async (req, res) => {
+      await markNotificationsRead(req.auth!.userId);
+      ok(res, { read: true });
+    })
+  );
+  router.post(
+    '/notifications/clear',
+    asThemselves,
+    handler(async (req, res) => {
+      await clearNotifications(req.auth!.userId);
+      ok(res, { cleared: true });
+    })
+  );
+  router.delete(
+    '/notifications/:key',
+    asThemselves,
+    handler(async (req, res) => {
+      await dismissNotification(req.auth!.userId, String(req.params.key));
+      ok(res, { dismissed: true });
+    })
+  );
 
   router.get(
     '/',
