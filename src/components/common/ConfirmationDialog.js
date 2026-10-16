@@ -1,7 +1,6 @@
 // src/components/common/ConfirmationDialog.js
 import React from 'react';
 import {
-  Dialog,
   DialogTitle,
   DialogContent,
   DialogContentText,
@@ -10,6 +9,7 @@ import {
   CircularProgress,
   Box,
 } from '@mui/material';
+import ResponsiveSheet from './ResponsiveSheet';
 
 const ConfirmationDialog = ({
   open,
@@ -22,7 +22,7 @@ const ConfirmationDialog = ({
   loading = false, // Updated prop name to 'loading'
 }) => {
   return (
-    <Dialog
+    <ResponsiveSheet
       open={open}
       onClose={loading ? null : onCancel} // Prevent closing during loading
       aria-labelledby="confirmation-dialog-title"
@@ -70,7 +70,7 @@ const ConfirmationDialog = ({
           </Button>
         </DialogActions>
       )}
-    </Dialog>
+    </ResponsiveSheet>
   );
 };
 

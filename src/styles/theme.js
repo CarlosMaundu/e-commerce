@@ -16,6 +16,17 @@ const neutralDeep = '#EBF0F5';
 export const RADIUS = 12;
 export const CONTROL_RADIUS = 8;
 
+// Touch screens: every control can be hit within at least 44×44px, even when
+// it looks smaller (quantity steppers, swatches, checkboxes, page numbers),
+// and buttons dip slightly while pressed so taps feel answered.
+const TOUCH = '@media (pointer: coarse)';
+const pressed = {
+  [TOUCH]: {
+    transition: 'transform 100ms ease, background-color 150ms ease',
+    '&:active': { transform: 'scale(0.97)' },
+  },
+};
+
 const theme = createTheme({
   palette: {
     mode: 'light',
@@ -71,6 +82,23 @@ const theme = createTheme({
         },
       },
     },
+    MuiButtonBase: {
+      styleOverrides: {
+        root: {
+          [TOUCH]: {
+            '&::after': {
+              content: '""',
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              width: 'max(100%, 44px)',
+              height: 'max(100%, 44px)',
+              transform: 'translate(-50%, -50%)',
+            },
+          },
+        },
+      },
+    },
     MuiButton: {
       defaultProps: { disableElevation: true },
       styleOverrides: {
@@ -81,6 +109,7 @@ const theme = createTheme({
           borderRadius: CONTROL_RADIUS,
           paddingInline: 16,
           whiteSpace: 'nowrap',
+          ...pressed,
         },
         sizeSmall: { height: 32, paddingInline: 12, fontSize: '0.8125rem' },
         sizeMedium: { height: 40, fontSize: '0.875rem' },
@@ -93,7 +122,7 @@ const theme = createTheme({
       defaultProps: { useFlexGap: true },
     },
     MuiIconButton: {
-      styleOverrides: { root: { borderRadius: 999 } },
+      styleOverrides: { root: { borderRadius: 999, ...pressed } },
     },
     MuiPaper: {
       defaultProps: { elevation: 0 },

@@ -132,6 +132,13 @@ export const catalog = {
       match: headers['x-search-match'] || 'exact',
     };
   },
+  /** Top matches while typing (not logged as a search). */
+  async suggest(q) {
+    const { data } = await http().get('/rest/products', {
+      params: { search: q, limit: 6, page: 1, suggest: 1 },
+    });
+    return (data || []).map(productFromApi);
+  },
   /** Frequently bought together with this product (up to three). */
   async boughtTogether(id) {
     const { data } = await http().get(`/rest/products/${id}/bought-together`);

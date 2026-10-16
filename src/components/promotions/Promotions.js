@@ -137,6 +137,7 @@ export const Countdown = ({ endsAt, tone = 'promo.text', size = 'small' }) => {
       direction="row"
       spacing={0.5}
       alignItems="center"
+      sx={{ flexShrink: 0 }}
       role="timer"
       aria-label={`Ends in ${days ? `${days} days ` : ''}${parts[0]} hours ${parts[1]} minutes`}
     >
@@ -233,7 +234,10 @@ export const PromoStrip = ({ onClose }) => {
             py: 0.75,
             pr: 5,
             position: 'relative',
-            flexWrap: 'wrap',
+            // Phones: one line; a long title is cut short instead of
+            // wrapping the strip onto two rows.
+            flexWrap: { xs: 'nowrap', md: 'wrap' },
+            justifyContent: { xs: 'flex-start', md: 'center' },
             rowGap: 0.5,
             animation: 'promoIn .35s ease',
             '@keyframes promoIn': {
@@ -242,7 +246,16 @@ export const PromoStrip = ({ onClose }) => {
             },
           }}
         >
-          <Typography sx={{ color: 'promo.text', fontWeight: 700 }}>
+          <Typography
+            noWrap
+            sx={{
+              color: 'promo.text',
+              fontWeight: 700,
+              minWidth: 0,
+              flexShrink: 1,
+              fontSize: { xs: '0.875rem', md: undefined },
+            }}
+          >
             {promo.title}
           </Typography>
           <Typography
@@ -260,7 +273,7 @@ export const PromoStrip = ({ onClose }) => {
               trackDeal(promo.id, 'click', 'strip');
               navigate(promo.link);
             }}
-            sx={{ color: '#fff' }}
+            sx={{ color: '#fff', flexShrink: 0, px: { xs: 1.25, md: 1.5 } }}
           >
             View deal
           </Button>

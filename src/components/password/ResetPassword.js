@@ -39,6 +39,7 @@ const StyledContainer = styled(Container)(({ theme }) => ({
   flexDirection: 'column',
   alignItems: 'center',
   minHeight: '100vh',
+  '@supports (min-height: 100dvh)': { minHeight: '100dvh' },
   paddingTop: theme.spacing(8),
   paddingBottom: theme.spacing(8),
 }));
