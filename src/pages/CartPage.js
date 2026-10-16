@@ -44,6 +44,7 @@ import { addToWishlist } from '../redux/wishlistSlice';
 import { useNotify } from '../notification/NotificationProvider';
 import { EmptyState, SectionCard } from '../components/ui';
 import { formatMoney } from '../utils/format';
+import StickyActionBar from '../components/common/StickyActionBar';
 
 const qtyButtonSx = {
   width: 30,
@@ -64,6 +65,8 @@ const CartPage = () => {
   const busy = cart.status === 'loading';
   // On phones the gift option moves under the quantity.
   const wide = useMediaQuery((t) => t.breakpoints.up('sm'));
+  // Phones: the total and Checkout stay at the bottom of the screen.
+  const phone = useMediaQuery((t) => t.breakpoints.down('md'));
 
   const act = async (thunk, success) => {
     try {
@@ -652,16 +655,18 @@ const CartPage = () => {
                 calculated at checkout.
               </Typography>
             </Stack>
-            <Button
-              fullWidth
-              size="large"
-              variant="contained"
-              sx={{ mt: 3 }}
-              onClick={checkout}
-              disabled={busy || hasStockProblem}
-            >
-              {user ? 'Checkout' : 'Sign in to check out'}
-            </Button>
+            {!phone && (
+              <Button
+                fullWidth
+                size="large"
+                variant="contained"
+                sx={{ mt: 3 }}
+                onClick={checkout}
+                disabled={busy || hasStockProblem}
+              >
+                {user ? 'Checkout' : 'Sign in to check out'}
+              </Button>
+            )}
             <Button
               fullWidth
               component={RouterLink}
@@ -673,6 +678,26 @@ const CartPage = () => {
           </SectionCard>
         </Grid>
       </Grid>
+      {phone && (
+        <StickyActionBar data-testid="cart-bar">
+          <Box sx={{ minWidth: 0, mr: 'auto' }}>
+            <Typography variant="caption" component="div">
+              {cart.mode === 'server' ? 'Total' : 'Subtotal'}
+            </Typography>
+            <Typography sx={{ fontWeight: 800 }} noWrap>
+              {formatMoney(cart.total)}
+            </Typography>
+          </Box>
+          <Button
+            size="large"
+            variant="contained"
+            onClick={checkout}
+            disabled={busy || hasStockProblem}
+          >
+            {user ? 'Checkout' : 'Sign in to check out'}
+          </Button>
+        </StickyActionBar>
+      )}
       <GiftDialog
         open={!!giftItem}
         item={giftItem}

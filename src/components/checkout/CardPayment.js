@@ -75,6 +75,7 @@ export const CardPreview = ({ name, brand, complete }) => (
     aria-hidden
     data-testid="card-preview"
     sx={{
+      // Decoration: phones keep the screen for the fields.
       position: 'relative',
       borderRadius: 1,
       p: { xs: 2.5, sm: 3 },
@@ -85,7 +86,7 @@ export const CardPreview = ({ name, brand, complete }) => (
       overflow: 'hidden',
       background:
         'linear-gradient(135deg, #1d1f24 0%, #33363d 55%, #111214 100%)',
-      display: 'flex',
+      display: { xs: 'none', md: 'flex' },
       flexDirection: 'column',
       justifyContent: 'space-between',
       '&::after': {

@@ -13,6 +13,9 @@ import PropTypes from 'prop-types';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Alert,
   Box,
   Button,
@@ -22,6 +25,7 @@ import {
   Divider,
   FormControlLabel,
   Grid,
+  LinearProgress,
   Link,
   Radio,
   Skeleton,
@@ -33,6 +37,7 @@ import {
   Tabs,
   TextField,
   Typography,
+  useMediaQuery,
 } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import { loadStripe } from '@stripe/stripe-js/pure';
@@ -45,6 +50,8 @@ import { useNotify } from '../notification/NotificationProvider';
 import { SectionCard } from '../components/ui';
 import AddressForm, { countryName } from '../components/account/AddressForm';
 import CardPayment from '../components/checkout/CardPayment';
+import StickyActionBar from '../components/common/StickyActionBar';
+import { FiChevronDown } from 'react-icons/fi';
 import { formatMoney, optionText } from '../utils/format';
 import {
   CardSkeleton,
@@ -254,6 +261,8 @@ export const CheckoutSkeleton = () => (
 const PAYMENT_TAB_LABELS = { stripe: 'Credit card', cod: 'Cash on delivery' };
 
 const CheckoutPage = () => {
+  // Phones: a compact header, the total folded away, actions at the bottom.
+  const phone = useMediaQuery((t) => t.breakpoints.down('md'));
   const { user } = useContext(AuthContext);
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -472,31 +481,73 @@ const CheckoutPage = () => {
 
   if (loading) return <CheckoutSkeleton />;
 
+  const summary = (
+    <OrderSummary
+      items={cart.items}
+      address={step > 0 ? selectedAddress : null}
+      shipment={shipment}
+      totals={totals}
+      total={cart.total}
+      actions={!phone && showActions ? actions : null}
+    />
+  );
+
   return (
     <Container maxWidth="xl" sx={{ py: { xs: 3, md: 5 } }}>
       <Typography variant="h3" component="h1" sx={{ mb: 3 }}>
         Checkout
       </Typography>
-      <Stepper activeStep={step} alternativeLabel sx={{ mb: { xs: 3, md: 4 } }}>
-        {STEPS.map((label) => (
-          <Step key={label}>
-            <StepLabel>{label}</StepLabel>
-          </Step>
-        ))}
-      </Stepper>
+      {phone ? (
+        // Phones: where you are in one line, then the order total, which
+        // opens to show the items.
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="subtitle2" component="p" aria-live="polite">
+            Step {step + 1} of {STEPS.length} · {STEPS[step]}
+          </Typography>
+          <LinearProgress
+            variant="determinate"
+            value={((step + 1) / STEPS.length) * 100}
+            aria-label="Checkout progress"
+            sx={{ mt: 1, height: 6 }}
+          />
+          <Accordion
+            disableGutters
+            variant="outlined"
+            sx={{ mt: 2, borderRadius: 1, '&::before': { display: 'none' } }}
+          >
+            <AccordionSummary expandIcon={<FiChevronDown />}>
+              <Typography sx={{ flex: 1 }}>
+                Order total · {cart.items.length} item
+                {cart.items.length === 1 ? '' : 's'}
+              </Typography>
+              <Typography sx={{ fontWeight: 700, mr: 1 }}>
+                {formatMoney(cart.total)}
+              </Typography>
+            </AccordionSummary>
+            <AccordionDetails sx={{ p: 0 }}>{summary}</AccordionDetails>
+          </Accordion>
+        </Box>
+      ) : (
+        <Stepper
+          activeStep={step}
+          alternativeLabel
+          sx={{ mb: { xs: 3, md: 4 } }}
+        >
+          {STEPS.map((label) => (
+            <Step key={label}>
+              <StepLabel>{label}</StepLabel>
+            </Step>
+          ))}
+        </Stepper>
+      )}
       <Grid container spacing={{ xs: 3, md: 4 }} justifyContent="center">
-        <Grid item xs={12} md={5} lg={4.5} sx={{ order: { xs: 2, md: 1 } }}>
-          <Box sx={{ position: { md: 'sticky' }, top: { md: 140 } }}>
-            <OrderSummary
-              items={cart.items}
-              address={step > 0 ? selectedAddress : null}
-              shipment={shipment}
-              totals={totals}
-              total={cart.total}
-              actions={showActions ? actions : null}
-            />
-          </Box>
-        </Grid>
+        {!phone && (
+          <Grid item xs={12} md={5} lg={4.5} sx={{ order: { xs: 2, md: 1 } }}>
+            <Box sx={{ position: { md: 'sticky' }, top: { md: 140 } }}>
+              {summary}
+            </Box>
+          </Grid>
+        )}
         <Grid
           item
           xs={12}
@@ -735,6 +786,20 @@ const CheckoutPage = () => {
           )}
         </Grid>
       </Grid>
+      {phone && showActions && (
+        <StickyActionBar aboveNav={false} data-testid="checkout-bar">
+          <Box
+            sx={{
+              flex: 1,
+              minWidth: 0,
+              '& > div': { gridTemplateColumns: 'auto minmax(0, 1fr)', pt: 0 },
+              '& .MuiButton-root': { minWidth: 0 },
+            }}
+          >
+            {actions}
+          </Box>
+        </StickyActionBar>
+      )}
     </Container>
   );
 };

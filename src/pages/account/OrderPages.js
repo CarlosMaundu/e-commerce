@@ -424,7 +424,12 @@ export const OrdersPage = () => {
             <Tab key={f.label} label={f.label} value={f.value} />
           ))}
         </Tabs>
-        <Stack direction="row" spacing={1.5} alignItems="center">
+        <Stack
+          direction="row"
+          spacing={1.5}
+          alignItems="center"
+          flexWrap="wrap"
+        >
           <ToggleButtonGroup
             size="small"
             exclusive
@@ -445,7 +450,7 @@ export const OrdersPage = () => {
             value={days}
             onChange={(e) => setFilters({ days: e.target.value, page: '' })}
             inputProps={{ 'aria-label': 'Period' }}
-            sx={{ minWidth: 160 }}
+            sx={{ minWidth: 160, flex: { xs: '1 1 160px', sm: 'none' } }}
             SelectProps={{ displayEmpty: true }}
           >
             {PERIODS.map((p) => (

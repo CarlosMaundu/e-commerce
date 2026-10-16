@@ -2,8 +2,8 @@
 // (who you are and every account page) beside the page, using the full
 // shop width. On phones the links become a scrollable row of pills.
 import PageSkeleton from '../components/common/PageSkeleton';
-import React, { Suspense, useContext } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import React, { Suspense, useContext, useEffect, useRef } from 'react';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import {
   Avatar,
@@ -69,6 +69,18 @@ const AccountLayout = () => {
   const navigate = useNavigate();
   const theme = useTheme();
   const counts = { wishlist: useSelector((s) => s.wishlist.items.length) };
+  const pillsRef = useRef(null);
+  const { pathname } = useLocation();
+  // Phones: keep the current page's pill in view in the scrolling row.
+  useEffect(() => {
+    const row = pillsRef.current;
+    const active = row?.querySelector('.active');
+    if (!row || !active) return;
+    row.scrollTo({
+      left: active.offsetLeft - (row.clientWidth - active.offsetWidth) / 2,
+      behavior: 'smooth',
+    });
+  }, [pathname]);
 
   const signOut = async () => {
     try {
@@ -233,6 +245,7 @@ const AccountLayout = () => {
         <Box
           component="nav"
           aria-label="Account pages"
+          ref={pillsRef}
           sx={{
             display: { xs: 'flex', md: 'none' },
             gap: 1,
@@ -265,6 +278,27 @@ const AccountLayout = () => {
               {item.label}
             </Box>
           ))}
+          <Box
+            component="button"
+            type="button"
+            onClick={signOut}
+            sx={{
+              ...linkSx,
+              height: 38,
+              px: 1.5,
+              flexShrink: 0,
+              border: 1,
+              borderColor: 'divider',
+              bgcolor: 'background.paper',
+              font: 'inherit',
+              fontSize: '0.875rem',
+              color: 'error.main',
+              cursor: 'pointer',
+            }}
+          >
+            <FiLogOut />
+            Sign out
+          </Box>
         </Box>
 
         <Box component="section" sx={{ minWidth: 0 }}>

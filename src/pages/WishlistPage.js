@@ -170,13 +170,14 @@ const WishlistItem = ({
         spacing={1}
         sx={{ gridColumn: { xs: '1 / -1', md: 'auto' } }}
         direction={{ xs: 'row', md: 'column' }}
+        flexWrap={{ xs: 'wrap', md: 'nowrap' }}
         alignItems={{ md: 'stretch' }}
       >
         <Button
           variant="contained"
           onClick={onBuy}
           disabled={busy || !p.inStock}
-          sx={{ flex: { xs: 1, md: 'none' } }}
+          sx={{ flex: { xs: '1 1 140px', md: 'none' } }}
         >
           {p.hasOptions ? 'Choose options' : 'Buy this item'}
         </Button>
@@ -185,7 +186,7 @@ const WishlistItem = ({
             onClick={onAdd}
             disabled={busy || !p.inStock}
             sx={{
-              flex: { xs: 1, md: 'none' },
+              flex: { xs: '1 1 140px', md: 'none' },
               bgcolor: 'text.primary',
               color: 'common.white',
               '&:hover': { bgcolor: 'ink.light' },

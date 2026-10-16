@@ -19,10 +19,15 @@ import { selectCartCount } from '../redux/cartSlice';
 
 export const BOTTOM_NAV_HEIGHT = 72;
 
+/** Checkout has its own bar at the bottom, so the menu steps aside there. */
+export const useShowsBottomNav = () =>
+  !useLocation().pathname.startsWith('/checkout');
+
 const MobileBottomNav = () => {
   const { user } = useContext(AuthContext);
   const { pathname } = useLocation();
   const cartCount = useSelector(selectCartCount);
+  const shown = useShowsBottomNav();
   const wishlistCount = useSelector((s) => s.wishlist.items.length);
   const me = user && isStaff(user) ? '/admin/profile' : '/me';
   const items = [
@@ -58,6 +63,7 @@ const MobileBottomNav = () => {
     },
   ];
 
+  if (!shown) return null;
   return (
     <Box
       component="nav"

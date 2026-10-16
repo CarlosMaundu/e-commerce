@@ -1,10 +1,18 @@
 // src/pages/ProductDetailsPage.js — product page with variant selection (each
 // combination has its own price, stock and photos), reviews and related items.
-import React, { useContext, useEffect, useMemo, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
-import { Link as RouterLink, useLocation, useParams } from 'react-router-dom';
+import {
+  Link as RouterLink,
+  useLocation,
+  useNavigate,
+  useParams,
+} from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Alert,
   Box,
   Button,
@@ -23,9 +31,12 @@ import {
   TextField,
   Tooltip,
   Typography,
+  useMediaQuery,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import {
   FiCheck,
+  FiChevronDown,
   FiHeart,
   FiMinus,
   FiPlus,
@@ -35,6 +46,8 @@ import {
   FiTruck,
 } from 'react-icons/fi';
 import BoughtTogether from '../components/product/BoughtTogether';
+import Gallery from '../components/product/Gallery';
+import BuyDock from '../components/product/BuyDock';
 import { useStore } from '../context/StoreContext';
 import { AuthContext } from '../context/AuthContext';
 import { canShop } from '../auth/permissions';
@@ -60,84 +73,6 @@ const matches = (options, selected, ignore) =>
   Object.entries(selected).every(
     ([k, v]) => k === ignore || !v || options[k] === v
   );
-
-// ---------- gallery ----------
-
-const Gallery = ({ images, title }) => {
-  const [index, setIndex] = useState(0);
-  useEffect(() => setIndex(0), [images]);
-  const current = images[index] || images[0];
-  return (
-    <Stack direction={{ xs: 'column-reverse', md: 'row' }} spacing={1.5}>
-      {images.length > 0 && (
-        <Stack
-          direction={{ xs: 'row', md: 'column' }}
-          spacing={1}
-          sx={{ overflow: 'auto', maxHeight: { md: 'min(480px, 58vh)' } }}
-        >
-          {images.map((src, i) => (
-            <Box
-              key={src}
-              component="button"
-              type="button"
-              aria-label={`Show photo ${i + 1}`}
-              aria-current={i === index}
-              onClick={() => setIndex(i)}
-              sx={{
-                p: 0,
-                width: 72,
-                height: 72,
-                flexShrink: 0,
-                borderRadius: '8px',
-                overflow: 'hidden',
-                cursor: 'pointer',
-                border: 2,
-                borderColor: i === index ? 'primary.main' : 'transparent',
-                bgcolor: 'transparent',
-              }}
-            >
-              <Box
-                component="img"
-                src={src}
-                alt=""
-                sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-            </Box>
-          ))}
-        </Stack>
-      )}
-      <Box
-        sx={{
-          flex: 1,
-          aspectRatio: '1 / 1',
-          maxHeight: { md: 'min(480px, 58vh)' },
-          maxWidth: { md: 'min(480px, 58vh)' },
-          borderRadius: 1,
-          overflow: 'hidden',
-        }}
-      >
-        {current && (
-          <Box
-            component="img"
-            src={current}
-            alt={title}
-            sx={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              display: 'block',
-            }}
-          />
-        )}
-      </Box>
-    </Stack>
-  );
-};
-
-Gallery.propTypes = {
-  images: PropTypes.array.isRequired,
-  title: PropTypes.string,
-};
 
 // ---------- option pickers ----------
 
@@ -518,6 +453,11 @@ const ProductDetailsPage = () => {
   const shopper = canShop(user);
   const dispatch = useDispatch();
   const notify = useNotify();
+  const navigate = useNavigate();
+  const theme = useTheme();
+  const phone = useMediaQuery(theme.breakpoints.down('md'));
+  const optionsRef = useRef(null);
+  const detailsRef = useRef(null);
   const [product, setProduct] = useState(null);
   const [error, setError] = useState(null);
   const [related, setRelated] = useState([]);
@@ -658,16 +598,27 @@ const ProductDetailsPage = () => {
     if (needsChoice) {
       const missing = product.attributes.find((a) => !selected[a.name]);
       notify.error(`Please choose a ${missing.name.toLowerCase()}.`);
-      return;
+      optionsRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+      return false;
     }
     try {
       await dispatch(
         addToCart({ product, quantity, options: selected, variant })
       ).unwrap();
       notify.success(`${product.title} added to your cart.`);
+      return true;
     } catch (message) {
       notify.error(message);
+      return false;
     }
+  };
+
+  /** Phones: add it and go straight to checkout. */
+  const buyNow = async () => {
+    if (await add()) navigate('/checkout');
   };
 
   const toggleWishlist = async () => {
@@ -677,6 +628,40 @@ const ProductDetailsPage = () => {
     } catch (message) {
       notify.error(message);
     }
+  };
+
+  const sections = [
+    {
+      value: 'description',
+      label: 'Description',
+      content: description ? (
+        <RichText
+          html={description}
+          sx={{ maxWidth: 820 }}
+          data-testid="product-description"
+        />
+      ) : (
+        <Typography color="text.secondary">No description yet.</Typography>
+      ),
+    },
+    {
+      value: 'specifications',
+      label: 'Specifications',
+      content: <Specifications product={product} variant={variant} />,
+    },
+    {
+      value: 'reviews',
+      label: `Reviews (${product.reviewCount})`,
+      content: <Reviews product={product} onAdded={load} />,
+    },
+  ];
+
+  /** Opens a section (the rating link, "All specifications") and shows it. */
+  const openSection = (value) => {
+    setTab(value);
+    requestAnimationFrame(() =>
+      detailsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    );
   };
 
   return (
@@ -799,7 +784,7 @@ const ProductDetailsPage = () => {
                     <Link
                       component="button"
                       type="button"
-                      onClick={() => setTab('reviews')}
+                      onClick={() => openSection('reviews')}
                       underline="hover"
                       variant="body2"
                     >
@@ -913,7 +898,7 @@ const ProductDetailsPage = () => {
             </Box>
 
             {product.attributes.length > 0 && (
-              <Stack spacing={1.75}>
+              <Stack spacing={1.75} ref={optionsRef}>
                 {product.attributes.map((a) => (
                   <OptionPicker
                     key={a.name}
@@ -967,7 +952,13 @@ const ProductDetailsPage = () => {
                   startIcon={<FiShoppingCart />}
                   onClick={add}
                   disabled={!needsChoice && !inStock}
-                  sx={{ flex: 1, maxWidth: 300, height: 40 }}
+                  // Phones use the buy bar at the bottom of the screen.
+                  sx={{
+                    flex: 1,
+                    maxWidth: 300,
+                    height: 40,
+                    display: { xs: 'none', md: 'inline-flex' },
+                  }}
                 >
                   Add to cart
                 </Button>
@@ -1104,32 +1095,49 @@ const ProductDetailsPage = () => {
           alignItems: 'start',
         }}
       >
-        <Box sx={{ minWidth: 0 }}>
-          <Tabs
-            value={tab}
-            onChange={(_, v) => setTab(v)}
-            sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}
-          >
-            <Tab value="description" label="Description" />
-            <Tab value="specifications" label="Specifications" />
-            <Tab value="reviews" label={`Reviews (${product.reviewCount})`} />
-          </Tabs>
-          {tab === 'description' &&
-            (description ? (
-              <RichText
-                html={description}
-                sx={{ maxWidth: 820 }}
-                data-testid="product-description"
-              />
-            ) : (
-              <Typography color="text.secondary">
-                No description yet.
-              </Typography>
-            ))}
-          {tab === 'specifications' && (
-            <Specifications product={product} variant={variant} />
+        <Box sx={{ minWidth: 0, scrollMarginTop: 96 }} ref={detailsRef}>
+          {phone ? (
+            // Phones: one section open at a time, so the page stays short.
+            sections.map((sec) => (
+              <Accordion
+                key={sec.value}
+                disableGutters
+                expanded={tab === sec.value}
+                onChange={(_, open) => setTab(open ? sec.value : '')}
+                sx={{
+                  bgcolor: 'transparent',
+                  borderBottom: 1,
+                  borderColor: 'divider',
+                  '&::before': { display: 'none' },
+                }}
+              >
+                <AccordionSummary
+                  expandIcon={<FiChevronDown />}
+                  sx={{ px: 0, minHeight: 56 }}
+                >
+                  <Typography variant="h6" component="h2">
+                    {sec.label}
+                  </Typography>
+                </AccordionSummary>
+                <AccordionDetails sx={{ px: 0, pb: 3 }}>
+                  {sec.content}
+                </AccordionDetails>
+              </Accordion>
+            ))
+          ) : (
+            <>
+              <Tabs
+                value={tab || false}
+                onChange={(_, v) => setTab(v)}
+                sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}
+              >
+                {sections.map((sec) => (
+                  <Tab key={sec.value} value={sec.value} label={sec.label} />
+                ))}
+              </Tabs>
+              {sections.find((sec) => sec.value === tab)?.content}
+            </>
           )}
-          {tab === 'reviews' && <Reviews product={product} onAdded={load} />}
         </Box>
         {specRows(product, variant).length > 0 && (
           <Box
@@ -1163,7 +1171,7 @@ const ProductDetailsPage = () => {
             <Button
               size="small"
               sx={{ mt: 2, px: 0 }}
-              onClick={() => setTab('specifications')}
+              onClick={() => openSection('specifications')}
             >
               All specifications
             </Button>
@@ -1201,6 +1209,16 @@ const ProductDetailsPage = () => {
             ))}
           </Box>
         </Box>
+      )}
+      {phone && canShop(user) && (
+        <BuyDock
+          price={special ?? price}
+          wasPrice={special != null ? price : null}
+          needsChoice={needsChoice}
+          inStock={inStock}
+          onAdd={add}
+          onBuy={buyNow}
+        />
       )}
     </Container>
   );
