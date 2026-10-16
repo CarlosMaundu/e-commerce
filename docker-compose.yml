@@ -67,7 +67,7 @@ services:
       PGUSER: shop
       PGPASSWORD: ${POSTGRES_PASSWORD:-shop}
       PGDATABASE: carlos_shop
-      TZ: Africa/Nairobi
+      TZ: ${SHOP_TIMEZONE:-Africa/Nairobi}
       BACKUP_HOUR: ${BACKUP_HOUR:-2}
       BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
     volumes:

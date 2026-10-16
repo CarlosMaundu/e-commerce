@@ -3,9 +3,12 @@
 // compared with, and the shape a report answers with (cards, a series, a
 // table and breakdowns), so one page in the back office shows them all.
 import { z } from 'zod';
+import { config } from '../../config';
+import { finance } from '../finance';
 import { round2 } from '../pricing';
+import { shopDate } from '../time';
 
-export const REPORT_TZ = process.env.REPORT_TZ || 'Africa/Nairobi';
+export const REPORT_TZ = config.shopTimezone;
 
 export type Format = 'money' | 'number' | 'percent' | 'days' | 'hours' | 'text' | 'date';
 
@@ -62,7 +65,7 @@ const addDays = (d: string, n: number) => {
 };
 const days = (from: string, to: string) =>
   Math.round((new Date(`${to}T00:00:00Z`).getTime() - new Date(`${from}T00:00:00Z`).getTime()) / 86400000) + 1;
-const today = () => new Date(Date.now() + 3 * 3600 * 1000).toISOString().slice(0, 10); // Nairobi date
+const today = () => shopDate();
 
 export interface Period {
   from: string;
@@ -121,6 +124,21 @@ export const fill = (labels: string[], rows: any[], key: string) => {
 /** % change, or null when there's nothing to compare with. */
 export const change = (cur: number, prev: number | null | undefined) =>
   prev === null || prev === undefined ? null : prev ? round2(((cur - prev) / Math.abs(prev)) * 100) : cur ? 100 : 0;
+
+/**
+ * SQL: only the shop's current currency (totals in different currencies
+ * aren't added together). `alias.currency` must be a column.
+ */
+/** The shop's currency code, checked (three capital letters), or null. */
+export const shopCurrencyCode = () => {
+  const cur = finance().currency;
+  return /^[A-Z]{3}$/.test(cur) ? cur : null;
+};
+
+export const inShopCurrency = (alias = 'o') => {
+  const cur = shopCurrencyCode();
+  return cur ? `${alias}.currency = '${cur}'` : 'true';
+};
 
 export const num = (v: unknown) => (v === null || v === undefined ? 0 : Number(v));
 export const pct = (part: number, whole: number) => (whole ? round2((part / whole) * 100) : 0);

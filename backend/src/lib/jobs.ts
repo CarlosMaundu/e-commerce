@@ -7,6 +7,29 @@ import { MpesaGateway } from './mpesa';
 import { PaymentGateway } from './payments';
 import { placeOrder } from './placeOrder';
 import { settleWaitingRequests } from '../routes/adminPayments';
+import { deliverDueEmails } from './mailer';
+
+// How long raw analytics and the audit log are kept (orders, invoices, the
+// ledger and stock movements are business records and stay).
+export const RETENTION = {
+  searches: 400, // days
+  deal_events: 400,
+  product_views: 3 * 365,
+  audit_log: 2 * 365,
+  sent_emails: 90,
+};
+
+/** Deletes analytics events and log rows older than RETENTION. */
+export const removeOldData = async () => {
+  const del = async (sql: string, days: number) => (await query(sql, [days])).rowCount || 0;
+  return (
+    (await del(`DELETE FROM search_queries WHERE created_at < now() - make_interval(days => $1)`, RETENTION.searches)) +
+    (await del(`DELETE FROM promotion_events WHERE created_at < now() - make_interval(days => $1)`, RETENTION.deal_events)) +
+    (await del(`DELETE FROM product_views WHERE day < current_date - $1::int`, RETENTION.product_views)) +
+    (await del(`DELETE FROM audit_logs WHERE created_at < now() - make_interval(days => $1)`, RETENTION.audit_log)) +
+    (await del(`DELETE FROM email_outbox WHERE sent_at < now() - make_interval(days => $1)`, RETENTION.sent_emails))
+  );
+};
 
 /** Runs `fn` unless another server holds the job's lock. */
 export const runJob = async (name: string, fn: () => Promise<unknown>) => {
@@ -52,14 +75,22 @@ export const placePaidCardOrders = async (payments: PaymentGateway | null) => {
   return placed;
 };
 
-/** Every minute: place paid card orders and settle waiting payment requests. */
+/** Every minute: payments, emails due a retry, and (every 6 hours) old data. */
 export const startJobs = (gateways: { payments: PaymentGateway | null; mpesa: MpesaGateway }) => {
   const tick = async () => {
     const placed = await runJob('payments:card-orders', () => placePaidCardOrders(gateways.payments));
     if (placed) console.log(`Placed ${placed} paid card orders the customer didn’t come back for`);
     const settled = await runJob('payments:requests', () => settleWaitingRequests(gateways));
     if (settled) console.log(`Settled ${settled} payment requests`);
+    await runJob('email:outbox', deliverDueEmails);
+    // Old analytics events, a few times a day.
+    if (Date.now() - lastCleanup > 6 * 3600 * 1000) {
+      lastCleanup = Date.now();
+      const removed = await runJob('data:retention', removeOldData);
+      if (removed) console.log(`Removed ${removed} old analytics and audit rows`);
+    }
   };
+  let lastCleanup = 0;
   const timer = setInterval(tick, 60 * 1000);
   timer.unref();
   return () => clearInterval(timer);

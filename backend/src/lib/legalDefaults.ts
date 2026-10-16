@@ -176,6 +176,7 @@ const privacy = `
 <li><strong>Orders, invoices, payments and refunds:</strong> for at least five years after the transaction, or longer where tax or other laws require.</li>
 <li><strong>Security logs:</strong> for as long as needed to protect accounts and investigate incidents, normally no longer than 24 months.</li>
 <li><strong>Marketing preferences:</strong> until you unsubscribe, after which we keep a suppression record so that we do not contact you again.</li>
+<li><strong>Shop statistics:</strong> what is searched for on the shop and how often offers are seen or opened, kept for about 13 months. These are counted with an anonymous code that changes every day and cannot be traced back to you.</li>
 </ul>
 
 <h2>7. How we protect your data</h2>
@@ -196,7 +197,7 @@ const privacy = `
 <p>Many details can be updated directly in your account. To exercise any other right, email {{store_email}}. We may need to verify your identity before acting on a request, and we respond within the time required by law. You also have the right to complain to the <strong>Office of the Data Protection Commissioner</strong> (www.odpc.go.ke), although we would appreciate the chance to address your concern first.</p>
 
 <h2>9. Cookies and similar technologies</h2>
-<p>We use a secure, essential cookie to keep you signed in, and your browser's local storage to remember your cart, wishlist and preferences such as currency. These are necessary for the website to work and do not track you across other websites. We do not use advertising or third-party tracking cookies. If we introduce non-essential cookies, we will ask for your consent first.</p>
+<p>We use a secure, essential cookie to keep you signed in, and your browser's local storage to remember your cart, wishlist and preferences such as currency. These are necessary for the website to work and do not track you across other websites. To count searches and how often offers are seen, we use an anonymous code that changes daily; it is not a cookie and does not identify you. We do not use advertising or third-party tracking cookies. If we introduce non-essential cookies, we will ask for your consent first.</p>
 
 <h2>10. Children</h2>
 <p>Our website is not directed at children under 18, and we do not knowingly collect their personal data without the consent of a parent or guardian. If you believe a child has given us personal data, please contact us and we will delete it.</p>

@@ -7,6 +7,7 @@ import { query } from '../db';
 import { audit } from '../lib/audit';
 import { fail, handler, HttpError, ok, parse } from '../lib/http';
 import { authenticate, requirePermission } from '../middleware/auth';
+import { inShopCurrency } from '../lib/reports/common';
 
 // Orders that count as a use: placed and not cancelled.
 const USED = `o.placed_at IS NOT NULL AND o.status <> 'cancelled'`;
@@ -18,14 +19,15 @@ const STATE_SQL = `CASE
   WHEN c.starts_at IS NOT NULL AND c.starts_at > now() THEN 'scheduled'
   ELSE 'active' END`;
 
-const SELECT = `
+const select = () => `
   SELECT c.*, ${STATE_SQL} AS state, COALESCE(s.uses, 0) AS uses, COALESCE(s.customers, 0) AS customers,
     COALESCE(s.discount, 0) AS discount_total, COALESCE(s.sales, 0) AS sales_total, s.last_used_at,
     NULLIF(TRIM(COALESCE(cb.firstname, '') || ' ' || COALESCE(cb.lastname, '')), '') AS created_by_name
   FROM coupons c
   LEFT JOIN LATERAL (
-    SELECT count(*)::int AS uses, count(DISTINCT o.user_id)::int AS customers, sum(o.discount) AS discount,
-      sum(o.total) AS sales, max(o.placed_at) AS last_used_at
+    SELECT count(*)::int AS uses, count(DISTINCT o.user_id)::int AS customers,
+      sum(o.discount) FILTER (WHERE ${inShopCurrency('o')}) AS discount,
+      sum(o.total) FILTER (WHERE ${inShopCurrency('o')}) AS sales, max(o.placed_at) AS last_used_at
     FROM orders o WHERE o.coupon_code = c.code AND ${USED}
   ) s ON true
   LEFT JOIN users cb ON cb.id = c.created_by`;
@@ -128,7 +130,7 @@ export const adminPromoRoutes = () => {
       params.push(`%${q.search}%`);
       searchSql = `WHERE c.code ILIKE $1 OR c.description ILIKE $1`;
     }
-    const rows = (await query(`SELECT * FROM (${SELECT} ${searchSql}) p ORDER BY p.created_at DESC`, params)).rows;
+    const rows = (await query(`SELECT * FROM (${select()} ${searchSql}) p ORDER BY p.created_at DESC`, params)).rows;
     const counts: Record<string, number> = {};
     for (const r of rows) counts[r.state] = (counts[r.state] || 0) + 1;
     const shown = q.status === 'all' ? rows : rows.filter((r) => r.state === q.status);
@@ -140,7 +142,7 @@ export const adminPromoRoutes = () => {
   }));
 
   const load = async (code: string) => {
-    const row = (await query(`${SELECT} WHERE c.code = upper($1)`, [code])).rows[0];
+    const row = (await query(`${select()} WHERE c.code = upper($1)`, [code])).rows[0];
     if (!row) fail(404, 'Promo code not found.');
     return row;
   };

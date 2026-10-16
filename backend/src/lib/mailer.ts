@@ -2,6 +2,7 @@
 // (http://localhost:8025) so no real email is sent during development.
 import nodemailer from 'nodemailer';
 import { config } from '../config';
+import { query } from '../db';
 
 const transport = nodemailer.createTransport({
   host: config.smtp.host,
@@ -10,8 +11,50 @@ const transport = nodemailer.createTransport({
   auth: config.smtp.user ? { user: config.smtp.user, pass: config.smtp.pass } : undefined,
 });
 
-const send = (to: string, subject: string, text: string) =>
-  transport.sendMail({ from: config.smtp.from, to, subject, text });
+/** Tries one saved email; on failure it waits longer before each retry. */
+const deliver = async (id: number) => {
+  const row = (await query(
+    `UPDATE email_outbox SET attempts = attempts + 1, next_attempt_at = now() + interval '10 minutes'
+     WHERE id = $1 AND sent_at IS NULL RETURNING *`,
+    [id]
+  )).rows[0];
+  if (!row) return;
+  try {
+    await transport.sendMail({ from: config.smtp.from, to: row.to_address, subject: row.subject, text: row.body });
+    await query('UPDATE email_outbox SET sent_at = now(), last_error = \'\' WHERE id = $1', [id]);
+  } catch (error: any) {
+    // 1, 2, 4, 8… minutes, up to 6 hours.
+    const minutes = Math.min(2 ** (row.attempts - 1), 360);
+    await query(
+      `UPDATE email_outbox SET last_error = $2, next_attempt_at = now() + make_interval(mins => $3) WHERE id = $1`,
+      [id, String(error?.message || error).slice(0, 500), minutes]
+    );
+    console.error(`Email ${id} to ${row.to_address} failed (attempt ${row.attempts}):`, error?.message || error);
+  }
+};
+
+/**
+ * Saves the email, then sends it in the background: callers never wait for
+ * (or fail because of) the mail server. Failed sends are retried by the
+ * background job (deliverDueEmails).
+ */
+const send = async (to: string, subject: string, text: string) => {
+  const { id } = (await query(
+    'INSERT INTO email_outbox (to_address, subject, body) VALUES ($1, $2, $3) RETURNING id',
+    [to, subject.slice(0, 300), text]
+  )).rows[0];
+  void deliver(id).catch((error) => console.error('Email delivery failed:', error));
+};
+
+/** Sends emails that are due a (re)try; gives up after 10 attempts. */
+export const deliverDueEmails = async () => {
+  const due = (await query(
+    `SELECT id FROM email_outbox WHERE sent_at IS NULL AND attempts < 10 AND next_attempt_at <= now()
+     ORDER BY id LIMIT 50`
+  )).rows;
+  for (const { id } of due) await deliver(id);
+  return due.length;
+};
 
 export const sendPasswordResetEmail = (to: string, link: string) =>
   send(

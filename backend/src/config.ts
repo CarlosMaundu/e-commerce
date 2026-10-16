@@ -5,6 +5,17 @@ const env = (name: string, fallback?: string): string => {
   return value;
 };
 
+/** An IANA time zone name (e.g. Africa/Nairobi); anything else stops the API. */
+function validTimezone(tz: string) {
+  try {
+    new Intl.DateTimeFormat('en', { timeZone: tz });
+  } catch {
+    throw new Error(`SHOP_TIMEZONE "${tz}" isn't a time zone name like Africa/Nairobi.`);
+  }
+  if (!/^[A-Za-z_]+(\/[A-Za-z_+-]+)*$/.test(tz)) throw new Error(`SHOP_TIMEZONE "${tz}" isn't valid.`);
+  return tz;
+}
+
 const isProduction = process.env.NODE_ENV === 'production';
 
 export const config = {
@@ -22,6 +33,8 @@ export const config = {
     .map((o) => o.trim())
     .filter(Boolean),
   frontendUrl: env('FRONTEND_URL', 'http://localhost:3000'),
+  // The shop's time zone: what "today", daily totals and report days mean.
+  shopTimezone: validTimezone(env('SHOP_TIMEZONE', process.env.REPORT_TZ || 'Africa/Nairobi')),
   // Proxies between the visitor and the API (1: nginx in Docker).
   trustProxy: Number(env('TRUST_PROXY', '1')),
   publicUploadsPath: '/uploads',

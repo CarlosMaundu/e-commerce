@@ -1,6 +1,7 @@
 // src/lib/numbers.ts — order and invoice numbers, and payment references in
 // the formats people recognise. Generated in the app (no database counters),
 // from the time plus a random part so two at the same moment don't collide.
+import { config } from '../config';
 import { randomInt } from 'crypto';
 
 const ALNUM = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -12,7 +13,7 @@ const digits = (n: number) => pick('0123456789', n);
 const parts = (at: Date | string = new Date()) => {
   const d = new Date(at);
   const f = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Africa/Nairobi', year: 'numeric', month: '2-digit', day: '2-digit',
+    timeZone: config.shopTimezone, year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
   }).formatToParts(d);
   const get = (t: string) => f.find((p) => p.type === t)!.value;
