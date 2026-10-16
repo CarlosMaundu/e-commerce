@@ -388,7 +388,10 @@ describe('admin catalog permissions', () => {
   test('uploads accept images only', async () => {
     await createUser('cat@example.com', 'catalog_manager');
     const { token } = await signIn('cat@example.com');
-    const png = Buffer.from('89504e470d0a1a0a', 'hex');
+    // A real (tiny) PNG: uploads are now opened and resized, so a bare header isn't enough.
+    const png = await (await import('sharp')).default({
+      create: { width: 4, height: 4, channels: 4, background: '#ffffff' },
+    }).png().toBuffer();
     const okUpload = await request(app).post('/api/admin/files').set(bearer(token)).attach('file', png, { filename: 'a.png', contentType: 'image/png' });
     expect(okUpload.status).toBe(201);
     expect(okUpload.body.data.url).toMatch(/^\/uploads\/.+\.png$/);
