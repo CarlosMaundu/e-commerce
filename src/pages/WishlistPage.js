@@ -13,14 +13,24 @@ import {
   Checkbox,
   Chip,
   Container,
+  IconButton,
   InputAdornment,
   Link,
+  Menu,
+  MenuItem,
   Rating,
   Stack,
   TextField,
   Typography,
+  useMediaQuery,
 } from '@mui/material';
-import { FiHeart, FiSearch, FiShoppingCart, FiTrash2 } from 'react-icons/fi';
+import {
+  FiHeart,
+  FiMoreVertical,
+  FiSearch,
+  FiShoppingCart,
+  FiTrash2,
+} from 'react-icons/fi';
 import { AuthContext } from '../context/AuthContext';
 import { removeFromWishlist } from '../redux/wishlistSlice';
 import { addToCart } from '../redux/cartSlice';
@@ -29,6 +39,8 @@ import { EmptyState } from '../components/ui';
 import { AccountPage } from '../layouts/StorefrontLayout';
 import { formatMoney } from '../utils/format';
 import { PAGE_SIZE, StandardPagination } from '../components/admin/DataTable';
+import PhoneWishlistCard from '../components/cart/PhoneWishlistCard';
+import { usePageHeader } from '../components/layout/pageHeader';
 
 const WishlistItem = ({
   product: p,
@@ -217,13 +229,15 @@ WishlistItem.propTypes = {
   busy: PropTypes.bool,
 };
 
-const WishlistList = ({ items, canShop }) => {
+const WishlistList = ({ items, canShop, signedIn }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const notify = useNotify();
   const [selected, setSelected] = useState([]);
   const [q, setQ] = useState('');
   const [busy, setBusy] = useState(false);
+  const phone = useMediaQuery((t) => t.breakpoints.down('md'));
+  const [menuAnchor, setMenuAnchor] = useState(null);
 
   const shown = useMemo(
     () =>
@@ -291,6 +305,66 @@ const WishlistList = ({ items, canShop }) => {
       );
     });
 
+  // Phones: "Wishlist (n)" in the header, with the bulk actions in ⋮.
+  const closeMenu = () => setMenuAnchor(null);
+  const menu = items.length > 0 && (
+    <>
+      <IconButton
+        aria-label="More wishlist actions"
+        onClick={(e) => setMenuAnchor(e.currentTarget)}
+        sx={{
+          width: 44,
+          height: 44,
+          borderRadius: '8px',
+          bgcolor: 'background.neutral',
+        }}
+      >
+        <FiMoreVertical />
+      </IconButton>
+      <Menu
+        anchorEl={menuAnchor}
+        open={Boolean(menuAnchor)}
+        onClose={closeMenu}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <MenuItem
+          onClick={() => {
+            closeMenu();
+            setSelected(allOn ? [] : shown.map((p) => p.id));
+          }}
+        >
+          {allOn ? 'Clear selection' : 'Select all'}
+        </MenuItem>
+        {canShop && (
+          <MenuItem
+            disabled={!chosen.length || busy}
+            onClick={() => {
+              closeMenu();
+              addSelected();
+            }}
+          >
+            Add selected to bag{chosen.length ? ` (${chosen.length})` : ''}
+          </MenuItem>
+        )}
+        <MenuItem
+          disabled={!chosen.length || busy}
+          onClick={() => {
+            closeMenu();
+            remove(chosen.map((p) => p.id));
+          }}
+          sx={{ color: 'error.main' }}
+        >
+          Remove selected{chosen.length ? ` (${chosen.length})` : ''}
+        </MenuItem>
+      </Menu>
+    </>
+  );
+  usePageHeader({
+    title: `Wishlist${items.length ? ` (${items.length})` : ''}`,
+    actions: phone ? menu : null,
+  });
+
   if (!items.length) {
     return (
       <EmptyState
@@ -313,13 +387,18 @@ const WishlistList = ({ items, canShop }) => {
         direction={{ xs: 'column', sm: 'row' }}
         spacing={1.5}
         alignItems={{ sm: 'center' }}
-        sx={{ bgcolor: 'background.neutral', borderRadius: 1, px: 2, py: 1.5 }}
+        sx={{
+          bgcolor: { xs: 'transparent', md: 'background.neutral' },
+          borderRadius: 1,
+          px: { xs: 0, md: 2 },
+          py: { xs: 0, md: 1.5 },
+        }}
       >
         <Stack
           direction="row"
           spacing={1}
           alignItems="center"
-          sx={{ flex: 1 }}
+          sx={{ flex: 1, display: { xs: 'none', md: 'flex' } }}
           flexWrap="wrap"
           useFlexGap
         >
@@ -378,26 +457,46 @@ const WishlistList = ({ items, canShop }) => {
           }}
         />
       </Stack>
-      {onPage.map((p) => (
-        <WishlistItem
-          key={p.id}
-          product={p}
-          busy={busy}
-          checked={selected.includes(p.id)}
-          onCheck={(on) =>
-            setSelected((s) =>
-              on ? [...s, p.id] : s.filter((id) => id !== p.id)
-            )
-          }
-          onAdd={() => run(() => add(p))}
-          onBuy={() =>
-            run(async () => {
-              if (await add(p, { quiet: true })) navigate('/checkout');
-            })
-          }
-          onRemove={() => remove([p.id])}
-        />
-      ))}
+      {onPage.map((p) =>
+        phone ? (
+          <PhoneWishlistCard
+            key={p.id}
+            product={p}
+            busy={busy}
+            canShop={canShop}
+            checked={selected.includes(p.id)}
+            onCheck={(on) =>
+              setSelected((s) =>
+                on ? [...s, p.id] : s.filter((id) => id !== p.id)
+              )
+            }
+            onAdd={() => run(() => add(p))}
+            onRemove={() => remove([p.id])}
+          />
+        ) : (
+          <WishlistItem
+            key={p.id}
+            product={p}
+            busy={busy}
+            checked={selected.includes(p.id)}
+            onCheck={(on) =>
+              setSelected((s) =>
+                on ? [...s, p.id] : s.filter((id) => id !== p.id)
+              )
+            }
+            onAdd={() => run(() => add(p))}
+            onBuy={() =>
+              run(async () => {
+                if (!(await add(p, { quiet: true }))) return;
+                // Guests sign in first, then carry on to checkout.
+                if (signedIn) navigate('/checkout');
+                else navigate('/login', { state: { from: '/checkout' } });
+              })
+            }
+            onRemove={() => remove([p.id])}
+          />
+        )
+      )}
       {!shown.length && (
         <Typography color="text.secondary" sx={{ px: 1 }}>
           Nothing in your wishlist matches “{q.trim()}”.
@@ -429,6 +528,7 @@ const WishlistList = ({ items, canShop }) => {
 WishlistList.propTypes = {
   items: PropTypes.array.isRequired,
   canShop: PropTypes.bool,
+  signedIn: PropTypes.bool,
 };
 
 /** /account/wishlist — inside the account layout. */
@@ -438,13 +538,18 @@ export const AccountWishlistPage = () => {
     <AccountPage
       title="Wishlist"
       subtitle={`${items.length} saved item${items.length === 1 ? '' : 's'}`}
+      ownBar
       action={
-        <Button component={RouterLink} to="/products">
+        <Button
+          component={RouterLink}
+          to="/products"
+          sx={{ display: { xs: 'none', md: 'inline-flex' } }}
+        >
           Continue shopping
         </Button>
       }
     >
-      <WishlistList items={items} canShop />
+      <WishlistList items={items} canShop signedIn />
     </AccountPage>
   );
 };
@@ -457,12 +562,15 @@ const WishlistPage = () => {
 
   return (
     <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
-      <Typography variant="h3" component="h1" sx={{ mb: 1 }}>
-        Wishlist
-      </Typography>
-      <Typography color="text.secondary" sx={{ mb: 3 }}>
-        {items.length} saved item{items.length === 1 ? '' : 's'}
-      </Typography>
+      {/* Phones: "Wishlist (n)" is in the header bar. */}
+      <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+        <Typography variant="h3" component="h1" sx={{ mb: 1 }}>
+          Wishlist
+        </Typography>
+        <Typography color="text.secondary" sx={{ mb: 3 }}>
+          {items.length} saved item{items.length === 1 ? '' : 's'}
+        </Typography>
+      </Box>
       {items.length > 0 && (
         <Alert severity="info" sx={{ mb: 3 }}>
           Your wishlist is saved in this browser.{' '}

@@ -16,6 +16,7 @@ import {
 import { FiCheckCircle, FiMail } from 'react-icons/fi';
 import { auth } from '../api';
 import { useNotify } from '../notification/NotificationProvider';
+import { usePageHeader } from '../components/layout/pageHeader';
 
 const Panel = ({ icon, title, children }) => (
   <Container maxWidth="sm" sx={{ py: { xs: 6, md: 10 } }}>
@@ -43,6 +44,7 @@ const Panel = ({ icon, title, children }) => (
 );
 
 const VerifyEmailPage = () => {
+  usePageHeader({ title: 'Confirm email' });
   const [params] = useSearchParams();
   const notify = useNotify();
   const token = params.get('token');

@@ -9,7 +9,6 @@ import {
   InputAdornment,
   IconButton,
   LinearProgress,
-  Tooltip,
   Checkbox,
   FormControlLabel,
   Paper,
@@ -26,6 +25,8 @@ import { useNotify } from '../notification/NotificationProvider';
 import { MESSAGES } from '../notification/messages';
 import GoogleSignInButton from '../components/auth/GoogleSignInButton';
 import { GOOGLE_CLIENT_ID } from '../api/config';
+import { usePageHeader } from '../components/layout/pageHeader';
+import PasswordRules from '../components/password/PasswordRules';
 
 const StyledContainer = styled(Box)(({ theme }) => ({
   display: 'flex',
@@ -35,6 +36,13 @@ const StyledContainer = styled(Box)(({ theme }) => ({
   '@supports (min-height: 100dvh)': { minHeight: '100dvh' },
   paddingTop: theme.spacing(8),
   paddingBottom: theme.spacing(8),
+  // Side margins, so the card never touches the screen edges on phones.
+  paddingLeft: theme.spacing(2),
+  paddingRight: theme.spacing(2),
+  [theme.breakpoints.down('md')]: {
+    paddingTop: theme.spacing(3),
+    paddingBottom: theme.spacing(3),
+  },
   backgroundColor: '#f5f5f5',
 }));
 
@@ -57,6 +65,7 @@ const StyledButton = styled(Button)(({ theme }) => ({
 }));
 
 const SignupPage = () => {
+  usePageHeader({ title: 'Create account' });
   const { signUp, signInWithGoogle, user } = useContext(AuthContext);
   const navigate = useNavigate();
 
@@ -131,31 +140,6 @@ const SignupPage = () => {
     return strength;
   };
 
-  const getPasswordRequirements = () => {
-    return (
-      <Box sx={{ p: 1 }}>
-        <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>
-          Password Requirements:
-        </Typography>
-        <Typography variant="body2" sx={{ mb: 0.5 }}>
-          - At least 8 characters
-        </Typography>
-        <Typography variant="body2" sx={{ mb: 0.5 }}>
-          - One uppercase letter (A-Z)
-        </Typography>
-        <Typography variant="body2" sx={{ mb: 0.5 }}>
-          - One lowercase letter (a-z)
-        </Typography>
-        <Typography variant="body2" sx={{ mb: 0.5 }}>
-          - One special character (!@#$%^&*)
-        </Typography>
-        <Typography variant="body2" sx={{ mb: 0.5 }}>
-          - One numeric character (0-9)
-        </Typography>
-      </Box>
-    );
-  };
-
   const passwordStrength = calculatePasswordStrength(formik.values.password);
 
   if (user) {
@@ -193,6 +177,7 @@ const SignupPage = () => {
                 fullWidth
                 label="First Name"
                 name="firstName"
+                autoComplete="given-name"
                 value={formik.values.firstName}
                 onChange={formik.handleChange}
                 onBlur={formik.handleBlur}
@@ -214,6 +199,7 @@ const SignupPage = () => {
                 fullWidth
                 label="Last Name"
                 name="lastName"
+                autoComplete="family-name"
                 value={formik.values.lastName}
                 onChange={formik.handleChange}
                 onBlur={formik.handleBlur}
@@ -236,6 +222,7 @@ const SignupPage = () => {
                 label="Email Address"
                 name="email"
                 type="email"
+                autoComplete="email"
                 value={formik.values.email}
                 onChange={formik.handleChange}
                 onBlur={formik.handleBlur}
@@ -250,44 +237,47 @@ const SignupPage = () => {
                 }}
               />
 
-              <Tooltip title={getPasswordRequirements()} placement="top">
-                <TextField
-                  margin="normal"
-                  required
-                  fullWidth
-                  label="Password"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={formik.values.password}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  error={
-                    formik.touched.password && Boolean(formik.errors.password)
-                  }
-                  helperText={formik.touched.password && formik.errors.password}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <MdLock />
-                      </InputAdornment>
-                    ),
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton
-                          onClick={() => setShowPassword(!showPassword)}
-                          edge="end"
-                        >
-                          {showPassword ? (
-                            <AiOutlineEyeInvisible />
-                          ) : (
-                            <AiOutlineEye />
-                          )}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  }}
-                />
-              </Tooltip>
+              <TextField
+                margin="normal"
+                required
+                fullWidth
+                label="Password"
+                name="password"
+                autoComplete="new-password"
+                type={showPassword ? 'text' : 'password'}
+                value={formik.values.password}
+                onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
+                error={
+                  formik.touched.password && Boolean(formik.errors.password)
+                }
+                helperText={formik.touched.password && formik.errors.password}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <MdLock />
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={() => setShowPassword(!showPassword)}
+                        edge="end"
+                        aria-label={
+                          showPassword ? 'Hide password' : 'Show password'
+                        }
+                      >
+                        {showPassword ? (
+                          <AiOutlineEyeInvisible />
+                        ) : (
+                          <AiOutlineEye />
+                        )}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+              />
+              <PasswordRules password={formik.values.password} />
 
               <TextField
                 margin="normal"
@@ -295,6 +285,7 @@ const SignupPage = () => {
                 fullWidth
                 label="Confirm Password"
                 name="confirmPassword"
+                autoComplete="new-password"
                 type={showConfirmPassword ? 'text' : 'password'}
                 value={formik.values.confirmPassword}
                 onChange={formik.handleChange}
@@ -320,6 +311,11 @@ const SignupPage = () => {
                           setShowConfirmPassword(!showConfirmPassword)
                         }
                         edge="end"
+                        aria-label={
+                          showConfirmPassword
+                            ? 'Hide password'
+                            : 'Show password'
+                        }
                       >
                         {showConfirmPassword ? (
                           <AiOutlineEyeInvisible />
@@ -401,6 +397,26 @@ const SignupPage = () => {
               >
                 {formik.isSubmitting ? 'Creating account…' : 'Create Account'}
               </StyledButton>
+              {/* Say why the button is waiting, rather than just grey it. */}
+              {!formik.isSubmitting &&
+                (passwordStrength < 75 || !acceptTerms) && (
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    component="p"
+                    role="status"
+                    sx={{ textAlign: 'center' }}
+                  >
+                    {[
+                      passwordStrength < 75 && 'meet the password rules above',
+                      !acceptTerms && 'accept the terms',
+                    ]
+                      .filter(Boolean)
+                      .join(' and ')
+                      .replace(/^./, (c) => `To continue, ${c}`)}
+                    .
+                  </Typography>
+                )}
 
               <Button
                 onClick={() => navigate('/login')}

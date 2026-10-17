@@ -10,12 +10,6 @@ import {
   InputAdornment,
   Paper,
   LinearProgress,
-  Tooltip,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-  Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
@@ -24,7 +18,6 @@ import {
 import { styled } from '@mui/system';
 import { MdLock, MdCheckCircle } from 'react-icons/md';
 import { AiOutlineEye, AiOutlineEyeInvisible } from 'react-icons/ai';
-import { BsCheckCircle, BsXCircle } from 'react-icons/bs';
 import {
   Link as RouterLink,
   useSearchParams,
@@ -33,6 +26,9 @@ import {
 import { auth } from '../../api';
 import { useNotify } from '../../notification/NotificationProvider';
 import { MESSAGES } from '../../notification/messages';
+import ResponsiveSheet from '../common/ResponsiveSheet';
+import PasswordRules from './PasswordRules';
+import { usePageHeader } from '../layout/pageHeader';
 
 const StyledContainer = styled(Container)(({ theme }) => ({
   display: 'flex',
@@ -61,25 +57,6 @@ const StyledButton = styled(Button)(({ theme }) => ({
   borderRadius: 8,
 }));
 
-const TooltipContent = styled(Box)(({ theme }) => ({
-  padding: theme.spacing(1),
-  color: '#ffffff',
-  '& .MuiTypography-root': {
-    color: '#ffffff',
-  },
-  '& .MuiListItemText-primary': {
-    color: '#ffffff',
-  },
-}));
-
-const StyledDialog = styled(Dialog)(({ theme }) => ({
-  '& .MuiDialog-paper': {
-    borderRadius: 12,
-    maxWidth: '350px',
-    padding: theme.spacing(2),
-  },
-}));
-
 const StyledDialogTitle = styled(DialogTitle)(({ theme }) => ({
   padding: theme.spacing(2),
   textAlign: 'center',
@@ -94,6 +71,9 @@ const ResetPassword = () => {
     state: token ? 'checking' : 'invalid',
     purpose: 'reset',
     email: '',
+  });
+  usePageHeader({
+    title: link.purpose === 'setup' ? 'Set password' : 'Reset password',
   });
 
   useEffect(() => {
@@ -170,46 +150,6 @@ const ResetPassword = () => {
     return strength;
   };
 
-  const checkPasswordCriteria = (password) => ({
-    length: password.length >= 8,
-    uppercase: /[A-Z]/.test(password),
-    lowercase: /[a-z]/.test(password),
-    numberOrSpecial: /[0-9!@#$%^&*]/.test(password),
-  });
-
-  const PasswordTooltip = () => {
-    const criteria = checkPasswordCriteria(formData.password);
-    return (
-      <TooltipContent>
-        <Typography variant="subtitle2" gutterBottom>
-          Password Requirements:
-        </Typography>
-        <List dense>
-          {[
-            { label: 'At least 8 characters', valid: criteria.length },
-            { label: 'One uppercase letter', valid: criteria.uppercase },
-            { label: 'One lowercase letter', valid: criteria.lowercase },
-            {
-              label: 'One number or special character',
-              valid: criteria.numberOrSpecial,
-            },
-          ].map((item, index) => (
-            <ListItem key={index}>
-              <ListItemIcon>
-                {item.valid ? (
-                  <BsCheckCircle color="#4caf50" />
-                ) : (
-                  <BsXCircle color="#f44336" />
-                )}
-              </ListItemIcon>
-              <ListItemText primary={item.label} />
-            </ListItem>
-          ))}
-        </List>
-      </TooltipContent>
-    );
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (formData.password !== formData.confirmPassword) {
@@ -241,39 +181,42 @@ const ResetPassword = () => {
           )}
 
           <Box component="form" onSubmit={handleSubmit} width="100%">
-            <Tooltip title={<PasswordTooltip />} placement="top" arrow>
-              <TextField
-                margin="normal"
-                required
-                fullWidth
-                label="New Password"
-                name="password"
-                type={showPassword ? 'text' : 'password'}
-                value={formData.password}
-                onChange={handleInputChange}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <MdLock />
-                    </InputAdornment>
-                  ),
-                  endAdornment: (
-                    <InputAdornment position="end">
-                      <IconButton
-                        onClick={() => setShowPassword(!showPassword)}
-                        edge="end"
-                      >
-                        {showPassword ? (
-                          <AiOutlineEyeInvisible />
-                        ) : (
-                          <AiOutlineEye />
-                        )}
-                      </IconButton>
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Tooltip>
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              label="New Password"
+              name="password"
+              autoComplete="new-password"
+              type={showPassword ? 'text' : 'password'}
+              value={formData.password}
+              onChange={handleInputChange}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <MdLock />
+                  </InputAdornment>
+                ),
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => setShowPassword(!showPassword)}
+                      edge="end"
+                      aria-label={
+                        showPassword ? 'Hide password' : 'Show password'
+                      }
+                    >
+                      {showPassword ? (
+                        <AiOutlineEyeInvisible />
+                      ) : (
+                        <AiOutlineEye />
+                      )}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <PasswordRules password={formData.password} />
 
             <TextField
               margin="normal"
@@ -281,6 +224,7 @@ const ResetPassword = () => {
               fullWidth
               label="Confirm New Password"
               name="confirmPassword"
+              autoComplete="new-password"
               type={showConfirmPassword ? 'text' : 'password'}
               value={formData.confirmPassword}
               onChange={handleInputChange}
@@ -303,6 +247,9 @@ const ResetPassword = () => {
                         setShowConfirmPassword(!showConfirmPassword)
                       }
                       edge="end"
+                      aria-label={
+                        showConfirmPassword ? 'Hide password' : 'Show password'
+                      }
                     >
                       {showConfirmPassword ? (
                         <AiOutlineEyeInvisible />
@@ -358,10 +305,12 @@ const ResetPassword = () => {
       </StyledContainer>
 
       {/* Success Modal */}
-      <StyledDialog
+      <ResponsiveSheet
         open={successModalOpen}
         onClose={() => setSuccessModalOpen(false)}
         aria-labelledby="success-dialog-title"
+        maxWidth="xs"
+        fullWidth
       >
         <StyledDialogTitle id="success-dialog-title">
           <Box
@@ -383,23 +332,17 @@ const ResetPassword = () => {
               : MESSAGES.auth.passwordReset}
           </Typography>
         </DialogContent>
-        <DialogActions sx={{ justifyContent: 'center', pb: 2 }}>
-          <StyledButton
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button
             onClick={() => navigate('/login')}
             variant="contained"
-            size="small"
-            sx={{
-              px: 4,
-              backgroundColor: '#4caf50',
-              '&:hover': {
-                backgroundColor: '#45a049',
-              },
-            }}
+            size="large"
+            fullWidth
           >
-            Login Now
-          </StyledButton>
+            Sign in
+          </Button>
         </DialogActions>
-      </StyledDialog>
+      </ResponsiveSheet>
     </>
   );
 };
