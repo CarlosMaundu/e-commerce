@@ -371,6 +371,7 @@ const Header = () => {
   };
 
   const firstName = user?.name?.split(' ')[0] || '';
+  const home = location.pathname === '/';
   const searchRow =
     location.pathname === '/' || location.pathname === '/products';
   const shopper = canShop(user);
@@ -464,7 +465,13 @@ const Header = () => {
     '&:hover': { bgcolor: alpha(theme.palette.text.primary, 0.88) },
   };
 
-  const promo = showPromo && <PromoStrip onClose={hidePromo} />;
+  // Desktop: the offers can be hidden for the session. Phones: always shown,
+  // just above the hero cards.
+  const promo = isMobile ? (
+    <PromoStrip />
+  ) : (
+    showPromo && <PromoStrip onClose={hidePromo} />
+  );
 
   return (
     <>
@@ -489,7 +496,8 @@ const Header = () => {
             spacing={{ xs: 1, md: 3 }}
             sx={{ minHeight: { xs: 64, md: 84 } }}
           >
-            {isMobile && location.pathname !== '/' && (
+            {/* Phones: the greeting on the home page; elsewhere just Back. */}
+            {isMobile && !home && (
               <IconButton
                 aria-label="Back"
                 onClick={() =>
@@ -501,19 +509,23 @@ const Header = () => {
               </IconButton>
             )}
             {isMobile ? (
-              // Phones: who you are instead of the logo; tap for your menu
-              // (or to sign in).
-              <Greeting
-                user={user}
-                loading={loading}
-                onOpen={(e) =>
-                  user
-                    ? setUserMenuAnchor(e.currentTarget)
-                    : navigate('/login', {
-                        state: { from: location.pathname },
-                      })
-                }
-              />
+              home ? (
+                // Phones: who you are instead of the logo; tap for your menu
+                // (or to sign in).
+                <Greeting
+                  user={user}
+                  loading={loading}
+                  onOpen={(e) =>
+                    user
+                      ? setUserMenuAnchor(e.currentTarget)
+                      : navigate('/login', {
+                          state: { from: location.pathname },
+                        })
+                  }
+                />
+              ) : (
+                <Box sx={{ flex: 1 }} />
+              )
             ) : (
               <Box
                 component={RouterLink}

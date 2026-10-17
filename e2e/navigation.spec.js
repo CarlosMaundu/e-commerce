@@ -104,3 +104,13 @@ test('the installed app is named after the shop, with its own icons', async ({
     page.locator('meta[name="apple-mobile-web-app-title"]')
   ).toHaveAttribute('content', 'Carlos Shop');
 });
+
+test('the member card leads to sign-up (old /signup links too)', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByTestId('hero-member').getByRole('link').click();
+  await expect(page).toHaveURL(/\/register$/);
+  await page.goto('/signup');
+  await expect(page).toHaveURL(/\/register$/);
+});

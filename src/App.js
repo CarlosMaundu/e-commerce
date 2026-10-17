@@ -308,6 +308,8 @@ const router = withPageTransitions(
           />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<SignupPage />} />
+          {/* Older links (e.g. the member card's default) said /signup. */}
+          <Route path="/signup" element={<Navigate to="/register" replace />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/policies/:slug" element={<PolicyPage />} />

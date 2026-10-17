@@ -55,7 +55,7 @@ export const DEFAULT_STORE = {
       eyebrow: 'Member perks',
       title: 'More perks. Zero fuss.',
       text: 'Early access, member pricing and free express delivery.',
-      link: '/signup',
+      link: '/register',
     },
   },
 };
