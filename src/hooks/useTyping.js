@@ -21,14 +21,22 @@ const useTyping = () => {
   const [typing, setTyping] = useState(false);
   useEffect(() => {
     if (!touch()) return undefined;
-    const update = () => setTyping(isTextField(document.activeElement));
-    // focusout fires before the next field gets focus: wait a tick.
-    const later = () => setTimeout(update, 0);
-    document.addEventListener('focusin', update);
-    document.addEventListener('focusout', later);
+    // Into a field: hide the menu at once. Out of one: wait before showing
+    // it again. Tapping a button (e.g. Send) moves focus to it between the
+    // finger going down and up; showing the menu straight away would put it
+    // under the finger and swallow the tap.
+    let timer = 0;
+    const check = () => {
+      clearTimeout(timer);
+      if (isTextField(document.activeElement)) setTyping(true);
+      else timer = setTimeout(() => setTyping(false), 400);
+    };
+    document.addEventListener('focusin', check);
+    document.addEventListener('focusout', check);
     return () => {
-      document.removeEventListener('focusin', update);
-      document.removeEventListener('focusout', later);
+      clearTimeout(timer);
+      document.removeEventListener('focusin', check);
+      document.removeEventListener('focusout', check);
     };
   }, []);
   return typing;

@@ -32,6 +32,8 @@ export const withHeadingIds = (html) => {
 };
 
 export const legalSx = {
+  // Long words, links and emails wrap instead of widening the page.
+  overflowWrap: 'anywhere',
   color: 'text.primary',
   fontSize: '1rem',
   lineHeight: 1.75,

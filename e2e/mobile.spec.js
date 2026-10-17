@@ -51,12 +51,12 @@ test('search opens full screen with suggestions; Back returns to the page', asyn
   await expect(page.getByRole('dialog', { name: 'Search' })).toBeHidden();
 
   // Search is on every page, not just home and the product list.
-  await page.goto('/support');
+  await page.goto('/me');
   await page.getByRole('button', { name: 'Search', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Search' })).toBeVisible();
   await page.goBack();
   await expect(page.getByRole('dialog', { name: 'Search' })).toBeHidden();
-  await expect(page).toHaveURL(/\/support$/);
+  await expect(page).toHaveURL(/\/me$/);
 });
 
 test('Back closes the filters sheet instead of leaving the page', async ({
@@ -256,5 +256,42 @@ test('sign-in pages: a title in the header, autofill, and the password rules in 
   await page.locator('input[name="password"]').fill('abc');
   await expect(rules).toContainText('A lowercase letter ✓');
   await expect(page.getByRole('status')).toContainText('To continue');
+  await noSideScroll(page);
+});
+
+test('help and info pages: titles in the header, one-row topics, a contents sheet, a compact pager', async ({
+  page,
+}) => {
+  const bar = page.getByTestId('page-bar');
+
+  await page.goto('/support');
+  await expect(bar).toContainText('Help');
+  await expect(page.getByLabel('Phone (optional)')).toHaveAttribute(
+    'type',
+    'tel'
+  );
+
+  await page.goto('/faq');
+  await expect(bar).toContainText('FAQs');
+  await noSideScroll(page);
+
+  await page.goto('/policies/terms');
+  await expect(bar).toContainText(/Terms/);
+  await bar.getByRole('button', { name: 'Contents' }).click();
+  const sheet = page.getByRole('dialog', { name: 'On this page' });
+  await expect(sheet).toBeVisible();
+  await sheet.getByRole('button').first().click();
+  await expect(sheet).toBeHidden();
+  await noSideScroll(page);
+
+  await page.goto('/no-such-page');
+  await expect(bar).toContainText('Not found');
+  await noSideScroll(page);
+
+  await page.goto('/products');
+  const pager = page.getByRole('navigation', { name: 'Pagination' });
+  await expect(pager).toContainText(/Page\s*1\s*of\s*\d+/);
+  await pager.getByRole('button', { name: 'Next page' }).click();
+  await expect(page).toHaveURL(/page=2/);
   await noSideScroll(page);
 });
