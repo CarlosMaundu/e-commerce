@@ -20,8 +20,10 @@ import {
 import { FiChevronDown, FiSearch } from 'react-icons/fi';
 import { faq as faqApi } from '../api';
 import LegalContent from '../components/common/LegalContent';
+import { usePageHeader } from '../components/layout/pageHeader';
 
 const FaqPage = () => {
+  usePageHeader({ title: 'FAQs' });
   const { hash } = useLocation();
   const [items, setItems] = useState(null);
   const [topic, setTopic] = useState('');
@@ -94,7 +96,22 @@ const FaqPage = () => {
         }}
         sx={{ mb: 2, bgcolor: 'background.paper' }}
       />
-      <Stack direction="row" flexWrap="wrap" useFlexGap gap={1} sx={{ mb: 3 }}>
+      {/* Phones: one row of topics to swipe through. */}
+      <Stack
+        direction="row"
+        useFlexGap
+        gap={1}
+        sx={{
+          mb: 3,
+          flexWrap: { xs: 'nowrap', md: 'wrap' },
+          overflowX: { xs: 'auto', md: 'visible' },
+          mx: { xs: -2, md: 0 },
+          px: { xs: 2, md: 0 },
+          scrollbarWidth: 'none',
+          '&::-webkit-scrollbar': { display: 'none' },
+          '& > *': { flexShrink: 0 },
+        }}
+      >
         {['', ...topics].map((t) => (
           <Chip
             key={t || 'all'}

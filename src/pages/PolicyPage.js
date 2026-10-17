@@ -6,7 +6,11 @@ import { Link as RouterLink, useParams } from 'react-router-dom';
 import {
   Box,
   Container,
+  DialogTitle,
+  IconButton,
   Link,
+  List,
+  ListItemButton,
   Skeleton,
   Stack,
   Typography,
@@ -19,6 +23,9 @@ import { POLICY_LINKS, policyPath } from '../content/policies';
 import { toSafeHtml } from '../utils/richText';
 import { formatDate } from '../utils/format';
 import NotFoundPage from './NotFoundPage';
+import { FiList } from 'react-icons/fi';
+import ResponsiveSheet from '../components/common/ResponsiveSheet';
+import { usePageHeader } from '../components/layout/pageHeader';
 
 const PolicyPage = () => {
   const { slug } = useParams();
@@ -42,6 +49,41 @@ const PolicyPage = () => {
     () => (page ? withHeadingIds(toSafeHtml(page.body)).toc : []),
     [page]
   );
+
+  // Phones: the policy's name in the header bar; "Contents" opens the list
+  // of sections (the sidebar list is desktop-only).
+  const [tocOpen, setTocOpen] = useState(false);
+  const goTo = (id) => {
+    setTocOpen(false);
+    setTimeout(
+      () =>
+        document
+          .getElementById(id)
+          ?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+      250
+    );
+  };
+  usePageHeader({
+    title:
+      page?.title ||
+      POLICY_LINKS.find((p) => p.slug === slug)?.label ||
+      'Policies',
+    actions:
+      toc.length > 2 ? (
+        <IconButton
+          aria-label="Contents"
+          onClick={() => setTocOpen(true)}
+          sx={{
+            width: 44,
+            height: 44,
+            borderRadius: '8px',
+            bgcolor: 'background.neutral',
+          }}
+        >
+          <FiList />
+        </IconButton>
+      ) : null,
+  });
 
   if (missing || !POLICY_LINKS.some((p) => p.slug === slug)) {
     return <NotFoundPage />;
@@ -69,6 +111,8 @@ const PolicyPage = () => {
               flexDirection: { xs: 'row', md: 'column' },
               gap: { xs: 1, md: 0 },
               overflowX: { xs: 'auto', md: 'visible' },
+              scrollbarWidth: 'none',
+              '&::-webkit-scrollbar': { display: 'none' },
             }}
           >
             {POLICY_LINKS.map((p) => (
@@ -166,6 +210,24 @@ const PolicyPage = () => {
           )}
         </Box>
       </Box>
+      <ResponsiveSheet
+        open={tocOpen}
+        onClose={() => setTocOpen(false)}
+        aria-labelledby="policy-contents-title"
+      >
+        <DialogTitle id="policy-contents-title">On this page</DialogTitle>
+        <List sx={{ pb: 2 }} aria-label="Sections">
+          {toc.map((t) => (
+            <ListItemButton
+              key={t.id}
+              onClick={() => goTo(t.id)}
+              sx={{ minHeight: 48 }}
+            >
+              {t.text}
+            </ListItemButton>
+          ))}
+        </List>
+      </ResponsiveSheet>
     </Container>
   );
 };

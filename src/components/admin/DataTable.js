@@ -23,6 +23,7 @@ import {
   Tabs,
   TextField,
   Typography,
+  useMediaQuery,
 } from '@mui/material';
 import {
   FiArrowLeft,
@@ -101,6 +102,63 @@ export const StandardPagination = ({
   const go = (p) => onPageChange(null, Math.max(0, Math.min(pages - 1, p)));
   const showingAll = rowsPerPage >= count && count > PAGE_SIZE;
   const canShowAll = count > rowsPerPage && count <= maxShowAll;
+  // Small phones: "‹ Previous · Page 2 of 5 · Next ›" with full-size buttons
+  // (a row of numbers doesn't fit, and the buttons are too small to tap).
+  // (A plain width query: this also renders outside the theme, e.g. in tests.)
+  const compact = useMediaQuery('(max-width: 599.95px)');
+  if (compact) {
+    if (pages <= 1) return null;
+    return (
+      <Stack
+        direction="row"
+        alignItems="center"
+        justifyContent="space-between"
+        spacing={1}
+        role="navigation"
+        aria-label="Pagination"
+        sx={{
+          px: 1.5,
+          py: 1.25,
+          bgcolor: 'background.neutral',
+          borderTop: 1,
+          borderColor: 'divider',
+        }}
+      >
+        <Button
+          variant="outlined"
+          startIcon={<FiChevronLeft />}
+          onClick={() => go(current - 1)}
+          disabled={current === 0}
+          aria-label="Previous page"
+          sx={{ height: 44, bgcolor: 'background.paper' }}
+        >
+          Previous
+        </Button>
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          aria-live="polite"
+          noWrap
+        >
+          Page{' '}
+          <Box component="strong" sx={{ color: 'text.primary' }}>
+            {current + 1}
+          </Box>{' '}
+          of {pages}
+        </Typography>
+        <Button
+          variant="outlined"
+          endIcon={<FiChevronRight />}
+          onClick={() => go(current + 1)}
+          disabled={current >= pages - 1}
+          aria-label="Next page"
+          sx={{ height: 44, bgcolor: 'background.paper' }}
+        >
+          Next
+        </Button>
+      </Stack>
+    );
+  }
   const navButton = (labelText, icon, target, disabled) => (
     <IconButton
       size="small"

@@ -33,6 +33,7 @@ import { canShop } from '../auth/permissions';
 import { faq as faqApi, orders as ordersApi, support } from '../api';
 import { useStore } from '../context/StoreContext';
 import { useNotify } from '../notification/NotificationProvider';
+import { usePageHeader } from '../components/layout/pageHeader';
 import { SectionCard } from '../components/ui';
 import { CardSkeleton } from '../components/skeletons';
 
@@ -59,6 +60,7 @@ const QUICK = [
 ];
 
 const SupportPage = () => {
+  usePageHeader({ title: 'Help' });
   const { user } = useContext(AuthContext);
   const shop = useStore();
   const notify = useNotify();
@@ -216,7 +218,11 @@ const SupportPage = () => {
                     Your reference is <strong>{sent.number}</strong>. We’ve
                     emailed a confirmation to {sent.email} and will reply there.
                   </Typography>
-                  <Stack direction="row" spacing={1}>
+                  <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={1}
+                    sx={{ width: { xs: '100%', sm: 'auto' } }}
+                  >
                     {sent.signed_in && (
                       <Button
                         variant="contained"
@@ -248,6 +254,7 @@ const SupportPage = () => {
                   <Grid item xs={12} sm={6}>
                     <TextField
                       label="Your name"
+                      autoComplete="name"
                       value={form.name}
                       onChange={set('name')}
                       {...err('name')}
@@ -259,6 +266,7 @@ const SupportPage = () => {
                     <TextField
                       label="Email address"
                       type="email"
+                      autoComplete="email"
                       value={form.email}
                       onChange={set('email')}
                       {...err('email')}
@@ -303,6 +311,8 @@ const SupportPage = () => {
                     ) : (
                       <TextField
                         label="Phone (optional)"
+                        type="tel"
+                        autoComplete="tel"
                         value={form.phone}
                         onChange={set('phone')}
                         {...err('phone')}
@@ -396,6 +406,8 @@ const SupportPage = () => {
                           href={href}
                           underline="hover"
                           color="text.primary"
+                          // A comfortable tap target on phones.
+                          sx={{ display: 'inline-block', py: { xs: 1, md: 0 } }}
                         >
                           {value}
                         </Link>

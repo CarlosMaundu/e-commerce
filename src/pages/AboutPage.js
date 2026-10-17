@@ -14,8 +14,10 @@ import { alpha } from '@mui/material/styles';
 import { legal } from '../api';
 import { useStore } from '../context/StoreContext';
 import LegalContent from '../components/common/LegalContent';
+import { usePageHeader } from '../components/layout/pageHeader';
 
 const AboutPage = () => {
+  usePageHeader({ title: 'About us' });
   const shop = useStore();
   const [page, setPage] = useState(null);
 
