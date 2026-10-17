@@ -232,7 +232,7 @@ export const PromoStrip = ({ onClose }) => {
           spacing={{ xs: 1, md: 2.5 }}
           sx={{
             py: 0.75,
-            pr: 5,
+            pr: onClose ? 5 : 0,
             position: 'relative',
             // Phones: one line; a long title is cut short instead of
             // wrapping the strip onto two rows.
@@ -277,21 +277,24 @@ export const PromoStrip = ({ onClose }) => {
           >
             View deal
           </Button>
-          <IconButton
-            size="small"
-            aria-label="Hide offers"
-            onClick={onClose}
-            sx={{ position: 'absolute', right: 0, color: 'promo.text' }}
-          >
-            <FiX />
-          </IconButton>
+          {onClose && (
+            <IconButton
+              size="small"
+              aria-label="Hide offers"
+              onClick={onClose}
+              sx={{ position: 'absolute', right: 0, color: 'promo.text' }}
+            >
+              <FiX />
+            </IconButton>
+          )}
         </Stack>
       </Container>
     </Box>
   );
 };
 
-PromoStrip.propTypes = { onClose: PropTypes.func.isRequired };
+// Without onClose there's no ✕ (phones always show the offers).
+PromoStrip.propTypes = { onClose: PropTypes.func };
 
 /**
  * Home-page offers banner: one offer at a time, sliding in, with a faded

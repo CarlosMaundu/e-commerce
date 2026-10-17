@@ -174,6 +174,16 @@ test('the phone header greets you instead of showing the logo; the bell opens yo
   await expect(banner.getByRole('button', { name: 'Open menu' })).toHaveCount(
     0
   );
+  // The offers strip is always there on phones (no ✕ to hide it).
+  await expect(page.getByLabel('Current offers')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Hide offers' })).toHaveCount(
+    0
+  );
+  // Other pages: just Back, no greeting.
+  await page.goto('/products');
+  await expect(banner.getByRole('button', { name: 'Back' })).toBeVisible();
+  await expect(banner.getByTestId('phone-greeting')).toHaveCount(0);
+  await page.goto('/');
   await banner.getByTestId('phone-greeting').click();
   await expect(page).toHaveURL(/\/login/);
 

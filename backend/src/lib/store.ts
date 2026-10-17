@@ -93,7 +93,7 @@ export const DEFAULT_STORE: StoreSettings = {
       eyebrow: 'Member perks',
       title: 'More perks. Zero fuss.',
       text: 'Early access, member pricing and free express delivery.',
-      link: '/signup',
+      link: '/register',
       image: '', // optional photo behind the card, under a dark gradient
     },
   },
