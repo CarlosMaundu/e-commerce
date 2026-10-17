@@ -368,6 +368,8 @@ export const cartFromApi = (c) => ({
     stock: p.stock,
     inStock: p.in_stock,
     gift: giftFromApi(p.gift),
+    // Ticked to buy now; unticked items wait in the cart.
+    selected: p.selected !== false,
   })),
   giftOptions: c?.gift_options
     ? {
@@ -379,6 +381,7 @@ export const cartFromApi = (c) => ({
       }
     : null,
   itemCount: c?.item_count || 0,
+  selectedCount: c?.selected_count ?? c?.item_count ?? 0,
   coupon: c?.coupon || null,
   couponProblem: c?.coupon_problem || null,
   shippingMethod: c?.shipping_method || null,

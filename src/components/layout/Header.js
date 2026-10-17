@@ -48,6 +48,7 @@ import BrandMark from '../common/BrandMark';
 import { SEARCH_SCOPES, scopeFromParams } from './searchScopes';
 import SearchSheet from './SearchSheet';
 import CustomerBell from './CustomerBell';
+import { usePageHeaderConfig } from './pageHeader';
 import useHideOnScroll from '../../hooks/useHideOnScroll';
 import { initialsOf } from '../common/BrandMark';
 
@@ -311,7 +312,10 @@ const Header = () => {
   const [userMenuAnchor, setUserMenuAnchor] = useState(null);
   const [searchOpen, setSearchOpen] = useState(false);
   // Phones: the header slides away while scrolling down the page.
-  const hidden = useHideOnScroll(isMobile && !searchOpen);
+  // Phones: a page can ask for an app-style bar (Back · title · actions).
+  const pageBar = usePageHeaderConfig();
+  const appBar = isMobile && Boolean(pageBar);
+  const hidden = useHideOnScroll(isMobile && !searchOpen && !appBar);
   const [showPromo, setShowPromo] = useState(() => {
     try {
       return sessionStorage.getItem('promo-hidden') !== '1';
@@ -465,13 +469,12 @@ const Header = () => {
     '&:hover': { bgcolor: alpha(theme.palette.text.primary, 0.88) },
   };
 
-  // Desktop: the offers can be hidden for the session. Phones: always shown,
-  // just above the hero cards.
-  const promo = isMobile ? (
-    <PromoStrip />
-  ) : (
-    showPromo && <PromoStrip onClose={hidePromo} />
-  );
+  // Deals: phones show them on the home page only (no ✕); desktop everywhere
+  // but the cart and checkout, and they can be hidden for the session.
+  const buying = /^\/(cart|checkout)(\/|$)/.test(location.pathname);
+  const promo = isMobile
+    ? location.pathname === '/' && <PromoStrip />
+    : !buying && showPromo && <PromoStrip onClose={hidePromo} />;
 
   return (
     <>
@@ -489,15 +492,19 @@ const Header = () => {
           viewTransitionName: { xs: 'app-header', md: 'none' },
         }}
       >
-        <Container maxWidth="xl">
-          <Stack
-            direction="row"
-            alignItems="center"
-            spacing={{ xs: 1, md: 3 }}
-            sx={{ minHeight: { xs: 64, md: 84 } }}
-          >
-            {/* Phones: the greeting on the home page; elsewhere just Back. */}
-            {isMobile && !home && (
+        {appBar ? (
+          <Container maxWidth="xl">
+            <Box
+              data-testid="page-bar"
+              sx={{
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                minHeight: 60,
+                gap: 1,
+              }}
+            >
               <IconButton
                 aria-label="Back"
                 onClick={() =>
@@ -507,281 +514,331 @@ const Header = () => {
               >
                 <FiArrowLeft />
               </IconButton>
-            )}
-            {isMobile ? (
-              home ? (
-                // Phones: who you are instead of the logo; tap for your menu
-                // (or to sign in).
-                <Greeting
-                  user={user}
-                  loading={loading}
-                  onOpen={(e) =>
-                    user
-                      ? setUserMenuAnchor(e.currentTarget)
-                      : navigate('/login', {
-                          state: { from: location.pathname },
-                        })
-                  }
-                />
-              ) : (
-                <Box sx={{ flex: 1 }} />
-              )
-            ) : (
-              <Box
-                component={RouterLink}
-                to="/"
-                aria-label={`${shop.name} home`}
-                sx={{ textDecoration: 'none', flexShrink: 0 }}
-              >
-                <BrandMark size={44} showName fontSize="1.4rem" />
-              </Box>
-            )}
-
-            {!isMobile && (
-              <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
-                <Button
-                  color="inherit"
-                  endIcon={categoryAnchor ? <FiChevronUp /> : <FiChevronDown />}
-                  onClick={(e) => setCategoryAnchor(e.currentTarget)}
-                  aria-haspopup="dialog"
-                  aria-expanded={Boolean(categoryAnchor)}
-                  sx={{ fontWeight: 700, fontSize: '1rem' }}
-                >
-                  Categories
-                </Button>
-                <Button
-                  color="inherit"
-                  component={RouterLink}
-                  to="/products"
-                  sx={{ fontWeight: 700, fontSize: '1rem' }}
-                >
-                  Products
-                </Button>
-              </Stack>
-            )}
-            <CategoryPanel
-              anchorEl={categoryAnchor}
-              onClose={() => setCategoryAnchor(null)}
-              items={panelItems}
-            />
-
-            <Box
-              sx={{
-                flex: 1,
-                display: { xs: 'none', md: 'flex' },
-                justifyContent: 'center',
-              }}
-            >
-              {!isMobile && searchForm}
-            </Box>
-
-            <Stack
-              direction="row"
-              spacing={1.25}
-              alignItems="center"
-              sx={{ flexShrink: 0 }}
-            >
-              {shopper && !isMobile && (
-                <IconButton
-                  component={RouterLink}
-                  to="/wishlist"
-                  aria-label={`Wishlist, ${wishlistCount} items`}
-                  sx={squareButtonSx}
-                >
-                  <Badge badgeContent={wishlistCount} color="warning" max={99}>
-                    <FiHeart />
-                  </Badge>
-                </IconButton>
-              )}
-              {shopper && !isMobile && (
-                <IconButton
-                  component={RouterLink}
-                  to="/cart"
-                  aria-label={`Cart, ${cartCount} items`}
-                  sx={squareButtonSx}
-                >
-                  <Badge badgeContent={cartCount} color="warning" max={99}>
-                    <FiShoppingBag />
-                  </Badge>
-                </IconButton>
-              )}
-              {isMobile && !searchRow && (
-                <IconButton
-                  aria-label="Search"
-                  onClick={() => setSearchOpen(true)}
-                  sx={squareButtonSx}
-                >
-                  <FiSearch />
-                </IconButton>
-              )}
-              {user && shopper && <CustomerBell sx={squareButtonSx} />}
-              {loading ? (
-                !isMobile && (
-                  <Skeleton variant="rounded" width={140} height={44} />
-                )
-              ) : user ? (
-                <>
-                  {!isMobile && (
-                    <Button
-                      aria-label="User account"
-                      onClick={(e) => setUserMenuAnchor(e.currentTarget)}
-                      endIcon={!isMobile && <FiChevronDown />}
-                      sx={{
-                        ...darkButtonSx,
-                        pl: 0.75,
-                        pr: isMobile ? 0.75 : 2,
-                        minWidth: 0,
-                        gap: 0.5,
-                      }}
-                    >
-                      <Avatar
-                        src={user.avatar || undefined}
-                        alt=""
-                        sx={{
-                          width: 32,
-                          height: 32,
-                          fontSize: 12,
-                          fontWeight: 800,
-                          bgcolor: 'highlight.main',
-                          color: 'text.primary',
-                        }}
-                      >
-                        {initialsOf(user.name)}
-                      </Avatar>
-                      {!isMobile && (
-                        <Box component="span" sx={{ ml: 0.75 }}>
-                          Hi, {firstName}
-                        </Box>
-                      )}
-                    </Button>
-                  )}
-                  <Menu
-                    anchorEl={userMenuAnchor}
-                    open={Boolean(userMenuAnchor)}
-                    onClose={closeUserMenu}
-                    anchorOrigin={{
-                      vertical: 'bottom',
-                      horizontal: isMobile ? 'left' : 'right',
-                    }}
-                    transformOrigin={{
-                      vertical: 'top',
-                      horizontal: isMobile ? 'left' : 'right',
-                    }}
-                    slotProps={{
-                      paper: {
-                        sx: {
-                          borderRadius: 1,
-                          minWidth: 240,
-                          mt: 1.5,
-                          border: 1,
-                          borderColor: 'divider',
-                          boxShadow: '0 24px 48px rgba(27,33,36,0.12)',
-                        },
-                      },
-                    }}
-                  >
-                    <Box sx={{ px: 2.5, pt: 1.5, pb: 1.5 }}>
-                      <Typography variant="subtitle1">{user.name}</Typography>
-                      <Typography variant="caption">{user.email}</Typography>
-                    </Box>
-                    <Divider sx={{ mx: 2 }} />
-                    <MenuItem
-                      component={RouterLink}
-                      to={shopper ? '/account/profile' : '/admin/profile'}
-                      onClick={closeUserMenu}
-                      sx={{ px: 2.5, py: 1.25 }}
-                    >
-                      Profile
-                    </MenuItem>
-                    {shopper && (
-                      <MenuItem
-                        component={RouterLink}
-                        to="/account"
-                        onClick={closeUserMenu}
-                        sx={{ px: 2.5, py: 1.25 }}
-                      >
-                        Account
-                      </MenuItem>
-                    )}
-                    {shopper && (
-                      <MenuItem
-                        component={RouterLink}
-                        to="/account/orders"
-                        onClick={closeUserMenu}
-                        sx={{ px: 2.5, py: 1.25 }}
-                      >
-                        My orders
-                      </MenuItem>
-                    )}
-                    {isStaff(user) && (
-                      <MenuItem
-                        component={RouterLink}
-                        to="/admin"
-                        onClick={closeUserMenu}
-                        sx={{ px: 2.5, py: 1.25 }}
-                      >
-                        Open back office
-                      </MenuItem>
-                    )}
-                    <MenuItem
-                      onClick={logoutClick}
-                      sx={{ px: 2.5, py: 1.25, color: 'error.main' }}
-                    >
-                      Sign out
-                    </MenuItem>
-                  </Menu>
-                </>
-              ) : (
-                !isMobile && (
-                  <Button component={RouterLink} to="/login" sx={darkButtonSx}>
-                    Sign in
-                  </Button>
-                )
-              )}
-            </Stack>
-          </Stack>
-          {/* Phones: a search field under the bar on the home and product
-            pages; it opens the full-screen search. */}
-          {isMobile && searchRow && (
-            <Box sx={{ pb: 1.5 }}>
-              <Box
-                component="button"
-                type="button"
-                onClick={() => setSearchOpen(true)}
-                aria-label="Search products"
+              <Typography
+                component="h2"
+                noWrap
                 sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1.5,
-                  width: '100%',
-                  height: 44,
-                  px: 2,
-                  border: 0,
-                  borderRadius: '8px',
-                  bgcolor: 'background.neutral',
-                  color: query ? 'text.primary' : 'text.secondary',
-                  font: 'inherit',
-                  fontSize: '0.95rem',
-                  textAlign: 'left',
-                  cursor: 'pointer',
+                  position: 'absolute',
+                  left: 64,
+                  right: 64,
+                  textAlign: 'center',
+                  fontWeight: 600,
+                  fontSize: '1.05rem',
+                  pointerEvents: 'none',
                 }}
               >
-                <FiSearch />
+                {pageBar.title}
+              </Typography>
+              <Stack direction="row" spacing={1} alignItems="center">
+                {pageBar.actions}
+              </Stack>
+            </Box>
+          </Container>
+        ) : (
+          <Container maxWidth="xl">
+            <Stack
+              direction="row"
+              alignItems="center"
+              spacing={{ xs: 1, md: 3 }}
+              sx={{ minHeight: { xs: 64, md: 84 } }}
+            >
+              {/* Phones: the greeting on the home page; elsewhere just Back. */}
+              {isMobile && !home && (
+                <IconButton
+                  aria-label="Back"
+                  onClick={() =>
+                    window.history.length > 1 ? navigate(-1) : navigate('/')
+                  }
+                  sx={squareButtonSx}
+                >
+                  <FiArrowLeft />
+                </IconButton>
+              )}
+              {isMobile ? (
+                home ? (
+                  // Phones: who you are instead of the logo; tap for your menu
+                  // (or to sign in).
+                  <Greeting
+                    user={user}
+                    loading={loading}
+                    onOpen={(e) =>
+                      user
+                        ? setUserMenuAnchor(e.currentTarget)
+                        : navigate('/login', {
+                            state: { from: location.pathname },
+                          })
+                    }
+                  />
+                ) : (
+                  <Box sx={{ flex: 1 }} />
+                )
+              ) : (
                 <Box
-                  component="span"
+                  component={RouterLink}
+                  to="/"
+                  aria-label={`${shop.name} home`}
+                  sx={{ textDecoration: 'none', flexShrink: 0 }}
+                >
+                  <BrandMark size={44} showName fontSize="1.4rem" />
+                </Box>
+              )}
+
+              {!isMobile && (
+                <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
+                  <Button
+                    color="inherit"
+                    endIcon={
+                      categoryAnchor ? <FiChevronUp /> : <FiChevronDown />
+                    }
+                    onClick={(e) => setCategoryAnchor(e.currentTarget)}
+                    aria-haspopup="dialog"
+                    aria-expanded={Boolean(categoryAnchor)}
+                    sx={{ fontWeight: 700, fontSize: '1rem' }}
+                  >
+                    Categories
+                  </Button>
+                  <Button
+                    color="inherit"
+                    component={RouterLink}
+                    to="/products"
+                    sx={{ fontWeight: 700, fontSize: '1rem' }}
+                  >
+                    Products
+                  </Button>
+                </Stack>
+              )}
+              <CategoryPanel
+                anchorEl={categoryAnchor}
+                onClose={() => setCategoryAnchor(null)}
+                items={panelItems}
+              />
+
+              <Box
+                sx={{
+                  flex: 1,
+                  display: { xs: 'none', md: 'flex' },
+                  justifyContent: 'center',
+                }}
+              >
+                {!isMobile && searchForm}
+              </Box>
+
+              <Stack
+                direction="row"
+                spacing={1.25}
+                alignItems="center"
+                sx={{ flexShrink: 0 }}
+              >
+                {shopper && !isMobile && (
+                  <IconButton
+                    component={RouterLink}
+                    to="/wishlist"
+                    aria-label={`Wishlist, ${wishlistCount} items`}
+                    sx={squareButtonSx}
+                  >
+                    <Badge
+                      badgeContent={wishlistCount}
+                      color="warning"
+                      max={99}
+                    >
+                      <FiHeart />
+                    </Badge>
+                  </IconButton>
+                )}
+                {shopper && !isMobile && (
+                  <IconButton
+                    component={RouterLink}
+                    to="/cart"
+                    aria-label={`Cart, ${cartCount} items`}
+                    sx={squareButtonSx}
+                  >
+                    <Badge badgeContent={cartCount} color="warning" max={99}>
+                      <FiShoppingBag />
+                    </Badge>
+                  </IconButton>
+                )}
+                {isMobile && !searchRow && (
+                  <IconButton
+                    aria-label="Search"
+                    onClick={() => setSearchOpen(true)}
+                    sx={squareButtonSx}
+                  >
+                    <FiSearch />
+                  </IconButton>
+                )}
+                {user && shopper && <CustomerBell sx={squareButtonSx} />}
+                {loading ? (
+                  !isMobile && (
+                    <Skeleton variant="rounded" width={140} height={44} />
+                  )
+                ) : user ? (
+                  <>
+                    {!isMobile && (
+                      <Button
+                        aria-label="User account"
+                        onClick={(e) => setUserMenuAnchor(e.currentTarget)}
+                        endIcon={!isMobile && <FiChevronDown />}
+                        sx={{
+                          ...darkButtonSx,
+                          pl: 0.75,
+                          pr: isMobile ? 0.75 : 2,
+                          minWidth: 0,
+                          gap: 0.5,
+                        }}
+                      >
+                        <Avatar
+                          src={user.avatar || undefined}
+                          alt=""
+                          sx={{
+                            width: 32,
+                            height: 32,
+                            fontSize: 12,
+                            fontWeight: 800,
+                            bgcolor: 'highlight.main',
+                            color: 'text.primary',
+                          }}
+                        >
+                          {initialsOf(user.name)}
+                        </Avatar>
+                        {!isMobile && (
+                          <Box component="span" sx={{ ml: 0.75 }}>
+                            Hi, {firstName}
+                          </Box>
+                        )}
+                      </Button>
+                    )}
+                    <Menu
+                      anchorEl={userMenuAnchor}
+                      open={Boolean(userMenuAnchor)}
+                      onClose={closeUserMenu}
+                      anchorOrigin={{
+                        vertical: 'bottom',
+                        horizontal: isMobile ? 'left' : 'right',
+                      }}
+                      transformOrigin={{
+                        vertical: 'top',
+                        horizontal: isMobile ? 'left' : 'right',
+                      }}
+                      slotProps={{
+                        paper: {
+                          sx: {
+                            borderRadius: 1,
+                            minWidth: 240,
+                            mt: 1.5,
+                            border: 1,
+                            borderColor: 'divider',
+                            boxShadow: '0 24px 48px rgba(27,33,36,0.12)',
+                          },
+                        },
+                      }}
+                    >
+                      <Box sx={{ px: 2.5, pt: 1.5, pb: 1.5 }}>
+                        <Typography variant="subtitle1">{user.name}</Typography>
+                        <Typography variant="caption">{user.email}</Typography>
+                      </Box>
+                      <Divider sx={{ mx: 2 }} />
+                      <MenuItem
+                        component={RouterLink}
+                        to={shopper ? '/account/profile' : '/admin/profile'}
+                        onClick={closeUserMenu}
+                        sx={{ px: 2.5, py: 1.25 }}
+                      >
+                        Profile
+                      </MenuItem>
+                      {shopper && (
+                        <MenuItem
+                          component={RouterLink}
+                          to="/account"
+                          onClick={closeUserMenu}
+                          sx={{ px: 2.5, py: 1.25 }}
+                        >
+                          Account
+                        </MenuItem>
+                      )}
+                      {shopper && (
+                        <MenuItem
+                          component={RouterLink}
+                          to="/account/orders"
+                          onClick={closeUserMenu}
+                          sx={{ px: 2.5, py: 1.25 }}
+                        >
+                          My orders
+                        </MenuItem>
+                      )}
+                      {isStaff(user) && (
+                        <MenuItem
+                          component={RouterLink}
+                          to="/admin"
+                          onClick={closeUserMenu}
+                          sx={{ px: 2.5, py: 1.25 }}
+                        >
+                          Open back office
+                        </MenuItem>
+                      )}
+                      <MenuItem
+                        onClick={logoutClick}
+                        sx={{ px: 2.5, py: 1.25, color: 'error.main' }}
+                      >
+                        Sign out
+                      </MenuItem>
+                    </Menu>
+                  </>
+                ) : (
+                  !isMobile && (
+                    <Button
+                      component={RouterLink}
+                      to="/login"
+                      sx={darkButtonSx}
+                    >
+                      Sign in
+                    </Button>
+                  )
+                )}
+              </Stack>
+            </Stack>
+            {/* Phones: a search field under the bar on the home and product
+            pages; it opens the full-screen search. */}
+            {isMobile && searchRow && (
+              <Box sx={{ pb: 1.5 }}>
+                <Box
+                  component="button"
+                  type="button"
+                  onClick={() => setSearchOpen(true)}
+                  aria-label="Search products"
                   sx={{
-                    flex: 1,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1.5,
+                    width: '100%',
+                    height: 44,
+                    px: 2,
+                    border: 0,
+                    borderRadius: '8px',
+                    bgcolor: 'background.neutral',
+                    color: query ? 'text.primary' : 'text.secondary',
+                    font: 'inherit',
+                    fontSize: '0.95rem',
+                    textAlign: 'left',
+                    cursor: 'pointer',
                   }}
                 >
-                  {query || 'Search products, brands and categories'}
+                  <FiSearch />
+                  <Box
+                    component="span"
+                    sx={{
+                      flex: 1,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {query || 'Search products, brands and categories'}
+                  </Box>
                 </Box>
               </Box>
-            </Box>
-          )}
-        </Container>
+            )}
+          </Container>
+        )}
 
         {!isMobile && (
           <Box sx={{ borderTop: 1, borderColor: 'divider' }}>
@@ -856,7 +913,7 @@ const Header = () => {
           scrolls away with the page. */}
         {!isMobile && promo}
       </AppBar>
-      {isMobile && promo}
+      {isMobile && !appBar && promo}
       {isMobile && (
         <SearchSheet
           open={searchOpen}

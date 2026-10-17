@@ -9,6 +9,7 @@ import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
 import ImpersonationBanner from '../components/ImpersonationBanner';
 import InstallPrompt from '../components/InstallPrompt';
+import { PageHeaderProvider } from '../components/layout/pageHeader';
 import { useStore } from '../context/StoreContext';
 import MobileBottomNav, {
   BOTTOM_NAV_HEIGHT,
@@ -39,37 +40,39 @@ const AnnouncementBar = () => {
 const StorefrontLayout = () => {
   const bottomNav = useShowsBottomNav();
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        '@supports (min-height: 100dvh)': { minHeight: '100dvh' },
-        display: 'flex',
-        flexDirection: 'column',
-        overflowX: 'clip',
-      }}
-    >
-      <ImpersonationBanner />
-      <AnnouncementBar />
-      <Header />
-      <Box component="main" sx={{ flex: 1 }}>
-        {/* Pages load when first opened; their skeleton shows meanwhile. */}
-        <Suspense fallback={<PageSkeleton />}>
-          <Outlet />
-        </Suspense>
+    <PageHeaderProvider>
+      <Box
+        sx={{
+          minHeight: '100vh',
+          '@supports (min-height: 100dvh)': { minHeight: '100dvh' },
+          display: 'flex',
+          flexDirection: 'column',
+          overflowX: 'clip',
+        }}
+      >
+        <ImpersonationBanner />
+        <AnnouncementBar />
+        <Header />
+        <Box component="main" sx={{ flex: 1 }}>
+          {/* Pages load when first opened; their skeleton shows meanwhile. */}
+          <Suspense fallback={<PageSkeleton />}>
+            <Outlet />
+          </Suspense>
+        </Box>
+        <Footer />
+        {/* Room for the phone menu so it never covers the footer. */}
+        {bottomNav && (
+          <Box
+            sx={{
+              display: { md: 'none' },
+              height: `calc(${BOTTOM_NAV_HEIGHT + 12}px + env(safe-area-inset-bottom))`,
+            }}
+          />
+        )}
+        <MobileBottomNav />
+        <InstallPrompt />
       </Box>
-      <Footer />
-      {/* Room for the phone menu so it never covers the footer. */}
-      {bottomNav && (
-        <Box
-          sx={{
-            display: { md: 'none' },
-            height: `calc(${BOTTOM_NAV_HEIGHT + 12}px + env(safe-area-inset-bottom))`,
-          }}
-        />
-      )}
-      <MobileBottomNav />
-      <InstallPrompt />
-    </Box>
+    </PageHeaderProvider>
   );
 };
 

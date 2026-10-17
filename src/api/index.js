@@ -646,6 +646,14 @@ export const cart = {
     const { data } = await http().delete(`/rest/cart/${key}`);
     return cartFromApi(data);
   },
+  /** Ticks (or unticks) lines to buy now: keys = [..] or 'all'. */
+  async select(keys, selected) {
+    const { data } = await http().put('/rest/cart/selection', {
+      keys,
+      selected,
+    });
+    return cartFromApi(data);
+  },
   async empty() {
     const { data } = await http().delete('/rest/cart/empty');
     return cartFromApi(data);

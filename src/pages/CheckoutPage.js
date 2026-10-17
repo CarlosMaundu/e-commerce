@@ -45,12 +45,13 @@ import { Elements } from '@stripe/react-stripe-js';
 import { checkout as checkoutApi } from '../api';
 import { AuthContext } from '../context/AuthContext';
 import { formatAddress } from '../api/mappers';
-import { clearCart, loadCart, selectCart } from '../redux/cartSlice';
+import { loadCart, selectCart } from '../redux/cartSlice';
 import { useNotify } from '../notification/NotificationProvider';
 import { SectionCard } from '../components/ui';
 import AddressForm, { countryName } from '../components/account/AddressForm';
 import CardPayment from '../components/checkout/CardPayment';
 import StickyActionBar from '../components/common/StickyActionBar';
+import { usePageHeader } from '../components/layout/pageHeader';
 import { FiChevronDown } from 'react-icons/fi';
 import { formatMoney, optionText } from '../utils/format';
 import {
@@ -263,6 +264,8 @@ const PAYMENT_TAB_LABELS = { stripe: 'Credit card', cod: 'Cash on delivery' };
 const CheckoutPage = () => {
   // Phones: a compact header, the total folded away, actions at the bottom.
   const phone = useMediaQuery((t) => t.breakpoints.down('md'));
+  // Phones: just Back and "Checkout" in the header bar.
+  usePageHeader({ title: 'Checkout' });
   const { user } = useContext(AuthContext);
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -396,7 +399,8 @@ const CheckoutPage = () => {
         }
       }
       const order = await checkoutApi.placeOrder();
-      dispatch(clearCart());
+      // Ordered items left the cart; anything left unticked is still there.
+      dispatch(loadCart());
       navigate(`/account/orders/${order.id}?placed=1`, { replace: true });
     } catch (error) {
       fail(error, 'We couldn’t place your order. Please try again.');
@@ -478,12 +482,45 @@ const CheckoutPage = () => {
     </ActionRow>,
   ][step];
   const showActions = !(step === 0 && addingAddress);
+  // Phones: adding an address keeps the same pair of buttons at the bottom.
+  const addressActions = (
+    <ActionRow>
+      {addresses.length ? (
+        <Button
+          variant="outlined"
+          size="large"
+          onClick={() => setAddingAddress(false)}
+        >
+          Cancel
+        </Button>
+      ) : (
+        <Button
+          variant="outlined"
+          size="large"
+          component={RouterLink}
+          to="/cart"
+        >
+          Back to cart
+        </Button>
+      )}
+      <Button
+        size="large"
+        variant="contained"
+        type="submit"
+        form="checkout-address"
+      >
+        Use this address
+      </Button>
+    </ActionRow>
+  );
 
   if (loading) return <CheckoutSkeleton />;
 
+  // Only the ticked items are being bought now.
+  const buying = cart.items.filter((i) => i.selected !== false);
   const summary = (
     <OrderSummary
-      items={cart.items}
+      items={buying}
       address={step > 0 ? selectedAddress : null}
       shipment={shipment}
       totals={totals}
@@ -494,7 +531,11 @@ const CheckoutPage = () => {
 
   return (
     <Container maxWidth="xl" sx={{ py: { xs: 3, md: 5 } }}>
-      <Typography variant="h3" component="h1" sx={{ mb: 3 }}>
+      <Typography
+        variant="h3"
+        component="h1"
+        sx={{ mb: 3, display: { xs: 'none', md: 'block' } }}
+      >
         Checkout
       </Typography>
       {phone ? (
@@ -517,8 +558,8 @@ const CheckoutPage = () => {
           >
             <AccordionSummary expandIcon={<FiChevronDown />}>
               <Typography sx={{ flex: 1 }}>
-                Order total · {cart.items.length} item
-                {cart.items.length === 1 ? '' : 's'}
+                Order total · {buying.length} item
+                {buying.length === 1 ? '' : 's'}
               </Typography>
               <Typography sx={{ fontWeight: 700, mr: 1 }}>
                 {formatMoney(cart.total)}
@@ -561,6 +602,8 @@ const CheckoutPage = () => {
                 <AddressForm
                   recipient={user}
                   submitLabel="Use this address"
+                  formId="checkout-address"
+                  hideActions={phone}
                   showDefault={false}
                   onSubmit={saveNewAddress}
                   onCancel={
@@ -786,17 +829,24 @@ const CheckoutPage = () => {
           )}
         </Grid>
       </Grid>
-      {phone && showActions && (
+      {phone && (
         <StickyActionBar aboveNav={false} data-testid="checkout-bar">
           <Box
             sx={{
               flex: 1,
               minWidth: 0,
-              '& > div': { gridTemplateColumns: 'auto minmax(0, 1fr)', pt: 0 },
-              '& .MuiButton-root': { minWidth: 0 },
+              // Same pair as on desktop: two equal buttons. Long labels
+              // ("Place order · amount") wrap rather than overflow.
+              '& > div': { pt: 0 },
+              '& .MuiButton-root': {
+                minWidth: 0,
+                whiteSpace: 'normal',
+                lineHeight: 1.2,
+                textAlign: 'center',
+              },
             }}
           >
-            {actions}
+            {showActions ? actions : addressActions}
           </Box>
         </StickyActionBar>
       )}

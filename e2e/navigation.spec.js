@@ -114,3 +114,15 @@ test('the member card leads to sign-up (old /signup links too)', async ({
   await page.goto('/signup');
   await expect(page).toHaveURL(/\/register$/);
 });
+
+test('desktop: the deal strip shows while shopping but not in the cart or checkout', async ({
+  page,
+}) => {
+  await page.goto('/products');
+  await expect(page.getByLabel('Current offers')).toBeVisible();
+  await page.goto('/cart');
+  await expect(
+    page.getByRole('heading', { name: /Cart|Your cart is empty/ }).first()
+  ).toBeVisible();
+  await expect(page.getByLabel('Current offers')).toHaveCount(0);
+});

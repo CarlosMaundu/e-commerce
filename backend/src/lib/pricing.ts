@@ -23,6 +23,8 @@ export interface CartLine {
   total: number;
   stock: number;
   gift?: GiftChoice | null;
+  /** Ticked to buy now (unticked items wait in the cart). */
+  selected?: boolean;
 }
 
 /** Sending a line as a gift: who it's to and from, a message, a gift box. */
@@ -141,15 +143,20 @@ export const taxTitle = () => {
 
 type Db = { query: (text: string, params?: unknown[]) => Promise<{ rows: any[] }> };
 
-export const loadCartLines = async (userId: number, db: Db = { query: (t, p) => query(t, p) }): Promise<CartLine[]> => {
+/** The cart's lines; { ticked: true } for only those being bought now. */
+export const loadCartLines = async (
+  userId: number,
+  db: Db = { query: (t, p) => query(t, p) },
+  { ticked = false } = {}
+): Promise<CartLine[]> => {
   const { rows } = await db.query(
-    `SELECT ci.id AS key, ci.product_id, ci.variant_id, ci.quantity, ci.options, ci.gift,
+    `SELECT ci.id AS key, ci.product_id, ci.variant_id, ci.quantity, ci.options, ci.gift, ci.selected,
             p.name, p.images, p.price, p.special, p.quantity AS product_stock, p.track_inventory,
             v.price AS v_price, v.special AS v_special, v.quantity AS v_stock, v.images AS v_images
      FROM cart_items ci
      JOIN products p ON p.id = ci.product_id
      LEFT JOIN product_variants v ON v.id = ci.variant_id
-     WHERE ci.user_id = $1 ORDER BY ci.id`,
+     WHERE ci.user_id = $1 ${ticked ? 'AND ci.selected' : ''} ORDER BY ci.id`,
     [userId]
   );
   return rows.map((r: any) => {
@@ -174,6 +181,7 @@ export const loadCartLines = async (userId: number, db: Db = { query: (t, p) => 
       total: round2(unit * r.quantity),
       stock: stockOf(r.track_inventory, stock),
       gift: r.gift || null,
+      selected: r.selected !== false,
     };
   });
 };

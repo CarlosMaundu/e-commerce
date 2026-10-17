@@ -61,6 +61,8 @@ const AddressForm = ({
   submitLabel = 'Save address',
   onSubmit,
   onCancel,
+  formId,
+  hideActions = false,
   showDefault = true,
   recipient,
 }) => {
@@ -103,7 +105,7 @@ const AddressForm = ({
     />
   );
   return (
-    <form onSubmit={formik.handleSubmit} noValidate>
+    <form id={formId} onSubmit={formik.handleSubmit} noValidate>
       <Grid container spacing={2}>
         {hideName ? (
           <Grid item xs={12}>
@@ -229,7 +231,8 @@ const AddressForm = ({
         direction="row"
         spacing={1.5}
         justifyContent="flex-end"
-        sx={{ mt: 3 }}
+        // Checkout on phones puts these in its bottom bar instead.
+        sx={{ mt: 3, display: hideActions ? 'none' : 'flex' }}
       >
         {onCancel && (
           <Button
@@ -257,6 +260,9 @@ AddressForm.propTypes = {
   submitLabel: PropTypes.string,
   onSubmit: PropTypes.func.isRequired,
   onCancel: PropTypes.func,
+  /** Lets a button elsewhere submit it (form="…"). */
+  formId: PropTypes.string,
+  hideActions: PropTypes.bool,
   showDefault: PropTypes.bool,
   recipient: PropTypes.shape({
     firstName: PropTypes.string,

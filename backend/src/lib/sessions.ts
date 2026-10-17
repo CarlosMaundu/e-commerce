@@ -107,11 +107,17 @@ export const startSession = async (
   return sessionPayload(user, rows[0].id);
 };
 
+/** How long the previous refresh token still works after a rotation. */
+export const REFRESH_GRACE_SECONDS = 60;
+
 /** Swaps a valid refresh cookie for a new access token and refresh cookie. */
 export const rotateSession = async (res: Response, refreshToken: string, user: UserRow, sessionId: string, expires: Date) => {
   const next = randomToken();
+  // The token just used stays valid for REFRESH_GRACE_SECONDS: if the browser
+  // left the page before it got the new cookie, the next page still works.
   await query(
-    'UPDATE sessions SET refresh_hash = $1, last_activity_at = now() WHERE id = $2',
+    `UPDATE sessions SET previous_hash = refresh_hash, refresh_hash = $1, rotated_at = now(), last_activity_at = now()
+     WHERE id = $2`,
     [sha256(next), sessionId]
   );
   setRefreshCookie(res, next, expires);
@@ -141,7 +147,9 @@ export const findSessionByRefresh = async (refreshToken: string) =>
   (
     await query<{ id: string; user_id: number; expires_at: Date; last_activity_at: Date; impersonator_id: number | null }>(
       `SELECT id, user_id, expires_at, last_activity_at, impersonator_id FROM sessions
-       WHERE refresh_hash = $1 AND revoked_at IS NULL AND expires_at > now()`,
+       WHERE revoked_at IS NULL AND expires_at > now()
+         AND (refresh_hash = $1
+              OR (previous_hash = $1 AND rotated_at > now() - make_interval(secs => ${REFRESH_GRACE_SECONDS})))`,
       [sha256(refreshToken)]
     )
   ).rows[0];
