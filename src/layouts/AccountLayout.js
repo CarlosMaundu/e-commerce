@@ -1,9 +1,9 @@
 // src/layouts/AccountLayout.js — the customer's account area: a sidebar
 // (who you are and every account page) beside the page, using the full
-// shop width. On phones the links become a scrollable row of pills.
+// shop width. Phones skip the sidebar: the Me tab lists the same pages.
 import PageSkeleton from '../components/common/PageSkeleton';
-import React, { Suspense, useContext, useEffect, useRef } from 'react';
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import React, { Suspense, useContext } from 'react';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import {
   Avatar,
@@ -69,18 +69,6 @@ const AccountLayout = () => {
   const navigate = useNavigate();
   const theme = useTheme();
   const counts = { wishlist: useSelector((s) => s.wishlist.items.length) };
-  const pillsRef = useRef(null);
-  const { pathname } = useLocation();
-  // Phones: keep the current page's pill in view in the scrolling row.
-  useEffect(() => {
-    const row = pillsRef.current;
-    const active = row?.querySelector('.active');
-    if (!row || !active) return;
-    row.scrollTo({
-      left: active.offsetLeft - (row.clientWidth - active.offsetWidth) / 2,
-      behavior: 'smooth',
-    });
-  }, [pathname]);
 
   const signOut = async () => {
     try {
@@ -111,8 +99,6 @@ const AccountLayout = () => {
       fontWeight: 600,
     },
   };
-
-  const links = ACCOUNT_NAV.flatMap((g) => g.items);
 
   return (
     <Container maxWidth="xl" sx={{ py: { xs: 2.5, md: 4 } }}>
@@ -241,66 +227,8 @@ const AccountLayout = () => {
           </Button>
         </Box>
 
-        {/* Phone: scrollable pills */}
-        <Box
-          component="nav"
-          aria-label="Account pages"
-          ref={pillsRef}
-          sx={{
-            display: { xs: 'flex', md: 'none' },
-            gap: 1,
-            overflowX: 'auto',
-            mx: -2,
-            px: 2,
-            pb: 0.5,
-            scrollbarWidth: 'none',
-            '&::-webkit-scrollbar': { display: 'none' },
-          }}
-        >
-          {links.map((item) => (
-            <Box
-              key={item.to}
-              component={NavLink}
-              to={item.to}
-              end={item.end}
-              sx={{
-                ...linkSx,
-                height: 38,
-                px: 1.5,
-                flexShrink: 0,
-                border: 1,
-                borderColor: 'divider',
-                bgcolor: 'background.paper',
-                fontSize: '0.875rem',
-              }}
-            >
-              {item.icon}
-              {item.label}
-            </Box>
-          ))}
-          <Box
-            component="button"
-            type="button"
-            onClick={signOut}
-            sx={{
-              ...linkSx,
-              height: 38,
-              px: 1.5,
-              flexShrink: 0,
-              border: 1,
-              borderColor: 'divider',
-              bgcolor: 'background.paper',
-              font: 'inherit',
-              fontSize: '0.875rem',
-              color: 'error.main',
-              cursor: 'pointer',
-            }}
-          >
-            <FiLogOut />
-            Sign out
-          </Box>
-        </Box>
-
+        {/* Phones: no link row here — the Me tab is the account menu, and
+            each page's name is in the header bar. */}
         <Box component="section" sx={{ minWidth: 0 }}>
           {/* Pages load when first opened; their skeleton shows meanwhile. */}
           <Suspense fallback={<PageSkeleton variant="form" />}>

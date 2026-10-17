@@ -69,7 +69,10 @@ async function checkout(page) {
   await expect(success).toContainText(/Order WEB-[0-9A-Z]{9} is confirmed/);
   await success.getByRole('button', { name: 'View order details' }).click();
   await expect(success).toHaveCount(0);
-  await expect(page.getByText('Your order is confirmed')).toBeVisible();
+  // No second confirmation underneath; the order itself is shown.
+  await expect(page.getByText('Your order is confirmed')).toHaveCount(0);
+  await expect(page.getByTestId('order-tracker')).toBeVisible();
+  await expect(page).not.toHaveURL(/placed=1/);
   const [, id] = page.url().match(/\/account\/orders\/(\d+)/);
   return id;
 }

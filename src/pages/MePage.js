@@ -1,7 +1,7 @@
 // src/pages/MePage.js — the "Me" tab on phones: who you are (or sign in),
 // your account pages, then help, the shop's pages, the newsletter and its
 // social links, which the desktop footer shows instead.
-import React, { useContext } from 'react';
+import React, { useContext, useState } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import {
   Avatar,
@@ -26,6 +26,7 @@ import { ACCOUNT_NAV } from '../layouts/AccountLayout';
 import { COLUMNS, NewsletterForm, SOCIALS } from '../components/layout/Footer';
 import { initialsOf } from '../components/common/BrandMark';
 import { canShop } from '../auth/permissions';
+import ConfirmationDialog from '../components/common/ConfirmationDialog';
 
 const Section = ({ title, children }) => (
   <Box component="section" sx={{ mt: 3 }}>
@@ -62,7 +63,9 @@ const MePage = () => {
   const navigate = useNavigate();
   const socials = SOCIALS.filter((x) => shop.social?.[x.key]);
 
+  const [confirmOut, setConfirmOut] = useState(false);
   const signOut = async () => {
+    setConfirmOut(false);
     try {
       await logout();
       notify.info(MESSAGES.auth.signedOut);
@@ -186,12 +189,20 @@ const MePage = () => {
           variant="outlined"
           color="error"
           startIcon={<FiLogOut />}
-          onClick={signOut}
+          onClick={() => setConfirmOut(true)}
           sx={{ mt: 4 }}
         >
           Sign out
         </Button>
       )}
+      <ConfirmationDialog
+        open={confirmOut}
+        title="Sign out?"
+        content="You can sign back in any time; your cart and wishlist stay saved."
+        confirmText="Sign out"
+        onConfirm={signOut}
+        onCancel={() => setConfirmOut(false)}
+      />
     </Container>
   );
 };

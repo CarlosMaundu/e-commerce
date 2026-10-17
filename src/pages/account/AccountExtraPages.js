@@ -1,6 +1,6 @@
 // src/pages/account/AccountExtraPages.js — Track an order, Invoices (one
 // per placed order) and a printable invoice.
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Link as RouterLink,
   useNavigate,
@@ -54,11 +54,15 @@ export const TrackOrderPage = () => {
   const [found, setFound] = useState(null);
   const [problem, setProblem] = useState('');
   const [busy, setBusy] = useState(false);
-  // Tracking an order: offer the app, for next time.
+  const resultRef = useRef(null);
+  // A result: show it (it's below the form), then offer the app for next
+  // time — never over the form while someone is typing.
   useEffect(() => {
-    const t = setTimeout(offerInstall, 1500);
+    if (!found) return undefined;
+    resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const t = setTimeout(offerInstall, 2500);
     return () => clearTimeout(t);
-  }, []);
+  }, [found]);
 
   useEffect(() => {
     ordersApi
@@ -94,6 +98,7 @@ export const TrackOrderPage = () => {
   return (
     <AccountPage
       title="Track an order"
+      barTitle="Track order"
       subtitle="See where your order is right now."
     >
       <Stack spacing={3}>
@@ -136,21 +141,23 @@ export const TrackOrderPage = () => {
         </SectionCard>
 
         {found && (
-          <SectionCard
-            title={`Order ${found.number}`}
-            subtitle={`Placed ${formatDate(found.placedAt)} · ${found.items.length} item${found.items.length === 1 ? '' : 's'} · ${formatMoney(found.total, found.currency)}`}
-            action={
-              <Button
-                component={RouterLink}
-                to={`/account/orders/${found.id}`}
-                endIcon={<FiArrowRight />}
-              >
-                Order details
-              </Button>
-            }
-          >
-            <OrderTracker order={found} />
-          </SectionCard>
+          <Box ref={resultRef} sx={{ scrollMarginTop: 72 }}>
+            <SectionCard
+              title={`Order ${found.number}`}
+              subtitle={`Placed ${formatDate(found.placedAt)} · ${found.items.length} item${found.items.length === 1 ? '' : 's'} · ${formatMoney(found.total, found.currency)}`}
+              action={
+                <Button
+                  component={RouterLink}
+                  to={`/account/orders/${found.id}`}
+                  endIcon={<FiArrowRight />}
+                >
+                  Order details
+                </Button>
+              }
+            >
+              <OrderTracker order={found} />
+            </SectionCard>
+          </Box>
         )}
 
         <SectionCard

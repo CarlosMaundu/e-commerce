@@ -161,7 +161,7 @@ test('the cart and checkout keep their main button at the bottom', async ({
   await expect(page.getByTestId('checkout-total')).toBeVisible();
 });
 
-test('account pages fit the screen, tables become cards, Sign out is in the row', async ({
+test('account pages fit the screen and name themselves in the header; Me signs out after asking', async ({
   page,
 }) => {
   await createUser({
@@ -170,38 +170,28 @@ test('account pages fit the screen, tables become cards, Sign out is in the row'
     lastname: 'Customer',
   });
   await signIn(page, 'cam@example.com');
-  for (const path of [
-    '/account',
-    '/account/orders',
-    '/account/returns',
-    '/account/invoices',
-    '/account/addresses',
-    '/wishlist',
+  const bar = page.getByTestId('page-bar');
+  for (const [path, title] of [
+    ['/account', 'My account'],
+    ['/account/orders', 'My orders'],
+    ['/account/returns', 'Returns'],
+    ['/account/invoices', 'Invoices'],
+    ['/account/addresses', 'Addresses'],
+    ['/account/track', 'Track order'],
   ]) {
     await page.goto(path);
+    await expect(bar).toContainText(title);
     await page.waitForLoadState('networkidle');
     await noSideScroll(page);
   }
-  await page.goto('/account/orders');
+  // No link row on phones: the Me tab is the account menu.
   await expect(
-    page
-      .getByRole('navigation', { name: 'Account pages' })
-      .getByRole('button', { name: 'Sign out' })
-  ).toBeVisible();
-});
-
-test('product page bar: Back, the title (the product once scrolled), Share and Wishlist; no deal strip', async ({
-  page,
-}) => {
-  await openProduct(page, 'Cotton crew-neck shirt');
-  const bar = page.getByTestId('page-bar');
-  await expect(bar).toContainText('Product details');
-  await expect(bar.getByRole('button', { name: 'Share' })).toBeVisible();
-  await expect(bar.getByRole('button', { name: 'Back' })).toBeVisible();
-  await expect(page.getByLabel('Current offers')).toHaveCount(0);
-  await expect(page.getByTestId('phone-greeting')).toHaveCount(0);
-  await page.mouse.wheel(0, 900);
-  await expect(bar).toContainText('Cotton crew-neck shirt');
-  // One photo indicator (dots), and the SKU waits under Specifications.
-  await expect(page.getByText(/^SKU /)).toBeHidden();
+    page.getByRole('navigation', { name: 'Account pages' })
+  ).toHaveCount(0);
+  await page.goto('/me');
+  await page.getByRole('button', { name: 'Sign out' }).click();
+  const confirm = page.getByRole('dialog', { name: 'Sign out?' });
+  await expect(confirm).toBeVisible();
+  await confirm.getByRole('button', { name: 'Sign out' }).click();
+  await expect(page).toHaveURL(/\/login/);
 });

@@ -16,6 +16,7 @@ import {
 import { AuthContext } from '../context/AuthContext';
 import { isStaff } from '../auth/permissions';
 import { selectCartCount } from '../redux/cartSlice';
+import useTyping from '../hooks/useTyping';
 
 export const BOTTOM_NAV_HEIGHT = 72;
 
@@ -28,6 +29,7 @@ const MobileBottomNav = () => {
   const { pathname } = useLocation();
   const cartCount = useSelector(selectCartCount);
   const shown = useShowsBottomNav();
+  const typing = useTyping();
   const wishlistCount = useSelector((s) => s.wishlist.items.length);
   const me = user && isStaff(user) ? '/admin/profile' : '/me';
   const items = [
@@ -63,7 +65,8 @@ const MobileBottomNav = () => {
     },
   ];
 
-  if (!shown) return null;
+  // Hidden in checkout, and while typing (the keyboard is up).
+  if (!shown || typing) return null;
   return (
     <Box
       component="nav"

@@ -3,8 +3,14 @@
 // order Y" (card) or "Order placed — pay KES X on delivery" (cash).
 import React from 'react';
 import PropTypes from 'prop-types';
-import { Link as RouterLink } from 'react-router-dom';
-import { Box, Button, DialogContent, Stack, Typography } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
+import {
+  Box,
+  Button,
+  DialogActions,
+  DialogContent,
+  Typography,
+} from '@mui/material';
 import { keyframes } from '@mui/system';
 import { alpha } from '@mui/material/styles';
 import { FiCheck } from 'react-icons/fi';
@@ -29,6 +35,7 @@ const METHOD = {
 };
 
 const OrderSuccessDialog = ({ open, order, onClose }) => {
+  const navigate = useNavigate();
   if (!order) return null;
   const paid = order.paymentStatus === 'paid';
   const amount = formatMoney(order.total, order.currency);
@@ -140,15 +147,38 @@ const OrderSuccessDialog = ({ open, order, onClose }) => {
         >
           We’ve emailed a receipt to {order.email}.
         </Typography>
-        <Stack spacing={1} sx={{ mt: 2.5 }}>
-          <Button variant="contained" size="large" onClick={onClose} autoFocus>
-            View order details
-          </Button>
-          <Button component={RouterLink} to="/products" color="inherit">
-            Continue shopping
-          </Button>
-        </Stack>
       </DialogContent>
+      {/* In the sheet's pinned bar on phones. Both close it first, so the
+          install offer and the clean address follow either way. */}
+      <DialogActions
+        sx={{
+          flexDirection: 'column',
+          gap: 1,
+          px: 3,
+          pb: 3,
+          '& > :not(style) ~ :not(style)': { ml: 0 },
+        }}
+      >
+        <Button
+          variant="contained"
+          size="large"
+          fullWidth
+          onClick={onClose}
+          autoFocus
+        >
+          View order details
+        </Button>
+        <Button
+          fullWidth
+          color="inherit"
+          onClick={() => {
+            onClose();
+            navigate('/products');
+          }}
+        >
+          Continue shopping
+        </Button>
+      </DialogActions>
     </ResponsiveSheet>
   );
 };
