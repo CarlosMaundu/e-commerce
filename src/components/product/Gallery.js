@@ -224,32 +224,27 @@ const PhoneGallery = ({ images, title }) => {
             </Box>
           ))}
         </Box>
-        {images.length > 1 && (
-          <Typography
-            aria-hidden
-            sx={{
-              position: 'absolute',
-              right: 12,
-              bottom: 12,
-              px: 1.25,
-              py: 0.25,
-              borderRadius: 99,
-              bgcolor: 'rgba(27,33,36,0.6)',
-              color: 'common.white',
-              fontSize: '0.75rem',
-              fontWeight: 600,
-            }}
-          >
-            {index + 1} / {images.length}
-          </Typography>
-        )}
-      </Box>
-      <Box sx={{ mt: 1.5 }}>
-        <Dots
-          count={images.length}
-          index={index}
-          onPick={(i) => slideTo(rowRef.current, i)}
-        />
+        {/* One indicator: dots over the bottom of the photo. */}
+        <Box
+          sx={{
+            position: 'absolute',
+            left: '50%',
+            bottom: 12,
+            transform: 'translateX(-50%)',
+            px: 1,
+            py: 0.75,
+            borderRadius: 99,
+            bgcolor: images.length > 1 ? 'rgba(27,33,36,0.28)' : 'transparent',
+            lineHeight: 0,
+          }}
+        >
+          <Dots
+            count={images.length}
+            index={index}
+            light
+            onPick={(i) => slideTo(rowRef.current, i)}
+          />
+        </Box>
       </Box>
       {viewing !== null && (
         <Viewer

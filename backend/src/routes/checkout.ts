@@ -163,7 +163,7 @@ export const checkoutRoutes = ({ payments }: { payments: PaymentGateway | null }
   router.get('/shippingmethods', handler(async (req, res) => {
     const state = await getState(req.auth!.userId);
     if (!state.shipping_address_id) fail(400, 'Please choose a delivery address first.');
-    const lines = await loadCartLines(req.auth!.userId);
+    const lines = await loadCartLines(req.auth!.userId, undefined, { ticked: true });
     const coupon = state.coupon_code ? await findCoupon(state.coupon_code) : undefined;
     ok(res, {
       shipping_methods: SHIPPING_METHODS().map((m) => ({
@@ -203,8 +203,11 @@ export const checkoutRoutes = ({ payments }: { payments: PaymentGateway | null }
   router.post('/confirm', handler(async (req, res) => {
     const userId = req.auth!.userId;
     const state = await getState(userId);
-    const lines = await loadCartLines(userId);
-    if (!lines.length) fail(400, 'Your cart is empty.');
+    const lines = await loadCartLines(userId, undefined, { ticked: true });
+    if (!lines.length) {
+      const any = (await loadCartLines(userId)).length;
+      fail(400, any ? 'Tick at least one item to check out.' : 'Your cart is empty.');
+    }
     checkStock(lines);
     if (!state.shipping_address_id) fail(400, 'Please choose a delivery address.');
     if (!state.shipping_method) fail(400, 'Please choose a delivery option.');

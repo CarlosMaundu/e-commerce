@@ -58,7 +58,13 @@ export const placeOrder = async (orderId: number, o: PlaceOptions) => {
       });
     }
     if (pending.user_id) {
-      await db.query('DELETE FROM cart_items WHERE user_id = $1', [pending.user_id]);
+      // Only what was ordered leaves the cart; unticked items wait there.
+      await db.query(
+        `DELETE FROM cart_items ci USING order_items oi
+         WHERE ci.user_id = $1 AND oi.order_id = $2
+           AND ci.product_id = oi.product_id AND ci.options = oi.options`,
+        [pending.user_id, orderId]
+      );
       await db.query(
         `UPDATE checkout_state SET coupon_code = NULL, pending_order_id = NULL, comment = ''
          WHERE user_id = $1 AND pending_order_id = $2`,

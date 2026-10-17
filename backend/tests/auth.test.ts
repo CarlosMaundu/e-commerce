@@ -108,14 +108,24 @@ describe('email verification', () => {
 });
 
 describe('sessions', () => {
-  test('refresh rotates the cookie and the old one stops working', async () => {
+  test('refresh rotates the cookie; the old one works only briefly, and only the last one', async () => {
     await createUser('jane@example.com');
     const { cookie } = await signIn('jane@example.com');
+    const cookieOf = (res: request.Response) =>
+      ([] as string[]).concat(res.headers['set-cookie'] || []).map((c) => c.split(';')[0]).join('; ');
     const first = await request(app).post('/api/rest/refresh').set('Cookie', cookie).set(ajax);
     expect(first.status).toBe(200);
     expect(first.body.data.access_token).toBeTruthy();
-    const replay = await request(app).post('/api/rest/refresh').set('Cookie', cookie).set(ajax);
-    expect(replay.status).toBe(401);
+    // A page left mid-refresh never got the new cookie: the old one still
+    // works for a moment instead of signing the person out.
+    const late = await request(app).post('/api/rest/refresh').set('Cookie', cookie).set(ajax);
+    expect(late.status).toBe(200);
+    // Two rotations on, the first cookie is gone for good…
+    await request(app).post('/api/rest/refresh').set('Cookie', cookieOf(late)).set(ajax).expect(200);
+    expect((await request(app).post('/api/rest/refresh').set('Cookie', cookie).set(ajax)).status).toBe(401);
+    // …and the previous one stops working once the grace period is over.
+    await query(`UPDATE sessions SET rotated_at = now() - interval '2 minutes'`);
+    expect((await request(app).post('/api/rest/refresh').set('Cookie', cookieOf(late)).set(ajax)).status).toBe(401);
   });
 
   test('refresh requires the X-Requested-With header (CSRF guard)', async () => {

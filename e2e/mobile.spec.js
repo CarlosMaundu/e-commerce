@@ -51,12 +51,12 @@ test('search opens full screen with suggestions; Back returns to the page', asyn
   await expect(page.getByRole('dialog', { name: 'Search' })).toBeHidden();
 
   // Search is on every page, not just home and the product list.
-  await page.goto('/cart');
+  await page.goto('/support');
   await page.getByRole('button', { name: 'Search', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Search' })).toBeVisible();
   await page.goBack();
   await expect(page.getByRole('dialog', { name: 'Search' })).toBeHidden();
-  await expect(page).toHaveURL(/\/cart$/);
+  await expect(page).toHaveURL(/\/support$/);
 });
 
 test('Back closes the filters sheet instead of leaving the page', async ({

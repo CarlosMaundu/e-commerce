@@ -126,6 +126,12 @@ export const removeFromCart = createAsyncThunk(
   })
 );
 
+/** Ticks lines to buy now (signed-in carts): { keys: [..] | 'all', selected }. */
+export const selectCartItems = createAsyncThunk(
+  'cart/select',
+  run(({ keys, selected }) => cartApi.select(keys, selected))
+);
+
 /** Gift details for a line (signed-in carts only). */
 export const setCartGift = createAsyncThunk(
   'cart/setGift',
@@ -211,6 +217,9 @@ const cartSlice = createSlice({
       .addCase(setCartGift.fulfilled, (state, action) =>
         setServer(state, action.payload)
       )
+      .addCase(selectCartItems.fulfilled, (state, action) =>
+        setServer(state, action.payload)
+      )
       .addCase(applyCoupon.fulfilled, (state, action) =>
         setServer(state, action.payload)
       )
@@ -262,9 +271,11 @@ export const selectCart = (state) => {
     status: c.status,
     items: c.guestItems.map((i) => ({
       ...i,
+      selected: true, // guests buy the whole cart
       total: Math.round(i.unitPrice * i.quantity * 100) / 100,
     })),
     itemCount: c.guestItems.reduce((s, i) => s + i.quantity, 0),
+    selectedCount: c.guestItems.reduce((s, i) => s + i.quantity, 0),
     totals: [{ code: 'sub_total', title: 'Subtotal', value: subtotal }],
     total: subtotal,
     coupon: null,

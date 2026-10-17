@@ -41,13 +41,16 @@ import {
   FiMinus,
   FiPlus,
   FiRotateCcw,
+  FiShare2,
   FiShield,
+  FiStar,
   FiShoppingCart,
   FiTruck,
 } from 'react-icons/fi';
 import BoughtTogether from '../components/product/BoughtTogether';
 import Gallery from '../components/product/Gallery';
 import BuyDock from '../components/product/BuyDock';
+import { usePageHeader } from '../components/layout/pageHeader';
 import { useStore } from '../context/StoreContext';
 import { AuthContext } from '../context/AuthContext';
 import { canShop } from '../auth/permissions';
@@ -464,6 +467,19 @@ const ProductDetailsPage = () => {
   const [selected, setSelected] = useState({});
   const [quantity, setQuantity] = useState(1);
   const [tab, setTab] = useState('description');
+  // Phones: the header shows the product's name once its heading scrolls away.
+  const titleRef = useRef(null);
+  const [pastTitle, setPastTitle] = useState(false);
+  useEffect(() => {
+    const el = titleRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return undefined;
+    const io = new IntersectionObserver(
+      ([e]) => setPastTitle(!e.isIntersecting && e.boundingClientRect.top < 0),
+      { threshold: 0 }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  });
   const saved = useSelector((s) =>
     product ? isInWishlist(s, product.id) : false
   );
@@ -532,6 +548,67 @@ const ProductDetailsPage = () => {
   // A variant's own description (when the product uses variant content).
   const description =
     (product?.variantContent && variant?.description) || product?.description;
+
+  // Phones: Back · "Product details" (the product's name once its heading has
+  // scrolled away) · Share and Wishlist.
+  const share = async () => {
+    const url = window.location.href;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: product?.title, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        notify.success('Link copied.');
+      }
+    } catch {
+      // closed the share sheet: nothing to do
+    }
+  };
+  const headerActions =
+    phone && product ? (
+      <>
+        <IconButton
+          aria-label="Share"
+          onClick={share}
+          sx={{
+            width: 44,
+            height: 44,
+            borderRadius: '8px',
+            bgcolor: 'background.neutral',
+          }}
+        >
+          <FiShare2 />
+        </IconButton>
+        {shopper && (
+          <IconButton
+            aria-label={saved ? 'Remove from wishlist' : 'Add to wishlist'}
+            aria-pressed={saved}
+            onClick={async () => {
+              try {
+                if (saved)
+                  await dispatch(removeFromWishlist(product.id)).unwrap();
+                else await dispatch(addToWishlist(product)).unwrap();
+              } catch (message) {
+                notify.error(message);
+              }
+            }}
+            sx={{
+              width: 44,
+              height: 44,
+              borderRadius: '8px',
+              bgcolor: 'background.neutral',
+              color: saved ? 'error.main' : 'text.primary',
+            }}
+          >
+            <FiHeart fill={saved ? 'currentColor' : 'none'} />
+          </IconButton>
+        )}
+      </>
+    ) : null;
+  usePageHeader({
+    title: pastTitle && product ? product.title : 'Product details',
+    actions: headerActions,
+  });
 
   if (error) {
     return (
@@ -649,6 +726,37 @@ const ProductDetailsPage = () => {
       label: 'Specifications',
       content: <Specifications product={product} variant={variant} />,
     },
+    ...(phone
+      ? [
+          {
+            value: 'delivery',
+            label: 'Delivery & returns',
+            content: (
+              <Stack spacing={1.5}>
+                <Typography variant="body2">
+                  <strong>Delivery: </strong>
+                  {shop.finance?.freeShippingOver
+                    ? `free on orders over ${formatMoney(shop.finance.freeShippingOver)}; the cost for your address shows at checkout.`
+                    : 'the cost for your address shows at checkout.'}
+                </Typography>
+                <Typography variant="body2">
+                  <strong>Returns: </strong>
+                  {shop.returns?.windowDays
+                    ? `return delivered items within ${shop.returns.windowDays} days from your account.`
+                    : 'return delivered items from your account.'}{' '}
+                  <Link component={RouterLink} to="/policies/refunds">
+                    Refund & return policy
+                  </Link>
+                </Typography>
+                <Typography variant="body2">
+                  <strong>Payment: </strong>card or cash on delivery, kept
+                  secure.
+                </Typography>
+              </Stack>
+            ),
+          },
+        ]
+      : []),
     {
       value: 'reviews',
       label: `Reviews (${product.reviewCount})`,
@@ -748,6 +856,7 @@ const ProductDetailsPage = () => {
                   </>
                 )}
                 <Typography
+                  ref={titleRef}
                   variant="h5"
                   component="h1"
                   sx={{
@@ -760,13 +869,52 @@ const ProductDetailsPage = () => {
                   {product.title}
                 </Typography>
               </Stack>
+              {/* Phones: a rating chip and the category; SKU is under
+                  Specifications. */}
+              <Stack
+                direction="row"
+                spacing={1}
+                alignItems="center"
+                sx={{ mt: 1.25, display: { xs: 'flex', md: 'none' } }}
+              >
+                {product.rating > 0 && (
+                  <Chip
+                    size="small"
+                    icon={<FiStar fill="currentColor" />}
+                    label={`${product.rating.toFixed(1)} (${product.reviewCount})`}
+                    onClick={() => openSection('reviews')}
+                    aria-label={`Rated ${product.rating.toFixed(1)}, ${product.reviewCount} reviews`}
+                    sx={{
+                      height: 28,
+                      bgcolor: 'warning.light',
+                      color: 'text.primary',
+                      '& .MuiChip-icon': { color: 'warning.main' },
+                    }}
+                  />
+                )}
+                {product.category && (
+                  <Chip
+                    size="small"
+                    component={RouterLink}
+                    to={`/products?category=${product.category.id}`}
+                    clickable
+                    label={product.category.name}
+                    variant="outlined"
+                    sx={{ height: 28 }}
+                  />
+                )}
+              </Stack>
               <Stack
                 direction="row"
                 spacing={1.5}
                 alignItems="center"
                 flexWrap="wrap"
                 useFlexGap
-                sx={{ mt: 1.25, color: 'text.secondary' }}
+                sx={{
+                  mt: 1.25,
+                  color: 'text.secondary',
+                  display: { xs: 'none', md: 'flex' },
+                }}
                 divider={
                   <Box component="span" sx={{ color: 'divider' }}>
                     |
@@ -811,13 +959,13 @@ const ProductDetailsPage = () => {
               </Stack>
             </Box>
 
-            {/* Price and availability */}
+            {/* Price and availability (phones: plain, the buy bar acts) */}
             <Box
               sx={{
-                bgcolor: 'background.neutral',
+                bgcolor: { xs: 'transparent', md: 'background.neutral' },
                 borderRadius: 1,
-                px: 2,
-                py: 1.5,
+                px: { xs: 0, md: 2 },
+                py: { xs: 0, md: 1.5 },
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
@@ -978,6 +1126,8 @@ const ProductDetailsPage = () => {
                       border: 1,
                       borderColor: saved ? 'error.main' : 'divider',
                       color: saved ? 'error.main' : 'text.secondary',
+                      // Phones: it's in the header.
+                      display: { xs: 'none', md: 'inline-flex' },
                     }}
                   >
                     <FiHeart fill={saved ? 'currentColor' : 'none'} />
@@ -1008,7 +1158,8 @@ const ProductDetailsPage = () => {
             {/* Reassurance */}
             <Box
               sx={{
-                display: 'grid',
+                // Phones: under "Delivery & returns" below.
+                display: { xs: 'none', md: 'grid' },
                 gap: 1.5,
                 gridTemplateColumns: {
                   xs: '1fr',

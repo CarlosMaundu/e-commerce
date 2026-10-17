@@ -14,6 +14,8 @@ import {
   Grid,
   IconButton,
   InputBase,
+  Menu,
+  MenuItem,
   Stack,
   Typography,
   useMediaQuery,
@@ -22,9 +24,9 @@ import {
   FiChevronLeft,
   FiHeart,
   FiMinus,
+  FiMoreVertical,
   FiPlus,
   FiShoppingCart,
-  FiTrash2,
   FiX,
 } from 'react-icons/fi';
 import { alpha } from '@mui/material/styles';
@@ -37,6 +39,7 @@ import {
   removeCoupon,
   removeFromCart,
   selectCart,
+  selectCartItems,
   setCartGift,
   setCartQuantity,
 } from '../redux/cartSlice';
@@ -45,6 +48,8 @@ import { useNotify } from '../notification/NotificationProvider';
 import { EmptyState, SectionCard } from '../components/ui';
 import { formatMoney } from '../utils/format';
 import StickyActionBar from '../components/common/StickyActionBar';
+import PhoneCartLine from '../components/cart/PhoneCartLine';
+import { usePageHeader } from '../components/layout/pageHeader';
 
 const qtyButtonSx = {
   width: 30,
@@ -91,7 +96,6 @@ const CartPage = () => {
     if (ok) await act(removeFromCart(item.key), 'Moved to your wishlist.');
   };
 
-  const [selected, setSelected] = useState([]);
   const shopper = canShop(user);
   const moveAllToWishlist = async () => {
     for (const item of cart.items) {
@@ -99,14 +103,68 @@ const CartPage = () => {
       await moveToWishlist(item);
     }
   };
-  const removeSelected = async () => {
-    for (const key of selected) {
-      // eslint-disable-next-line no-await-in-loop
-      await act(removeFromCart(key));
-    }
-    setSelected([]);
-    notify.success('Removed the selected items.');
-  };
+
+  // Ticks: which items to buy now (signed-in carts; guests buy everything).
+  const canTick = cart.mode === 'server';
+  const tick = (keys, on) => act(selectCartItems({ keys, selected: on }));
+  const tickedCount = cart.items.filter((i) => i.selected !== false).length;
+  const allTicked = cart.items.length > 0 && tickedCount === cart.items.length;
+  const nothingTicked = canTick && tickedCount === 0;
+
+  // Phones: "My Cart" in the header, with the cart's other actions in ⋮.
+  const [menuAnchor, setMenuAnchor] = useState(null);
+  const cartMenu = cart.items.length > 0 && (
+    <>
+      <IconButton
+        aria-label="More cart actions"
+        onClick={(e) => setMenuAnchor(e.currentTarget)}
+        sx={{
+          width: 44,
+          height: 44,
+          borderRadius: '8px',
+          bgcolor: 'background.neutral',
+        }}
+      >
+        <FiMoreVertical />
+      </IconButton>
+      <Menu
+        anchorEl={menuAnchor}
+        open={Boolean(menuAnchor)}
+        onClose={() => setMenuAnchor(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        {canTick && (
+          <MenuItem
+            onClick={() => {
+              setMenuAnchor(null);
+              tick('all', !allTicked);
+            }}
+          >
+            {allTicked ? 'Untick all items' : 'Tick all items'}
+          </MenuItem>
+        )}
+        {shopper && (
+          <MenuItem
+            onClick={() => {
+              setMenuAnchor(null);
+              moveAllToWishlist();
+            }}
+          >
+            Move all items to wishlist
+          </MenuItem>
+        )}
+        <MenuItem
+          component={RouterLink}
+          to="/products"
+          onClick={() => setMenuAnchor(null)}
+        >
+          Continue shopping
+        </MenuItem>
+      </Menu>
+    </>
+  );
+  usePageHeader({ title: 'My Cart', actions: phone ? cartMenu : null });
 
   // Gifts: ticking the box opens the details; unticking stops the gift.
   const [giftFor, setGiftFor] = useState(null);
@@ -158,11 +216,19 @@ const CartPage = () => {
     );
   }
 
-  const hasStockProblem = cart.items.some((i) => i.inStock === false);
+  // Only the items being bought now need enough stock.
+  const hasStockProblem = cart.items.some(
+    (i) => i.inStock === false && i.selected !== false
+  );
 
   return (
     <Container maxWidth="xl" sx={{ py: { xs: 3, md: 5 } }}>
-      <Typography variant="h3" component="h1" sx={{ mb: 3 }}>
+      <Typography
+        variant="h3"
+        component="h1"
+        // Phones show "My Cart" in the header bar instead.
+        sx={{ mb: 3, display: { xs: 'none', md: 'block' } }}
+      >
         Cart{' '}
         <Typography component="span" variant="h5" color="text.secondary">
           ({cart.itemCount} item{cart.itemCount === 1 ? '' : 's'})
@@ -171,7 +237,33 @@ const CartPage = () => {
       <Grid container spacing={4}>
         <Grid item xs={12} md={8}>
           <Stack spacing={2.5}>
-            <Stack direction="row" spacing={1.5} flexWrap="wrap" useFlexGap>
+            {canTick && (
+              <Stack direction="row" alignItems="center" spacing={0.5}>
+                <Checkbox
+                  checked={allTicked}
+                  indeterminate={!allTicked && tickedCount > 0}
+                  onChange={(e) => tick('all', e.target.checked)}
+                  disabled={busy}
+                  inputProps={{ 'aria-label': 'Buy all items now' }}
+                  sx={{ ml: -1 }}
+                />
+                <Typography sx={{ fontWeight: 600 }}>All items</Typography>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ display: { xs: 'none', md: 'block' } }}
+                >
+                  · tick what to buy now; the rest stays in your cart
+                </Typography>
+              </Stack>
+            )}
+            <Stack
+              direction="row"
+              spacing={1.5}
+              flexWrap="wrap"
+              useFlexGap
+              sx={{ display: { xs: 'none', md: 'flex' } }}
+            >
               <Button
                 component={RouterLink}
                 to="/products"
@@ -188,16 +280,6 @@ const CartPage = () => {
                   sx={{ bgcolor: 'background.neutral', color: 'text.primary' }}
                 >
                   Move all items into wishlist
-                </Button>
-              )}
-              {selected.length > 0 && (
-                <Button
-                  color="error"
-                  startIcon={<FiTrash2 />}
-                  onClick={removeSelected}
-                  disabled={busy}
-                >
-                  Remove selected ({selected.length})
                 </Button>
               )}
             </Stack>
@@ -267,11 +349,34 @@ const CartPage = () => {
                   )}
                 </Box>
               );
+              if (phone) {
+                return (
+                  <PhoneCartLine
+                    key={item.key}
+                    item={item}
+                    busy={busy}
+                    canTick={canTick}
+                    onTick={(on) => tick([item.key], on)}
+                    onQuantity={(quantity) =>
+                      act(setCartQuantity({ key: item.key, quantity }))
+                    }
+                    onRemove={() =>
+                      act(removeFromCart(item.key), 'Removed from your cart.')
+                    }
+                    onWishlist={shopper ? () => moveToWishlist(item) : null}
+                    giftsOn={giftsOn}
+                    onGift={() =>
+                      item.gift ? setGiftFor(item.key) : toggleGift(item, true)
+                    }
+                  />
+                );
+              }
               return (
                 <Box
                   key={item.key}
                   data-testid="cart-line"
                   sx={{
+                    opacity: item.selected === false ? 0.6 : 1,
                     bgcolor: 'background.neutral',
                     borderRadius: 1,
                     px: { xs: 1.5, md: 2.5 },
@@ -290,19 +395,16 @@ const CartPage = () => {
                       alignItems="center"
                       sx={{ minWidth: 0 }}
                     >
-                      <Checkbox
-                        size="small"
-                        checked={selected.includes(item.key)}
-                        onChange={(e) =>
-                          setSelected((sel) =>
-                            e.target.checked
-                              ? [...sel, item.key]
-                              : sel.filter((k) => k !== item.key)
-                          )
-                        }
-                        inputProps={{ 'aria-label': `Select ${item.title}` }}
-                        sx={{ ml: -1 }}
-                      />
+                      {canTick && (
+                        <Checkbox
+                          size="small"
+                          checked={item.selected !== false}
+                          onChange={(e) => tick([item.key], e.target.checked)}
+                          disabled={busy}
+                          inputProps={{ 'aria-label': `Buy ${item.title} now` }}
+                          sx={{ ml: -1 }}
+                        />
+                      )}
                       <Typography
                         component={RouterLink}
                         to={editLink}
@@ -553,12 +655,18 @@ const CartPage = () => {
               }}
             >
               <Typography sx={{ fontWeight: 600 }}>
-                {cart.itemCount} item{cart.itemCount === 1 ? '' : 's'}
+                {canTick && cart.selectedCount !== cart.itemCount
+                  ? `${cart.selectedCount} of ${cart.itemCount} items`
+                  : `${cart.itemCount} item${cart.itemCount === 1 ? '' : 's'}`}
               </Typography>
               <Stack direction="row" spacing={2} alignItems="baseline">
                 <Typography color="text.secondary">total</Typography>
                 <Typography sx={{ fontWeight: 700, fontSize: '1.05rem' }}>
-                  {formatMoney(cart.items.reduce((sum, i) => sum + i.total, 0))}
+                  {formatMoney(
+                    cart.items
+                      .filter((i) => i.selected !== false)
+                      .reduce((sum, i) => sum + i.total, 0)
+                  )}
                 </Typography>
               </Stack>
             </Stack>
@@ -662,7 +770,7 @@ const CartPage = () => {
                 variant="contained"
                 sx={{ mt: 3 }}
                 onClick={checkout}
-                disabled={busy || hasStockProblem}
+                disabled={busy || hasStockProblem || nothingTicked}
               >
                 {user ? 'Checkout' : 'Sign in to check out'}
               </Button>
@@ -692,9 +800,13 @@ const CartPage = () => {
             size="large"
             variant="contained"
             onClick={checkout}
-            disabled={busy || hasStockProblem}
+            disabled={busy || hasStockProblem || nothingTicked}
           >
-            {user ? 'Checkout' : 'Sign in to check out'}
+            {!user
+              ? 'Sign in to check out'
+              : nothingTicked
+                ? 'Tick items to buy'
+                : 'Check out'}
           </Button>
         </StickyActionBar>
       )}

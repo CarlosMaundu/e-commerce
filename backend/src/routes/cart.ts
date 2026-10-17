@@ -28,12 +28,15 @@ const checkoutState = async (userId: number) =>
 
 export const buildCart = async (userId: number) => {
   const lines = await loadCartLines(userId);
+  const ticked = lines.filter((l) => l.selected);
   const state = await checkoutState(userId);
   const coupon = state.coupon_code ? await findCoupon(state.coupon_code) : undefined;
-  const totals = computeTotals(lines, coupon, state.shipping_method || null);
+  // Totals are for the ticked items: what checkout will buy.
+  const totals = computeTotals(ticked, coupon, state.shipping_method || null);
   return {
     products: lines.map((l) => ({ ...l, gift: giftContract(l.gift), in_stock: l.stock >= l.quantity })),
     item_count: lines.reduce((s, l) => s + l.quantity, 0),
+    selected_count: ticked.reduce((s, l) => s + l.quantity, 0),
     coupon: totals.coupon,
     coupon_problem: totals.coupon_problem,
     shipping_method: state.shipping_method || null,
@@ -89,7 +92,7 @@ const addToCart = async (userId: number, item: z.infer<typeof itemSchema>, { mer
   }
   await query(
     `INSERT INTO cart_items (user_id, product_id, variant_id, quantity, options) VALUES ($1, $2, $3, $4, $5::jsonb)
-     ON CONFLICT (user_id, product_id, options) DO UPDATE SET quantity = EXCLUDED.quantity, variant_id = EXCLUDED.variant_id`,
+     ON CONFLICT (user_id, product_id, options) DO UPDATE SET quantity = EXCLUDED.quantity, variant_id = EXCLUDED.variant_id, selected = true`,
     [userId, item.product_id, resolved.variantId, quantity, JSON.stringify(resolved.options)]
   );
 };
@@ -152,6 +155,28 @@ export const cartRoutes = () => {
     })
   );
 
+  // Tick or untick lines for checkout: { keys: [..] or "all", selected }.
+  router.put(
+    '/cart/selection',
+    handler(async (req, res) => {
+      const b = parse(
+        z.object({
+          keys: z.union([z.literal('all'), z.array(z.coerce.number().int().positive()).max(200)]),
+          selected: z.boolean(),
+        }),
+        req.body
+      );
+      if (b.keys === 'all') {
+        await query('UPDATE cart_items SET selected = $2 WHERE user_id = $1', [req.auth!.userId, b.selected]);
+      } else if (b.keys.length) {
+        await query('UPDATE cart_items SET selected = $3 WHERE user_id = $1 AND id = ANY($2::int[])', [
+          req.auth!.userId, b.keys, b.selected,
+        ]);
+      }
+      ok(res, await buildCart(req.auth!.userId));
+    })
+  );
+
   router.delete(
     '/cart/empty',
     handler(async (req, res) => {
@@ -176,7 +201,7 @@ export const cartRoutes = () => {
         z.object({ coupon: z.string().trim().min(1, 'Please enter a promo code.').max(40) }),
         req.body
       );
-      const lines = await loadCartLines(req.auth!.userId);
+      const lines = await loadCartLines(req.auth!.userId, undefined, { ticked: true });
       if (!lines.length) fail(400, 'Add something to your cart before using a promo code.');
       const coupon = await findCoupon(code);
       const problem =

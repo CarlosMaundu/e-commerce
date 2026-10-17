@@ -117,17 +117,35 @@ test('the cart and checkout keep their main button at the bottom', async ({
   await page.goto('/cart');
   const bar = page.getByTestId('cart-bar');
   await expect(bar).toBeVisible();
-  await bar.getByRole('button', { name: 'Checkout' }).click();
+  // My Cart: Back · title · ⋮; untick the only item and checkout waits.
+  await expect(page.getByTestId('page-bar')).toContainText('My Cart');
+  await expect(page.getByLabel('Current offers')).toHaveCount(0);
+  const lotion = page.getByRole('checkbox', {
+    name: 'Buy Nourishing body lotion now',
+  });
+  await lotion.click(); // saved on the server, then shown
+  await expect(lotion).not.toBeChecked();
+  await expect(
+    bar.getByRole('button', { name: 'Tick items to buy' })
+  ).toBeDisabled();
+  await page.getByRole('checkbox', { name: 'Buy all items now' }).click();
+  await expect(lotion).toBeChecked();
+  await bar.getByRole('button', { name: 'Check out', exact: true }).click();
   await expect(page).toHaveURL(/\/checkout$/);
 
+  await expect(page.getByTestId('page-bar')).toContainText('Checkout');
   // Checkout: no bottom menu, a step line, and its own action bar.
   await expect(page.getByTestId('bottom-nav')).toHaveCount(0);
   await expect(page.getByText('Step 1 of 3 · Delivery address')).toBeVisible();
   await page.getByLabel('Street address').fill('12 Moi Avenue');
   await page.getByLabel('City or town').fill('Nairobi');
   await page.getByLabel('Phone (for delivery updates)').fill('+254700000000');
-  await page.getByRole('button', { name: 'Use this address' }).click();
   const actions = page.getByTestId('checkout-bar');
+  // Same two buttons as before, now in the bottom bar.
+  await expect(
+    actions.getByRole('link', { name: 'Back to cart' })
+  ).toBeVisible();
+  await actions.getByRole('button', { name: 'Use this address' }).click();
   await actions.getByRole('button', { name: 'Deliver here' }).click();
   await expect(page.getByText('Step 2 of 3 · Delivery option')).toBeVisible();
   await page.getByTestId('shipping-standard').click();
@@ -170,4 +188,20 @@ test('account pages fit the screen, tables become cards, Sign out is in the row'
       .getByRole('navigation', { name: 'Account pages' })
       .getByRole('button', { name: 'Sign out' })
   ).toBeVisible();
+});
+
+test('product page bar: Back, the title (the product once scrolled), Share and Wishlist; no deal strip', async ({
+  page,
+}) => {
+  await openProduct(page, 'Cotton crew-neck shirt');
+  const bar = page.getByTestId('page-bar');
+  await expect(bar).toContainText('Product details');
+  await expect(bar.getByRole('button', { name: 'Share' })).toBeVisible();
+  await expect(bar.getByRole('button', { name: 'Back' })).toBeVisible();
+  await expect(page.getByLabel('Current offers')).toHaveCount(0);
+  await expect(page.getByTestId('phone-greeting')).toHaveCount(0);
+  await page.mouse.wheel(0, 900);
+  await expect(bar).toContainText('Cotton crew-neck shirt');
+  // One photo indicator (dots), and the SKU waits under Specifications.
+  await expect(page.getByText(/^SKU /)).toBeHidden();
 });
