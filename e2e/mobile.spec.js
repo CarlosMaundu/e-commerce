@@ -78,6 +78,49 @@ test('Back closes the filters sheet instead of leaving the page', async ({
   await expect(page).toHaveURL(/\/$/);
 });
 
+test('product list: search and Filters in the header, the deal card, Sort sheet and list view', async ({
+  page,
+}) => {
+  await page.goto('/products');
+  const banner = page.getByRole('banner');
+  await expect(banner.getByRole('button', { name: 'Back' })).toBeVisible();
+  await expect(
+    banner.getByRole('button', { name: 'Search products' })
+  ).toBeVisible();
+  await expect(banner.getByRole('button', { name: /^Filters/ })).toBeVisible();
+  // The deal is a card that opens the offer.
+  await expect(
+    page.getByLabel('Current offers').getByRole('button', { name: /View deal/ })
+  ).toBeVisible();
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'All products' })
+  ).toBeVisible();
+
+  // Sort: a sheet of choices; picking one closes it and sorts the list.
+  await page.getByRole('button', { name: 'Sort: Newest' }).click();
+  const sort = page.getByRole('dialog', { name: 'Sort by' });
+  await sort.getByRole('button', { name: 'Price: low to high' }).click();
+  await expect(sort).toBeHidden();
+  await expect(page).toHaveURL(/sort=price_asc/);
+  await expect(
+    page.getByRole('button', { name: 'Sort: Price: low to high' })
+  ).toBeVisible();
+
+  // Grid or list, remembered on this phone.
+  const grid = page.getByTestId('product-grid');
+  await expect(grid).toHaveAttribute('data-view', 'grid');
+  await page.getByRole('button', { name: 'List view' }).click();
+  await expect(grid).toHaveAttribute('data-view', 'list');
+  await noSideScroll(page);
+  await page.reload();
+  await expect(page.getByTestId('product-grid')).toHaveAttribute(
+    'data-view',
+    'list'
+  );
+  await page.getByRole('button', { name: 'Grid view' }).click();
+  await expect(grid).toHaveAttribute('data-view', 'grid');
+});
+
 test('Back returns to the same spot in the list; the header hides while scrolling down', async ({
   page,
 }) => {

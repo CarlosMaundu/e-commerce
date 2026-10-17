@@ -15,7 +15,7 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
-import { FiChevronLeft, FiChevronRight, FiX } from 'react-icons/fi';
+import { FiChevronLeft, FiChevronRight, FiTag, FiX } from 'react-icons/fi';
 import { catalog } from '../../api';
 import { API_BASE_URL } from '../../api/config';
 
@@ -183,13 +183,96 @@ Countdown.propTypes = {
 const inStrip = (p) => p.placement !== 'banner';
 const inBanner = (p) => p.placement !== 'strip';
 
-export const PromoStrip = ({ onClose }) => {
+/**
+ * Phones: the offer as an inset card — tag, title, "View deal ›". The whole
+ * card is the link; offers take turns as on desktop.
+ */
+const PhonePromoCard = ({ promo, loaded, pause }) => {
+  const navigate = useNavigate();
+  const wrap = { px: 2, pt: 0.5, pb: 1.5 };
+  if (!loaded) {
+    return (
+      <Box sx={wrap} aria-hidden data-testid="promo-strip-loading">
+        <Skeleton variant="rounded" height={48} sx={{ borderRadius: 1 }} />
+      </Box>
+    );
+  }
+  if (!promo) return null;
+  return (
+    <Box sx={wrap} aria-label="Current offers" {...pause}>
+      <Box
+        key={promo.id}
+        component="button"
+        type="button"
+        onClick={() => {
+          trackDeal(promo.id, 'click', 'strip');
+          navigate(promo.link);
+        }}
+        aria-label={`${promo.title}. View deal`}
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1.25,
+          width: '100%',
+          minHeight: 48,
+          px: 2,
+          border: 0,
+          borderRadius: 1,
+          bgcolor: 'promo.main',
+          color: 'promo.text',
+          font: 'inherit',
+          textAlign: 'left',
+          cursor: 'pointer',
+          animation: 'promoIn .35s ease',
+          '@keyframes promoIn': {
+            from: { opacity: 0, transform: 'translateY(4px)' },
+            to: { opacity: 1 },
+          },
+        }}
+      >
+        <Box component={FiTag} sx={{ flexShrink: 0, fontSize: 18 }} />
+        <Typography
+          noWrap
+          sx={{
+            flex: 1,
+            minWidth: 0,
+            color: 'inherit',
+            fontWeight: 700,
+            fontSize: '0.9rem',
+          }}
+        >
+          {promo.title}
+        </Typography>
+        <Stack
+          direction="row"
+          alignItems="center"
+          spacing={0.25}
+          sx={{ flexShrink: 0, fontSize: '0.9rem', fontWeight: 500 }}
+        >
+          <span>View deal</span>
+          <FiChevronRight />
+        </Stack>
+      </Box>
+    </Box>
+  );
+};
+
+PhonePromoCard.propTypes = {
+  promo: PropTypes.object,
+  loaded: PropTypes.bool,
+  pause: PropTypes.object,
+};
+
+export const PromoStrip = ({ onClose, phone = false }) => {
   const navigate = useNavigate();
   const state = usePromotionsState();
   const promos = state.promos.filter(inStrip);
   const { index, pause } = useRotation(promos.length);
   const promo = promos[index];
   useDealView(state.loaded ? promo : null, 'strip');
+  if (phone) {
+    return <PhonePromoCard promo={promo} loaded={state.loaded} pause={pause} />;
+  }
   if (!state.loaded) {
     // Keep the strip's height while offers load, so the page doesn't jump.
     return (
@@ -293,8 +376,8 @@ export const PromoStrip = ({ onClose }) => {
   );
 };
 
-// Without onClose there's no ✕ (phones always show the offers).
-PromoStrip.propTypes = { onClose: PropTypes.func };
+// Without onClose there's no ✕ (phones always show the offers, as a card).
+PromoStrip.propTypes = { onClose: PropTypes.func, phone: PropTypes.bool };
 
 /**
  * Home-page offers banner: one offer at a time, sliding in, with a faded

@@ -48,7 +48,7 @@ import BrandMark from '../common/BrandMark';
 import { SEARCH_SCOPES, scopeFromParams } from './searchScopes';
 import SearchSheet from './SearchSheet';
 import CustomerBell from './CustomerBell';
-import { usePageHeaderConfig } from './pageHeader';
+import { usePageHeaderConfig, usePageToolNode } from './pageHeader';
 import useHideOnScroll from '../../hooks/useHideOnScroll';
 import { initialsOf } from '../common/BrandMark';
 
@@ -58,7 +58,7 @@ const NEW_AND_TRENDING = {
   to: '/products?sort=popular',
 };
 
-const squareButtonSx = {
+export const squareButtonSx = {
   width: 44,
   height: 44,
   borderRadius: '8px',
@@ -314,6 +314,7 @@ const Header = () => {
   // Phones: the header slides away while scrolling down the page.
   // Phones: a page can ask for an app-style bar (Back · title · actions).
   const pageBar = usePageHeaderConfig();
+  const pageTool = usePageToolNode();
   const appBar = isMobile && Boolean(pageBar);
   const hidden = useHideOnScroll(isMobile && !searchOpen && !appBar);
   const [showPromo, setShowPromo] = useState(() => {
@@ -378,6 +379,9 @@ const Header = () => {
   const home = location.pathname === '/';
   const searchRow =
     location.pathname === '/' || location.pathname === '/products';
+  // Phones, product list: the search sits in the bar itself, between Back
+  // and the page's tool (Filters).
+  const inlineSearch = isMobile && location.pathname === '/products';
   const shopper = canShop(user);
   const closeUserMenu = () => setUserMenuAnchor(null);
 
@@ -469,12 +473,52 @@ const Header = () => {
     '&:hover': { bgcolor: alpha(theme.palette.text.primary, 0.88) },
   };
 
-  // Deals: phones show them on the home page only (no ✕); desktop everywhere
-  // but the cart and checkout, and they can be hidden for the session.
+  // Deals: phones show them on the home page and product list only (no ✕);
+  // desktop everywhere but the cart and checkout, and they can be hidden for
+  // the session.
   const buying = /^\/(cart|checkout)(\/|$)/.test(location.pathname);
   const promo = isMobile
-    ? location.pathname === '/' && <PromoStrip />
+    ? searchRow && <PromoStrip phone />
     : !buying && showPromo && <PromoStrip onClose={hidePromo} />;
+
+  // Phones: a search field that opens the full-screen search.
+  const phoneSearch = (
+    <Box
+      component="button"
+      type="button"
+      onClick={() => setSearchOpen(true)}
+      aria-label="Search products"
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.5,
+        width: '100%',
+        height: 44,
+        px: 2,
+        border: 0,
+        borderRadius: '8px',
+        bgcolor: 'background.neutral',
+        color: query ? 'text.primary' : 'text.secondary',
+        font: 'inherit',
+        fontSize: '0.95rem',
+        textAlign: 'left',
+        cursor: 'pointer',
+      }}
+    >
+      <FiSearch />
+      <Box
+        component="span"
+        sx={{
+          flex: 1,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {query || 'Search products, brands and categories'}
+      </Box>
+    </Box>
+  );
 
   return (
     <>
@@ -569,6 +613,8 @@ const Header = () => {
                           })
                     }
                   />
+                ) : inlineSearch ? (
+                  <Box sx={{ flex: 1, minWidth: 0 }}>{phoneSearch}</Box>
                 ) : (
                   <Box sx={{ flex: 1 }} />
                 )
@@ -666,7 +712,10 @@ const Header = () => {
                     <FiSearch />
                   </IconButton>
                 )}
-                {user && shopper && <CustomerBell sx={squareButtonSx} />}
+                {inlineSearch && pageTool}
+                {user && shopper && !inlineSearch && (
+                  <CustomerBell sx={squareButtonSx} />
+                )}
                 {loading ? (
                   !isMobile && (
                     <Skeleton variant="rounded" width={140} height={44} />
@@ -798,44 +847,8 @@ const Header = () => {
             </Stack>
             {/* Phones: a search field under the bar on the home and product
             pages; it opens the full-screen search. */}
-            {isMobile && searchRow && (
-              <Box sx={{ pb: 1.5 }}>
-                <Box
-                  component="button"
-                  type="button"
-                  onClick={() => setSearchOpen(true)}
-                  aria-label="Search products"
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1.5,
-                    width: '100%',
-                    height: 44,
-                    px: 2,
-                    border: 0,
-                    borderRadius: '8px',
-                    bgcolor: 'background.neutral',
-                    color: query ? 'text.primary' : 'text.secondary',
-                    font: 'inherit',
-                    fontSize: '0.95rem',
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <FiSearch />
-                  <Box
-                    component="span"
-                    sx={{
-                      flex: 1,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {query || 'Search products, brands and categories'}
-                  </Box>
-                </Box>
-              </Box>
+            {isMobile && searchRow && !inlineSearch && (
+              <Box sx={{ pb: 1.5 }}>{phoneSearch}</Box>
             )}
           </Container>
         )}
