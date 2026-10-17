@@ -1275,7 +1275,7 @@ export const ReturnsPage = () => {
           { label: 'Item' },
           { label: 'Order' },
           { label: 'Requested' },
-          { label: 'Progress' },
+          { label: 'Progress', phone: false },
           { label: 'Status' },
         ]}
         loading={!list}
@@ -1363,6 +1363,7 @@ export const ReturnsPage = () => {
 
 /** One return: where it is, what to do next, the refund and every step. */
 export const ReturnPage = () => {
+  const phone = useMediaQuery((t) => t.breakpoints.down('md'));
   const { id } = useParams();
   const [item, setItem] = useState(null);
   const [missing, setMissing] = useState(false);
@@ -1486,22 +1487,52 @@ export const ReturnPage = () => {
                     “{item.comment}”
                   </Typography>
                 )}
-                <Divider />
-                <Button
-                  component={RouterLink}
-                  to={`/account/orders/${item.orderId}`}
-                  variant="outlined"
-                >
-                  View order {item.orderNumber}
-                </Button>
-                <Button component={RouterLink} to="/support?category=returns">
-                  Ask about this return
-                </Button>
+                {!phone && (
+                  <>
+                    <Divider />
+                    <Button
+                      component={RouterLink}
+                      to={`/account/orders/${item.orderId}`}
+                      variant="outlined"
+                    >
+                      View order {item.orderNumber}
+                    </Button>
+                    <Button
+                      component={RouterLink}
+                      to="/support?category=returns"
+                    >
+                      Ask about this return
+                    </Button>
+                  </>
+                )}
               </Stack>
             )}
           </SectionCard>
         </Grid>
       </Grid>
+      {/* Phones: what you can do about it, at hand. */}
+      {phone && item && (
+        <StickyActionBar data-testid="return-bar">
+          <Button
+            variant="outlined"
+            size="large"
+            component={RouterLink}
+            to={`/account/orders/${item.orderId}`}
+            sx={{ flex: 1 }}
+          >
+            View order
+          </Button>
+          <Button
+            variant="contained"
+            size="large"
+            component={RouterLink}
+            to="/support?category=returns"
+            sx={{ flex: 1 }}
+          >
+            Ask about it
+          </Button>
+        </StickyActionBar>
+      )}
     </AccountPage>
   );
 };

@@ -10,6 +10,7 @@ import {
   Avatar,
   Box,
   Button,
+  DialogActions,
   DialogContent,
   DialogTitle,
   Grid,
@@ -20,6 +21,7 @@ import {
   TextField,
   Tooltip,
   Typography,
+  useMediaQuery,
 } from '@mui/material';
 import { FiEdit2, FiMapPin, FiPlus, FiTrash2, FiUpload } from 'react-icons/fi';
 import { initialsOf } from '../../components/common/BrandMark';
@@ -37,6 +39,7 @@ import AccountTable from '../../components/account/AccountTable';
 import AddressForm, { countryName } from '../../components/account/AddressForm';
 import ConfirmationDialog from '../../components/common/ConfirmationDialog';
 import ResponsiveSheet from '../../components/common/ResponsiveSheet';
+import StickyActionBar from '../../components/common/StickyActionBar';
 
 // ---------- Profile ----------
 
@@ -45,6 +48,7 @@ export const ProfilePage = () => {
   const notify = useNotify();
   const fileRef = useRef(null);
   const [editing, setEditing] = useState(false);
+  const phone = useMediaQuery((t) => t.breakpoints.down('md'));
   const [uploading, setUploading] = useState(false);
   const formik = useFormik({
     enableReinitialize: true,
@@ -118,7 +122,8 @@ export const ProfilePage = () => {
       title="Profile"
       subtitle="How you appear on orders, invoices and emails."
       action={
-        !editing && (
+        !editing &&
+        !phone && (
           <Button
             variant="contained"
             startIcon={<FiEdit2 />}
@@ -126,6 +131,22 @@ export const ProfilePage = () => {
           >
             Edit profile
           </Button>
+        )
+      }
+      barActions={
+        !editing && (
+          <IconButton
+            aria-label="Edit profile"
+            onClick={() => setEditing(true)}
+            sx={{
+              width: 44,
+              height: 44,
+              borderRadius: '8px',
+              bgcolor: 'background.neutral',
+            }}
+          >
+            <FiEdit2 />
+          </IconButton>
         )
       }
     >
@@ -221,11 +242,17 @@ export const ProfilePage = () => {
               </Grid>
             </Grid>
             {editing && (
-              <Stack
-                direction="row"
-                justifyContent="flex-end"
-                spacing={1.5}
-                sx={{ mt: 3 }}
+              // Phones: Cancel and Save at the bottom of the screen.
+              <Box
+                component={phone ? StickyActionBar : Stack}
+                {...(phone
+                  ? { 'data-testid': 'profile-bar' }
+                  : {
+                      direction: 'row',
+                      justifyContent: 'flex-end',
+                      spacing: 1.5,
+                      sx: { mt: 3 },
+                    })}
               >
                 <Button
                   variant="outlined"
@@ -234,6 +261,7 @@ export const ProfilePage = () => {
                     setEditing(false);
                   }}
                   disabled={formik.isSubmitting}
+                  sx={{ flex: phone ? 1 : 'none' }}
                 >
                   Cancel
                 </Button>
@@ -241,10 +269,11 @@ export const ProfilePage = () => {
                   type="submit"
                   variant="contained"
                   disabled={formik.isSubmitting}
+                  sx={{ flex: phone ? 1 : 'none' }}
                 >
                   {formik.isSubmitting ? 'Saving…' : 'Save changes'}
                 </Button>
-              </Stack>
+              </Box>
             )}
           </form>
         </SectionCard>
@@ -449,9 +478,24 @@ export const AddressesPage = () => {
           variant="contained"
           startIcon={<FiPlus />}
           onClick={() => setEditing({})}
+          sx={{ display: { xs: 'none', md: 'inline-flex' } }}
         >
           Add address
         </Button>
+      }
+      barActions={
+        <IconButton
+          aria-label="Add address"
+          onClick={() => setEditing({})}
+          sx={{
+            width: 44,
+            height: 44,
+            borderRadius: '8px',
+            bgcolor: 'background.neutral',
+          }}
+        >
+          <FiPlus />
+        </IconButton>
       }
     >
       <AccountTable
@@ -544,9 +588,20 @@ export const AddressesPage = () => {
               initialValues={editing}
               onSubmit={save}
               onCancel={() => setEditing(null)}
+              formId="address-form"
+              hideActions
             />
           )}
         </DialogContent>
+        {/* Pinned under the fields (phones: the sheet's bottom bar). */}
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button variant="outlined" onClick={() => setEditing(null)}>
+            Cancel
+          </Button>
+          <Button type="submit" form="address-form" variant="contained">
+            Save address
+          </Button>
+        </DialogActions>
       </ResponsiveSheet>
       <ConfirmationDialog
         open={Boolean(deleting)}

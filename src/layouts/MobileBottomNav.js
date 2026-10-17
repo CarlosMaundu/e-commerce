@@ -21,8 +21,14 @@ import useTyping from '../hooks/useTyping';
 export const BOTTOM_NAV_HEIGHT = 72;
 
 /** Checkout has its own bar at the bottom, so the menu steps aside there. */
-export const useShowsBottomNav = () =>
-  !useLocation().pathname.startsWith('/checkout');
+export const useShowsBottomNav = () => {
+  const { pathname } = useLocation();
+  // Checkout and a support conversation have their own bar at the bottom.
+  return (
+    !pathname.startsWith('/checkout') &&
+    !/^\/account\/support\/[^/]+/.test(pathname)
+  );
+};
 
 const MobileBottomNav = () => {
   const { user } = useContext(AuthContext);

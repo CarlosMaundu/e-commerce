@@ -49,19 +49,21 @@ const Total = ({ icon, label, value, tone }) => {
       spacing={1.5}
       alignItems="center"
       sx={{
-        p: 2,
+        p: { xs: 1.5, sm: 2 },
         borderRadius: 1,
         border: 1,
         borderColor: 'divider',
         bgcolor: 'background.paper',
+        minWidth: 0,
       }}
     >
       <Box
         sx={{
+          // Phones: two figures side by side, no icons.
+          display: { xs: 'none', sm: 'grid' },
           width: 36,
           height: 36,
           borderRadius: '8px',
-          display: 'grid',
           placeItems: 'center',
           color: c,
           bgcolor: alpha(c, 0.12),
@@ -69,11 +71,13 @@ const Total = ({ icon, label, value, tone }) => {
       >
         {icon}
       </Box>
-      <Box>
-        <Typography variant="caption" component="div">
+      <Box sx={{ minWidth: 0 }}>
+        <Typography variant="caption" component="div" noWrap>
           {label}
         </Typography>
-        <Typography sx={{ fontWeight: 700 }}>{value}</Typography>
+        <Typography sx={{ fontWeight: 700, color: { xs: c, sm: 'inherit' } }}>
+          {value}
+        </Typography>
       </Box>
     </Stack>
   );
@@ -120,10 +124,7 @@ const RefundsPage = () => {
             sx={{
               display: 'grid',
               gap: 1.5,
-              gridTemplateColumns: {
-                xs: 'minmax(0, 1fr)',
-                sm: 'repeat(2, minmax(0, 1fr))',
-              },
+              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
             }}
           >
             <Total

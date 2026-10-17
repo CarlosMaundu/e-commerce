@@ -10,6 +10,7 @@ import {
 import {
   Box,
   Button,
+  IconButton,
   InputAdornment,
   LinearProgress,
   Link,
@@ -339,8 +340,29 @@ export const InvoicePage = () => {
       subtitle={order ? `For order ${order.number}` : ' '}
       back="/account/invoices"
       backLabel="Invoices"
+      barActions={
+        order && (
+          <IconButton
+            aria-label="Print or save PDF"
+            onClick={() => window.print()}
+            sx={{
+              width: 44,
+              height: 44,
+              borderRadius: '8px',
+              bgcolor: 'background.neutral',
+            }}
+          >
+            <FiPrinter />
+          </IconButton>
+        )
+      }
       action={
-        <Stack direction="row" spacing={1} className="no-print">
+        <Stack
+          direction="row"
+          spacing={1}
+          className="no-print"
+          sx={{ display: { xs: 'none', md: 'flex' } }}
+        >
           {order && (
             <Button component={RouterLink} to={`/account/orders/${order.id}`}>
               View order
