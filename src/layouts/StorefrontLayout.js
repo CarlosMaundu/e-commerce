@@ -9,7 +9,10 @@ import Header from '../components/layout/Header';
 import Footer from '../components/layout/Footer';
 import ImpersonationBanner from '../components/ImpersonationBanner';
 import InstallPrompt from '../components/InstallPrompt';
-import { PageHeaderProvider } from '../components/layout/pageHeader';
+import {
+  PageHeaderProvider,
+  usePageHeader,
+} from '../components/layout/pageHeader';
 import { useStore } from '../context/StoreContext';
 import MobileBottomNav, {
   BOTTOM_NAV_HEIGHT,
@@ -84,8 +87,16 @@ export const AccountPage = ({
   children,
   back = '/account',
   backLabel = 'My account',
+  barTitle,
+  barActions = null,
 }) => {
   const here = useLocation().pathname;
+  // Phones: the title goes in the header bar (Back · title · actions), so the
+  // page itself starts with its content.
+  usePageHeader({
+    title: barTitle || (typeof title === 'string' ? title : ''),
+    actions: barActions,
+  });
   // Sits inside AccountLayout, which provides the width and the sidebar.
   return (
     <Box>
@@ -101,15 +112,25 @@ export const AccountPage = ({
         direction={{ xs: 'column', sm: 'row' }}
         justifyContent="space-between"
         alignItems={{ sm: 'flex-end' }}
-        spacing={2}
-        sx={{ mb: 3 }}
+        spacing={{ xs: 1.5, md: 2 }}
+        sx={{ mb: { xs: 2, md: 3 } }}
       >
-        <Box>
-          <Typography variant="h4" component="h1">
+        <Box sx={{ minWidth: 0 }}>
+          <Typography
+            variant="h4"
+            component="h1"
+            sx={{ display: { xs: 'none', md: 'block' } }}
+          >
             {title}
           </Typography>
           {subtitle && (
-            <Typography color="text.secondary" sx={{ mt: 0.5 }}>
+            <Typography
+              color="text.secondary"
+              sx={{
+                mt: { md: 0.5 },
+                fontSize: { xs: '0.85rem', md: undefined },
+              }}
+            >
               {subtitle}
             </Typography>
           )}
@@ -127,6 +148,10 @@ AccountPage.propTypes = {
   children: PropTypes.node,
   back: PropTypes.string,
   backLabel: PropTypes.string,
+  /** Phones: header-bar title when `title` isn't plain text, or shorter. */
+  barTitle: PropTypes.string,
+  /** Phones: icon buttons for the header bar. */
+  barActions: PropTypes.node,
 };
 
 export default StorefrontLayout;

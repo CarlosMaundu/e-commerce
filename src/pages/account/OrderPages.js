@@ -19,7 +19,10 @@ import {
   Divider,
   FormControlLabel,
   Grid,
+  IconButton,
   Link,
+  List,
+  ListItemButton,
   MenuItem,
   Skeleton,
   Stack,
@@ -31,8 +34,10 @@ import {
   ToggleButton,
   ToggleButtonGroup,
   Typography,
+  useMediaQuery,
 } from '@mui/material';
 import {
+  FiCalendar,
   FiFileText,
   FiGrid,
   FiInfo,
@@ -71,6 +76,8 @@ import {
   TimelineSkeleton,
 } from '../../components/skeletons';
 import ResponsiveSheet from '../../components/common/ResponsiveSheet';
+import PhoneOrderCard from '../../components/account/PhoneOrderCard';
+import StickyActionBar from '../../components/common/StickyActionBar';
 import { offerInstall } from '../../components/InstallPrompt';
 
 const FILTERS = [
@@ -341,6 +348,9 @@ export const OrdersPage = () => {
   const page = Number(params.get('page') || 1);
   const [data, setData] = useState(null);
   const [reordering, setReordering] = useState(false);
+  // Phones: compact cards, and the period in a sheet from the header bar.
+  const phone = useMediaQuery((t) => t.breakpoints.down('md'));
+  const [periodOpen, setPeriodOpen] = useState(false);
   const [view, setView] = useState(() => {
     try {
       return localStorage.getItem(VIEW_KEY) || 'detailed';
@@ -407,13 +417,57 @@ export const OrdersPage = () => {
   };
 
   return (
-    <AccountPage title="My orders" subtitle="Track, return or buy again.">
+    <AccountPage
+      title="My orders"
+      subtitle="Track, return or buy again."
+      barActions={
+        <IconButton
+          aria-label={
+            days
+              ? `Period: ${PERIODS.find((p) => p.value === days)?.label}`
+              : 'Choose a period'
+          }
+          onClick={() => setPeriodOpen(true)}
+          sx={{
+            width: 44,
+            height: 44,
+            borderRadius: '8px',
+            bgcolor: days ? 'primary.light' : 'background.neutral',
+            color: days ? 'primary.main' : 'text.primary',
+          }}
+        >
+          <FiCalendar />
+        </IconButton>
+      }
+    >
+      <ResponsiveSheet
+        open={periodOpen && phone}
+        onClose={() => setPeriodOpen(false)}
+        aria-labelledby="period-title"
+      >
+        <DialogTitle id="period-title">Orders from</DialogTitle>
+        <List sx={{ pb: 2 }}>
+          {PERIODS.map((p) => (
+            <ListItemButton
+              key={p.label}
+              selected={days === p.value}
+              onClick={() => {
+                setPeriodOpen(false);
+                setFilters({ days: p.value, page: '' });
+              }}
+              sx={{ minHeight: 48 }}
+            >
+              {p.label}
+            </ListItemButton>
+          ))}
+        </List>
+      </ResponsiveSheet>
       <Stack
         direction={{ xs: 'column', md: 'row' }}
         alignItems={{ md: 'center' }}
         justifyContent="space-between"
         spacing={2}
-        sx={{ mb: 3 }}
+        sx={{ mb: { xs: 2, md: 3 } }}
       >
         <Tabs
           value={FILTERS.some((f) => f.value === status) ? status : ''}
@@ -430,6 +484,7 @@ export const OrdersPage = () => {
           spacing={1.5}
           alignItems="center"
           flexWrap="wrap"
+          sx={{ display: { xs: 'none', md: 'flex' } }}
         >
           <ToggleButtonGroup
             size="small"
@@ -505,15 +560,29 @@ export const OrdersPage = () => {
         </SectionCard>
       ) : (
         <Stack spacing={2}>
-          {data.orders.map((o) => (
-            <OrderCard
-              key={o.id}
-              order={o}
-              detailed={view === 'detailed'}
-              onReorder={reorder}
-              reordering={reordering}
-            />
-          ))}
+          {data.orders.map((o) => {
+            if (phone) {
+              const [label, value] = deliveryNote(o);
+              return (
+                <PhoneOrderCard
+                  key={o.id}
+                  order={o}
+                  note={label ? [label, value] : null}
+                  onReorder={reorder}
+                  reordering={reordering}
+                />
+              );
+            }
+            return (
+              <OrderCard
+                key={o.id}
+                order={o}
+                detailed={view === 'detailed'}
+                onReorder={reorder}
+                reordering={reordering}
+              />
+            );
+          })}
           {data.total > PAGE_SIZE && (
             <Box
               sx={{
@@ -681,6 +750,7 @@ export const OrderDetailPage = () => {
   const [reasons, setReasons] = useState([]);
   const [returning, setReturning] = useState(null);
   const [reordering, setReordering] = useState(false);
+  const phone = useMediaQuery((t) => t.breakpoints.down('md'));
 
   const load = useCallback(async () => {
     try {
@@ -775,14 +845,36 @@ export const OrderDetailPage = () => {
   }
 
   const canReturn = order.status === 'delivered';
+  const trackable = !['cancelled', 'refunded'].includes(order.status);
   return (
     <AccountPage
       title={`Order ${order.number}`}
       subtitle={`Placed ${formatDateTime(order.placedAt)}`}
       back="/account/orders"
       backLabel="My orders"
+      barActions={
+        <IconButton
+          component={RouterLink}
+          to={`/account/invoices/${order.id}`}
+          aria-label="Invoice"
+          sx={{
+            width: 44,
+            height: 44,
+            borderRadius: '8px',
+            bgcolor: 'background.neutral',
+          }}
+        >
+          <FiFileText />
+        </IconButton>
+      }
       action={
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+        <Stack
+          direction="row"
+          spacing={1}
+          flexWrap="wrap"
+          useFlexGap
+          sx={{ display: { xs: 'none', md: 'flex' } }}
+        >
           <Button
             component={RouterLink}
             to={`/account/invoices/${order.id}`}
@@ -806,18 +898,41 @@ export const OrderDetailPage = () => {
         order={order}
         onClose={() => {
           setCelebrate(false);
+          // Shown once: a refresh shouldn't celebrate again.
+          navigate(`/account/orders/${order.id}`, { replace: true });
           // A good moment to offer the app (once; "Not now" waits 30 days).
           offerInstall();
         }}
       />
-      {justPlaced && (
-        <Alert severity="success" sx={{ mb: 3 }}>
-          Thank you! Your order is confirmed. We’ve emailed a receipt to{' '}
-          {order.email}.
-        </Alert>
-      )}
-      <SectionCard title="Order progress" sx={{ mb: 3 }}>
+      <SectionCard title="Order progress" sx={{ mb: { xs: 2, md: 3 } }}>
         <OrderTracker order={order} />
+        {/* Phones: the total and payment here, not after every item. */}
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          alignItems="center"
+          spacing={1}
+          sx={{
+            display: { xs: 'flex', md: 'none' },
+            mt: 2,
+            pt: 2,
+            borderTop: 1,
+            borderColor: 'divider',
+          }}
+        >
+          <Box>
+            <Typography variant="caption" component="div">
+              {order.paymentMethod === 'stripe' ? 'Card' : 'Cash on delivery'}
+            </Typography>
+            <Typography sx={{ fontWeight: 700 }}>
+              {formatMoney(order.total, order.currency)}
+            </Typography>
+          </Box>
+          <StatusChip
+            status={order.paymentStatus}
+            label={order.paymentStatus}
+          />
+        </Stack>
       </SectionCard>
       <Grid container spacing={3}>
         <Grid item xs={12} md={8}>
@@ -833,8 +948,8 @@ export const OrderDetailPage = () => {
                   <Stack
                     key={item.id}
                     direction="row"
-                    spacing={2}
-                    alignItems="center"
+                    spacing={{ xs: 1.5, sm: 2 }}
+                    alignItems={{ xs: 'flex-start', sm: 'center' }}
                   >
                     <Box
                       component={item.productId ? RouterLink : 'div'}
@@ -849,8 +964,8 @@ export const OrderDetailPage = () => {
                         src={item.image}
                         alt=""
                         sx={{
-                          width: 96,
-                          height: 96,
+                          width: { xs: 72, sm: 96 },
+                          height: { xs: 72, sm: 96 },
                           objectFit: 'contain',
                           borderRadius: 1,
                           bgcolor: 'background.neutral',
@@ -858,7 +973,9 @@ export const OrderDetailPage = () => {
                         }}
                       />
                     </Box>
-                    <Box sx={{ flex: 1 }}>
+                    <Box
+                      sx={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}
+                    >
                       {item.productId ? (
                         <Link
                           component={RouterLink}
@@ -1022,6 +1139,33 @@ export const OrderDetailPage = () => {
           </Stack>
         </Grid>
       </Grid>
+      {/* Phones: the order's main actions stay at hand. */}
+      {phone && (
+        <StickyActionBar data-testid="order-bar">
+          {trackable && (
+            <Button
+              variant="outlined"
+              size="large"
+              startIcon={<FiTruck />}
+              component={RouterLink}
+              to={`/account/track?order=${order.id}`}
+              sx={{ flex: 1 }}
+            >
+              Track
+            </Button>
+          )}
+          <Button
+            variant="contained"
+            size="large"
+            startIcon={<FiRefreshCw />}
+            onClick={reorder}
+            disabled={reordering}
+            sx={{ flex: 1 }}
+          >
+            Buy again
+          </Button>
+        </StickyActionBar>
+      )}
       {returning && (
         <ReturnDialog
           order={order}

@@ -23,6 +23,7 @@ import { EmptyState, SectionCard, StatusChip } from '../../components/ui';
 import OrderTracker from '../../components/account/OrderTracker';
 import { formatDate, formatMoney } from '../../utils/format';
 import { ItemRowsSkeleton, LinesSkeleton } from '../../components/skeletons';
+import { usePageHeader } from '../../components/layout/pageHeader';
 
 const ACTIVE = ['awaiting_payment', 'pending', 'processing', 'shipped'];
 
@@ -88,6 +89,7 @@ SummaryCard.propTypes = {
 };
 
 const AccountOverviewPage = () => {
+  usePageHeader({ title: 'My account' });
   const { user } = useContext(AuthContext);
   const navigate = useNavigate();
   const wishlistCount = useSelector((s) => s.wishlist.items.length);
@@ -134,11 +136,13 @@ const AccountOverviewPage = () => {
 
   return (
     <Stack spacing={3}>
+      {/* Phones: "My account" is in the header bar. */}
       <Stack
         direction={{ xs: 'column', sm: 'row' }}
         alignItems={{ sm: 'flex-end' }}
         justifyContent="space-between"
         spacing={2}
+        sx={{ display: { xs: 'none', md: 'flex' } }}
       >
         <Box>
           <Typography variant="h4" component="h1">
