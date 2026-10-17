@@ -5,20 +5,33 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   Alert,
+  Badge,
   Box,
   Button,
   Chip,
   Container,
   Divider,
   IconButton,
+  ListItemButton,
+  ListItemText,
   MenuItem,
   Select,
   Stack,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import { FiFilter, FiX } from 'react-icons/fi';
+import { FiCheck, FiFilter, FiX } from 'react-icons/fi';
+import {
+  LuArrowUpDown,
+  LuLayoutGrid,
+  LuList,
+  LuSlidersHorizontal,
+} from 'react-icons/lu';
+import { squareButtonSx } from '../components/layout/Header';
+import { usePageTool } from '../components/layout/pageHeader';
 import PageBreadcrumbs from '../components/common/PageBreadcrumbs';
 import HeroSection from '../components/layout/HeroSection';
 import ProductCard from '../components/common/ProductCard';
@@ -34,6 +47,15 @@ import { catalog } from '../api';
 import { friendlyError } from '../utils/friendlyError';
 
 const PAGE_SIZE = 24;
+const VIEW_KEY = 'product-view';
+
+const savedView = () => {
+  try {
+    return localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'grid';
+  } catch {
+    return 'grid';
+  }
+};
 
 const SORTS = [
   { value: '', label: 'Newest' },
@@ -117,6 +139,19 @@ const ProductsPage = () => {
   const { filters, update, clearAll } = useProductQuery();
   const [showFilters, setShowFilters] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [sortOpen, setSortOpen] = useState(false);
+  // Phones: grid or list, remembered on this device.
+  const [view, setView] = useState(savedView);
+  const listView = !desktop && view === 'list';
+  const changeView = (next) => {
+    if (!next) return;
+    setView(next);
+    try {
+      localStorage.setItem(VIEW_KEY, next);
+    } catch {
+      // storage unavailable: keep it for this visit
+    }
+  };
   const [facets, setFacets] = useState(null);
   const [result, setResult] = useState({
     products: null,
@@ -240,6 +275,27 @@ const ProductsPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queryKey, categories, facets]);
 
+  // Phones: Filters sits beside the search field in the header.
+  const filtersTool = useMemo(
+    () => (
+      <IconButton
+        aria-label={`Filters${chips.length ? `, ${chips.length} on` : ''}`}
+        onClick={() => setDrawerOpen(true)}
+        sx={squareButtonSx}
+      >
+        <Badge badgeContent={chips.length} color="primary">
+          <LuSlidersHorizontal />
+        </Badge>
+      </IconButton>
+    ),
+    [chips.length]
+  );
+  usePageTool(desktop ? null : filtersTool);
+
+  const count = result.products
+    ? `${result.total} result${result.total === 1 ? '' : 's'}`
+    : '';
+
   const panel = (
     <ProductFilters
       facets={facets}
@@ -275,101 +331,164 @@ const ProductsPage = () => {
         ]}
       />
 
-      {/* Phones: title and count, then Filters and Sort side by side. */}
-      <Box
-        sx={{
-          display: 'grid',
-          alignItems: 'center',
-          gap: { xs: 1.25, md: 2 },
-          gridTemplateColumns: {
-            xs: 'minmax(0, 1fr) minmax(0, 1fr)',
-            md: 'auto minmax(0, 1fr) auto auto',
-          },
-          py: { xs: 2, md: 2.5 },
-        }}
-      >
-        <Stack
-          direction="row"
-          alignItems="baseline"
-          spacing={1.5}
+      {desktop ? (
+        <Box
           sx={{
-            gridColumn: { xs: '1 / -1', md: '2' },
-            gridRow: { xs: 1, md: 1 },
-            minWidth: 0,
+            display: 'grid',
+            alignItems: 'center',
+            gap: { xs: 1.25, md: 2 },
+            gridTemplateColumns: {
+              xs: 'minmax(0, 1fr) minmax(0, 1fr)',
+              md: 'auto minmax(0, 1fr) auto auto',
+            },
+            py: { xs: 2, md: 2.5 },
           }}
         >
-          <Typography
-            variant="h4"
-            component="h1"
-            noWrap
-            sx={{ fontSize: { xs: '1.4rem', md: undefined }, minWidth: 0 }}
+          <Stack
+            direction="row"
+            alignItems="baseline"
+            spacing={1.5}
+            sx={{
+              gridColumn: { xs: '1 / -1', md: '2' },
+              gridRow: { xs: 1, md: 1 },
+              minWidth: 0,
+            }}
           >
-            {title}
-          </Typography>
-          {!desktop && (
+            <Typography
+              variant="h4"
+              component="h1"
+              noWrap
+              sx={{ fontSize: { xs: '1.4rem', md: undefined }, minWidth: 0 }}
+            >
+              {title}
+            </Typography>
+          </Stack>
+          <Button
+            variant="contained"
+            color="inherit"
+            startIcon={<FiFilter />}
+            onClick={() =>
+              desktop ? setShowFilters(!showFilters) : setDrawerOpen(true)
+            }
+            sx={{
+              gridColumn: { xs: '1', md: '1' },
+              gridRow: { xs: 2, md: 1 },
+              height: 40,
+              bgcolor: 'primary.light',
+              color: 'primary.main',
+              boxShadow: 'none',
+              '&:hover': { bgcolor: 'primary.light' },
+            }}
+          >
+            {desktop && showFilters
+              ? 'Hide filters'
+              : `Filters${chips.length ? ` (${chips.length})` : ''}`}
+          </Button>
+          {desktop && (
             <Typography
               color="text.secondary"
               aria-live="polite"
-              sx={{ whiteSpace: 'nowrap' }}
+              sx={{ gridRow: 1 }}
             >
-              {result.products
-                ? `${result.total} result${result.total === 1 ? '' : 's'}`
-                : ''}
+              {count}
             </Typography>
           )}
-        </Stack>
-        <Button
-          variant="contained"
-          color="inherit"
-          startIcon={<FiFilter />}
-          onClick={() =>
-            desktop ? setShowFilters(!showFilters) : setDrawerOpen(true)
-          }
-          sx={{
-            gridColumn: { xs: '1', md: '1' },
-            gridRow: { xs: 2, md: 1 },
-            height: 40,
-            bgcolor: 'primary.light',
-            color: 'primary.main',
-            boxShadow: 'none',
-            '&:hover': { bgcolor: 'primary.light' },
-          }}
-        >
-          {desktop && showFilters
-            ? 'Hide filters'
-            : `Filters${chips.length ? ` (${chips.length})` : ''}`}
-        </Button>
-        {desktop && (
-          <Typography
-            color="text.secondary"
-            aria-live="polite"
-            sx={{ gridRow: 1 }}
+          <Select
+            size="small"
+            value={filters.sort}
+            displayEmpty
+            onChange={(e) => update({ sort: e.target.value })}
+            inputProps={{ 'aria-label': 'Sort by' }}
+            sx={{
+              gridRow: { xs: 2, md: 1 },
+              minWidth: { md: 190 },
+              height: 40,
+              bgcolor: 'background.neutral',
+            }}
           >
-            {result.products
-              ? `${result.total} result${result.total === 1 ? '' : 's'}`
-              : ''}
-          </Typography>
-        )}
-        <Select
-          size="small"
-          value={filters.sort}
-          displayEmpty
-          onChange={(e) => update({ sort: e.target.value })}
-          inputProps={{ 'aria-label': 'Sort by' }}
-          sx={{
-            gridRow: { xs: 2, md: 1 },
-            minWidth: { md: 190 },
-            height: 40,
-            bgcolor: 'background.neutral',
-          }}
+            {SORTS.map((s) => (
+              <MenuItem key={s.value} value={s.value}>
+                {s.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </Box>
+      ) : (
+        // Phones: title and count; Sort and the grid/list switch beside them.
+        // Filters lives in the header, next to the search.
+        <Stack
+          direction="row"
+          alignItems="center"
+          spacing={1}
+          sx={{ pt: 1, pb: 1.5 }}
         >
-          {SORTS.map((s) => (
-            <MenuItem key={s.value} value={s.value}>
-              {s.label}
-            </MenuItem>
-          ))}
-        </Select>
-      </Box>
+          <Stack
+            direction="row"
+            alignItems="baseline"
+            spacing={1}
+            sx={{ flex: 1, minWidth: 0 }}
+          >
+            <Typography
+              variant="h4"
+              component="h1"
+              noWrap
+              sx={{ fontSize: '1.5rem', minWidth: 0 }}
+            >
+              {title}
+            </Typography>
+            <Typography
+              color="text.secondary"
+              aria-live="polite"
+              sx={{ whiteSpace: 'nowrap', fontSize: '0.9rem' }}
+            >
+              {count}
+            </Typography>
+          </Stack>
+          <IconButton
+            aria-label={`Sort: ${SORTS.find((x) => x.value === filters.sort)?.label || 'Newest'}`}
+            onClick={() => setSortOpen(true)}
+            sx={{
+              ...squareButtonSx,
+              bgcolor: 'background.paper',
+              border: 1,
+              borderColor: 'divider',
+            }}
+          >
+            <LuArrowUpDown />
+          </IconButton>
+          <ToggleButtonGroup
+            exclusive
+            size="small"
+            value={view}
+            onChange={(_, v) => changeView(v)}
+            aria-label="View"
+            sx={{
+              p: 0.5,
+              border: 1,
+              borderColor: 'divider',
+              borderRadius: '8px',
+              '& .MuiToggleButton-root': {
+                border: 0,
+                borderRadius: '6px !important',
+                width: 36,
+                height: 34,
+                color: 'text.secondary',
+                '&.Mui-selected, &.Mui-selected:hover': {
+                  bgcolor: 'primary.light',
+                  color: 'primary.main',
+                },
+              },
+            }}
+          >
+            <ToggleButton value="grid" aria-label="Grid view">
+              <LuLayoutGrid />
+            </ToggleButton>
+            <ToggleButton value="list" aria-label="List view">
+              <LuList />
+            </ToggleButton>
+          </ToggleButtonGroup>
+        </Stack>
+      )}
       {!desktop && categories.length > 0 && (
         <CategoryChips
           categories={categories}
@@ -396,9 +515,15 @@ const ProductsPage = () => {
             {panel}
           </Box>
         )}
-        <Box sx={{ pt: 3, minWidth: 0 }}>
+        <Box sx={{ pt: { xs: 1.5, md: 3 }, minWidth: 0 }}>
           {chips.length > 0 && (
-            <Stack direction="row" flexWrap="wrap" gap={1} sx={{ mb: 2 }}>
+            <Stack
+              direction="row"
+              flexWrap="wrap"
+              alignItems="center"
+              gap={1}
+              sx={{ mb: 2 }}
+            >
               {chips.map((c) => (
                 <Chip
                   key={c.label}
@@ -406,7 +531,12 @@ const ProductsPage = () => {
                   onDelete={() => update(c.clear)}
                 />
               ))}
-              <Button size="small" onClick={clearAll}>
+              {/* Phones: Clear all sits at the right end of the row. */}
+              <Button
+                size="small"
+                onClick={clearAll}
+                sx={{ ml: { xs: 'auto', md: 0 } }}
+              >
                 Clear all
               </Button>
             </Stack>
@@ -432,11 +562,12 @@ const ProductsPage = () => {
           ) : (
             <Box
               data-testid="product-grid"
+              data-view={listView ? 'list' : 'grid'}
               sx={{
                 display: 'grid',
                 gridTemplateColumns: {
-                  xs: 'repeat(2, minmax(0, 1fr))',
-                  sm: 'repeat(3, minmax(0, 1fr))',
+                  xs: listView ? '1fr' : 'repeat(2, minmax(0, 1fr))',
+                  sm: listView ? '1fr' : 'repeat(3, minmax(0, 1fr))',
                   lg: showFilters
                     ? 'repeat(4, minmax(0, 1fr))'
                     : 'repeat(5, minmax(0, 1fr))',
@@ -446,7 +577,11 @@ const ProductsPage = () => {
             >
               {(result.products || Array.from({ length: 8 })).map((p, i) =>
                 p ? (
-                  <ProductCard key={p.id} product={p} />
+                  <ProductCard
+                    key={p.id}
+                    product={p}
+                    layout={listView ? 'list' : 'grid'}
+                  />
                 ) : (
                   <ProductCardSkeleton key={i} />
                 )
@@ -479,6 +614,38 @@ const ProductsPage = () => {
           )}
         </Box>
       </Box>
+
+      {/* Phones: sort choices slide up from the bottom. */}
+      <ResponsiveSheet
+        open={sortOpen && !desktop}
+        onClose={() => setSortOpen(false)}
+        aria-labelledby="sort-title"
+      >
+        <Typography variant="h6" id="sort-title" sx={{ px: 2, pt: 2, pb: 1 }}>
+          Sort by
+        </Typography>
+        <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0, pb: 2 }}>
+          {SORTS.map((s) => {
+            const on = filters.sort === s.value;
+            return (
+              <li key={s.value}>
+                <ListItemButton
+                  selected={on}
+                  aria-current={on || undefined}
+                  onClick={() => {
+                    setSortOpen(false);
+                    if (!on) update({ sort: s.value });
+                  }}
+                  sx={{ minHeight: 48, px: 2 }}
+                >
+                  <ListItemText primary={s.label} />
+                  {on && <FiCheck />}
+                </ListItemButton>
+              </li>
+            );
+          })}
+        </Box>
+      </ResponsiveSheet>
 
       {/* Phones: filters slide up from the bottom. */}
       <ResponsiveSheet

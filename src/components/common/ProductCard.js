@@ -1,5 +1,7 @@
 // src/components/common/ProductCard.js — Aurora-style product tile. The photo
 // sits straight on the card; the card's tinted background appears on hover.
+// Phones: text sits left and the Sale/stock badge rides on the photo.
+// layout="list": photo on the left, details beside it (phone product list).
 import React, { useContext } from 'react';
 import PropTypes from 'prop-types';
 import { Link as RouterLink } from 'react-router-dom';
@@ -56,7 +58,8 @@ Swatches.propTypes = {
   size: PropTypes.number,
 };
 
-const ProductCard = ({ product, compact = false }) => {
+const ProductCard = ({ product, compact = false, layout = 'grid' }) => {
+  const list = layout === 'list';
   const { user } = useContext(AuthContext);
   const shopper = canShop(user);
   const dispatch = useDispatch();
@@ -89,6 +92,23 @@ const ProductCard = ({ product, compact = false }) => {
     }
   };
 
+  const badge =
+    product.inStock === false
+      ? { color: 'error', label: 'Out of stock' }
+      : product.lowStock
+        ? { color: 'error', label: 'Low stock' }
+        : onSale
+          ? { color: 'success', label: 'Sale' }
+          : null;
+  // Phones (and the list layout): left-aligned; wider screens: centred.
+  const align = list
+    ? { textAlign: 'left', alignItems: 'flex-start' }
+    : {
+        textAlign: { xs: 'left', sm: 'center' },
+        alignItems: { xs: 'flex-start', sm: 'center' },
+      };
+  const rowJustify = list ? 'flex-start' : { xs: 'flex-start', sm: 'center' };
+
   return (
     <Box
       component={RouterLink}
@@ -96,8 +116,14 @@ const ProductCard = ({ product, compact = false }) => {
       data-testid="product-card"
       sx={{
         position: 'relative',
-        display: 'flex',
-        flexDirection: 'column',
+        ...(list
+          ? {
+              display: 'grid',
+              gridTemplateColumns: '120px minmax(0, 1fr)',
+              columnGap: 1.5,
+              alignItems: 'start',
+            }
+          : { display: 'flex', flexDirection: 'column' }),
         height: '100%',
         textDecoration: 'none',
         color: 'text.primary',
@@ -113,31 +139,21 @@ const ProductCard = ({ product, compact = false }) => {
         direction="row"
         justifyContent="space-between"
         alignItems="center"
-        sx={{ minHeight: 22, mb: 1 }}
+        sx={{
+          minHeight: 22,
+          mb: 1,
+          display: list ? 'none' : { xs: 'none', sm: 'flex' },
+        }}
       >
         <Box>
-          {product.inStock === false ? (
+          {badge && (
             <Chip
               size="small"
-              color="error"
+              color={badge.color}
               variant="outlined"
-              label="Out of stock"
+              label={badge.label}
             />
-          ) : product.lowStock ? (
-            <Chip
-              size="small"
-              color="error"
-              variant="outlined"
-              label="Low stock"
-            />
-          ) : onSale ? (
-            <Chip
-              size="small"
-              color="success"
-              variant="outlined"
-              label="Sale"
-            />
-          ) : null}
+          )}
         </Box>
         {colors.length > 1 && <Swatches values={colors} />}
       </Stack>
@@ -156,6 +172,21 @@ const ProductCard = ({ product, compact = false }) => {
             display: 'block',
           }}
         />
+        {badge && (
+          <Chip
+            size="small"
+            color={badge.color}
+            variant="outlined"
+            label={badge.label}
+            sx={{
+              display: list ? 'flex' : { xs: 'flex', sm: 'none' },
+              position: 'absolute',
+              left: 8,
+              bottom: 8,
+              bgcolor: 'background.paper',
+            }}
+          />
+        )}
         {shopper && (
           <IconButton
             className="wishlist"
@@ -184,7 +215,12 @@ const ProductCard = ({ product, compact = false }) => {
 
       <Stack
         spacing={0.75}
-        sx={{ pt: 1.5, flex: 1, textAlign: 'center', alignItems: 'center' }}
+        sx={{
+          pt: list ? 0 : 1.5,
+          flex: 1,
+          height: list ? '100%' : 'auto',
+          ...align,
+        }}
       >
         <Typography
           variant="subtitle2"
@@ -201,7 +237,7 @@ const ProductCard = ({ product, compact = false }) => {
         <Stack
           direction="row"
           spacing={0.5}
-          justifyContent="center"
+          justifyContent={rowJustify}
           flexWrap="wrap"
         >
           {[product.category?.name, product.brand?.name]
@@ -224,7 +260,7 @@ const ProductCard = ({ product, compact = false }) => {
           <Stack
             direction="row"
             alignItems="center"
-            justifyContent="center"
+            justifyContent={rowJustify}
             flexWrap="wrap"
             columnGap={0.5}
           >
@@ -256,7 +292,7 @@ const ProductCard = ({ product, compact = false }) => {
           <Stack
             direction="row"
             alignItems="center"
-            justifyContent="center"
+            justifyContent={rowJustify}
             flexWrap="wrap"
             gap={0.5}
           >
@@ -316,6 +352,7 @@ ProductCard.propTypes = {
     images: PropTypes.array,
   }).isRequired,
   compact: PropTypes.bool,
+  layout: PropTypes.oneOf(['grid', 'list']),
 };
 
 export default ProductCard;
