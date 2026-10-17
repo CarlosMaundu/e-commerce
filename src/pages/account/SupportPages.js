@@ -5,6 +5,7 @@ import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import {
   Box,
   Button,
+  IconButton,
   Link,
   Skeleton,
   Stack,
@@ -12,8 +13,10 @@ import {
   TableRow,
   TextField,
   Typography,
+  useMediaQuery,
 } from '@mui/material';
-import { FiLifeBuoy, FiPlus } from 'react-icons/fi';
+import { FiLifeBuoy, FiPlus, FiSend } from 'react-icons/fi';
+import StickyActionBar from '../../components/common/StickyActionBar';
 import { support } from '../../api';
 import { useNotify } from '../../notification/NotificationProvider';
 import { AccountPage } from '../../layouts/StorefrontLayout';
@@ -56,7 +59,26 @@ export const SupportRequestsPage = () => {
     <AccountPage
       title="Support"
       subtitle="Your questions to us and our replies."
-      action={<NewRequest />}
+      action={
+        <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+          <NewRequest />
+        </Box>
+      }
+      barActions={
+        <IconButton
+          component={RouterLink}
+          to="/support"
+          aria-label="New request"
+          sx={{
+            width: 44,
+            height: 44,
+            borderRadius: '8px',
+            bgcolor: 'background.neutral',
+          }}
+        >
+          <FiPlus />
+        </IconButton>
+      }
     >
       <AccountTable
         label="Support requests"
@@ -140,6 +162,19 @@ export const SupportRequestPage = () => {
   const [ticket, setTicket] = useState(null);
   const [reply, setReply] = useState('');
   const [sending, setSending] = useState(false);
+  // Phones: the reply box is pinned at the bottom, like a chat.
+  const phone = useMediaQuery((t) => t.breakpoints.down('md'));
+  // Open at the newest message, and follow new ones.
+  const count = ticket?.messages?.length || 0;
+  useEffect(() => {
+    if (!phone || !count) return;
+    requestAnimationFrame(() =>
+      window.scrollTo({
+        top: document.documentElement.scrollHeight,
+        behavior: 'smooth',
+      })
+    );
+  }, [phone, count]);
 
   useEffect(() => {
     support
@@ -166,9 +201,20 @@ export const SupportRequestPage = () => {
   return (
     <AccountPage
       title={ticket ? ticket.subject : 'Support request'}
+      barTitle={ticket ? ticket.number : 'Support request'}
       subtitle={
         ticket ? (
           <>
+            {/* Phones: the subject isn't in the header bar. */}
+            <Box
+              component="strong"
+              sx={{
+                display: { xs: 'block', md: 'none' },
+                color: 'text.primary',
+              }}
+            >
+              {ticket.subject}
+            </Box>
             {ticket.number} · {ticket.category_name}
             {ticket.order && (
               <>
@@ -220,6 +266,51 @@ export const SupportRequestPage = () => {
               </Link>
               .
             </Typography>
+          ) : phone ? (
+            <StickyActionBar aboveNav={false} data-testid="reply-bar">
+              <Box
+                component="form"
+                onSubmit={send}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'flex-end',
+                  gap: 1,
+                  flex: 1,
+                }}
+              >
+                <TextField
+                  value={reply}
+                  onChange={(e) => setReply(e.target.value)}
+                  placeholder="Write your reply…"
+                  multiline
+                  maxRows={4}
+                  fullWidth
+                  size="small"
+                  inputProps={{
+                    maxLength: 5000,
+                    'aria-label': 'Your reply',
+                    enterKeyHint: 'send',
+                  }}
+                />
+                <IconButton
+                  type="submit"
+                  aria-label="Send reply"
+                  disabled={sending || !reply.trim()}
+                  sx={{
+                    width: 44,
+                    height: 44,
+                    flexShrink: 0,
+                    borderRadius: '10px',
+                    bgcolor: 'primary.main',
+                    color: 'primary.contrastText',
+                    '&:hover': { bgcolor: 'primary.dark' },
+                    '&.Mui-disabled': { bgcolor: 'background.neutral' },
+                  }}
+                >
+                  <FiSend />
+                </IconButton>
+              </Box>
+            </StickyActionBar>
           ) : (
             <SectionCard title="Reply">
               <Box component="form" onSubmit={send}>

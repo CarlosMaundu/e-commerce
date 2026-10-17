@@ -199,8 +199,14 @@ const InvoiceDocument = ({ order, showAmount = true }) => {
           component="table"
           sx={{
             width: '100%',
-            minWidth: 520,
+            // Phones: two columns (item with "qty × price", amount) instead
+            // of a wide table to scroll sideways.
+            minWidth: { sm: 520 },
             borderCollapse: 'collapse',
+            '@media (max-width: 599.95px)': {
+              '& .wide': { display: 'none' },
+              '& td, & th': { px: 1.5 },
+            },
             '& th': {
               textAlign: 'left',
               fontSize: '0.72rem',
@@ -225,8 +231,8 @@ const InvoiceDocument = ({ order, showAmount = true }) => {
           <thead>
             <tr>
               <th>Item</th>
-              <th className="num">Qty</th>
-              <th className="num">Unit price</th>
+              <th className="num wide">Qty</th>
+              <th className="num wide">Unit price</th>
               <th className="num">Amount</th>
             </tr>
           </thead>
@@ -242,6 +248,12 @@ const InvoiceDocument = ({ order, showAmount = true }) => {
                       {optionText(item.options)}
                     </Typography>
                   )}
+                  <Typography
+                    variant="caption"
+                    sx={{ display: { xs: 'block', sm: 'none' } }}
+                  >
+                    {item.quantity} × {money(item.price)}
+                  </Typography>
                   {item.gift && (
                     <Typography variant="caption" sx={{ display: 'block' }}>
                       Gift for {item.gift.to} from {item.gift.from}
@@ -249,8 +261,8 @@ const InvoiceDocument = ({ order, showAmount = true }) => {
                     </Typography>
                   )}
                 </td>
-                <td className="num">{item.quantity}</td>
-                <td className="num">{money(item.price)}</td>
+                <td className="num wide">{item.quantity}</td>
+                <td className="num wide">{money(item.price)}</td>
                 <td className="num">
                   <strong>{money(item.total)}</strong>
                 </td>
