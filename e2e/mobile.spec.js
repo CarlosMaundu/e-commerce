@@ -203,3 +203,58 @@ test('the phone header greets you instead of showing the logo; the bell opens yo
   await banner.getByTestId('phone-greeting').click();
   await expect(page.getByRole('menuitem', { name: 'My orders' })).toBeVisible();
 });
+
+test('wishlist on a phone: cards like the bag, one main action, bulk actions in ⋮', async ({
+  page,
+}) => {
+  await page.goto('/products?search=Nourishing%20body%20lotion');
+  await page
+    .getByRole('button', { name: 'Add Nourishing body lotion to wishlist' })
+    .click();
+  await page.goto('/wishlist');
+  const bar = page.getByTestId('page-bar');
+  await expect(bar).toContainText('Wishlist (1)');
+  const card = page.locator('[data-testid^="wishlist-item-"]').first();
+  await expect(card.getByRole('button', { name: 'Add to bag' })).toBeVisible();
+  await card.getByRole('button', { name: 'Add to bag' }).click();
+  await expect(page.getByTestId('app-notification')).toContainText(
+    'added to your cart'
+  );
+  await bar.getByRole('button', { name: 'More wishlist actions' }).click();
+  await expect(
+    page.getByRole('menuitem', { name: 'Select all' })
+  ).toBeVisible();
+  await page.keyboard.press('Escape');
+  await noSideScroll(page);
+});
+
+test('sign-in pages: a title in the header, autofill, and the password rules in view', async ({
+  page,
+}) => {
+  await page.goto('/login');
+  const bar = page.getByTestId('page-bar');
+  await expect(bar).toContainText('Sign in');
+  await expect(page.getByLabel('Email Address')).toHaveAttribute(
+    'autocomplete',
+    'email'
+  );
+  await expect(page.locator('input[name="password"]')).toHaveAttribute(
+    'autocomplete',
+    'current-password'
+  );
+  await expect(
+    page.getByRole('button', { name: 'Forgot Password?' })
+  ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Show password' })
+  ).toBeVisible();
+
+  await page.goto('/register');
+  await expect(bar).toContainText('Create account');
+  const rules = page.getByRole('list', { name: 'Password rules' });
+  await expect(rules).toBeVisible();
+  await page.locator('input[name="password"]').fill('abc');
+  await expect(rules).toContainText('A lowercase letter ✓');
+  await expect(page.getByRole('status')).toContainText('To continue');
+  await noSideScroll(page);
+});

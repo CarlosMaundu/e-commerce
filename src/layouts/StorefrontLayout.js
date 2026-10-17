@@ -89,6 +89,7 @@ export const AccountPage = ({
   backLabel = 'My account',
   barTitle,
   barActions = null,
+  ownBar = false,
 }) => {
   const here = useLocation().pathname;
   // Phones: the title goes in the header bar (Back · title · actions), so the
@@ -96,6 +97,7 @@ export const AccountPage = ({
   usePageHeader({
     title: barTitle || (typeof title === 'string' ? title : ''),
     actions: barActions,
+    enabled: !ownBar,
   });
   // Sits inside AccountLayout, which provides the width and the sidebar.
   return (
@@ -152,6 +154,8 @@ AccountPage.propTypes = {
   barTitle: PropTypes.string,
   /** Phones: icon buttons for the header bar. */
   barActions: PropTypes.node,
+  /** The page sets the header bar itself (e.g. with its own menu). */
+  ownBar: PropTypes.bool,
 };
 
 export default StorefrontLayout;

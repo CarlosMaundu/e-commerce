@@ -28,11 +28,19 @@ PageHeaderProvider.propTypes = { children: PropTypes.node };
 /** For the header: the current page's bar, or null for the default one. */
 export const usePageHeaderConfig = () => useContext(ConfigContext);
 
-/** For pages: show { title, actions } in the phone header while mounted. */
-export const usePageHeader = ({ title, actions = null }) => {
+/**
+ * For pages: show { title, actions } in the phone header while mounted.
+ * enabled: false leaves the header to a child that sets its own.
+ */
+export const usePageHeader = ({ title, actions = null, enabled = true }) => {
   const setConfig = useContext(SetContext);
   useEffect(() => {
-    setConfig({ title, actions });
-  }, [setConfig, title, actions]);
-  useEffect(() => () => setConfig(null), [setConfig]);
+    if (enabled) setConfig({ title, actions });
+  }, [setConfig, title, actions, enabled]);
+  useEffect(
+    () => () => {
+      if (enabled) setConfig(null);
+    },
+    [setConfig, enabled]
+  );
 };

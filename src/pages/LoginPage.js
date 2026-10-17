@@ -8,6 +8,7 @@ import {
   Container,
   IconButton,
   InputAdornment,
+  Link,
   Paper,
   Fade,
 } from '@mui/material';
@@ -23,6 +24,7 @@ import { useNotify } from '../notification/NotificationProvider';
 import { MESSAGES } from '../notification/messages';
 import GoogleSignInButton from '../components/auth/GoogleSignInButton';
 import { GOOGLE_CLIENT_ID } from '../api/config';
+import { usePageHeader } from '../components/layout/pageHeader';
 
 const StyledContainer = styled(Container)(({ theme }) => ({
   display: 'flex',
@@ -72,6 +74,10 @@ const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showMainForm, setShowMainForm] = useState(true);
   const [showForgotPasswordForm, setShowForgotPasswordForm] = useState(false);
+  // Phones: the page's name in the header bar (no search or bell here).
+  usePageHeader({
+    title: showForgotPasswordForm ? 'Reset password' : 'Sign in',
+  });
   const notify = useNotify();
 
   const handleGoogleCredential = async (credential) => {
@@ -174,6 +180,7 @@ const LoginPage = () => {
                   label="Email Address"
                   name="email"
                   type="email"
+                  autoComplete="email"
                   value={loginFormik.values.email}
                   onChange={loginFormik.handleChange}
                   onBlur={loginFormik.handleBlur}
@@ -200,6 +207,7 @@ const LoginPage = () => {
                   label="Password"
                   name="password"
                   type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
                   value={loginFormik.values.password}
                   onChange={loginFormik.handleChange}
                   onBlur={loginFormik.handleBlur}
@@ -221,6 +229,9 @@ const LoginPage = () => {
                         <IconButton
                           onClick={() => setShowPassword(!showPassword)}
                           edge="end"
+                          aria-label={
+                            showPassword ? 'Hide password' : 'Show password'
+                          }
                         >
                           {showPassword ? (
                             <AiOutlineEyeInvisible />
@@ -233,17 +244,19 @@ const LoginPage = () => {
                   }}
                 />
 
-                <Typography
+                <Link
+                  component="button"
+                  type="button"
                   variant="body2"
-                  color="primary"
-                  sx={{ mt: 1, cursor: 'pointer' }}
+                  underline="hover"
+                  sx={{ mt: 1, py: 0.5 }}
                   onClick={() => {
                     setShowForgotPasswordForm(true);
                     setShowMainForm(false);
                   }}
                 >
                   Forgot Password?
-                </Typography>
+                </Link>
 
                 <StyledButton
                   type="submit"
@@ -281,6 +294,7 @@ const LoginPage = () => {
                   label="Email Address"
                   name="email"
                   type="email"
+                  autoComplete="email"
                   value={forgotPasswordFormik.values.email}
                   onChange={forgotPasswordFormik.handleChange}
                   onBlur={forgotPasswordFormik.handleBlur}
