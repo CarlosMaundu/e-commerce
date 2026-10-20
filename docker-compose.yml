@@ -70,6 +70,7 @@ services:
       TZ: ${SHOP_TIMEZONE:-Africa/Nairobi}
       BACKUP_HOUR: ${BACKUP_HOUR:-2}
       BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      SENTRY_CRON_URL: ${SENTRY_CRON_URL:-}
     volumes:
       - ./docker/backup.sh:/backup.sh:ro
       - ./backups:/backups
