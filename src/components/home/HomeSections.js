@@ -187,9 +187,7 @@ export const CategoryCircles = () => {
           gap: 2,
           overflowX: 'auto',
           scrollSnapType: 'x mandatory',
-          scrollPaddingInline: 16,
-          mx: -2,
-          px: 2,
+          // Same width as the rest of the page.
           pb: 1,
           '&::-webkit-scrollbar': { display: 'none' },
         }}

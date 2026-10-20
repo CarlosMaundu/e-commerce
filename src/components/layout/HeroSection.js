@@ -430,11 +430,9 @@ const PhoneHeroCarousel = ({ hero }) => {
         sx={{
           display: 'flex',
           gap: 1.5,
-          mx: -2,
-          px: 2,
+          // Same width as the rest of the page; the next card peeks in.
           overflowX: 'auto',
           scrollSnapType: 'x mandatory',
-          scrollPaddingInline: 16,
           overscrollBehaviorX: 'contain',
           scrollbarWidth: 'none',
           '&::-webkit-scrollbar': { display: 'none' },
