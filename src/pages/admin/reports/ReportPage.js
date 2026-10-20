@@ -212,8 +212,14 @@ const SeriesChart = ({ series, group }) => {
         : []),
     ]),
   };
-  const tick = (format) => (v) =>
-    format === 'money' ? formatMoneyCompact(v) : Number(v).toLocaleString();
+  // Small or zero values round to the same text ("$1, $1, $0…"); show each
+  // label once, and whole numbers only for counts.
+  const tick = (format) => (v, i, ticks) => {
+    const text = (x) =>
+      format === 'money' ? formatMoneyCompact(x) : Number(x).toLocaleString();
+    if (format !== 'money' && !Number.isInteger(v)) return null;
+    return i > 0 && text(ticks[i - 1].value) === text(v) ? null : text(v);
+  };
   return (
     <Box sx={{ height: 300 }} data-testid="report-chart">
       <Line
@@ -259,7 +265,7 @@ SeriesChart.propTypes = {
 };
 
 /** A report table; rows with a link open what's behind them. */
-const ReportTable = ({ table, pageSize = PAGE_SIZE, testId }) => {
+const ReportTable = ({ table, pageSize = PAGE_SIZE, testId, compact }) => {
   const navigate = useNavigate();
   const [page, setPage] = useState(0);
   useEffect(() => setPage(0), [table]);
@@ -326,8 +332,10 @@ const ReportTable = ({ table, pageSize = PAGE_SIZE, testId }) => {
           </TableBody>
         </Table>
       </TableContainer>
-      {table.rows.length > 0 && (
+      {/* A pager only when there's more than one page. */}
+      {table.rows.length > pageSize && (
         <StandardPagination
+          compact={compact}
           count={table.rows.length}
           page={page}
           rowsPerPage={pageSize}
@@ -344,6 +352,7 @@ ReportTable.propTypes = {
   table: PropTypes.object.isRequired,
   pageSize: PropTypes.number,
   testId: PropTypes.string,
+  compact: PropTypes.bool,
 };
 
 const ReportSkeleton = () => (
@@ -665,7 +674,11 @@ const ReportPage = () => {
                         overflow: 'hidden',
                       }}
                     >
-                      <ReportTable table={b} pageSize={5} />
+                      <ReportTable
+                        table={b}
+                        pageSize={5}
+                        compact={b.columns.length <= 4}
+                      />
                     </Box>
                   </SectionCard>
                 </Grid>

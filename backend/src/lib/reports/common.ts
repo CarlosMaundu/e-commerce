@@ -116,8 +116,15 @@ export const buckets = (p: { from: string; to: string }, group: string) => {
 };
 
 /** Values per bucket from rows of { bucket, ...values }; 0 where none. */
+// A DATE column comes back as local midnight; read it in local time, or a
+// server east of UTC (e.g. Nairobi) would put every bucket a day early.
+const dateKey = (v: unknown) =>
+  v instanceof Date
+    ? `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, '0')}-${String(v.getDate()).padStart(2, '0')}`
+    : String(v).slice(0, 10);
+
 export const fill = (labels: string[], rows: any[], key: string) => {
-  const map = new Map(rows.map((r) => [String(r.bucket instanceof Date ? r.bucket.toISOString().slice(0, 10) : r.bucket).slice(0, 10), Number(r[key]) || 0]));
+  const map = new Map(rows.map((r) => [dateKey(r.bucket), Number(r[key]) || 0]));
   return labels.map((l) => round2(map.get(l) ?? 0));
 };
 

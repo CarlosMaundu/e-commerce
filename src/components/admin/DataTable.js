@@ -94,6 +94,7 @@ export const StandardPagination = ({
   onRowsPerPageChange,
   label = 'items',
   maxShowAll = 100,
+  compact: compactProp = false,
 }) => {
   const pages = Math.max(1, Math.ceil(count / rowsPerPage));
   const current = Math.min(page, pages - 1);
@@ -105,7 +106,9 @@ export const StandardPagination = ({
   // Small phones: "‹ Previous · Page 2 of 5 · Next ›" with full-size buttons
   // (a row of numbers doesn't fit, and the buttons are too small to tap).
   // (A plain width query: this also renders outside the theme, e.g. in tests.)
-  const compact = useMediaQuery('(max-width: 599.95px)');
+  // Narrow tables (half-width report breakdowns) ask for it with `compact`.
+  const phone = useMediaQuery('(max-width: 599.95px)');
+  const compact = phone || compactProp;
   if (compact) {
     if (pages <= 1) return null;
     return (
@@ -130,7 +133,7 @@ export const StandardPagination = ({
           onClick={() => go(current - 1)}
           disabled={current === 0}
           aria-label="Previous page"
-          sx={{ height: 44, bgcolor: 'background.paper' }}
+          sx={{ height: phone ? 44 : 34, bgcolor: 'background.paper' }}
         >
           Previous
         </Button>
@@ -152,7 +155,7 @@ export const StandardPagination = ({
           onClick={() => go(current + 1)}
           disabled={current >= pages - 1}
           aria-label="Next page"
-          sx={{ height: 44, bgcolor: 'background.paper' }}
+          sx={{ height: phone ? 44 : 34, bgcolor: 'background.paper' }}
         >
           Next
         </Button>
@@ -294,6 +297,7 @@ StandardPagination.propTypes = {
   onRowsPerPageChange: PropTypes.func.isRequired,
   label: PropTypes.string,
   maxShowAll: PropTypes.number,
+  compact: PropTypes.bool,
 };
 
 /** Breadcrumb, title, optional subtitle and actions. */

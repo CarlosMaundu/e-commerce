@@ -464,7 +464,7 @@ const TopCategories = ({ data }) => {
     <Card sx={{ height: '100%' }}>
       <CardTitle
         title="Top product categories"
-        subtitle={`Share of net sales in ${data.days} days`}
+        subtitle={`Share of item sales in ${data.days} days`}
       />
       {rows.length ? (
         <Stack spacing={2.75}>
@@ -575,7 +575,7 @@ const AverageOrder = ({ data }) => {
     <Card sx={{ height: '100%' }}>
       <CardTitle
         title="Average order value"
-        subtitle="Revenue per order"
+        subtitle="Sales per order, as in the Sales report"
         action={<ChangeChip value={k.change} tone="success" />}
       />
       <Typography
@@ -619,7 +619,7 @@ const Inventory = ({ data }) => {
     <Card sx={{ height: '100%' }}>
       <CardTitle
         title="Inventory health"
-        subtitle={`Across ${inv.total.toLocaleString()} products`}
+        subtitle={`Across ${inv.total.toLocaleString()} stocked items (each variant counts)`}
         action={
           <Typography
             sx={{ fontWeight: 800, fontSize: '1.35rem', color: 'success.main' }}
@@ -1254,9 +1254,9 @@ const AdminDashboardPage = () => {
           >
             <Kpi
               testId="kpi-revenue"
-              label="Net revenue"
+              label="Net sales"
               value={formatMoneyCompact(k.revenue.value)}
-              caption="After refunds and cancellations"
+              caption="Sales less refunds paid, vs the period before"
               change={k.revenue.change}
               tone="primary"
             />
