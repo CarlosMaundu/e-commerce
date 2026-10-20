@@ -93,8 +93,7 @@ const CategoryChips = ({ categories, chosen, category, parent, onPick }) => {
       component="nav"
       aria-label="Categories"
       sx={{
-        mx: -2,
-        px: 2,
+        // Same width as the title and the grid; swipe for the rest.
         pb: 2,
         overflowX: 'auto',
         scrollbarWidth: 'none',
@@ -573,6 +572,9 @@ const ProductsPage = () => {
                     : 'repeat(5, minmax(0, 1fr))',
                 },
                 gap: { xs: 1, md: 1.5 },
+                // Phones: cards keep their padding (for the hover tint) but
+                // their photos line up with the title and categories.
+                mx: { xs: -1, sm: 0 },
               }}
             >
               {(result.products || Array.from({ length: 8 })).map((p, i) =>
