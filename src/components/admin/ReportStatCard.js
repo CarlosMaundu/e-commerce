@@ -37,7 +37,9 @@ export const formatValue = (v, format) => {
  */
 const ReportStatCard = ({ card, onClick, active }) => {
   const theme = useTheme();
-  const has = card.change !== null && card.change !== undefined;
+  // Nothing in either period: a "0%" change says nothing, so it's left out.
+  const nothing = !Number(card.value) && !Number(card.compare);
+  const has = card.change !== null && card.change !== undefined && !nothing;
   const up = has && card.change > 0;
   const good = has && card.change !== 0 && (card.inverse ? !up : up);
   const tone =
@@ -93,7 +95,7 @@ const ReportStatCard = ({ card, onClick, active }) => {
       <Stack
         direction="row"
         spacing={0.75}
-        alignItems="center"
+        alignItems="flex-start"
         sx={{ mt: 0.75, minHeight: 20 }}
       >
         {has && (
@@ -108,6 +110,7 @@ const ReportStatCard = ({ card, onClick, active }) => {
               bgcolor: alpha(theme.palette.text.primary, 0.04),
               borderRadius: '6px',
               px: 0.75,
+              flexShrink: 0,
             }}
           >
             {card.change > 0 ? (
@@ -120,11 +123,18 @@ const ReportStatCard = ({ card, onClick, active }) => {
               : `${card.change > 0 ? '+' : ''}${card.change}%`}
           </Box>
         )}
+        {/* Up to two lines, so the hint is read in full. */}
         <Typography
           variant="caption"
           color="text.secondary"
-          noWrap
           title={card.hint}
+          sx={{
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            minWidth: 0,
+          }}
         >
           {card.hint || (has ? 'vs comparison' : '')}
         </Typography>

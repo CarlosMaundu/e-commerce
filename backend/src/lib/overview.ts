@@ -1,110 +1,122 @@
 // src/lib/overview.ts — figures for the back-office "Store overview", all
 // computed from real orders, products and product views. Every figure covers
-// the chosen period (7, 30 or 90 days) and is compared with the period before.
+// the chosen period (the last 7, 30 or 90 days, 6 or 12 months, as calendar
+// days in the shop's time zone) and is compared with the period before.
+//
+// The money and order figures are the Sales report's own (reports/core.ts),
+// so the overview and the reports always agree: orders are placed and not
+// cancelled; net sales are sales less refunds paid in the period.
 import { query } from '../db';
 import { round2 } from './pricing';
-import { shopCurrencyCode } from './reports/common';
+import { buckets as bucketDates, fill, inRange, inShopCurrency, parsePeriod } from './reports/common';
+import { refundSeries, salesSeries, salesTotals } from './reports/core';
+import { DELIVERED_AT_SQL, orderSlaSummary } from './sla';
+import { shopDate } from './time';
 
 export const OVERVIEW_PERIODS = [7, 30, 90, 180, 365] as const;
 
-// Orders that count as sales: placed, and neither cancelled nor refunded.
-// Placed, kept, and in the shop's currency (totals in two currencies aren't added).
-const valid = () => {
-  const cur = shopCurrencyCode();
-  return `placed_at IS NOT NULL AND status NOT IN ('cancelled', 'refunded')${cur ? ` AND currency = '${cur}'` : ''}`;
+// Placed, not cancelled, in the shop's currency — as in the reports.
+const valid = () => `o.placed_at IS NOT NULL AND o.status <> 'cancelled' AND ${inShopCurrency('o')}`;
+const IN = (col: string) => inRange(col, '$1', '$2');
+
+const addDays = (d: string, n: number) => {
+  const t = new Date(`${d}T00:00:00Z`);
+  t.setUTCDate(t.getUTCDate() + n);
+  return t.toISOString().slice(0, 10);
 };
-const CUR = `placed_at >= now() - make_interval(days => $1)`;
-const PREV = `placed_at >= now() - make_interval(days => $1 * 2) AND placed_at < now() - make_interval(days => $1)`;
 
 const change = (cur: number, prev: number) => (prev ? round2(((cur - prev) / prev) * 100) : cur ? 100 : 0);
 
+/**
+ * Open orders by where they stand: delayed means not shipped yet and over
+ * its SLA target (the SLA report's "breached"); otherwise packing or in
+ * transit.
+ */
+const openOrders = async () => {
+  const rows = (
+    await query(
+      `SELECT o.id, o.status, o.placed_at, o.shipping_method, o.user_id, ${DELIVERED_AT_SQL} AS delivered_at
+       FROM orders o WHERE o.placed_at IS NOT NULL AND o.status IN ('pending', 'processing', 'shipped')`
+    )
+  ).rows;
+  const now = Date.now();
+  let packing = 0;
+  let inTransit = 0;
+  let delayed = 0;
+  for (const o of rows) {
+    if (o.status === 'shipped') inTransit += 1;
+    else if (orderSlaSummary(o, now).state === 'breached') delayed += 1;
+    else packing += 1;
+  }
+  return { packing, in_transit: inTransit, delayed };
+};
+
 export const storeOverview = async (days: number) => {
-  const p = [days];
+  // Chart buckets: days up to 90 days, weeks for 6 months, months for a year.
+  const unit = days <= 90 ? 'day' : days <= 180 ? 'week' : 'month';
+  const to = shopDate();
+  const period = parsePeriod({ from: addDays(to, -(days - 1)), to, group: unit, compare: 'previous' });
+  const prev = period.compare!;
+  // The chart's comparison: the same dates a year earlier (52 weeks, so
+  // weekdays line up), as the reports' "Same time last year".
+  const lastYearRange = { from: addDays(period.from, -364), to: addDays(period.to, -364) };
+  const p = [period.from, period.to];
+  const pp = [prev.from, prev.to];
 
-  const totals = (
-    await query(
-      `SELECT
-         COALESCE(sum(total) FILTER (WHERE ${valid()} AND ${CUR}), 0) AS revenue,
-         COALESCE(sum(total) FILTER (WHERE ${valid()} AND ${PREV}), 0) AS prev_revenue,
-         count(*) FILTER (WHERE placed_at IS NOT NULL AND ${CUR})::int AS orders,
-         count(*) FILTER (WHERE placed_at IS NOT NULL AND ${PREV})::int AS prev_orders,
-         count(*) FILTER (WHERE ${valid()} AND ${CUR})::int AS valid_orders,
-         count(*) FILTER (WHERE ${valid()} AND ${PREV})::int AS prev_valid_orders,
-         count(*) FILTER (WHERE placed_at IS NOT NULL AND status IN ('pending', 'processing'))::int AS awaiting
-       FROM orders`,
-      p
-    )
-  ).rows[0];
-  const revenue = round2(Number(totals.revenue));
-  const prevRevenue = round2(Number(totals.prev_revenue));
+  const [cur, before, lastYearTotals] = await Promise.all([
+    salesTotals(period.from, period.to),
+    salesTotals(prev.from, prev.to),
+    salesTotals(lastYearRange.from, lastYearRange.to),
+  ]);
+  const awaiting = (
+    await query(`SELECT count(*)::int AS n FROM orders WHERE placed_at IS NOT NULL AND status IN ('pending', 'processing')`)
+  ).rows[0].n;
 
-  const customers = (
-    await query(
-      `SELECT
-         count(*) FILTER (WHERE u.created_at >= now() - make_interval(days => $1))::int AS cur,
-         count(*) FILTER (WHERE u.created_at >= now() - make_interval(days => $1 * 2)
-                            AND u.created_at < now() - make_interval(days => $1))::int AS prev
-       FROM users u JOIN roles r ON r.id = u.role_id WHERE r.code = 'customer'`,
-      p
-    )
-  ).rows[0];
+  const newCustomers = async (range: string[]) =>
+    (
+      await query(
+        `SELECT count(*)::int AS n FROM users u JOIN roles r ON r.id = u.role_id
+         WHERE r.code = 'customer' AND ${IN('u.created_at')}`,
+        range
+      )
+    ).rows[0].n;
+  const [customersNow, customersBefore] = await Promise.all([newCustomers(p), newCustomers(pp)]);
   const buyers = (
     await query(
-      `SELECT count(*)::int AS buyers,
-         count(*) FILTER (WHERE first_order >= now() - make_interval(days => $1))::int AS first_time
-       FROM (SELECT user_id, min(placed_at) AS first_order, max(placed_at) AS last_order
-             FROM orders WHERE placed_at IS NOT NULL GROUP BY user_id) b
-       WHERE last_order >= now() - make_interval(days => $1)`,
+      `SELECT count(*)::int AS buyers, count(*) FILTER (WHERE ${inRange('first_order', '$1', '$2')})::int AS first_time
+       FROM (SELECT o.user_id, min(o.placed_at) AS first_order, max(o.placed_at) AS last_order
+             FROM orders o WHERE ${valid()} GROUP BY o.user_id) b
+       WHERE ${inRange('last_order', '$1', '$2')}`,
       p
     )
   ).rows[0];
 
-  const views = (
-    await query(
-      `SELECT
-         COALESCE(sum(views) FILTER (WHERE day > current_date - $1::int), 0)::int AS cur,
-         COALESCE(sum(views) FILTER (WHERE day > current_date - $1::int * 2 AND day <= current_date - $1::int), 0)::int AS prev
-       FROM product_views`,
-      p
-    )
-  ).rows[0];
-  const conversion = views.cur ? round2((totals.orders / views.cur) * 100) : 0;
-  const prevConversion = views.prev ? round2((totals.prev_orders / views.prev) * 100) : 0;
+  const productViews = async (range: string[]) =>
+    (await query(`SELECT COALESCE(sum(views), 0)::int AS n FROM product_views WHERE day BETWEEN $1::date AND $2::date`, range))
+      .rows[0].n;
+  const [viewsNow, viewsBefore] = await Promise.all([productViews(p), productViews(pp)]);
+  const conversion = viewsNow ? round2((cur.orders / viewsNow) * 100) : 0;
+  const prevConversion = viewsBefore ? round2((before.orders / viewsBefore) * 100) : 0;
 
-  // Chart buckets: days up to 90 days, weeks for 6 months, months for a year.
-  // Each bucket is compared with the same dates a year earlier.
-  const unit = days <= 90 ? 'day' : days <= 180 ? 'week' : 'month';
-  const buckets = unit === 'day' ? days : unit === 'week' ? 26 : 12;
-  const step = `interval '1 ${unit}'`;
-  const series = (
-    await query(
-      `WITH buckets AS (
-         SELECT generate_series(date_trunc('${unit}', now()) - ${step} * ($1 - 1), date_trunc('${unit}', now()), ${step}) AS d)
-       SELECT to_char(d, 'YYYY-MM-DD') AS date,
-         COALESCE((SELECT sum(total) FROM orders WHERE ${valid()} AND placed_at >= d AND placed_at < d + ${step}), 0) AS revenue,
-         (SELECT count(*) FROM orders WHERE ${valid()} AND placed_at >= d AND placed_at < d + ${step})::int AS orders,
-         COALESCE((SELECT sum(total) FROM orders WHERE ${valid()}
-           AND placed_at >= d - interval '1 year' AND placed_at < d - interval '1 year' + ${step}), 0) AS last_year_revenue,
-         (SELECT count(*) FROM orders WHERE ${valid()}
-           AND placed_at >= d - interval '1 year' AND placed_at < d - interval '1 year' + ${step})::int AS last_year_orders
-       FROM buckets ORDER BY d`,
-      [buckets]
-    )
-  ).rows.map((r) => ({
-    date: r.date,
-    revenue: round2(Number(r.revenue)),
-    orders: r.orders,
-    last_year_revenue: round2(Number(r.last_year_revenue)),
-    last_year_orders: r.last_year_orders,
+  // Net sales and orders per bucket, against the same buckets a year earlier.
+  const perBucket = async (range: { from: string; to: string }) => {
+    const labels = bucketDates(range, unit);
+    const [rows, refunds] = await Promise.all([
+      salesSeries(range.from, range.to, unit),
+      refundSeries(range.from, range.to, unit),
+    ]);
+    const sales = fill(labels, rows, 'sales');
+    const paidBack = fill(labels, refunds, 'refunds');
+    return { labels, net: sales.map((v, i) => round2(v - paidBack[i])), orders: fill(labels, rows, 'orders') };
+  };
+  const [now, year] = await Promise.all([perBucket(period), perBucket(lastYearRange)]);
+  const series = now.labels.map((date, i) => ({
+    date,
+    revenue: now.net[i],
+    orders: now.orders[i],
+    last_year_revenue: year.net[i] ?? 0,
+    last_year_orders: year.orders[i] ?? 0,
   }));
-  const lastYear = (
-    await query(
-      `SELECT COALESCE(sum(total), 0) AS revenue, count(*)::int AS orders FROM orders
-       WHERE ${valid()} AND placed_at >= now() - make_interval(days => $1) - interval '1 year'
-         AND placed_at < now() - interval '1 year'`,
-      p
-    )
-  ).rows[0];
 
   // Top-level category of each sold item (subcategories roll up).
   const ROOT = `LEFT JOIN categories c ON c.id = pr.category_id
@@ -114,37 +126,37 @@ export const storeOverview = async (days: number) => {
       `SELECT root.id, COALESCE(root.name, 'Uncategorised') AS name, sum(oi.total) AS sales
        FROM order_items oi JOIN orders o ON o.id = oi.order_id
        LEFT JOIN products pr ON pr.id = oi.product_id ${ROOT}
-       WHERE o.placed_at IS NOT NULL AND o.status NOT IN ('cancelled', 'refunded') AND o.${CUR}
+       WHERE ${valid()} AND ${IN('o.placed_at')}
        GROUP BY root.id, root.name ORDER BY sales DESC`,
       p
     )
   ).rows;
   const itemSales = categories.reduce((s, c) => s + Number(c.sales), 0);
 
-  const fulfilment = (
-    await query(
-      `SELECT
-         count(*) FILTER (WHERE status IN ('pending', 'processing') AND placed_at > now() - interval '3 days')::int AS packing,
-         count(*) FILTER (WHERE status = 'shipped')::int AS in_transit,
-         count(*) FILTER (WHERE status IN ('pending', 'processing') AND placed_at <= now() - interval '3 days')::int AS delayed
-       FROM orders WHERE placed_at IS NOT NULL`
-    )
-  ).rows[0];
+  const fulfilment = await openOrders();
 
+  // One row per stocked thing (a variant, or a product without variants), as
+  // in the Inventory report.
   const inventory = (
     await query(
-      `SELECT count(*)::int AS total,
-         count(*) FILTER (WHERE quantity > low_stock_threshold)::int AS healthy,
-         count(*) FILTER (WHERE quantity > 0 AND quantity <= low_stock_threshold)::int AS low,
-         count(*) FILTER (WHERE quantity <= 0)::int AS out
-       FROM products WHERE track_inventory AND status <> 'archived'`
+      `WITH items AS (
+         SELECT v.quantity AS stock, pr.low_stock_threshold AS threshold
+         FROM product_variants v JOIN products pr ON pr.id = v.product_id WHERE pr.track_inventory
+         UNION ALL
+         SELECT pr.quantity, pr.low_stock_threshold FROM products pr
+         WHERE pr.track_inventory AND NOT EXISTS (SELECT 1 FROM product_variants v WHERE v.product_id = pr.id))
+       SELECT count(*)::int AS total,
+         count(*) FILTER (WHERE stock > threshold)::int AS healthy,
+         count(*) FILTER (WHERE stock > 0 AND stock <= threshold)::int AS low,
+         count(*) FILTER (WHERE stock <= 0)::int AS out
+       FROM items`
     )
   ).rows[0];
 
   const locations = (
     await query(
       `SELECT initcap(trim(shipping_address->>'city')) AS city, count(*)::int AS orders
-       FROM orders WHERE ${valid()} AND ${CUR} AND COALESCE(trim(shipping_address->>'city'), '') <> ''
+       FROM orders o WHERE ${valid()} AND ${IN('o.placed_at')} AND COALESCE(trim(shipping_address->>'city'), '') <> ''
        GROUP BY 1 ORDER BY orders DESC`,
       p
     )
@@ -156,7 +168,7 @@ export const storeOverview = async (days: number) => {
          COALESCE(root.name, 'Uncategorised') AS category, sum(oi.quantity)::int AS units, sum(oi.total) AS sales
        FROM order_items oi JOIN orders o ON o.id = oi.order_id
        LEFT JOIN products pr ON pr.id = oi.product_id ${ROOT}
-       WHERE o.placed_at IS NOT NULL AND o.status NOT IN ('cancelled', 'refunded') AND o.${CUR}
+       WHERE ${valid()} AND ${IN('o.placed_at')}
        GROUP BY pr.id, oi.name, root.id, root.name ORDER BY sales DESC LIMIT 50`,
       p
     )
@@ -192,30 +204,30 @@ export const storeOverview = async (days: number) => {
     other_items: Math.max(0, o.lines - 1),
   }));
 
-  const aov = totals.valid_orders ? round2(revenue / totals.valid_orders) : 0;
-  const prevAov = totals.prev_valid_orders ? round2(prevRevenue / totals.prev_valid_orders) : 0;
-
   return {
     days,
+    period: period.out,
     kpis: {
-      revenue: { value: revenue, change: change(revenue, prevRevenue) },
-      orders: { value: totals.orders, change: change(totals.orders, totals.prev_orders), awaiting: totals.awaiting },
+      // Net sales: sales less refunds paid in the period.
+      revenue: { value: cur.net, change: change(cur.net, before.net) },
+      orders: { value: cur.orders, change: change(cur.orders, before.orders), awaiting },
       new_customers: {
-        value: customers.cur,
-        change: change(customers.cur, customers.prev),
+        value: customersNow,
+        change: change(customersNow, customersBefore),
         first_time_share: buyers.buyers ? Math.round((buyers.first_time / buyers.buyers) * 100) : 0,
       },
-      conversion: { value: conversion, change: round2(conversion - prevConversion), views: views.cur },
-      average_order: { value: aov, change: change(aov, prevAov) },
+      conversion: { value: conversion, change: round2(conversion - prevConversion), views: viewsNow },
+      // Average order: sales per order, as in the Sales report.
+      average_order: { value: cur.aov, change: change(cur.aov, before.aov) },
     },
     series,
     series_unit: unit,
     // The same dates a year earlier, for the sales chart.
     last_year: {
-      revenue: round2(Number(lastYear.revenue)),
-      orders: lastYear.orders,
-      revenue_change: change(revenue, round2(Number(lastYear.revenue))),
-      orders_change: change(totals.valid_orders, lastYear.orders),
+      revenue: lastYearTotals.net,
+      orders: lastYearTotals.orders,
+      revenue_change: change(cur.net, lastYearTotals.net),
+      orders_change: change(cur.orders, lastYearTotals.orders),
     },
     categories: categories.map((c) => ({
       category_id: c.id,
@@ -232,16 +244,17 @@ export const storeOverview = async (days: number) => {
 };
 
 /** Things that need someone's attention, for the back-office bell. */
-export const attentionCounts = async () =>
-  (
+export const attentionCounts = async () => {
+  const counts = (
     await query(
       `SELECT
          (SELECT count(*)::int FROM orders WHERE placed_at IS NOT NULL AND status IN ('pending', 'processing')) AS to_fulfil,
-         (SELECT count(*)::int FROM orders WHERE placed_at IS NOT NULL AND status IN ('pending', 'processing')
-            AND placed_at <= now() - interval '3 days') AS delayed,
          (SELECT count(*)::int FROM returns WHERE status = 'requested') AS open_returns,
          (SELECT count(*)::int FROM products WHERE track_inventory AND status = 'published'
             AND quantity > 0 AND quantity <= low_stock_threshold) AS low_stock,
          (SELECT count(*)::int FROM products WHERE track_inventory AND status = 'published' AND quantity <= 0) AS out_of_stock`
     )
   ).rows[0];
+  // Delayed: open orders over their SLA target, as in the SLA report.
+  return { ...counts, delayed: (await openOrders()).delayed };
+};

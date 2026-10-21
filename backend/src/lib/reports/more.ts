@@ -3,6 +3,7 @@
 import { config } from '../../config';
 import { query } from '../../db';
 import { finance } from '../finance';
+import { money } from '../pricing';
 import { RETURN_REASONS } from '../orders';
 import { SUPPORT_CATEGORIES } from '../../routes/support';
 import { bucketOf, buckets, Card, change, fill, inRange, inShopCurrency, num, pct, Period, Report, round2 } from './common';
@@ -488,7 +489,7 @@ export const financeReport = async (p: Period): Promise<Report> => {
       card('cod', 'Cash on delivery to collect', cod.reduce((s, r) => s + num(r.owed), 0), 'money', undefined, { hint: `${cod.length} orders on their way` }),
       card('received', 'Received in the period', received, 'money'),
       card('vat', `${taxLabel} due for the period`, vatNet, 'money', undefined, {
-        hint: `${round2(num(vat.output)).toFixed(2)} on sales less ${round2(num(vat.returned)).toFixed(2)} on refunds`,
+        hint: `${money(round2(num(vat.output)))} on sales less ${money(round2(num(vat.returned)))} on refunds`,
       }),
     ],
     table: {

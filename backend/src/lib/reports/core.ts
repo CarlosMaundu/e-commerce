@@ -43,7 +43,7 @@ const card = (key: string, label: string, value: number, format: Card['format'],
 
 // ---------- Sales ----------
 
-const salesTotals = async (from: string, to: string) => {
+export const salesTotals = async (from: string, to: string) => {
   const o = (await query(
     `SELECT count(*)::int AS orders, COALESCE(sum(o.total), 0) AS sales, COALESCE(sum(o.subtotal), 0) AS goods,
        COALESCE(sum(o.discount), 0) AS discounts, COALESCE(sum(o.shipping_total), 0) AS delivery,
@@ -82,7 +82,7 @@ const salesTotals = async (from: string, to: string) => {
   };
 };
 
-const salesSeries = async (from: string, to: string, group: string) =>
+export const salesSeries = async (from: string, to: string, group: string) =>
   (await query(
     `SELECT ${bucketOf('o.placed_at', group)} AS bucket, count(*)::int AS orders, COALESCE(sum(o.total), 0) AS sales,
        COALESCE(sum(o.discount), 0) AS discounts, COALESCE(sum(o.tax_total), 0) AS tax,
@@ -90,7 +90,7 @@ const salesSeries = async (from: string, to: string, group: string) =>
      FROM orders o WHERE ${valid()} AND ${inRange('o.placed_at', '$1', '$2')} GROUP BY 1`,
     [from, to]
   )).rows;
-const refundSeries = async (from: string, to: string, group: string) =>
+export const refundSeries = async (from: string, to: string, group: string) =>
   (await query(
     `SELECT ${bucketOf('processed_at', group)} AS bucket, COALESCE(sum(amount), 0) AS refunds
      FROM refunds WHERE status = 'processed' AND order_id IN (SELECT o.id FROM orders o WHERE ${inShopCurrency('o')}) AND ${inRange('processed_at', '$1', '$2')} GROUP BY 1`,

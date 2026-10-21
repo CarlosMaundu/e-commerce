@@ -114,3 +114,30 @@ export const percentChange = (current, previous) => {
   if (!previous) return current ? 100 : 0;
   return Math.round(((current - previous) / previous) * 1000) / 10;
 };
+
+// The shop's time zone (as the API's SHOP_TIMEZONE). Date ranges in the back
+// office are the shop's calendar days, whatever the viewer's clock says.
+export const SHOP_TIMEZONE =
+  process.env.REACT_APP_SHOP_TIMEZONE || 'Africa/Nairobi';
+
+/** Today's date in the shop, as YYYY-MM-DD. */
+export const shopToday = (now = new Date()) => {
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: SHOP_TIMEZONE,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    })
+      .formatToParts(now)
+      .map((x) => [x.type, x.value])
+  );
+  return `${p.year}-${p.month}-${p.day}`;
+};
+
+/** The shop's date n days before today, as YYYY-MM-DD. */
+export const shopDaysAgo = (n, now = new Date()) => {
+  const d = new Date(`${shopToday(now)}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - n);
+  return d.toISOString().slice(0, 10);
+};

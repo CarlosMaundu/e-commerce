@@ -357,10 +357,10 @@ test('the store overview loads its figures and the header search finds products'
     await expect(page.getByTestId(id)).toBeVisible();
   await page.getByLabel('Period').click();
   await page.getByRole('option', { name: '7 days' }).click();
-  await expect(page.getByText('Share of net sales in 7 days')).toBeVisible();
+  await expect(page.getByText('Share of item sales in 7 days')).toBeVisible();
   await page.getByLabel('Period').click();
   await page.getByRole('option', { name: '12 months' }).click();
-  await expect(page.getByText('Share of net sales in 365 days')).toBeVisible();
+  await expect(page.getByText('Share of item sales in 365 days')).toBeVisible();
   const year = new Date().getFullYear();
   await expect(page.getByText(`This year (${year})`)).toBeVisible();
   await expect(page.getByText(`Last year (${year - 1})`)).toBeVisible();

@@ -389,7 +389,9 @@ describe('order management and returns', () => {
     expect(d.series[6]).toMatchObject({ revenue: 137.44, orders: 1, last_year_revenue: 0 });
     expect(d.last_year).toMatchObject({ revenue: 0, revenue_change: 100 });
     const year = await request(app).get('/api/admin/dashboard?days=365').set(bearer(admin));
-    expect(year.body.data.series).toHaveLength(12);
+    // 365 calendar days: the partial first month through this month.
+    expect(year.body.data.series.length).toBeGreaterThanOrEqual(12);
+    expect(year.body.data.series.length).toBeLessThanOrEqual(13);
     expect(year.body.data.series_unit).toBe('month');
     expect(d.top_products[0]).toMatchObject({ name: 'Denim jacket', units: 2 });
     expect(d.categories.reduce((s: number, c: any) => s + c.share, 0)).toBe(100);
@@ -398,10 +400,29 @@ describe('order management and returns', () => {
     expect(d.recent_orders[0]).toMatchObject({ total: 137.44, status: 'pending', first_item: expect.any(String) });
 
     const bell = await request(app).get('/api/admin/notifications').set(bearer(admin));
-    expect(bell.body.data).toMatchObject({ to_fulfil: 1, open_returns: 0 });
+    expect(bell.body.data).toMatchObject({ to_fulfil: 1, open_returns: 0, delayed: 0 });
     const catalog = await staff('catalog_manager', 'stock@example.com');
     const theirs = await request(app).get('/api/admin/notifications').set(bearer(catalog));
     expect(theirs.body.data).toMatchObject({ to_fulfil: null, open_returns: null, low_stock: expect.any(Number) });
+  });
+
+  test('the store overview and the Sales report agree for the same period', async () => {
+    const token = await shopper();
+    await placeOrder(token);
+    const cancelled = await placeOrder(token);
+    const admin = await staff('admin');
+    await request(app).put(`/api/admin/orderhistory/${cancelled.order_id}`).set(bearer(admin))
+      .send({ order_status: 'cancelled' }).expect(200);
+
+    const d = (await request(app).get('/api/admin/dashboard?days=30').set(bearer(admin))).body.data;
+    const { from, to } = d.period;
+    const r = (await request(app).get(`/api/admin/reports/sales?from=${from}&to=${to}`).set(bearer(admin))).body.data;
+    const card = (key: string) => r.cards.find((c: any) => c.key === key).value;
+    // Same definitions: the cancelled order counts in neither.
+    expect(d.kpis.orders.value).toBe(1);
+    expect(d.kpis.orders.value).toBe(card('orders'));
+    expect(d.kpis.revenue.value).toBe(card('net'));
+    expect(d.kpis.average_order.value).toBe(card('aov'));
   });
 });
 

@@ -49,7 +49,12 @@ import {
   slaState,
   targetText,
 } from '../../../components/admin/Sla';
-import { downloadCsv, formatShortDate } from '../../../utils/format';
+import {
+  downloadCsv,
+  formatShortDate,
+  shopDaysAgo,
+  shopToday,
+} from '../../../utils/format';
 
 const PERIODS = [
   { value: '', label: 'All time' },
@@ -329,10 +334,7 @@ const SlaReportPage = () => {
             onChange={(e) => {
               const v = e.target.value;
               if (v === 'custom') {
-                const d = new Date();
-                const to = d.toISOString().slice(0, 10);
-                d.setDate(d.getDate() - 29);
-                set({ days: '', from: d.toISOString().slice(0, 10), to });
+                set({ days: '', from: shopDaysAgo(29), to: shopToday() });
               } else set({ days: v, from: '', to: '' });
             }}
             SelectProps={{ displayEmpty: true }}

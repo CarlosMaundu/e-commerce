@@ -4,6 +4,7 @@
 // stock running out. Opening the bell marks everything read; people can
 // dismiss one item or clear the lot (newer events still appear).
 import { query } from '../db';
+import { orderSlaSummary } from './sla';
 import { hasPermission } from './users';
 
 export interface StaffNotification {
@@ -31,19 +32,23 @@ export const staffNotifications = async (userId: number, permissions: string[], 
   if (can('orders.orders.view')) {
     const orders = (
       await query(
-        `SELECT o.id, o.number, o.total, o.currency, o.status, o.placed_at, o.email, u.firstname, u.lastname
+        `SELECT o.id, o.number, o.total, o.currency, o.status, o.placed_at, o.email, o.shipping_method, o.user_id,
+           u.firstname, u.lastname
          FROM orders o LEFT JOIN users u ON u.id = o.user_id
          WHERE o.placed_at IS NOT NULL AND o.status IN ('pending', 'processing') AND o.placed_at > now() - interval '30 days'
          ORDER BY o.placed_at DESC LIMIT 40`
       )
     ).rows;
     for (const o of orders) {
-      const late = Date.now() - new Date(o.placed_at).getTime() > 3 * 86400000;
+      // Late: over its SLA target and not shipped yet (as the SLA report and
+      // the overview's "Delayed" count it).
+      const slaNow = orderSlaSummary(o);
       items.push(
-        late
+        slaNow.state === 'breached'
           ? { key: `delayed:${o.id}`, kind: 'delayed', title: `Order ${o.number} is waiting`,
-              body: `Placed more than 3 days ago by ${name(o)} and not shipped yet.`, link: `/admin/orders/${o.id}`,
-              at: new Date(new Date(o.placed_at).getTime() + 3 * 86400000).toISOString() }
+              body: `Over its ${slaNow.target_days}-day delivery target and not shipped yet (${name(o)}).`,
+              link: `/admin/orders/${o.id}`,
+              at: new Date(new Date(o.placed_at).getTime() + slaNow.target_days * 86400000).toISOString() }
           : { key: `order:${o.id}`, kind: 'order', title: `New order ${o.number}`,
               body: `${name(o)} · ${money(o.total, o.currency)}`, link: `/admin/orders/${o.id}`, at: o.placed_at }
       );
