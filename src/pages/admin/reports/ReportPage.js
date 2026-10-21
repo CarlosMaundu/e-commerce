@@ -64,6 +64,8 @@ import {
   downloadCsv,
   formatDate,
   formatMoneyCompact,
+  shopDaysAgo,
+  shopToday,
 } from '../../../utils/format';
 
 ChartJS.register(
@@ -122,12 +124,9 @@ export const REPORTS = {
 };
 
 const ymd = (d) => d.toISOString().slice(0, 10);
-const today = () => new Date(Date.now() + 3 * 3600 * 1000);
-const daysAgo = (n) => {
-  const d = today();
-  d.setUTCDate(d.getUTCDate() - n);
-  return ymd(d);
-};
+// The shop's calendar date, as a UTC-midnight Date for month arithmetic.
+const today = () => new Date(`${shopToday()}T00:00:00Z`);
+const daysAgo = shopDaysAgo;
 const PRESETS = [
   ['7', 'Last 7 days', () => [daysAgo(6), ymd(today())]],
   ['30', 'Last 30 days', () => [daysAgo(29), ymd(today())]],

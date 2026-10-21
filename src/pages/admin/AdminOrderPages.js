@@ -48,6 +48,8 @@ import {
   formatDateTime,
   formatMoney,
   formatShortDate,
+  shopDaysAgo,
+  shopToday,
 } from '../../utils/format';
 import {
   REFUND_PILL,
@@ -242,11 +244,9 @@ export const AdminOrdersPage = () => {
                 next.delete('to');
                 if (v) next.set('days', v);
               } else if (!get('from') && !get('to')) {
-                // Start the custom range at the last 30 days.
-                const d = new Date();
-                next.set('to', d.toISOString().slice(0, 10));
-                d.setDate(d.getDate() - 29);
-                next.set('from', d.toISOString().slice(0, 10));
+                // Start the custom range at the last 30 days (shop time).
+                next.set('to', shopToday());
+                next.set('from', shopDaysAgo(29));
               }
               setParams(next, { replace: true });
               setPage(0);
